@@ -119,6 +119,7 @@ class _VendorPageState extends State<VendorPage> {
 
   Widget _buildVendorCard(Map<String, dynamic> vendor) {
     return Card(
+      color: Colors.pink[50],
       margin: const EdgeInsets.all(8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       clipBehavior: Clip.antiAlias,

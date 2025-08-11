@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:h_w_a/services/shop_screen.dart';
 import 'package:h_w_a/services/signup.dart';
 import 'package:h_w_a/services/vendor_screen.dart';
 import 'package:h_w_a/services/venue_screen.dart';
@@ -20,7 +21,7 @@ class _MainScreenState extends State<MainScreen> {
      HomeScreen(),
     VenueScreen(),
     VendorPage(),
-    Center(child: Text('Shop Screen')),
+    ShopScreen(),
     SignupPage()
   ];
 
@@ -80,8 +81,8 @@ class _MainScreenState extends State<MainScreen> {
                 onPressed: () {
                   // Navigate to astrology chat or open dialog
                 },
-                child: const Icon(Icons.smart_toy, size: 20),
                 tooltip: 'Astrology Talk',
+                child: const Icon(Icons.smart_toy, size: 20),
               ),
               const SizedBox(height: 12),
               FloatingActionButton.small(
@@ -93,8 +94,8 @@ class _MainScreenState extends State<MainScreen> {
                     MaterialPageRoute(builder: (_) =>  AiChatScreen()),
                   );
                 },
-                child:  Icon(Icons.auto_awesome, size: 20),
                 tooltip: 'AI Talk',
+                child:  Icon(Icons.auto_awesome, size: 20),
               ),
             ],
           ),
