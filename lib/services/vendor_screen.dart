@@ -118,48 +118,168 @@ class _VendorPageState extends State<VendorPage> {
   }
 
   Widget _buildVendorCard(Map<String, dynamic> vendor) {
-    return Card(
-      color: Colors.pink[50],
-      margin: const EdgeInsets.all(8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Image.network(
-            vendor["image"],
-            height: 180,
-            width: double.infinity,
-            fit: BoxFit.cover,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VendorDetailsPage(vendor: vendor),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              vendor["name"],
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        );
+      },
+      child: Card(
+        color: Colors.pink[50],
+        margin: const EdgeInsets.all(8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Image.network(
+              vendor["image"],
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                Text(vendor["location"]),
-                const Spacer(),
-                const Icon(Icons.star, size: 16, color: Colors.amber),
-                Text(vendor["rating"].toString()),
-              ],
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                vendor["name"],
+                style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              vendor["price"],
-              style: const TextStyle(color: Colors.pink, fontWeight: FontWeight.w500),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                  Text(vendor["location"]),
+                  const Spacer(),
+                  const Icon(Icons.star, size: 16, color: Colors.amber),
+                  Text(vendor["rating"].toString()),
+                ],
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                vendor["price"],
+                style: const TextStyle(
+                    color: Colors.pink, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+
+
+
+
+
+
+
+class VendorDetailsPage extends StatelessWidget {
+  final Map<String, dynamic> vendor;
+
+  const VendorDetailsPage({super.key, required this.vendor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(vendor["name"]),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Image.network(
+              vendor["image"],
+              height: 250,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    vendor["name"],
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 18, color: Colors.grey),
+                      Text(vendor["location"]),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, size: 18, color: Colors.amber),
+                      Text(vendor["rating"].toString()),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    vendor["price"],
+                    style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.pink,
+                        fontWeight: FontWeight.w600),
+                  ),
+
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+
+                        },
+                        icon: const Icon(Icons.phone, color: Colors.blue),
+                      ),
+                      IconButton(
+                        onPressed: () {
+
+                        },
+                        icon:Image.asset(
+                          'assets/images/whatsapp_icon.png',
+                          height: 30,
+                          width: 30,
+
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const Text(
+                    "About",
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Here you can write more details about the vendor, "
+                        "services they offer, experience, packages, and reviews.",
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+

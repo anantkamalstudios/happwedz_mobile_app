@@ -85,7 +85,6 @@ class ShopScreen extends StatelessWidget {
                               icon: Icon(Icons.camera_alt_outlined,
                                   color: Colors.grey),
                               onPressed: () {
-                                // Camera click logic here
                               },
                             ),
                             IconButton(
@@ -207,7 +206,16 @@ class ShopScreen extends StatelessWidget {
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8)),
                                 ),
-                                onPressed: () {},
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ProductDetailsScreen(
+                                        product: products[index],
+                                      ),
+                                    ),
+                                  );
+                                },
                                 child: Text("View"),
                               ),
 
@@ -221,6 +229,8 @@ class ShopScreen extends StatelessWidget {
                               child: IconButton(
                                 icon: Icon(Icons.shopping_cart_outlined, color: Colors.pink),
                                 onPressed: () {
+
+
 
                                 },
                               ),
@@ -246,3 +256,131 @@ class ShopScreen extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+class ProductDetailsScreen extends StatelessWidget {
+  final Map<String, String> product;
+
+  const ProductDetailsScreen({super.key, required this.product});
+
+  // Function to launch WhatsApp
+  // void _openWhatsApp(String phone) async {
+  //   final Uri url = Uri.parse("https://wa.me/$phone?text=Hello, I'm interested in ${product["name"]}");
+  //   if (await canLaunchUrl(url)) {
+  //     await launchUrl(url, mode: LaunchMode.externalApplication);
+  //   }
+  // }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(product["name"] ?? ""),
+        backgroundColor: Colors.pink[100],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+              child: Image.asset(
+                product["image"]!,
+                height: 300,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Name
+                  Text(
+                    product["name"] ?? "",
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Company Name
+                  Text(
+                    product["company"] ?? "Company Name",
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Price
+                  Text(
+                    product["price"] ?? "",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.pink[800],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Product Description
+                  const Text(
+                    "Product Description",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    product["description"] ??
+                        "This is a detailed description of the product. "
+                            "Add material info, size guide, delivery details, and customization options here.",
+                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Add to Cart Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.pink[400],
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        // Add to cart logic
+                      },
+                      icon: const Icon(Icons.shopping_cart),
+                      label: const Text(
+                        "Add to Cart",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+

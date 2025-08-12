@@ -163,6 +163,7 @@ import 'package:flutter/material.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
+import 'category_chip.dart';
 
 class VenueScreen extends StatefulWidget {
   const VenueScreen({super.key});
@@ -170,6 +171,7 @@ class VenueScreen extends StatefulWidget {
   @override
   State<VenueScreen> createState() => _VenueScreenState();
 }
+
 Widget _buildSearchBar() {
   return Container(
     height: 40,
@@ -194,11 +196,13 @@ Widget _buildSearchBar() {
     ),
   );
 }
+
 class _VenueScreenState extends State<VenueScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar:AppBar(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 1,
         title: _buildSearchBar(),
@@ -213,14 +217,32 @@ class _VenueScreenState extends State<VenueScreen> {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
+        children: [
+          SizedBox(
+            height: 50,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildCategoryChip("Banquet Hall"),
+                _buildCategoryChip("4 Star Hotel"),
+                _buildCategoryChip("3 Star Hotel"),
+                _buildCategoryChip("5 Star Hotel"),
+                _buildCategoryChip("Wedding Resort"),
+                _buildCategoryChip("Marriage Lawns"),
+                _buildCategoryChip("Small Functions"),
+                _buildCategoryChip("Party Halls"),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           VenueCard(
             imageUrl: 'assets/images/palace1.jpg',
             name: 'The Grand Palace',
             location: 'Mumbai',
             price: '₹2,000/plate',
             phone: '9876543210',
-            whatsappNumber: '919876543210', rating: '4.5',
+            whatsappNumber: '919876543210',
+            rating: '4.5',
           ),
           VenueCard(
             imageUrl: 'assets/images/palace2.jpg',
@@ -228,7 +250,8 @@ class _VenueScreenState extends State<VenueScreen> {
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
+            whatsappNumber: '919876543211',
+            rating: '4.7',
           ),
           VenueCard(
             imageUrl: 'assets/images/palace3.jpg',
@@ -236,7 +259,8 @@ class _VenueScreenState extends State<VenueScreen> {
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
+            whatsappNumber: '919876543211',
+            rating: '4.7',
           ),
           VenueCard(
             imageUrl: 'assets/images/palace4.jpg',
@@ -244,7 +268,8 @@ class _VenueScreenState extends State<VenueScreen> {
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
+            whatsappNumber: '919876543211',
+            rating: '4.7',
           ),
           VenueCard(
             imageUrl: 'assets/images/palace5.jpg',
@@ -252,7 +277,8 @@ class _VenueScreenState extends State<VenueScreen> {
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
+            whatsappNumber: '919876543211',
+            rating: '4.7',
           ),
           VenueCard(
             imageUrl: 'assets/images/palace6.jpg',
@@ -260,7 +286,8 @@ class _VenueScreenState extends State<VenueScreen> {
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
+            whatsappNumber: '919876543211',
+            rating: '4.7',
           ),
           VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
@@ -268,7 +295,8 @@ class _VenueScreenState extends State<VenueScreen> {
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
+            whatsappNumber: '919876543211',
+            rating: '4.7',
           ),
           VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
@@ -276,54 +304,87 @@ class _VenueScreenState extends State<VenueScreen> {
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
-          ), VenueCard(
+            whatsappNumber: '919876543211',
+            rating: '4.7',
+          ),
+          VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
-          ), VenueCard(
+            whatsappNumber: '919876543211',
+            rating: '4.7',
+          ),
+          VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
-          ), VenueCard(
+            whatsappNumber: '919876543211',
+            rating: '4.7',
+          ),
+          VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
-          ), VenueCard(
+            whatsappNumber: '919876543211',
+            rating: '4.7',
+          ),
+          VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
-          ), VenueCard(
+            whatsappNumber: '919876543211',
+            rating: '4.7',
+          ),
+          VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
-          ), VenueCard(
+            whatsappNumber: '919876543211',
+            rating: '4.7',
+          ),
+          VenueCard(
             imageUrl: 'assets/images/venue2.jpg',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
             phone: '9876543211',
-            whatsappNumber: '919876543211', rating: '4.7',
+            whatsappNumber: '919876543211',
+            rating: '4.7',
           ),
         ],
       ),
     );
   }
+}
+
+Widget _buildCategoryChip(String title) {
+  return Container(
+    margin: const EdgeInsets.only(right: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.pink[200],
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Center(
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ),
+  );
 }
 
 class VenueCard extends StatelessWidget {
@@ -359,10 +420,13 @@ class VenueCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 📸 Venue Image with overlay + favorite icon
+          const SizedBox(height: 20),
           Stack(
             children: [
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: Image.asset(
                   imageUrl,
                   height: 200,
@@ -378,7 +442,9 @@ class VenueCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 4),
+                    ],
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.favorite_border, color: Colors.red),
@@ -399,7 +465,10 @@ class VenueCard extends StatelessWidget {
                       end: Alignment.topCenter,
                       colors: [Colors.black54, Colors.transparent],
                     ),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(0), bottom: Radius.circular(16)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(0),
+                      bottom: Radius.circular(16),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,7 +487,10 @@ class VenueCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             rating,
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
@@ -435,9 +507,11 @@ class VenueCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-
                 Text(location, style: const TextStyle(color: Colors.grey)),
-                Text(price, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  price,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ],
             ),
           ),
@@ -455,9 +529,8 @@ class VenueCard extends StatelessWidget {
                 IconButton(
                   icon: Image.asset(
                     'assets/images/whatsapp_icon.png',
-                   height: 30,
+                    height: 30,
                     width: 30,
-
                   ),
                   onPressed: () {
                     // Action here
@@ -466,14 +539,21 @@ class VenueCard extends StatelessWidget {
 
                 const SizedBox(width: 8),
                 IconButton(
-                  icon:  Icon(Icons.message, color: Colors.grey),
-                  onPressed: () => {}
+                  icon: Icon(Icons.message, color: Colors.grey),
+                  onPressed: () => {},
                 ),
                 const Spacer(),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VenueViewDetailsScreen(),
+                      ),
+                    );
+                  },
                   child: const Text("View Details"),
-                )
+                ),
               ],
             ),
           ),
@@ -497,32 +577,15 @@ class VenueCard extends StatelessWidget {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // 🔘 Feature button
 class FeatureButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Feature coming soon')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Feature coming soon')));
       },
       icon: const Icon(Icons.message, color: Colors.pinkAccent),
       label: const Text('Message', style: TextStyle(color: Colors.pinkAccent)),
@@ -549,7 +612,7 @@ class WhatsAppButton extends StatelessWidget {
           await launchUrl(url, mode: LaunchMode.externalApplication);
         }
       },
-      icon:  Icon(Icons.whatshot, color: Colors.green),
+      icon: Icon(Icons.whatshot, color: Colors.green),
       label: const Text('WhatsApp', style: TextStyle(color: Colors.green)),
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Colors.green),
@@ -579,6 +642,268 @@ class CallButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Colors.blueAccent),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
+
+//banquet hall,4 star hotel,3 star hotel,5 star hotel,wedding resort,Marriage lawns,Small functions,party halls
+//
+
+class VenueViewDetailsScreen extends StatefulWidget {
+  const VenueViewDetailsScreen({super.key});
+
+  @override
+  State<VenueViewDetailsScreen> createState() => _VenueViewDetailsScreenState();
+}
+
+class _VenueViewDetailsScreenState extends State<VenueViewDetailsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              pinned: true,
+              expandedHeight: 250,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset("assets/images/venue.jpg", fit: BoxFit.cover),
+                    Container(color: Colors.black.withOpacity(0.3)),
+                  ],
+                ),
+              ),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: const Icon(Icons.favorite_border, color: Colors.white),
+                  onPressed: () {},
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(110),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Grand Wedding Palace",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: const [
+                              Icon(
+                                Icons.location_on,
+                                color: Colors.white70,
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "Mumbai, Maharashtra",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: const [
+                              Icon(Icons.star, color: Colors.yellow, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                "4.8 (120 reviews)",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      color: Colors.white,
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: Colors.pinkAccent,
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: Colors.pinkAccent,
+                        isScrollable: true,
+                        tabs: const [
+                          Tab(text: "About"),
+                          Tab(text: "Photos"),
+                          Tab(text: "Reviews"),
+                          Tab(text: "FAQs"),
+                          Tab(text: "Contact"),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildAboutTab(),
+            _buildPhotosTab(),
+            _buildReviewsTab(),
+            _buildFaqsTab(),
+            _buildContactTab(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAboutTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Text(
+        "Grand Wedding Palace offers the perfect venue for your dream wedding, "
+        "featuring spacious banquet halls, elegant decor, and premium services. "
+        "We cater to all wedding needs and make your special day unforgettable.",
+        style: const TextStyle(fontSize: 14, height: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildPhotosTab() {
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.all(4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset(
+              "assets/images/venue${index + 1}.jpg",
+              fit: BoxFit.cover,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReviewsTab() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: 3,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          child: ListTile(
+            leading: const CircleAvatar(
+              backgroundImage: AssetImage("assets/images/user.jpg"),
+            ),
+            title: const Text("John Doe"),
+            subtitle: const Text(
+              "Amazing venue with top-notch service. Highly recommended!",
+            ),
+            trailing: const Icon(Icons.star, color: Colors.yellow),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFaqsTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: const [
+        ExpansionTile(
+          title: Text("What is the seating capacity?"),
+          children: [
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Our venue can comfortably accommodate up to 500 guests.",
+              ),
+            ),
+          ],
+        ),
+        ExpansionTile(
+          title: Text("Do you provide catering services?"),
+          children: [
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Yes, we provide premium catering services with customizable menus.",
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContactTab() {
+    return Center(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            icon: const Icon(Icons.call),
+            label: const Text("Call"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(
+            icon: Image.asset(
+              'assets/images/whatsapp_icon.png',
+              height: 30,
+              width: 30,
+            ),
+            label: const Text("WhatsApp"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+            onPressed: () {},
+          ),
+        ],
       ),
     );
   }

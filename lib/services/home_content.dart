@@ -1,11 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:h_w_a/services/category_chip.dart';
+import 'package:h_w_a/services/photography.dart';
 import 'package:h_w_a/services/plan.dart';
+import 'package:h_w_a/services/planning_decor_screen.dart';
 import 'package:h_w_a/services/rate.dart';
+import 'package:h_w_a/services/venue_screen.dart';
+import 'package:h_w_a/services/virtual_planning_screen.dart';
 
 import 'animatedFeatureCard.dart';
 import 'event.dart';
+import 'makeup.dart';
+import 'mehendi_artist.dart';
 
 class HomeContent extends StatefulWidget {
   const HomeContent({super.key});
@@ -123,36 +129,85 @@ class _HomeContentState extends State<HomeContent> {
             height: 260,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: const [
-                ServiceCard(
-                  imagePath: 'assets/images/venue.jpg',
-                  title: 'Venue',
-                  rating: 4.8,
+              children:  [
+                    ServiceCard(
+                      imagePath: 'assets/images/venue.jpg',
+                      title: 'Venue',
+                      rating: 4.8,
+                      onTap: (){
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                VenueScreen(),
+                          ),
+                        );
+                      },
                 ),
-                ServiceCard(
-                  imagePath: 'assets/images/VPS.jpg',
-                  title: 'Virtual Planning',
-                  rating: 4.6,
-                ),
+                // ServiceCard(
+                //   imagePath: 'assets/images/VPS.jpg',
+                //   title: 'Virtual Planning',
+                //   rating: 4.6, onTap: () {
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder: (context) =>
+                //             planning_screen(),
+                //       ),
+                //     );
+                // },
+                // ),
                 ServiceCard(
                   imagePath: 'assets/images/mehendi_artist.jpg',
                   title: 'Mehendi Artist',
-                  rating: 4.9,
+                  rating: 4.9, onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            MehendiArtistScreen(),
+                      ),
+                    );
+                },
                 ),
                 ServiceCard(
                   imagePath: 'assets/images/bridal_makeup.jpg',
                   title: 'Makeup',
-                  rating: 4.9,
+                  rating: 4.9, onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            MakeupScreen(),
+                      ),
+                    );
+                },
                 ),
                 ServiceCard(
                   imagePath: 'assets/images/photography.jpg',
                   title: 'Photographers',
-                  rating: 4.8,
+                  rating: 4.8, onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            PhotographyScreen(),
+                      ),
+                    );
+                },
                 ),
                 ServiceCard(
                   imagePath: 'assets/images/p&d.jpg',
                   title: 'Planning & Decor',
-                  rating: 4.8,
+                  rating: 4.8, onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            PlanningDecorScreen(),
+                      ),
+                    );
+                },
                 ),
               ],
             ),
@@ -172,7 +227,16 @@ class _HomeContentState extends State<HomeContent> {
               ),
               Spacer(),
               TextButton(
-                onPressed: () {},
+                onPressed: () {
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          VenueScreen(),
+                    ),
+                  );
+                },
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: const Size(40, 30),
