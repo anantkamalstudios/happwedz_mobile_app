@@ -34,19 +34,19 @@ class _HomeContentState extends State<HomeContent> {
     'assets/images/wedding5.webp',
     'assets/images/wedding6.webp',
   ];
-  JewelleryItem sampleJewellery = JewelleryItem(
-    name: "Rajwada Jewels",
-    category: "Bridal Jewellery",
-    imageUrl: "assets/images/jewellery_banner.webp",
-    about:
-    "Rajwada Jewels offers exquisite bridal jewellery collections blending traditional craftsmanship with modern designs.",
-    phone: "+911234567890",
-    galleryImages: [
-      "assets/images/j1.webp",
-      "assets/images/j2.webp",
-      "assets/images/j3.webp",
-    ],
-  );
+  // JewelleryItem sampleJewellery = JewelleryItem(
+  //   name: "Rajwada Jewels",
+  //   category: "Bridal Jewellery",
+  //   imageUrl: "assets/images/jewellery_banner.webp",
+  //   about:
+  //   "Rajwada Jewels offers exquisite bridal jewellery collections blending traditional craftsmanship with modern designs.",
+  //   phone: "+911234567890",
+  //   galleryImages: [
+  //     "assets/images/j1.webp",
+  //     "assets/images/j2.webp",
+  //     "assets/images/j3.webp",
+  //   ],
+  // );
   @override
   void initState() {
     super.initState();
@@ -75,19 +75,19 @@ class _HomeContentState extends State<HomeContent> {
     });
   }
 
-  CateringItem sampleCaterer = CateringItem(
-    name: "Royal Feast Caterers",
-    category: "Wedding Catering",
-    imageUrl: "assets/images/catering_banner.webp",
-    about:
-    "Royal Feast Caterers offer premium vegetarian and non-vegetarian menus with customizable dishes for weddings and events.",
-    phone: "+911234567890",
-    menuImages: [
-      "assets/images/menu1.webp",
-      "assets/images/menu2.webp",
-      "assets/images/menu3.webp",
-    ],
-  );
+  // CateringItem sampleCaterer = CateringItem(
+  //   name: "Royal Feast Caterers",
+  //   category: "Wedding Catering",
+  //   imageUrl: "assets/images/catering_banner.webp",
+  //   about:
+  //   "Royal Feast Caterers offer premium vegetarian and non-vegetarian menus with customizable dishes for weddings and events.",
+  //   phone: "+911234567890",
+  //   menuImages: [
+  //     "assets/images/menu1.webp",
+  //     "assets/images/menu2.webp",
+  //     "assets/images/menu3.webp",
+  //   ],
+  // );
 
   @override
   void dispose() {
@@ -134,8 +134,8 @@ class _HomeContentState extends State<HomeContent> {
                 CategoryChip(title: 'Dress & Attire', page: DressAttireScreen(),),
                 CategoryChip(title: 'Decoration & Lighting', page: PlanningDecorScreen(),),
                 CategoryChip(title: 'Entertainment', page: EntertainmentListScreen(),),
-                CategoryChip(title: 'Jewellery', page: JewelleryDetailScreen(item: sampleJewellery,),),
-                CategoryChip(title: 'Catering', page: CateringDetailScreen(item: sampleCaterer),),
+                CategoryChip(title: 'Jewellery', page: JewelleryPage(),),
+                CategoryChip(title: 'Catering', page: CateringPage(),),
               ],
             ),
           ),
@@ -1349,3 +1349,18 @@ class _WeddingIdeasScreenState extends State<WeddingIdeasScreen>
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

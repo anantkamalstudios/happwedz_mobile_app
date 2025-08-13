@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:h_w_a/services/home_screen.dart';
-import 'package:h_w_a/services/home_screen1.dart';
 import 'package:h_w_a/services/signup.dart';
 
 class SplashScreen extends StatefulWidget {
