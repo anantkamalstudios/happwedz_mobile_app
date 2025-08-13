@@ -14,21 +14,21 @@ class _MakeupScreenState extends State<MakeupScreen> {
     {
       "name": "Glam Studio",
       "location": "Mumbai, India",
-      "image": "assets/images/makeup1.jpg",
+      "image": "assets/images/makeup1.webp",
       "phone": "+911234567890",
       "whatsapp": "+911234567890"
     },
     {
       "name": "Bridal Beauty",
       "location": "Delhi, India",
-      "image": "assets/images/makeup2.jpg",
+      "image": "assets/images/makeup2.webp",
       "phone": "+919876543210",
       "whatsapp": "+919876543210"
     },
     {
       "name": "Royal Touch",
       "location": "Jaipur, India",
-      "image": "assets/images/makeup3.jpg",
+      "image": "assets/images/makeup3.webp",
       "phone": "+918888888888",
       "whatsapp": "+918888888888"
     },
@@ -134,18 +134,18 @@ class _MakeupScreenState extends State<MakeupScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.call, color: Colors.green),
                                       onPressed: () {
-                                        // TODO: Call functionality
+
                                       },
                                     ),
                                     IconButton(
                                       icon: Image.asset(
-                                        'assets/images/whatsapp_icon.png',
+                                        'assets/images/whatsapp_icon.webp',
                                         height: 30,
                                         width: 30,
 
                                       ),
                                       onPressed: () {
-                                        // TODO: WhatsApp functionality
+
                                       },
                                     ),
                                   ],

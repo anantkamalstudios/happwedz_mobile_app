@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:h_w_a/services/home_screen.dart';
 import 'package:h_w_a/services/home_screen1.dart';
+import 'package:h_w_a/services/signup.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -38,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen>
       Future.delayed(const Duration(seconds: 3), () {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
+          MaterialPageRoute(builder: (_) => const SignupPage()),
         );
       });
     });
@@ -64,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen>
           children: [
             // Fullscreen image
             Image.asset(
-              'assets/images/logo2.jpg',
+              'assets/images/logo2.webp',
               fit: isPortrait ? BoxFit.cover : BoxFit.fitHeight,
             ),
 

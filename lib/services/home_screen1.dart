@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:h_w_a/services/profile_page.dart';
 import 'package:h_w_a/services/shop_screen.dart';
 import 'package:h_w_a/services/signup.dart';
 import 'package:h_w_a/services/vendor_screen.dart';
 import 'package:h_w_a/services/venue_screen.dart';
 import 'ai_screen.dart';
+import 'astrology_screen.dart';
 import 'home_screen.dart';
 
 
@@ -22,7 +24,7 @@ class _MainScreenState extends State<MainScreen> {
     VenueScreen(),
     VendorPage(),
     ShopScreen(),
-    SignupPage()
+    ProfilePage()
   ];
 
   void _onTabTapped(int index) {
@@ -79,7 +81,10 @@ class _MainScreenState extends State<MainScreen> {
                 heroTag: 'astrology',
                 backgroundColor: Colors.purple,
                 onPressed: () {
-                  // Navigate to astrology chat or open dialog
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => AstrologyChatScreen()),
+                  );
                 },
                 tooltip: 'Astrology Talk',
                 child: const Icon(Icons.smart_toy, size: 20),

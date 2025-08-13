@@ -22,7 +22,6 @@ class _PhotographyScreenState extends State<PhotographyScreen>
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: Handle enquiry
         },
         icon: const Icon(Icons.phone),
         label: const Text("Request Callback"),
@@ -38,7 +37,7 @@ class _PhotographyScreenState extends State<PhotographyScreen>
                 fit: StackFit.expand,
                 children: [
                   Image.asset(
-                    "assets/images/photography.jpg",
+                    "assets/images/photography.webp",
                     fit: BoxFit.cover,
                   ),
                   Container(color: Colors.black.withOpacity(0.3)),
@@ -59,7 +58,7 @@ class _PhotographyScreenState extends State<PhotographyScreen>
                       children: [
                         const CircleAvatar(
                           radius: 30,
-                          backgroundImage: AssetImage("assets/images/photographer_profile.jpg"),
+                          backgroundImage: AssetImage("assets/images/photographer_profile.webp"),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -119,12 +118,12 @@ class _PhotographyScreenState extends State<PhotographyScreen>
 
   Widget _buildPortfolioTab() {
     List<String> portfolioImages = [
-      "assets/images/ph1.jpg",
-      "assets/images/ph2.jpg",
-      "assets/images/ph3.jpg",
-      "assets/images/ph4.jpg",
-      "assets/images/ph5.jpg",
-      "assets/images/ph6.jpg",
+      "assets/images/ph1.webp",
+      "assets/images/ph2.webp",
+      "assets/images/ph3.webp",
+      "assets/images/ph4.webp",
+      "assets/images/ph5.webp",
+      "assets/images/ph6.webp",
     ];
 
     return GridView.builder(
@@ -153,7 +152,7 @@ class _PhotographyScreenState extends State<PhotographyScreen>
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           child: ListTile(
             leading: const CircleAvatar(
-              backgroundImage: AssetImage("assets/images/user_profile.jpg"),
+              backgroundImage: AssetImage("assets/images/user_profile.webp"),
             ),
             title: const Text("Priya Sharma"),
             subtitle: Column(
@@ -206,7 +205,7 @@ class _PhotographyScreenState extends State<PhotographyScreen>
                   // TODO: Handle WhatsApp
                 },
                 icon:Image.asset(
-                  'assets/images/whatsapp_icon.png',
+                  'assets/images/whatsapp_icon.webp',
                   height: 30,
                   width: 30,
 

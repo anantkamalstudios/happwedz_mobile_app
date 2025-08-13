@@ -34,6 +34,7 @@ class _VendorPageState extends State<VendorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 1,
         title: _buildSearchBar(),
@@ -250,7 +251,7 @@ class VendorDetailsPage extends StatelessWidget {
 
                         },
                         icon:Image.asset(
-                          'assets/images/whatsapp_icon.png',
+                          'assets/images/whatsapp_icon.webp',
                           height: 30,
                           width: 30,
 

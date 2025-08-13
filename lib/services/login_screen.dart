@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +19,7 @@ class LoginPage extends StatelessWidget {
 
                 // Logo
                 Image.asset(
-                  'assets/images/logoo.png', // Replace with your asset
+                  'assets/images/logoo.webp', // Replace with your asset
                   height: 80,
                 ),
 
@@ -101,7 +101,7 @@ class LoginPage extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: () {},
                   icon: Image.asset(
-                    'assets/icons/google.png',
+                    'assets/icons/google.webp',
                     height: 30,
                   ),
                   label: const Text('Continue with Google', style: TextStyle(fontSize: 16,color: Colors.white),),

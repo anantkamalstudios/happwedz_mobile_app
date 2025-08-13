@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:h_w_a/services/home_screen1.dart';
 
 import 'login_screen.dart';
 
@@ -8,115 +9,138 @@ class SignupPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.pink[50],
+      backgroundColor: Colors.pink[100],
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
-                Image.asset(
-                  'assets/images/logoo.png',
-                  height: 80,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Create Account',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.pink,
+        child: Stack(
+          children: [
+        Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 40),
+                  Image.asset(
+                    'assets/images/logoo.webp',
+                    height: 80,
                   ),
-                ),
-                const SizedBox(height: 30),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Create Account',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.pink,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
 
-                // Name
-                _buildTextField(hint: 'Full Name'),
+                  // Name
+                  _buildTextField(hint: 'Full Name'),
 
-                // Email
-                _buildTextField(hint: 'Email Address', keyboardType: TextInputType.emailAddress),
+                  // Email
+                  _buildTextField(hint: 'Email Address', keyboardType: TextInputType.emailAddress),
 
-                // Mobile
-                _buildTextField(hint: 'Mobile Number', keyboardType: TextInputType.phone),
+                  // Mobile
+                  _buildTextField(hint: 'Mobile Number', keyboardType: TextInputType.phone),
 
-                // Password
-                _buildTextField(hint: 'Password', obscureText: true),
+                  // Password
+                  _buildTextField(hint: 'Password', obscureText: true),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // Sign Up Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
+                  // Sign Up Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.pink[200],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () {
+                        // Sign-up logic
+                      },
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(fontSize: 16,color: Colors.white),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Text(
+                    'or continue with',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Google Button
+                  OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: Image.asset(
+                      'assets/icons/google.webp',
+                      height: 30,
+                    ),
+                    label: const Text('Continue with Google', style: TextStyle(fontSize: 16,color: Colors.white),),
+                    style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.pink[200],
+                      minimumSize: const Size(double.infinity, 48),
+                      side: BorderSide(color: Colors.grey.shade300),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    onPressed: () {
-                      // Sign-up logic
-                    },
-                    child: const Text(
-                      'Sign Up',
-                      style: TextStyle(fontSize: 16,color: Colors.white),
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 10),
+                  // const SizedBox(height: 24),
 
-                Text(
-                  'or continue with',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-
-                const SizedBox(height: 10),
-
-                // Google Button
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: Image.asset(
-                    'assets/icons/google.png',
-                    height: 30,
-                  ),
-                  label: const Text('Continue with Google', style: TextStyle(fontSize: 16,color: Colors.white),),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.pink[200],
-                    minimumSize: const Size(double.infinity, 48),
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-
-                // const SizedBox(height: 24),
-
-                // Already have account
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Already have an account?'),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => LoginPage()));
-                      },
-                      child: Text(
-                        'Login',
-                        style: TextStyle(color: Colors.pink),
+                  // Already have account
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Already have an account?'),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => LoginPage()));
+                        },
+                        child: Text(
+                          'Login',
+                          style: TextStyle(color: Colors.pink),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
-                const SizedBox(height: 12),
-              ],
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
           ),
+
+            Positioned(
+              right: 10,
+              top: 10,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => MainScreen()));
+                },
+                child:  Text(
+                  "Next",
+                  style: TextStyle(
+                    color: Colors.pink[300],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+      ]
         ),
+
       ),
     );
   }

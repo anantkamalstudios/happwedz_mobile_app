@@ -2,32 +2,32 @@ import 'package:flutter/material.dart';
 
 class ShopScreen extends StatelessWidget {
   final List<Map<String, String>> categories = [
-    {"name": "Dresses", "icon": "assets/images/wed_dress.jpg"},
-    {"name": "Jewellery", "icon": "assets/images/jewellery.jpg"},
-    {"name": "Decor", "icon": "assets/images/decor1.jpg"},
-    {"name": "Gifts", "icon": "assets/images/gift.jpg"},
+    {"name": "Dresses", "icon": "assets/images/wed_dress.webp"},
+    {"name": "Jewellery", "icon": "assets/images/jewellery.webp"},
+    {"name": "Decor", "icon": "assets/images/decor1.webp"},
+    {"name": "Gifts", "icon": "assets/images/gift.webp"},
   ];
 
   final List<Map<String, String>> products = [
     {
       "name": "Bridal Lehenga",
       "price": "₹49,999",
-      "image": "assets/images/bridal_lehenga.jpg"
+      "image": "assets/images/bridal_lehenga.webp"
     },
     {
       "name": "Diamond Necklace",
       "price": "₹1,20,000",
-      "image": "assets/images/diamond_necklace.jpg"
+      "image": "assets/images/diamond_necklace.webp"
     },
     {
       "name": "Wedding Stage Decor",
       "price": "₹15,000",
-      "image": "assets/images/wed_stage_decor.jpg"
+      "image": "assets/images/wed_stage_decor.webp"
     },
     {
       "name": "Wedding Gifts",
       "price": "₹5,000",
-      "image": "assets/images/gift.jpg"
+      "image": "assets/images/gift.webp"
     },
   ];
 
@@ -39,6 +39,7 @@ class ShopScreen extends StatelessWidget {
         slivers: [
           // Top banner with gradient and search
           SliverAppBar(
+            automaticallyImplyLeading: false,
           expandedHeight: 80,
             pinned: true,
             backgroundColor: Colors.white,
@@ -283,6 +284,7 @@ class ProductDetailsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        // automaticallyImplyLeading:  false,
         title: Text(product["name"] ?? ""),
         backgroundColor: Colors.pink[100],
       ),

@@ -7,11 +7,14 @@ import 'package:h_w_a/services/planning_decor_screen.dart';
 import 'package:h_w_a/services/rate.dart';
 import 'package:h_w_a/services/venue_screen.dart';
 import 'package:h_w_a/services/virtual_planning_screen.dart';
-
+import 'Entertainment.dart';
 import 'animatedFeatureCard.dart';
+import 'dress_attire.dart';
 import 'event.dart';
+import 'jewellery.dart';
 import 'makeup.dart';
 import 'mehendi_artist.dart';
+import 'catering.dart';
 
 class HomeContent extends StatefulWidget {
   const HomeContent({super.key});
@@ -24,14 +27,26 @@ class _HomeContentState extends State<HomeContent> {
   final ScrollController _eventScrollController = ScrollController();
   late Timer _scrollTimer;
   final List<String> weddingImages = [
-    'assets/images/wedding1.jpg',
-    'assets/images/wedding2.jpg',
-    'assets/images/wedding3.jpg',
-    'assets/images/wedding4.jpg',
-    'assets/images/wedding5.jpg',
-    'assets/images/wedding6.jpg',
+    'assets/images/wedding1.webp',
+    'assets/images/wedding2.webp',
+    'assets/images/wedding3.webp',
+    'assets/images/wedding4.webp',
+    'assets/images/wedding5.webp',
+    'assets/images/wedding6.webp',
   ];
-
+  JewelleryItem sampleJewellery = JewelleryItem(
+    name: "Rajwada Jewels",
+    category: "Bridal Jewellery",
+    imageUrl: "assets/images/jewellery_banner.webp",
+    about:
+    "Rajwada Jewels offers exquisite bridal jewellery collections blending traditional craftsmanship with modern designs.",
+    phone: "+911234567890",
+    galleryImages: [
+      "assets/images/j1.webp",
+      "assets/images/j2.webp",
+      "assets/images/j3.webp",
+    ],
+  );
   @override
   void initState() {
     super.initState();
@@ -59,6 +74,20 @@ class _HomeContentState extends State<HomeContent> {
       }
     });
   }
+
+  CateringItem sampleCaterer = CateringItem(
+    name: "Royal Feast Caterers",
+    category: "Wedding Catering",
+    imageUrl: "assets/images/catering_banner.webp",
+    about:
+    "Royal Feast Caterers offer premium vegetarian and non-vegetarian menus with customizable dishes for weddings and events.",
+    phone: "+911234567890",
+    menuImages: [
+      "assets/images/menu1.webp",
+      "assets/images/menu2.webp",
+      "assets/images/menu3.webp",
+    ],
+  );
 
   @override
   void dispose() {
@@ -97,17 +126,16 @@ class _HomeContentState extends State<HomeContent> {
             height: 40,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: const [
-                CategoryChip(title: 'All'),
-                CategoryChip(title: 'Photography'),
-                CategoryChip(title: 'Venue'),
-                CategoryChip(title: 'Wedding Planner'),
-                CategoryChip(title: 'Videography'),
-                CategoryChip(title: 'Dress & Attire'),
-                CategoryChip(title: 'Decoration & Lighting'),
-                CategoryChip(title: 'Entertainment'),
-                CategoryChip(title: 'Jewellery'),
-                CategoryChip(title: 'Catering'),
+              children:  [
+                CategoryChip(title: 'All', page: Text("data"),),
+                CategoryChip(title: 'Photography', page: PhotographyScreen(),),
+                CategoryChip(title: 'Venue', page: VenueScreen(),),
+                CategoryChip(title: 'Wedding Planner', page: planning_screen(),),
+                CategoryChip(title: 'Dress & Attire', page: DressAttireScreen(),),
+                CategoryChip(title: 'Decoration & Lighting', page: PlanningDecorScreen(),),
+                CategoryChip(title: 'Entertainment', page: EntertainmentListScreen(),),
+                CategoryChip(title: 'Jewellery', page: JewelleryDetailScreen(item: sampleJewellery,),),
+                CategoryChip(title: 'Catering', page: CateringDetailScreen(item: sampleCaterer),),
               ],
             ),
           ),
@@ -131,7 +159,7 @@ class _HomeContentState extends State<HomeContent> {
               scrollDirection: Axis.horizontal,
               children:  [
                     ServiceCard(
-                      imagePath: 'assets/images/venue.jpg',
+                      imagePath: 'assets/images/venue.webp',
                       title: 'Venue',
                       rating: 4.8,
                       onTap: (){
@@ -158,7 +186,7 @@ class _HomeContentState extends State<HomeContent> {
                 // },
                 // ),
                 ServiceCard(
-                  imagePath: 'assets/images/mehendi_artist.jpg',
+                  imagePath: 'assets/images/mehendi_artist.webp',
                   title: 'Mehendi Artist',
                   rating: 4.9, onTap: () {
                     Navigator.push(
@@ -171,7 +199,7 @@ class _HomeContentState extends State<HomeContent> {
                 },
                 ),
                 ServiceCard(
-                  imagePath: 'assets/images/bridal_makeup.jpg',
+                  imagePath: 'assets/images/bridal_makeup.webp',
                   title: 'Makeup',
                   rating: 4.9, onTap: () {
                     Navigator.push(
@@ -184,7 +212,7 @@ class _HomeContentState extends State<HomeContent> {
                 },
                 ),
                 ServiceCard(
-                  imagePath: 'assets/images/photography.jpg',
+                  imagePath: 'assets/images/photography.webp',
                   title: 'Photographers',
                   rating: 4.8, onTap: () {
                     Navigator.push(
@@ -197,7 +225,7 @@ class _HomeContentState extends State<HomeContent> {
                 },
                 ),
                 ServiceCard(
-                  imagePath: 'assets/images/p&d.jpg',
+                  imagePath: 'assets/images/p&d.webp',
                   title: 'Planning & Decor',
                   rating: 4.8, onTap: () {
                     Navigator.push(
@@ -262,32 +290,32 @@ class _HomeContentState extends State<HomeContent> {
               scrollDirection: Axis.horizontal,
               children: const [
                 EventCard(
-                  imagePath: 'assets/images/venue1.jpg',
+                  imagePath: 'assets/images/venue1.webp',
                   title: 'Royal Garden',
                   location: 'Delhi,India',
                 ),
                 EventCard(
-                  imagePath: 'assets/images/venue2.jpg',
+                  imagePath: 'assets/images/venue2.webp',
                   title: 'The Wedding Lawn',
                   location: 'Bangalore',
                 ),
                 EventCard(
-                  imagePath: 'assets/images/venue3.jpg',
+                  imagePath: 'assets/images/venue3.webp',
                   title: 'Grand Sapphire',
                   location: 'Jaipur',
                 ),
                 EventCard(
-                  imagePath: 'assets/images/venue4.jpg',
+                  imagePath: 'assets/images/venue4.webp',
                   title: 'Royal Garden',
                   location: 'Delhi,India',
                 ),
                 EventCard(
-                  imagePath: 'assets/images/venue5.jpg',
+                  imagePath: 'assets/images/venue5.webp',
                   title: 'The Wedding Lawn',
                   location: 'Bangalore',
                 ),
                 EventCard(
-                  imagePath: 'assets/images/venue4.jpg',
+                  imagePath: 'assets/images/venue4.webp',
                   title: 'Grand Sapphire',
                   location: 'Jaipur',
                 ),
@@ -342,32 +370,32 @@ class _HomeContentState extends State<HomeContent> {
               scrollDirection: Axis.horizontal,
               children: const [
                 ServiceCard1(
-                  imagePath: 'assets/images/wed1.jpg',
+                  imagePath: 'assets/images/wed1.webp',
                   // title: 'Venue',
                   // rating: 4.8,
                 ),
                 ServiceCard1(
-                  imagePath: 'assets/images/wed2.jpg',
+                  imagePath: 'assets/images/wed2.webp',
                   // title: 'Virtual Planning',
                   // rating: 4.6,
                 ),
                 ServiceCard1(
-                  imagePath: 'assets/images/wed3.jpg',
+                  imagePath: 'assets/images/wed3.webp',
                   // title: 'Mehendi Artist',
                   // rating: 4.9,
                 ),
                 ServiceCard1(
-                  imagePath: 'assets/images/wed4.jpg',
+                  imagePath: 'assets/images/wed4.webp',
                   // title: 'Makeup',
                   // rating: 4.9,
                 ),
                 ServiceCard1(
-                  imagePath: 'assets/images/wed5.jpg',
+                  imagePath: 'assets/images/wed5.webp',
                   // title: 'Photographers',
                   // rating: 4.8,
                 ),
                 ServiceCard1(
-                  imagePath: 'assets/images/wed6.jpg',
+                  imagePath: 'assets/images/wed6.webp',
                   // title: 'Planning & Decor',
                   // rating: 4.8,
                 ),
@@ -489,22 +517,22 @@ class _HomeContentState extends State<HomeContent> {
               scrollDirection: Axis.horizontal,
               children: const [
                 WeddingIdeaCard(
-                  imagePath: 'assets/images/decor1.jpg',
+                  imagePath: 'assets/images/decor1.webp',
                   tag: '#HaldiDecor',
                   caption: 'Bright yellow haldi setup!',
                 ),
                 WeddingIdeaCard(
-                  imagePath: 'assets/images/bride.jpg',
+                  imagePath: 'assets/images/bride.webp',
                   tag: '#BridalEntry',
                   caption: 'Princess style entry with smoke bombs',
                 ),
                 WeddingIdeaCard(
-                  imagePath: 'assets/images/mandap.jpg',
+                  imagePath: 'assets/images/mandap.webp',
                   tag: '#FloralMandap',
                   caption: 'Mandap under a floral canopy',
                 ),
                 WeddingIdeaCard(
-                  imagePath: 'assets/images/ml.jpg',
+                  imagePath: 'assets/images/ml.webp',
                   tag: '#MehndiLook',
                   caption: 'Trendy mehndi outfit ideas',
                 ),
@@ -560,22 +588,22 @@ class _HomeContentState extends State<HomeContent> {
               scrollDirection: Axis.horizontal,
               children: const [
                 WeddingIdeaCard1(
-                  imagePath: 'assets/images/wc1.jpg',
+                  imagePath: 'assets/images/wc1.webp',
                   caption:
                       'This Bride Turned Her Mom’s Saree Into a Corset Skirt Set & We’re Obsessed!” (Aug 8, 2025): A creative and deeply sentimental bridal outfit idea rooted in tradition.',
                 ),
                 WeddingIdeaCard1(
-                  imagePath: 'assets/images/wc2.jpg',
+                  imagePath: 'assets/images/wc2.webp',
                   caption:
                       '7 Unique Wedding Themes That We Are Obsessing Over!”: From whimsical MET Gala vibes to location-based themes like a London café—this is inspiration central.',
                 ),
                 WeddingIdeaCard1(
-                  imagePath: 'assets/images/wc3.jpg',
+                  imagePath: 'assets/images/wc3.webp',
                   caption:
                       '8 Unique Bridal Entry Ideas We Spotted Recently!”: Featuring everything from walking down the aisle with pets to ballet-style veil entrances and a bride arriving in a boat!',
                 ),
                 WeddingIdeaCard1(
-                  imagePath: 'assets/images/wc4.jpg',
+                  imagePath: 'assets/images/wc4.webp',
                   caption:
                       'Real Wedding Features: Explore authentic stories where real brides reflect on their planning journeys and creative moments. ',
                 ),
@@ -1017,18 +1045,18 @@ class _WeddingIdeasScreenState extends State<WeddingIdeasScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final List<String> storyImages = [
-    'assets/images/wed1.jpg',
-    'assets/images/wed2.jpg',
-    'assets/images/wed3.jpg',
-    'assets/images/wed4.jpg',
-    'assets/images/wed5.jpg',
-    'assets/images/wed6.jpg',
+    'assets/images/wed1.webp',
+    'assets/images/wed2.webp',
+    'assets/images/wed3.webp',
+    'assets/images/wed4.webp',
+    'assets/images/wed5.webp',
+    'assets/images/wed6.webp',
   ];
   final List<String> weddingStoryImages = [
-    'assets/images/decor1.jpg',
-    'assets/images/bride.jpg',
-    'assets/images/mandap.jpg',
-    'assets/images/ml.jpg',
+    'assets/images/decor1.webp',
+    'assets/images/bride.webp',
+    'assets/images/mandap.webp',
+    'assets/images/ml.webp',
   ];
 
   final List<String> weddingStoryTitles = [
@@ -1039,10 +1067,10 @@ class _WeddingIdeasScreenState extends State<WeddingIdeasScreen>
   ];
 
   final List<String> weddingStoryImages1 = [
-        'assets/images/wc1.jpg'
-        'assets/images/wc2.jpg',
-        'assets/images/wc3.jpg',
-         'assets/images/wc4.jpg',
+        'assets/images/wc1.webp'
+        'assets/images/wc2.webp',
+        'assets/images/wc3.webp',
+         'assets/images/wc4.webp',
   ];
 
   final List<String> weddingStoryTitles1 = [
@@ -1207,7 +1235,7 @@ class _WeddingIdeasScreenState extends State<WeddingIdeasScreen>
                           top: Radius.circular(12),
                         ),
                         child: Image.asset(
-                          "assets/images/wedding${(index % 2) + 1}.jpg",
+                          "assets/images/wedding${(index % 2) + 1}.webp",
                           height: 180,
                           width: double.infinity,
                           fit: BoxFit.cover,

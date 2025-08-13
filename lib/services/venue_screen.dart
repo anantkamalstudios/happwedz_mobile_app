@@ -236,7 +236,7 @@ class _VenueScreenState extends State<VenueScreen> {
           ),
           const SizedBox(height: 16),
           VenueCard(
-            imageUrl: 'assets/images/palace1.jpg',
+            imageUrl: 'assets/images/palace1.webp',
             name: 'The Grand Palace',
             location: 'Mumbai',
             price: '₹2,000/plate',
@@ -245,7 +245,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.5',
           ),
           VenueCard(
-            imageUrl: 'assets/images/palace2.jpg',
+            imageUrl: 'assets/images/palace2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -254,7 +254,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/palace3.jpg',
+            imageUrl: 'assets/images/palace3.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -263,7 +263,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/palace4.jpg',
+            imageUrl: 'assets/images/palace4.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -272,7 +272,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/palace5.jpg',
+            imageUrl: 'assets/images/palace5.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -281,7 +281,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/palace6.jpg',
+            imageUrl: 'assets/images/palace6.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -290,7 +290,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -299,7 +299,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -308,7 +308,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -317,7 +317,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -326,7 +326,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -335,7 +335,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -344,7 +344,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -353,7 +353,7 @@ class _VenueScreenState extends State<VenueScreen> {
             rating: '4.7',
           ),
           VenueCard(
-            imageUrl: 'assets/images/venue2.jpg',
+            imageUrl: 'assets/images/venue2.webp',
             name: 'Royal Garden',
             location: 'Delhi',
             price: '₹1,500/plate',
@@ -528,7 +528,7 @@ class VenueCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   icon: Image.asset(
-                    'assets/images/whatsapp_icon.png',
+                    'assets/images/whatsapp_icon.webp',
                     height: 30,
                     width: 30,
                   ),
@@ -686,7 +686,7 @@ class _VenueViewDetailsScreenState extends State<VenueViewDetailsScreen>
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.asset("assets/images/venue.jpg", fit: BoxFit.cover),
+                    Image.asset("assets/images/venue.webp", fit: BoxFit.cover),
                     Container(color: Colors.black.withOpacity(0.3)),
                   ],
                 ),
@@ -820,7 +820,7 @@ class _VenueViewDetailsScreenState extends State<VenueViewDetailsScreen>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.asset(
-              "assets/images/venue${index + 1}.jpg",
+              "assets/images/venue${index + 1}.webp",
               fit: BoxFit.cover,
             ),
           ),
@@ -838,7 +838,7 @@ class _VenueViewDetailsScreenState extends State<VenueViewDetailsScreen>
           margin: const EdgeInsets.symmetric(vertical: 6),
           child: ListTile(
             leading: const CircleAvatar(
-              backgroundImage: AssetImage("assets/images/user.jpg"),
+              backgroundImage: AssetImage("assets/images/user.webp"),
             ),
             title: const Text("John Doe"),
             subtitle: const Text(
@@ -895,7 +895,7 @@ class _VenueViewDetailsScreenState extends State<VenueViewDetailsScreen>
           const SizedBox(width: 16),
           ElevatedButton.icon(
             icon: Image.asset(
-              'assets/images/whatsapp_icon.png',
+              'assets/images/whatsapp_icon.webp',
               height: 30,
               width: 30,
             ),

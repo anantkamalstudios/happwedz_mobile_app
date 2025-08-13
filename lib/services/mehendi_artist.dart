@@ -58,7 +58,7 @@ class MehendiArtistScreen extends StatelessWidget {
 
             // Artist Cards (Using assets instead of network images)
             _artistCard(
-              image: "assets/images/m_a_1.jpg",
+              image: "assets/images/m_a_1.webp",
               name: "Henna by Ayesha",
               location: "Mumbai",
               price: "₹5,000 onwards",
@@ -68,7 +68,7 @@ class MehendiArtistScreen extends StatelessWidget {
               whatsapp: "+91 9876543210",
             ),
             _artistCard(
-              image: "assets/images/m_a_2.jpg",
+              image: "assets/images/m_a_2.webp",
               name: "Shalini Mehendi Art",
               location: "Delhi",
               price: "₹3,500 onwards",
@@ -78,7 +78,7 @@ class MehendiArtistScreen extends StatelessWidget {
               whatsapp: "+91 9123456780",
             ),
             _artistCard(
-              image: "assets/images/m_a_3.jpg",
+              image: "assets/images/m_a_3.webp",
               name: "Elegant Henna by Priya",
               location: "Bangalore",
               price: "₹4,000 onwards",
@@ -179,7 +179,7 @@ class MehendiArtistScreen extends StatelessWidget {
                     ),
                     IconButton(
                       icon: Image.asset(
-                        'assets/images/whatsapp_icon.png',
+                        'assets/images/whatsapp_icon.webp',
                         height: 30,
                         width: 30,
 

@@ -120,6 +120,8 @@ import '../secret.dart';
 // }
 
 class AiChatScreen extends StatefulWidget {
+  const AiChatScreen({super.key});
+
   @override
   _AiChatScreenState createState() => _AiChatScreenState();
 }

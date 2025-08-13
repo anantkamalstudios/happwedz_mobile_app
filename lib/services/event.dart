@@ -183,7 +183,7 @@ class EventDetailsScreen extends StatelessWidget {
                             // WhatsApp action
                           },
                           icon: Image.asset(
-                            'assets/images/whatsapp_icon.png',
+                            'assets/images/whatsapp_icon.webp',
                             height: 30,
                             width: 30,
 
