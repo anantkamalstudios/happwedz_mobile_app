@@ -8,13 +8,16 @@ class CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: (){
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => page),
-        );
-
+      onTap: () {
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(builder: (_) => page),
+        // );
+        if (title != 'All') {
+          Navigator.push(context,
+            MaterialPageRoute(builder: (_) => page),
+          );
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(right: 10),
