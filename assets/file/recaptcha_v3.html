@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://www.google.com/recaptcha/api.js?render=6Lfh29UrAAAAAOl0cLa6dFknlONpgs3Q6xQowMDc"></script>
+    <script>
+        function executeRecaptcha() {
+          grecaptcha.ready(function() {
+            grecaptcha.execute('6Lfh29UrAAAAAOl0cLa6dFknlONpgs3Q6xQowMDc', {action:'signup'})
+              .then(function(token) {
+                RecaptchaFlutter.postMessage(token);
+              });
+          });
+        }
+        window.onload = executeRecaptcha;
+    </script>
+</head>
+<body></body>
+</html>

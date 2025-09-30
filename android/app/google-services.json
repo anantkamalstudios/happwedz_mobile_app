@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "27907630225",
+    "project_id": "happy-wedz-1ebe2",
+    "storage_bucket": "happy-wedz-1ebe2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:27907630225:android:e89c6b97aa932afb8f4b30",
+        "android_client_info": {
+          "package_name": "com.example.happy_wedz"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "27907630225-u6mct1p7kt2uvv8b3gcsqdhf4dmts8ef.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.happy_wedz",
+            "certificate_hash": "1eac3931e25ff05bb2cb16b1788f2bf0c020e71f"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbnw_dz8ah5AEwr_dsF1wLIAX4tnAYjDE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

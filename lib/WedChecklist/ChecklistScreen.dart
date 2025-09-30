@@ -589,12 +589,11 @@
 //   }
 // }
 
-
-
-
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 
 class WeddingTimelinePage extends StatefulWidget {
   @override
@@ -605,70 +604,64 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+
   Map<String, bool> checkedItems = {};
+  DateTime? weddingDate;
 
   final List<TimelineItem> timelineData = [
     TimelineItem(
-      timeframe: "12 MONTHS OR MORE TO GO",
-      icon: Icons.favorite,
       tasks: ["Browse and save outfit photos"],
+      icon: Icons.favorite,
       color: Color(0xFFFF7B9A),
     ),
     TimelineItem(
-      timeframe: "9 MONTHS TO GO",
-      icon: Icons.account_balance_wallet,
       tasks: [
         "Decide wedding budget",
         "Research venue options",
         "Research wedding planners"
       ],
+      icon: Icons.account_balance_wallet,
       color: Color(0xFFFFB3C1),
     ),
     TimelineItem(
-      timeframe: "6 MONTHS TO GO",
-      icon: Icons.camera_alt,
       tasks: [
         "Book your photographer",
         "Book your venue",
         "Book your makeup artist",
         "Hire Caterers"
       ],
+      icon: Icons.camera_alt,
       color: Color(0xFFFF7B9A),
     ),
     TimelineItem(
-      timeframe: "5 MONTHS TO GO",
-      icon: Icons.flight,
       tasks: [
         "Renew passports",
         "Reserve flights and book a hotel for your honeymoon",
         "Browse invitation ideas"
       ],
+      icon: Icons.flight,
       color: Color(0xFFFF7B9A),
     ),
     TimelineItem(
-      timeframe: "4 MONTHS TO GO",
-      icon: Icons.rotate_90_degrees_ccw_outlined,
       tasks: [
         "Hire wedding decorator",
         "Research bridal wear stores",
         "Order wedding invites"
       ],
+      icon: Icons.rotate_90_degrees_ccw_outlined,
       color: Color(0xFFFF7B9A),
     ),
     TimelineItem(
-      timeframe: "3 MONTHS TO GO",
-      icon: Icons.shopping_bag,
       tasks: [
         "Order bridal wear",
         "Order groom wear",
         "Book DJ",
         "Book mehendi artist"
       ],
+      icon: Icons.shopping_bag,
       color: Color(0xFFFFB3C1),
     ),
     TimelineItem(
-      timeframe: "2 MONTHS TO GO",
-      icon: Icons.palette,
       tasks: [
         "Book mehendi artist",
         "Buy favors to distribute on Mehendi",
@@ -679,28 +672,27 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
         "Have a food tasting",
         "Research sangeet songs and start practicing"
       ],
+      icon: Icons.palette,
       color: Color(0xFFFF7B9A),
     ),
     TimelineItem(
-      timeframe: "1 MONTH TO GO",
-      icon: Icons.cake,
       tasks: [
         "Book wedding cake",
         "Book trousseau packer",
         "Buy groom and bride accessories",
         "Start pre-bridal skin care packages"
       ],
+      icon: Icons.cake,
       color: Color(0xFFFF7B9A),
     ),
     TimelineItem(
-      timeframe: "1 WEEK TO GO",
-      icon: Icons.directions_car,
       tasks: [
         "Book your vidal vehicle",
         "Pack your honeymoon",
         "Give yourself a spa day",
         "Reconfirm time with vendors"
       ],
+      icon: Icons.directions_car,
       color: Color(0xFFFF7B9A),
     ),
   ];
@@ -720,12 +712,68 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       curve: Curves.easeInOut,
     ));
     _animationController.forward();
+
+    _loadProgress();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveProgress() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setStringList('completedTasks', checkedItems.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList());
+  }
+
+  Future<void> _loadProgress() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      List<String>? completed = prefs.getStringList('completedTasks');
+      if (completed != null) {
+        setState(() {
+          for (var task in completed) {
+            checkedItems[task] = true;
+          }
+        });
+      }
+    } catch (e) {
+      print("SharedPreferences error: $e");
+    }
+  }
+
+  String getTimeframeLabel(int index) {
+    if (weddingDate == null) {
+      const labels = [
+        "12 MONTHS OR MORE TO GO",
+        "9 MONTHS TO GO",
+        "6 MONTHS TO GO",
+        "5 MONTHS TO GO",
+        "4 MONTHS TO GO",
+        "3 MONTHS TO GO",
+        "2 MONTHS TO GO",
+        "1 MONTH TO GO",
+        "1 WEEK TO GO"
+      ];
+      return labels[index];
+    }
+
+    DateTime taskDate = weddingDate!.subtract(Duration(days: (timelineData.length - index) * 30));
+    Duration difference = weddingDate!.difference(taskDate);
+    if (difference.inDays >= 365) return "12 MONTHS OR MORE TO GO";
+    if (difference.inDays >= 270) return "9 MONTHS TO GO";
+    if (difference.inDays >= 180) return "6 MONTHS TO GO";
+    if (difference.inDays >= 150) return "5 MONTHS TO GO";
+    if (difference.inDays >= 120) return "4 MONTHS TO GO";
+    if (difference.inDays >= 90) return "3 MONTHS TO GO";
+    if (difference.inDays >= 60) return "2 MONTHS TO GO";
+    if (difference.inDays >= 30) return "1 MONTH TO GO";
+    if (difference.inDays >= 7) return "1 WEEK TO GO";
+    return "This Week";
   }
 
   @override
@@ -741,7 +789,6 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
           ),
         ),
         backgroundColor: Color(0xFFFF7B9A),
-        elevation: 0,
         centerTitle: true,
         actions: [
           IconButton(
@@ -760,8 +807,34 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
           padding: EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Social Media Icons
-              _buildSocialMediaIcons(),
+              // Wedding Date Picker
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFFF7B9A),
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                ),
+                onPressed: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(Duration(days: 730)),
+                  );
+                  if (pickedDate != null) {
+                    setState(() {
+                      weddingDate = pickedDate;
+                    });
+                  }
+                },
+                child: Text(
+                  weddingDate == null
+                      ? "Select Wedding Date"
+                      : "Wedding Date: ${weddingDate!.day}/${weddingDate!.month}/${weddingDate!.year}",
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
               SizedBox(height: 20),
 
               // Timeline
@@ -770,55 +843,14 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                 TimelineItem item = entry.value;
                 return _buildTimelineCard(item, index);
               }).toList(),
-
-              // Congratulations Section
-              // _buildCongratulationsSection(),
             ],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showProgressDialog();
-        },
+        onPressed: _showProgressDialog,
         backgroundColor: Color(0xFFFF7B9A),
         child: Icon(Icons.analytics),
-      ),
-    );
-  }
-
-  Widget _buildSocialMediaIcons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildSocialIcon(Icons.facebook, Color(0xFF1877F2)),
-        SizedBox(width: 12),
-        _buildSocialIcon(Icons.sms, Color(0xFF1DA1F2)),
-        SizedBox(width: 12),
-        _buildSocialIcon(Icons.sms, Color(0xFFE60023)),
-      ],
-    );
-  }
-
-  Widget _buildSocialIcon(IconData icon, Color color) {
-    return Container(
-      width: 45,
-      height: 45,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: 24,
       ),
     );
   }
@@ -829,16 +861,13 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Timeline Connector
           _buildTimelineConnector(index, item.icon, item.color),
           SizedBox(width: 16),
-
-          // Content Card
           Expanded(
             child: AnimatedContainer(
               duration: Duration(milliseconds: 500),
               curve: Curves.easeInOut,
-              child: _buildTaskCard(item),
+              child: _buildTaskCard(item, index),
             ),
           ),
         ],
@@ -863,11 +892,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               ),
             ],
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 24,
-          ),
+          child: Icon(icon, color: Colors.white, size: 24),
         ),
         if (index < timelineData.length - 1)
           Container(
@@ -880,7 +905,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     );
   }
 
-  Widget _buildTaskCard(TimelineItem item) {
+  Widget _buildTaskCard(TimelineItem item, int index) {
     return Card(
       elevation: 6,
       shadowColor: Colors.black26,
@@ -901,7 +926,6 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
@@ -909,17 +933,14 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  item.timeframe,
+                  getTimeframeLabel(index),
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
               SizedBox(height: 16),
-
-              // Tasks
               ...item.tasks.map((task) => _buildTaskItem(task)).toList(),
             ],
           ),
@@ -930,7 +951,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
   Widget _buildTaskItem(String task) {
     return Container(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           GestureDetector(
@@ -938,6 +959,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               setState(() {
                 checkedItems[task] = !(checkedItems[task] ?? false);
               });
+              _saveProgress();
             },
             child: AnimatedContainer(
               duration: Duration(milliseconds: 200),
@@ -956,81 +978,31 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                 borderRadius: BorderRadius.circular(4),
               ),
               child: checkedItems[task] == true
-                  ? Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 14,
-              )
+                  ? Icon(Icons.check, color: Colors.white, size: 14)
                   : null,
             ),
           ),
           SizedBox(width: 12),
           Expanded(
-            child: Text(
-              task,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-                decoration: checkedItems[task] == true
-                    ? TextDecoration.lineThrough
-                    : null,
+            child: InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          'Tap to open vendors / search related to "$task"')),
+                );
+              },
+              child: Text(
+                task,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                  decoration: checkedItems[task] == true
+                      ? TextDecoration.lineThrough
+                      : null,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCongratulationsSection() {
-    return Container(
-      margin: EdgeInsets.only(top: 30, bottom: 20),
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFFF7B9A), Color(0xFFFFB3C1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0xFFFF7B9A).withOpacity(0.3),
-            blurRadius: 15,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.favorite, color: Colors.white, size: 30),
-              SizedBox(width: 8),
-              Icon(Icons.people, color: Colors.white, size: 40),
-              SizedBox(width: 8),
-              Icon(Icons.favorite, color: Colors.white, size: 30),
-            ],
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Congratulations!',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Get married to the love of your life',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.white.withOpacity(0.9),
-              fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -1046,9 +1018,8 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             'Wedding Planning Progress',
             style: TextStyle(
@@ -1062,33 +1033,26 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               CircularProgressIndicator(
                 value: progress,
                 backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF7B9A)),
+                valueColor:
+                AlwaysStoppedAnimation<Color>(Color(0xFFFF7B9A)),
                 strokeWidth: 6,
               ),
               SizedBox(height: 20),
               Text(
                 '${(progress * 100).toInt()}% Complete',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 10),
               Text(
                 '$completedTasks of $totalTasks tasks completed',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(color: Colors.grey.shade600),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Close',
-                style: TextStyle(color: Color(0xFFFF7B9A)),
-              ),
+              child: Text('Close', style: TextStyle(color: Color(0xFFFF7B9A))),
             ),
           ],
         );
@@ -1098,15 +1062,535 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 }
 
 class TimelineItem {
-  final String timeframe;
-  final IconData icon;
   final List<String> tasks;
+  final IconData icon;
   final Color color;
 
   TimelineItem({
-    required this.timeframe,
-    required this.icon,
     required this.tasks,
+    required this.icon,
     required this.color,
   });
 }
+
+
+
+
+
+// import 'package:flutter/material.dart';
+//
+//
+// class WeddingTimelinePage extends StatefulWidget {
+//   @override
+//   _WeddingTimelinePageState createState() => _WeddingTimelinePageState();
+// }
+//
+// class _WeddingTimelinePageState extends State<WeddingTimelinePage>
+//     with TickerProviderStateMixin {
+//   late AnimationController _animationController;
+//   late Animation<double> _fadeAnimation;
+//   Map<String, bool> checkedItems = {};
+//
+//   final List<TimelineItem> timelineData = [
+//     TimelineItem(
+//       timeframe: "12 MONTHS OR MORE TO GO",
+//       icon: Icons.favorite,
+//       tasks: ["Browse and save outfit photos"],
+//       color: Color(0xFFFF7B9A),
+//     ),
+//     TimelineItem(
+//       timeframe: "9 MONTHS TO GO",
+//       icon: Icons.account_balance_wallet,
+//       tasks: [
+//         "Decide wedding budget",
+//         "Research venue options",
+//         "Research wedding planners"
+//       ],
+//       color: Color(0xFFFFB3C1),
+//     ),
+//     TimelineItem(
+//       timeframe: "6 MONTHS TO GO",
+//       icon: Icons.camera_alt,
+//       tasks: [
+//         "Book your photographer",
+//         "Book your venue",
+//         "Book your makeup artist",
+//         "Hire Caterers"
+//       ],
+//       color: Color(0xFFFF7B9A),
+//     ),
+//     TimelineItem(
+//       timeframe: "5 MONTHS TO GO",
+//       icon: Icons.flight,
+//       tasks: [
+//         "Renew passports",
+//         "Reserve flights and book a hotel for your honeymoon",
+//         "Browse invitation ideas"
+//       ],
+//       color: Color(0xFFFF7B9A),
+//     ),
+//     TimelineItem(
+//       timeframe: "4 MONTHS TO GO",
+//       icon: Icons.rotate_90_degrees_ccw_outlined,
+//       tasks: [
+//         "Hire wedding decorator",
+//         "Research bridal wear stores",
+//         "Order wedding invites"
+//       ],
+//       color: Color(0xFFFF7B9A),
+//     ),
+//     TimelineItem(
+//       timeframe: "3 MONTHS TO GO",
+//       icon: Icons.shopping_bag,
+//       tasks: [
+//         "Order bridal wear",
+//         "Order groom wear",
+//         "Book DJ",
+//         "Book mehendi artist"
+//       ],
+//       color: Color(0xFFFFB3C1),
+//     ),
+//     TimelineItem(
+//       timeframe: "2 MONTHS TO GO",
+//       icon: Icons.palette,
+//       tasks: [
+//         "Book mehendi artist",
+//         "Buy favors to distribute on Mehendi",
+//         "Book your pre-wedding shoot photographer",
+//         "Find sangeet choreographer",
+//         "Book family makeup services for your relatives",
+//         "Order sweets or favors for wedding invitations",
+//         "Have a food tasting",
+//         "Research sangeet songs and start practicing"
+//       ],
+//       color: Color(0xFFFF7B9A),
+//     ),
+//     TimelineItem(
+//       timeframe: "1 MONTH TO GO",
+//       icon: Icons.cake,
+//       tasks: [
+//         "Book wedding cake",
+//         "Book trousseau packer",
+//         "Buy groom and bride accessories",
+//         "Start pre-bridal skin care packages"
+//       ],
+//       color: Color(0xFFFF7B9A),
+//     ),
+//     TimelineItem(
+//       timeframe: "1 WEEK TO GO",
+//       icon: Icons.directions_car,
+//       tasks: [
+//         "Book your vidal vehicle",
+//         "Pack your honeymoon",
+//         "Give yourself a spa day",
+//         "Reconfirm time with vendors"
+//       ],
+//       color: Color(0xFFFF7B9A),
+//     ),
+//   ];
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _animationController = AnimationController(
+//       duration: Duration(milliseconds: 1500),
+//       vsync: this,
+//     );
+//     _fadeAnimation = Tween<double>(
+//       begin: 0.0,
+//       end: 1.0,
+//     ).animate(CurvedAnimation(
+//       parent: _animationController,
+//       curve: Curves.easeInOut,
+//     ));
+//     _animationController.forward();
+//   }
+//
+//   @override
+//   void dispose() {
+//     _animationController.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Color(0xFFF8F8F8),
+//       appBar: AppBar(
+//         title: Text(
+//           'Wedding Timeline',
+//           style: TextStyle(
+//             fontWeight: FontWeight.bold,
+//             color: Colors.white,
+//           ),
+//         ),
+//         backgroundColor: Color(0xFFFF7B9A),
+//         elevation: 0,
+//         centerTitle: true,
+//         actions: [
+//           IconButton(
+//             icon: Icon(Icons.share),
+//             onPressed: () {
+//               ScaffoldMessenger.of(context).showSnackBar(
+//                 SnackBar(content: Text('Share timeline feature coming soon!')),
+//               );
+//             },
+//           ),
+//         ],
+//       ),
+//       body: FadeTransition(
+//         opacity: _fadeAnimation,
+//         child: SingleChildScrollView(
+//           padding: EdgeInsets.all(16.0),
+//           child: Column(
+//             children: [
+//               // Social Media Icons
+//               _buildSocialMediaIcons(),
+//               SizedBox(height: 20),
+//
+//               // Timeline
+//               ...timelineData.asMap().entries.map((entry) {
+//                 int index = entry.key;
+//                 TimelineItem item = entry.value;
+//                 return _buildTimelineCard(item, index);
+//               }).toList(),
+//
+//               // Congratulations Section
+//               // _buildCongratulationsSection(),
+//             ],
+//           ),
+//         ),
+//       ),
+//       floatingActionButton: FloatingActionButton(
+//         onPressed: () {
+//           _showProgressDialog();
+//         },
+//         backgroundColor: Color(0xFFFF7B9A),
+//         child: Icon(Icons.analytics),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildSocialMediaIcons() {
+//     return Row(
+//       mainAxisAlignment: MainAxisAlignment.center,
+//       children: [
+//         _buildSocialIcon(Icons.facebook, Color(0xFF1877F2)),
+//         SizedBox(width: 12),
+//         _buildSocialIcon(Icons.sms, Color(0xFF1DA1F2)),
+//         SizedBox(width: 12),
+//         _buildSocialIcon(Icons.sms, Color(0xFFE60023)),
+//       ],
+//     );
+//   }
+//
+//   Widget _buildSocialIcon(IconData icon, Color color) {
+//     return Container(
+//       width: 45,
+//       height: 45,
+//       decoration: BoxDecoration(
+//         color: color,
+//         shape: BoxShape.circle,
+//         boxShadow: [
+//           BoxShadow(
+//             color: color.withOpacity(0.3),
+//             blurRadius: 8,
+//             offset: Offset(0, 4),
+//           ),
+//         ],
+//       ),
+//       child: Icon(
+//         icon,
+//         color: Colors.white,
+//         size: 24,
+//       ),
+//     );
+//   }
+//
+//   Widget _buildTimelineCard(TimelineItem item, int index) {
+//     return Container(
+//       margin: EdgeInsets.only(bottom: 20),
+//       child: Row(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           // Timeline Connector
+//           _buildTimelineConnector(index, item.icon, item.color),
+//           SizedBox(width: 16),
+//
+//           // Content Card
+//           Expanded(
+//             child: AnimatedContainer(
+//               duration: Duration(milliseconds: 500),
+//               curve: Curves.easeInOut,
+//               child: _buildTaskCard(item),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildTimelineConnector(int index, IconData icon, Color color) {
+//     return Column(
+//       children: [
+//         Container(
+//           width: 50,
+//           height: 50,
+//           decoration: BoxDecoration(
+//             color: color,
+//             shape: BoxShape.circle,
+//             boxShadow: [
+//               BoxShadow(
+//                 color: color.withOpacity(0.4),
+//                 blurRadius: 8,
+//                 offset: Offset(0, 4),
+//               ),
+//             ],
+//           ),
+//           child: Icon(
+//             icon,
+//             color: Colors.white,
+//             size: 24,
+//           ),
+//         ),
+//         if (index < timelineData.length - 1)
+//           Container(
+//             width: 2,
+//             height: 60,
+//             color: Colors.grey.shade300,
+//             margin: EdgeInsets.symmetric(vertical: 8),
+//           ),
+//       ],
+//     );
+//   }
+//
+//   Widget _buildTaskCard(TimelineItem item) {
+//     return Card(
+//       elevation: 6,
+//       shadowColor: Colors.black26,
+//       shape: RoundedRectangleBorder(
+//         borderRadius: BorderRadius.circular(16),
+//       ),
+//       child: Container(
+//         decoration: BoxDecoration(
+//           borderRadius: BorderRadius.circular(16),
+//           gradient: LinearGradient(
+//             colors: [item.color.withOpacity(0.1), Colors.white],
+//             begin: Alignment.topLeft,
+//             end: Alignment.bottomRight,
+//           ),
+//         ),
+//         child: Padding(
+//           padding: EdgeInsets.all(16),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               // Header
+//               Container(
+//                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+//                 decoration: BoxDecoration(
+//                   color: Colors.grey.shade600,
+//                   borderRadius: BorderRadius.circular(20),
+//                 ),
+//                 child: Text(
+//                   item.timeframe,
+//                   style: TextStyle(
+//                     color: Colors.white,
+//                     fontSize: 12,
+//                     fontWeight: FontWeight.bold,
+//                   ),
+//                 ),
+//               ),
+//               SizedBox(height: 16),
+//
+//               // Tasks
+//               ...item.tasks.map((task) => _buildTaskItem(task)).toList(),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildTaskItem(String task) {
+//     return Container(
+//       margin: EdgeInsets.only(bottom: 8),
+//       child: Row(
+//         children: [
+//           GestureDetector(
+//             onTap: () {
+//               setState(() {
+//                 checkedItems[task] = !(checkedItems[task] ?? false);
+//               });
+//             },
+//             child: AnimatedContainer(
+//               duration: Duration(milliseconds: 200),
+//               width: 20,
+//               height: 20,
+//               decoration: BoxDecoration(
+//                 color: checkedItems[task] == true
+//                     ? Color(0xFFFF7B9A)
+//                     : Colors.transparent,
+//                 border: Border.all(
+//                   color: checkedItems[task] == true
+//                       ? Color(0xFFFF7B9A)
+//                       : Colors.grey.shade400,
+//                   width: 2,
+//                 ),
+//                 borderRadius: BorderRadius.circular(4),
+//               ),
+//               child: checkedItems[task] == true
+//                   ? Icon(
+//                 Icons.check,
+//                 color: Colors.white,
+//                 size: 14,
+//               )
+//                   : null,
+//             ),
+//           ),
+//           SizedBox(width: 12),
+//           Expanded(
+//             child: Text(
+//               task,
+//               style: TextStyle(
+//                 fontSize: 14,
+//                 color: Colors.grey.shade700,
+//                 decoration: checkedItems[task] == true
+//                     ? TextDecoration.lineThrough
+//                     : null,
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildCongratulationsSection() {
+//     return Container(
+//       margin: EdgeInsets.only(top: 30, bottom: 20),
+//       padding: EdgeInsets.all(20),
+//       decoration: BoxDecoration(
+//         gradient: LinearGradient(
+//           colors: [Color(0xFFFF7B9A), Color(0xFFFFB3C1)],
+//           begin: Alignment.topLeft,
+//           end: Alignment.bottomRight,
+//         ),
+//         borderRadius: BorderRadius.circular(20),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Color(0xFFFF7B9A).withOpacity(0.3),
+//             blurRadius: 15,
+//             offset: Offset(0, 8),
+//           ),
+//         ],
+//       ),
+//       child: Column(
+//         children: [
+//           Row(
+//             mainAxisAlignment: MainAxisAlignment.center,
+//             children: [
+//               Icon(Icons.favorite, color: Colors.white, size: 30),
+//               SizedBox(width: 8),
+//               Icon(Icons.people, color: Colors.white, size: 40),
+//               SizedBox(width: 8),
+//               Icon(Icons.favorite, color: Colors.white, size: 30),
+//             ],
+//           ),
+//           SizedBox(height: 16),
+//           Text(
+//             'Congratulations!',
+//             style: TextStyle(
+//               fontSize: 28,
+//               fontWeight: FontWeight.bold,
+//               color: Colors.white,
+//             ),
+//           ),
+//           SizedBox(height: 8),
+//           Text(
+//             'Get married to the love of your life',
+//             style: TextStyle(
+//               fontSize: 18,
+//               color: Colors.white.withOpacity(0.9),
+//               fontStyle: FontStyle.italic,
+//             ),
+//             textAlign: TextAlign.center,
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   void _showProgressDialog() {
+//     int totalTasks = timelineData.fold(0, (sum, item) => sum + item.tasks.length);
+//     int completedTasks = checkedItems.values.where((completed) => completed).length;
+//     double progress = totalTasks > 0 ? completedTasks / totalTasks : 0.0;
+//
+//     showDialog(
+//       context: context,
+//       builder: (BuildContext context) {
+//         return AlertDialog(
+//           shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(20),
+//           ),
+//           title: Text(
+//             'Wedding Planning Progress',
+//             style: TextStyle(
+//               color: Color(0xFFFF7B9A),
+//               fontWeight: FontWeight.bold,
+//             ),
+//           ),
+//           content: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               CircularProgressIndicator(
+//                 value: progress,
+//                 backgroundColor: Colors.grey.shade200,
+//                 valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF7B9A)),
+//                 strokeWidth: 6,
+//               ),
+//               SizedBox(height: 20),
+//               Text(
+//                 '${(progress * 100).toInt()}% Complete',
+//                 style: TextStyle(
+//                   fontSize: 18,
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//               SizedBox(height: 10),
+//               Text(
+//                 '$completedTasks of $totalTasks tasks completed',
+//                 style: TextStyle(
+//                   color: Colors.grey.shade600,
+//                 ),
+//               ),
+//             ],
+//           ),
+//           actions: [
+//             TextButton(
+//               onPressed: () => Navigator.of(context).pop(),
+//               child: Text(
+//                 'Close',
+//                 style: TextStyle(color: Color(0xFFFF7B9A)),
+//               ),
+//             ),
+//           ],
+//         );
+//       },
+//     );
+//   }
+// }
+//
+// class TimelineItem {
+//   final String timeframe;
+//   final IconData icon;
+//   final List<String> tasks;
+//   final Color color;
+//
+//   TimelineItem({
+//     required this.timeframe,
+//     required this.icon,
+//     required this.tasks,
+//     required this.color,
+//   });
+// }

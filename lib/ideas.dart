@@ -1,6 +1,11 @@
+import 'dart:convert';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class Ideas extends StatefulWidget {
   final int initialSubTabIndex; // 👈 add this
@@ -31,6 +36,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   // }
   late int _selectedSubTabIndex;
   late TabController _tabController;
+  late Future<List<dynamic>> _storiesFuture;
 
   final List<String> _subTabs = ['Photos', 'Stories', 'Real Weddings'];
 
@@ -42,6 +48,100 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       length: _subTabs.length,
       vsync: this,
       initialIndex: widget.initialSubTabIndex, // 👈 set controller to same index
+    );
+    _storiesFuture = fetchStories();
+  }
+// Fetch stories from API
+  Future<List<Map<String, dynamic>>> fetchStories() async {
+    final response = await http.get(Uri.parse('https://happywedz.com/api/blogs'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      print(data);
+      print(data.runtimeType);
+
+      if (data is List) {
+        // Ensure each item is a Map<String, dynamic>
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      } else {
+        return [];
+      }
+    } else {
+      throw Exception('Failed to load stories');
+    }
+  }
+
+// Helper for full image URL
+  String getFullImageUrl(String? path) {
+    if (path == null || path.isEmpty) {
+      return 'https://via.placeholder.com/300x200.png';
+    }
+    return 'https://happywedz.com$path';
+  }
+  Future<List<RealWedding>> fetchRealWeddings() async {
+    final response = await http.get(Uri.parse('https://happywedz.com/api/realwedding'));
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      print(data);
+      print(response);
+      print(response.body);
+      return data.map((json) => RealWedding.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load real weddings');
+    }
+  }
+
+  // String getFullImageUrl(String? path) {
+  //   if (path == null || path.isEmpty) {
+  //     return 'https://via.placeholder.com/300x200.png'; // fallback
+  //   }
+  //
+  //   print('Path: $path');
+  //
+  //   // Already a full URL
+  //   if (path.startsWith('http')) {
+  //     return path;
+  //   }
+  //
+  //   // Attach domain only
+  //   return 'https://happywedz.com${path.startsWith('/') ? '' : '/'}$path';
+  //
+  // }
+  Future<void> debugImageUrl(String url) async {
+    try {
+      final response = await http.head(Uri.parse(url));
+      print("HEAD $url -> ${response.statusCode}, Content-Type: ${response.headers['content-type']}");
+    } catch (e) {
+      print("HEAD $url failed: $e");
+    }
+  }
+
+  String formatDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      return DateFormat('dd MMM yyyy').format(date);
+    } catch (e) {
+      return isoDate;
+    }
+  }
+
+  Widget _buildStoryCardImage(String imageUrl) {
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      placeholder: (context, url) => Container(
+        width: double.infinity,
+        height: 200,
+        color: Colors.grey[300],
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      errorWidget: (context, url, error) => Container(
+        width: double.infinity,
+        height: 200,
+        color: Colors.grey[300],
+        child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
+      ),
+      fit: BoxFit.cover,
     );
   }
 
@@ -313,7 +413,56 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-  // Stories Tab Content
+// Refactored Stories Tab
+  Widget _buildStoriesTab() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: fetchStories(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text('No stories found'));
+        } else {
+          final stories = snapshot.data!;
+          return ListView.builder(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            itemCount: stories.length,
+            itemBuilder: (context, index) {
+              final story = stories[index];
+              final imageUrl = getFullImageUrl(story['images']);
+
+              return Column(
+                children: [
+                  _buildStoryCard(
+                    story['postTitle'] ?? '',
+                    formatDate(story['createdAt'] ?? ''),
+                    '', // no read_time
+                    imageUrl,
+                        () => _navigateToBlogPage(
+                      story['postTitle'] ?? '',
+                      formatDate(story['createdAt'] ?? ''),
+                      '', // no read_time
+                      imageUrl,
+                      story['postDescription'] ?? '',
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+              );
+            },
+          );
+        }
+      },
+    );
+  }
+
+
+
+
+
+
   // Widget _buildStoriesTab() {
   //   return ListView(
   //     padding: EdgeInsets.symmetric(horizontal: 16),
@@ -323,6 +472,13 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   //         '10 Sep 2025',
   //         '2min read',
   //         'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=180&fit=crop',
+  //             () => _navigateToBlogPage(
+  //           'Bridal busaj we\'re crushing on! outfits & Accessories That deserve a spot in your.',
+  //           '10 Sep 2025',
+  //           '2min read',
+  //           'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=180&fit=crop',
+  //           _getBridalBusajContent(),
+  //         ),
   //       ),
   //       SizedBox(height: 16),
   //       _buildStoryCard(
@@ -330,6 +486,13 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   //         '8 Sep 2025',
   //         '3min read',
   //         'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=180&fit=crop',
+  //             () => _navigateToBlogPage(
+  //           'Top 10 Wedding Photography Poses Every Couple Should Try',
+  //           '8 Sep 2025',
+  //           '3min read',
+  //           'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=180&fit=crop',
+  //           _getPhotographyContent(),
+  //         ),
   //       ),
   //       SizedBox(height: 16),
   //       _buildStoryCard(
@@ -337,190 +500,65 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   //         '5 Sep 2025',
   //         '4min read',
   //         'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=180&fit=crop',
+  //             () => _navigateToBlogPage(
+  //           'Modern Mehendi Designs That Are Trending This Season',
+  //           '5 Sep 2025',
+  //           '4min read',
+  //           'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=180&fit=crop',
+  //           _getMehendiContent(),
+  //         ),
   //       ),
   //       SizedBox(height: 16),
   //       _buildPartialStoryCard(),
   //     ],
   //   );
   // }
-  Widget _buildStoriesTab() {
-    return ListView(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        _buildStoryCard(
-          'Bridal busaj we\'re crushing on! outfits & Accessories That deserve a spot in your.',
-          '10 Sep 2025',
-          '2min read',
-          'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=180&fit=crop',
-              () => _navigateToBlogPage(
-            'Bridal busaj we\'re crushing on! outfits & Accessories That deserve a spot in your.',
-            '10 Sep 2025',
-            '2min read',
-            'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=180&fit=crop',
-            _getBridalBusajContent(),
-          ),
-        ),
-        SizedBox(height: 16),
-        _buildStoryCard(
-          'Top 10 Wedding Photography Poses Every Couple Should Try',
-          '8 Sep 2025',
-          '3min read',
-          'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=180&fit=crop',
-              () => _navigateToBlogPage(
-            'Top 10 Wedding Photography Poses Every Couple Should Try',
-            '8 Sep 2025',
-            '3min read',
-            'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=180&fit=crop',
-            _getPhotographyContent(),
-          ),
-        ),
-        SizedBox(height: 16),
-        _buildStoryCard(
-          'Modern Mehendi Designs That Are Trending This Season',
-          '5 Sep 2025',
-          '4min read',
-          'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=180&fit=crop',
-              () => _navigateToBlogPage(
-            'Modern Mehendi Designs That Are Trending This Season',
-            '5 Sep 2025',
-            '4min read',
-            'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=180&fit=crop',
-            _getMehendiContent(),
-          ),
-        ),
-        SizedBox(height: 16),
-        _buildPartialStoryCard(),
-      ],
-    );
-  }
   // Real Weddings Tab Content
   Widget _buildRealWeddingsTab() {
-    return ListView(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        _buildRealWeddingCard(
-          'Priya & Arjun\'s Royal Rajasthani Wedding in Udaipur',
-          'Udaipur, Rajasthan',
-          '₹25-30 Lakhs',
-          'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=200&fit=crop',
-        ),
-        SizedBox(height: 16),
-        _buildRealWeddingCard(
-          'Sarah & Mike\'s Beach Wedding in Goa',
-          'Goa',
-          '₹15-20 Lakhs',
-          'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=400&h=200&fit=crop',
-        ),
-        SizedBox(height: 16),
-        _buildRealWeddingCard(
-          'Anjali & Rohan\'s Traditional South Indian Wedding',
-          'Chennai, Tamil Nadu',
-          '₹20-25 Lakhs',
-          'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=400&h=200&fit=crop',
-        ),
-        SizedBox(height: 16),
-        _buildRealWeddingCard(
-          'Kavya & Vikram\'s Punjabi Wedding Extravaganza',
-          'Amritsar, Punjab',
-          '₹30-35 Lakhs',
-          'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=400&h=200&fit=crop',
-        ),
-      ],
+    return FutureBuilder<List<RealWedding>>(
+      future: fetchRealWeddings(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text('No weddings found'));
+        }
+
+        final weddings = snapshot.data!;
+
+        return ListView.separated(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          itemCount: weddings.length,
+          separatorBuilder: (_, __) => SizedBox(height: 16),
+          itemBuilder: (context, index) {
+            final wedding = weddings[index];
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RealWeddingDetailPage(wedding: wedding),
+                  ),
+                );
+              },
+              child: _buildRealWeddingCardPreview(wedding),
+            );
+          },
+        );
+      },
     );
   }
 
-  // Widget _buildStoryCard(String title, String date, String readTime, String imageUrl) {
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(12),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.grey.withOpacity(0.1),
-  //           spreadRadius: 1,
-  //           blurRadius: 8,
-  //           offset: Offset(0, 2),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Container(
-  //           height: 180,
-  //           decoration: BoxDecoration(
-  //             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-  //             image: DecorationImage(
-  //               image: NetworkImage(imageUrl),
-  //               fit: BoxFit.cover,
-  //             ),
-  //           ),
-  //         ),
-  //         Padding(
-  //           padding: EdgeInsets.all(16),
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               Text(
-  //                 title,
-  //                 style: TextStyle(
-  //                   fontSize: 16,
-  //                   fontWeight: FontWeight.w600,
-  //                   color: Colors.black87,
-  //                   height: 1.4,
-  //                 ),
-  //               ),
-  //               SizedBox(height: 8),
-  //               Row(
-  //                 children: [
-  //                   Text(
-  //                     date,
-  //                     style: TextStyle(
-  //                       fontSize: 12,
-  //                       color: Colors.grey[600],
-  //                     ),
-  //                   ),
-  //                   SizedBox(width: 8),
-  //                   Container(
-  //                     width: 4,
-  //                     height: 4,
-  //                     decoration: BoxDecoration(
-  //                       color: Colors.grey[400],
-  //                       shape: BoxShape.circle,
-  //                     ),
-  //                   ),
-  //                   SizedBox(width: 8),
-  //                   Text(
-  //                     readTime,
-  //                     style: TextStyle(
-  //                       fontSize: 12,
-  //                       color: Colors.grey[600],
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-  Widget _buildStoryCard(String title, String date, String readTime, String imageUrl, VoidCallback? onTap) {
+  Widget _buildStoryCard(String title, String date, String readTime, String imageUrl, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 8)],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,57 +570,25 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
                 height: 180,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 180,
-                    color: Colors.grey[300],
-                    child: Icon(Icons.image, size: 50, color: Colors.grey[600]),
-                  );
-                },
+                errorBuilder: (_, __, ___) => Container(
+                  height: 180,
+                  color: Colors.grey[300],
+                  child: Icon(Icons.broken_image, size: 50),
+                ),
               ),
             ),
             Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 8),
+                  Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(
-                        date,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[400],
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        readTime,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
+                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                      SizedBox(width: 4),
+                      Text(date, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                     ],
                   ),
                 ],
@@ -594,8 +600,12 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRealWeddingCard(String title, String location, String budget, String imageUrl) {
+
+
+
+  Widget _buildRealWeddingCardPreview(RealWedding wedding) {
     return Container(
+      margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -611,71 +621,104 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            children: [
-              Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                  image: DecorationImage(
-                    image: NetworkImage(imageUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+          // Cover Image
+          ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            child: wedding.coverPhoto != null
+                ? Image.network(
+              wedding.coverPhoto!,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 180,
+                color: Colors.grey[300],
+                child: Icon(Icons.broken_image, size: 50),
               ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Color(0xFFE91E63),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    budget,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            )
+                : Container(
+              height: 180,
+              color: Colors.grey[300],
+              child: Icon(Icons.image, size: 50),
+            ),
           ),
+
           Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Title
                 Text(
-                  title,
+                  wedding.title,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
-                    height: 1.4,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 4),
+
+                // City & Date
                 Row(
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Color(0xFFE91E63),
+                    Icon(Icons.location_on, size: 16, color: Color(0xFFE91E63)),
+                    SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        wedding.city,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    SizedBox(width: 12),
+                    Icon(Icons.event, size: 16, color: Color(0xFFE91E63)),
                     SizedBox(width: 4),
                     Text(
-                      location,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      wedding.weddingDate,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),
+                SizedBox(height: 8),
+
+                // Themes as chips
+                if (wedding.themes.isNotEmpty)
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: wedding.themes
+                        .map((theme) => Chip(
+                      label: Text(theme, style: TextStyle(fontSize: 12)),
+                      backgroundColor: Colors.pink.shade50,
+                      labelStyle: TextStyle(color: Color(0xFFE91E63)),
+                      visualDensity: VisualDensity.compact,
+                    ))
+                        .toList(),
+                  ),
+
+                // Featured label (optional)
+                if (wedding.featured)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        "Featured",
+                        style: TextStyle(
+                          color: Colors.amber.shade800,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -683,6 +726,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       ),
     );
   }
+
 
   Widget _buildPartialStoryCard() {
     return Container(
@@ -1210,4 +1254,330 @@ class BlogDetailPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class RealWeddingDetailPage extends StatelessWidget {
+  final RealWedding wedding;
+
+  const RealWeddingDetailPage({required this.wedding, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(wedding.title),
+        backgroundColor: Color(0xFFE91E63),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cover Photo
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: wedding.coverPhoto != null
+                  ? Image.network(
+                wedding.coverPhoto!,
+                width: double.infinity,
+                height: 220,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: double.infinity,
+                  height: 220,
+                  color: Colors.grey[300],
+                  child: Icon(Icons.broken_image, size: 50),
+                ),
+              )
+                  : Container(
+                width: double.infinity,
+                height: 220,
+                color: Colors.grey[300],
+                child: Icon(Icons.image, size: 50),
+              ),
+            ),
+            SizedBox(height: 16),
+
+            // Basic Info
+            Text(wedding.title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('City: ${wedding.city}', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+            Text('Wedding Date: ${wedding.weddingDate}', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+            SizedBox(height: 12),
+
+            // Venues
+            if (wedding.venues.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Venues:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Wrap(
+                    spacing: 8,
+                    children: wedding.venues.map((v) => Chip(label: Text(v))).toList(),
+                  ),
+                  SizedBox(height: 12),
+                ],
+              ),
+
+            // Bride & Groom Info
+            Text('Bride: ${wedding.brideName}', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(wedding.brideBio),
+            SizedBox(height: 8),
+            Text('Groom: ${wedding.groomName}', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(wedding.groomBio),
+            SizedBox(height: 12),
+
+            // Story
+            if (wedding.story.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Story:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(wedding.story),
+                  SizedBox(height: 12),
+                ],
+              ),
+
+            // Events
+            if (wedding.events.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Events:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ...wedding.events.map((e) => Text('${e['date']} - ${e['name']} at ${e['venue']}')),
+                  SizedBox(height: 12),
+                ],
+              ),
+
+            // Vendors
+            if (wedding.vendors.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Vendors:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ...wedding.vendors.map((v) => Text('${v['type']}: ${v['name']}')),
+                  SizedBox(height: 12),
+                ],
+              ),
+
+            // Themes
+            if (wedding.themes.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Themes:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Wrap(
+                    spacing: 8,
+                    children: wedding.themes.map((t) => Chip(label: Text(t))).toList(),
+                  ),
+                  SizedBox(height: 12),
+                ],
+              ),
+
+            // Outfits, special moments, photographer, makeup, decor
+            Text('Bride Outfit: ${wedding.brideOutfit}'),
+            Text('Groom Outfit: ${wedding.groomOutfit}'),
+            Text('Special Moments: ${wedding.specialMoments}'),
+            Text('Photographer: ${wedding.photographer}'),
+            Text('Makeup: ${wedding.makeup}'),
+            Text('Decor: ${wedding.decor}'),
+            SizedBox(height: 12),
+
+            // Additional Credits
+            if (wedding.additionalCredits.isNotEmpty)
+              Text('Credits: ${wedding.additionalCredits.join(', ')}'),
+
+            SizedBox(height: 16),
+
+            // Highlight Photos
+            if (wedding.highlightPhotos.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Highlight Photos:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  SizedBox(height: 8),
+                  SizedBox(
+                    height: 120,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: wedding.highlightPhotos.length,
+                      separatorBuilder: (_, __) => SizedBox(width: 8),
+                      itemBuilder: (context, index) => ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          wedding.highlightPhotos[index],
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 120,
+                            height: 120,
+                            color: Colors.grey[300],
+                            child: Icon(Icons.broken_image),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                ],
+              ),
+
+            // All Photos
+            if (wedding.allPhotos.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('All Photos:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  SizedBox(height: 8),
+                  SizedBox(
+                    height: 120,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: wedding.allPhotos.length,
+                      separatorBuilder: (_, __) => SizedBox(width: 8),
+                      itemBuilder: (context, index) => ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          wedding.allPhotos[index],
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 120,
+                            height: 120,
+                            color: Colors.grey[300],
+                            child: Icon(Icons.broken_image),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                ],
+              ),
+
+            // Created & Updated Dates
+            Text('Created At: ${wedding.createdAt.toLocal().toString().split(' ')[0]}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            Text('Updated At: ${wedding.updatedAt.toLocal().toString().split(' ')[0]}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class RealWedding {
+  final int id;
+  final String title;
+  final String slug;
+  final String weddingDate;
+  final String city;
+  final List<String> venues;
+  final String brideName;
+  final String brideBio;
+  final String groomName;
+  final String groomBio;
+  final String story;
+  final List<Map<String, String>> events;
+  final List<Map<String, String>> vendors;
+  final String? coverPhoto;
+  final List<String> highlightPhotos;
+  final List<String> allPhotos;
+  final List<String> themes;
+  final String brideOutfit;
+  final String groomOutfit;
+  final String specialMoments;
+  final String photographer;
+  final String makeup;
+  final String decor;
+  final List<String> additionalCredits;
+  final String status;
+  final bool featured;
+  final int userId;
+  final String userEmail;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  RealWedding({
+    required this.id,
+    required this.title,
+    required this.slug,
+    required this.weddingDate,
+    required this.city,
+    required this.venues,
+    required this.brideName,
+    required this.brideBio,
+    required this.groomName,
+    required this.groomBio,
+    required this.story,
+    required this.events,
+    required this.vendors,
+    this.coverPhoto,
+    required this.highlightPhotos,
+    required this.allPhotos,
+    required this.themes,
+    required this.brideOutfit,
+    required this.groomOutfit,
+    required this.specialMoments,
+    required this.photographer,
+    required this.makeup,
+    required this.decor,
+    required this.additionalCredits,
+    required this.status,
+    required this.featured,
+    required this.userId,
+    required this.userEmail,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory RealWedding.fromJson(Map<String, dynamic> json) {
+    return RealWedding(
+      id: json['id'],
+      title: json['title'],
+      slug: json['slug'],
+      weddingDate: json['weddingDate'],
+      city: json['city'],
+      venues: List<String>.from(json['venues'] ?? []),
+      brideName: json['brideName'],
+      brideBio: json['brideBio'],
+      groomName: json['groomName'],
+      groomBio: json['groomBio'],
+      story: json['story'],
+      events: (json['events'] as List<dynamic>?)
+          ?.map((e) => Map<String, String>.from(e as Map))
+          .toList() ?? [],
+      vendors: (json['vendors'] as List<dynamic>?)
+          ?.map((v) => Map<String, String>.from(v as Map))
+          .toList() ?? [],
+      coverPhoto: json['coverPhoto'] != null
+          ? "https://happywedz.com${json['coverPhoto']}"
+          : null,
+      highlightPhotos: (json['highlightPhotos'] as List<dynamic>?)
+          ?.map((e) => "https://happywedz.com$e")
+          .toList() ?? [],
+      allPhotos: (json['allPhotos'] as List<dynamic>?)
+          ?.map((e) => "https://happywedz.com$e")
+          .toList() ?? [],
+      themes: List<String>.from(json['themes'] ?? []),
+      brideOutfit: json['brideOutfit'],
+      groomOutfit: json['groomOutfit'],
+      specialMoments: json['specialMoments'],
+      photographer: json['photographer'],
+      makeup: json['makeup'],
+      decor: json['decor'],
+      additionalCredits: List<String>.from(json['additionalCredits'] ?? []),
+      status: json['status'],
+      featured: json['featured'] ?? false,
+      userId: json['user_id'],
+      userEmail: json['user_email'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
+
 }

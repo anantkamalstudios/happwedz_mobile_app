@@ -44,6 +44,17 @@ dependencies:
   http:
   csc_picker:
   flutter_launcher_icons:
+  flutter_gcaptcha_v3:
+  shared_preferences:
+  image_picker: ^1.1.2
+  firebase_core:
+  firebase_auth:
+  google_sign_in:
+  mailer:
+  g_recaptcha_v3:
+  intl:
+  flutter_svg:
+  firebase_app_check:
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -68,6 +79,7 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
   assets:
    - assets/homeicon.png
    - assets/menuicon.png
@@ -86,6 +98,8 @@ flutter:
    - assets/image 4.png
    - assets/hwav.webp
    - assets/image.png
+   - assets/file/recaptcha_v3.html
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

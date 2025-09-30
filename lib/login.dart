@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:happy_wedz/registration.dart';
+import 'package:http/http.dart' as http;
 
 
 // Popup Screen with Delete Account Dialog
@@ -267,8 +270,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
-  final TextEditingController _emailController = TextEditingController(text: 'Loisbecket@gmail.com');
-  final TextEditingController _passwordController = TextEditingController(text: '••••••••');
+  final TextEditingController _emailController = TextEditingController(text: '');
+  final TextEditingController _passwordController = TextEditingController(text: '');
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   bool _obscurePassword = true;
@@ -287,6 +290,67 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _fadeController.forward();
   }
 
+  void _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter email and password'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final url = Uri.parse('http://happywedz.com/api/user/login');
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": email,
+          "password": password,
+        }),
+      );
+
+      print("Status Code: ${response.statusCode}");
+      print("Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Store token if provided
+        final token = data['token'] ?? '';
+
+        // Navigate to Home Screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // TODO: Save token in SharedPreferences / SecureStorage
+        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen()));
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error['message'] ?? 'Login failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print("Login error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An error occurred. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
   @override
   void dispose() {
     _fadeController.dispose();
@@ -541,11 +605,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       child: ElevatedButton(
         onPressed: () {
           // Handle login
+          _handleLogin();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Login successful!'),
               backgroundColor: Color(0xFFE91E63),
             ),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SignUpScreen()),
           );
         },
         style: ElevatedButton.styleFrom(
@@ -634,4 +703,5 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       ),
     );
   }
+
 }
