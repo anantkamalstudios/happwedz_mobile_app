@@ -3442,23 +3442,23 @@ class RecaptchaHandler {
   }
 }
 
-class AuthService {
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-    clientId: '27907630225-7ej3amekq30agtsk4qfft344ths43uk1.apps.googleusercontent.com', // for web
-  );
-
-  Future<GoogleSignInAccount?> signInWithGoogle() async {
-    try {
-      final account = await _googleSignIn.signIn();
-      if (account != null) print('Google sign-in: ${account.email}');
-      return account;
-    } catch (e) {
-      print('Google sign-in error: $e');
-      return null;
-    }
-  }
-}
+// class AuthService {
+//   final GoogleSignIn _googleSignIn = GoogleSignIn(
+//     scopes: ['email', 'profile'],
+//     clientId: '27907630225-7ej3amekq30agtsk4qfft344ths43uk1.apps.googleusercontent.com', // for web
+//   );
+//
+//   Future<GoogleSignInAccount?> signInWithGoogle() async {
+//     try {
+//       final account = await _googleSignIn.signIn();
+//       if (account != null) print('Google sign-in: ${account.email}');
+//       return account;
+//     } catch (e) {
+//       print('Google sign-in error: $e');
+//       return null;
+//     }
+//   }
+// }
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -3519,17 +3519,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  Future<void> _handleGoogleSignUp() async {
-    final user = await AuthService().signInWithGoogle();
-    if (user != null) {
-      setState(() {
-        _isGoogleSignUp = true;
-        _nameController.text = user.displayName ?? '';
-        _emailController.text = user.email;
-        _passwordController.text = "google_auth_${DateTime.now().millisecondsSinceEpoch}";
-      });
-    }
-  }
+  // Future<void> _handleGoogleSignUp() async {
+  //   final user = await AuthService().signInWithGoogle();
+  //   if (user != null) {
+  //     setState(() {
+  //       _isGoogleSignUp = true;
+  //       _nameController.text = user.displayName ?? '';
+  //       _emailController.text = user.email;
+  //       _passwordController.text = "google_auth_${DateTime.now().millisecondsSinceEpoch}";
+  //     });
+  //   }
+  // }
 
   Future<void> _sendWelcomeEmail(String toEmail, String userName, String userPassword) async {
     try {
@@ -3686,14 +3686,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
               _buildInputField("Wedding Date", _dateController, readOnly: true, onTap: _selectDate, validator: (v) => v!.isEmpty ? "Select date" : null),
               SizedBox(height: 20),
               ElevatedButton.icon(
-                onPressed: _handleGoogleSignUp,
+
+                // onPressed: _handleGoogleSignUp,
                 icon: Icon(Icons.login, color: Colors.white),
                 label: Text("Continue with Gmail"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                   minimumSize: Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                ), onPressed: () {  },
               ),
               SizedBox(height: 12),
               ElevatedButton(

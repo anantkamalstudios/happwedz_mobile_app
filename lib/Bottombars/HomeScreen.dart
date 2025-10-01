@@ -1453,6 +1453,7 @@ import 'package:happy_wedz/login.dart';
 import 'package:happy_wedz/packages.dart';
 import 'package:happy_wedz/shop.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../DecorationScreen.dart';
 import '../WedChecklist/ChecklistScreen.dart';
@@ -2503,15 +2504,23 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   List<String> _countries = [];
   List<String> _states = [];
   List<String> _cities = [];
+  Map<String, bool> checkedItems = {};
 
   TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
+// ✅ Checklist State Variables
+  int completedCount = 0;
+  int totalTasks = 0;
+  List<String> upcomingTasks = [];
+  DateTime? weddingDate;
 
   @override
   void initState() {
     super.initState();
     _loadCountries();
+    _loadWeddingChecklistData();
+
   }
 
   Future<void> _loadCountries() async {
@@ -2657,6 +2666,48 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
+  // ------------------------ Checklist Methods ------------------------
+
+  Future<void> _loadWeddingChecklistData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    String? lastDate = prefs.getString('last_wedding_date');
+    if (lastDate != null) {
+      weddingDate = DateTime.parse(lastDate);
+
+      String key = 'wedding_${weddingDate!.toIso8601String()}_tasks';
+      List<String>? completedTasks = prefs.getStringList(key);
+
+      // Get all tasks dynamically from timeline data
+      List<String> allTasks = WeddingTimelineData.timelineData
+          .expand((item) => item.tasks)
+          .toList();
+
+      setState(() {
+        completedCount = completedTasks?.length ?? 0;
+        totalTasks = allTasks.length;
+
+        upcomingTasks = allTasks
+            .where((task) => !(completedTasks?.contains(task) ?? false))
+            .take(3)
+            .toList();
+
+        checkedItems = {
+          for (var task in allTasks)
+            task: completedTasks?.contains(task) ?? false,
+        };
+      });
+    }
+  }
+
+  Future<void> _updateChecklistFromTimeline() async {
+    // Reload progress when returning from timeline page
+    await _loadWeddingChecklistData();
+  }
+
+
+
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -2770,19 +2821,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       const SizedBox(height: 30),
 
                       _buildWeddingChecklistSection(
-                        completedCount: 0,       // replace with dynamic value if needed
-                        totalTasks: 34,          // total number of tasks
-                        upcomingTasks: [
-                          "Discuss ideas with partner",
-                          "Fix date venue"
-                        ],
-                        onTap: () {
-                          Navigator.push(
+                        completedCount: completedCount,
+                        totalTasks: totalTasks,
+                        upcomingTasks: upcomingTasks,
+                        onTap: () async {
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => WeddingTimelinePage()),
                           );
+                          _updateChecklistFromTimeline(); // refresh after returning
                         },
                       ),
+
 
                       const SizedBox(height: 30),
                       _buildTrendingTodaySection(),
@@ -2812,6 +2862,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       // bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
+
+
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -3523,7 +3575,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             ),
             child: Stack(
               children: [
-                // Decorative circles
                 Positioned(
                   top: -20,
                   right: -20,
@@ -3548,13 +3599,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                     ),
                   ),
                 ),
-                // Main content
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Top row: count + icon
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -3594,7 +3643,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // Upcoming tasks
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -3657,187 +3705,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
-  // Widget _buildWeddingChecklistSection() {
-  //   return GestureDetector(
-  //     onTap: (){
-  //       Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingTimelinePage()));
-  //     },
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         const Text(
-  //           'Wedding checklist',
-  //           style: TextStyle(
-  //             fontSize: 18,
-  //             fontWeight: FontWeight.bold,
-  //             color: Colors.black87,
-  //           ),
-  //         ),
-  //         const SizedBox(height: 15),
-  //         Container(
-  //           width: double.infinity,
-  //           decoration: BoxDecoration(
-  //             gradient: const LinearGradient(
-  //               colors: [Color(0xFFE91E63), Color(0xFFFF6B35)],
-  //               begin: Alignment.topLeft,
-  //               end: Alignment.bottomRight,
-  //             ),
-  //             borderRadius: BorderRadius.circular(16),
-  //           ),
-  //           child: Stack(
-  //             children: [
-  //               // Decorative circles in background
-  //               Positioned(
-  //                 top: -20,
-  //                 right: -20,
-  //                 child: Container(
-  //                   width: 80,
-  //                   height: 80,
-  //                   decoration: BoxDecoration(
-  //                     shape: BoxShape.circle,
-  //                     color: Colors.white.withOpacity(0.1),
-  //                   ),
-  //                 ),
-  //               ),
-  //               Positioned(
-  //                 bottom: -10,
-  //                 right: 30,
-  //                 child: Container(
-  //                   width: 40,
-  //                   height: 40,
-  //                   decoration: BoxDecoration(
-  //                     shape: BoxShape.circle,
-  //                     color: Colors.white.withOpacity(0.1),
-  //                   ),
-  //                 ),
-  //               ),
-  //               // Main content
-  //               Padding(
-  //                 padding: const EdgeInsets.all(20),
-  //                 child: Column(
-  //                   crossAxisAlignment: CrossAxisAlignment.start,
-  //                   children: [
-  //                     Row(
-  //                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //                       children: [
-  //                         Column(
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           children: [
-  //                             const Text(
-  //                               '0/73',
-  //                               style: TextStyle(
-  //                                 color: Colors.white,
-  //                                 fontSize: 28,
-  //                                 fontWeight: FontWeight.bold,
-  //                               ),
-  //                             ),
-  //                             const Text(
-  //                               'Task done',
-  //                               style: TextStyle(
-  //                                 color: Colors.white,
-  //                                 fontSize: 14,
-  //                                 fontWeight: FontWeight.w500,
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                         Container(
-  //                           padding: const EdgeInsets.all(10),
-  //                           decoration: BoxDecoration(
-  //                             color: Colors.white.withOpacity(0.25),
-  //                             shape: BoxShape.circle,
-  //                           ),
-  //                           child: const Icon(
-  //                             Icons.check,
-  //                             color: Colors.white,
-  //                             size: 20,
-  //                           ),
-  //                         ),
-  //                       ],
-  //                     ),
-  //                     const SizedBox(height: 16),
-  //                     Container(
-  //                       padding: const EdgeInsets.all(14),
-  //                       decoration: BoxDecoration(
-  //                         color: Colors.white,
-  //                         borderRadius: BorderRadius.circular(10),
-  //                       ),
-  //                       child: Column(
-  //                         crossAxisAlignment: CrossAxisAlignment.start,
-  //                         children: [
-  //                           const Text(
-  //                             'Upcoming tasks',
-  //                             style: TextStyle(
-  //                               fontSize: 13,
-  //                               fontWeight: FontWeight.w600,
-  //                               color: Colors.black87,
-  //                             ),
-  //                           ),
-  //                           const SizedBox(height: 8),
-  //                           Row(
-  //                             crossAxisAlignment: CrossAxisAlignment.start,
-  //                             children: [
-  //                               Container(
-  //                                 width: 4,
-  //                                 height: 4,
-  //                                 margin: const EdgeInsets.only(top: 6),
-  //                                 decoration: const BoxDecoration(
-  //                                   color: Colors.black87,
-  //                                   shape: BoxShape.circle,
-  //                                 ),
-  //                               ),
-  //                               const SizedBox(width: 8),
-  //                               const Expanded(
-  //                                 child: Text(
-  //                                   'Discuss ideas with partners',
-  //                                   style: TextStyle(
-  //                                     fontSize: 11,
-  //                                     color: Colors.black87,
-  //                                     height: 1.3,
-  //                                   ),
-  //                                 ),
-  //                               ),
-  //                             ],
-  //                           ),
-  //                           const SizedBox(height: 6),
-  //                           Row(
-  //                             crossAxisAlignment: CrossAxisAlignment.start,
-  //                             children: [
-  //                               Container(
-  //                                 width: 4,
-  //                                 height: 4,
-  //                                 margin: const EdgeInsets.only(top: 6),
-  //                                 decoration: const BoxDecoration(
-  //                                   color: Colors.black87,
-  //                                   shape: BoxShape.circle,
-  //                                 ),
-  //                               ),
-  //                               const SizedBox(width: 8),
-  //                               const Expanded(
-  //                                 child: Text(
-  //                                   'Fix date venue',
-  //                                   style: TextStyle(
-  //                                     fontSize: 11,
-  //                                     color: Colors.black87,
-  //                                     height: 1.3,
-  //                                   ),
-  //                                 ),
-  //                               ),
-  //                             ],
-  //                           ),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget _buildTrendingTodaySection() {
     return Column(

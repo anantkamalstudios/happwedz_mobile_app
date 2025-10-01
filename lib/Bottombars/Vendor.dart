@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../vendor/vendordetailsscreen.dart';
+
 class VendorCategoriesScreen extends StatefulWidget {
   const VendorCategoriesScreen({Key? key}) : super(key: key);
 
@@ -539,7 +541,7 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
     required bool isExpanded,
     required VoidCallback onTap,
     required String image,
-    required List<String> subcategories,
+    required List<String> subcategories, // List of subcategory names
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -600,7 +602,6 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Category Image
                   Container(
                     width: 80,
                     height: 60,
@@ -617,19 +618,11 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        color: Colors.grey.shade100,
-                        child:Image.network(
-                      "https://happywedz.com/api/${image}",
+                      child: Image.network(
+                        "https://happywedz.com/api/$image",
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.grey),
-                      ),
-
-                      // Replace with actual image:
-                        // Image.asset(
-                        //   image,
-                        //   fit: BoxFit.cover,
-                        // ),
+                        errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.broken_image, color: Colors.grey),
                       ),
                     ),
                   ),
@@ -637,26 +630,30 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
               ),
             ),
           ),
-
-          // Expanded Subcategories
           if (isExpanded) ...[
             const Divider(height: 1, color: Colors.grey),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 children: subcategories.map((subcategory) {
-                  if (subcategory.isEmpty) {
-                    return const SizedBox(height: 8);
-                  }
+                  if (subcategory.isEmpty) return const SizedBox(height: 8);
+
                   return InkWell(
                     onTap: () {
-                      // Handle subcategory tap
-                      print('Tapped: $subcategory');
+                      // Pass the exact subcategory name as returned from API
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => VendorServicesScreen(
+                            subcategoryName: subcategory, // exact casing & spaces
+                          ),
+                        ),
+                      );
                     },
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 8),
+                      padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                       child: Text(
                         subcategory,
                         style: TextStyle(
@@ -680,7 +677,11 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
     );
   }
 
+
+
 }
+
+
 
 
 class VendorCategory {

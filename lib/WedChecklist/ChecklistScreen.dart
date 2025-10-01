@@ -595,7 +595,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class WeddingTimelinePage extends StatefulWidget {
+  const WeddingTimelinePage({super.key});
+
   @override
   _WeddingTimelinePageState createState() => _WeddingTimelinePageState();
 }
@@ -608,7 +622,365 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   Map<String, bool> checkedItems = {};
   DateTime? weddingDate;
 
-  final List<TimelineItem> timelineData = [
+  final List<TimelineItem> timelineData = WeddingTimelineData.timelineData;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
+    _animationController.forward();
+
+    _loadLastWeddingDate();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProgress() async {
+    if (weddingDate == null) return;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String key = 'wedding_${weddingDate!.toIso8601String()}_tasks';
+    List<String> completedTasks =
+    checkedItems.entries.where((e) => e.value).map((e) => e.key).toList();
+    await prefs.setStringList(key, completedTasks);
+  }
+
+  Future<void> _loadProgress() async {
+    if (weddingDate == null) return;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String key = 'wedding_${weddingDate!.toIso8601String()}_tasks';
+    List<String>? completed = prefs.getStringList(key);
+    setState(() {
+      checkedItems.clear();
+      if (completed != null) {
+        for (var task in completed) {
+          checkedItems[task] = true;
+        }
+      }
+    });
+  }
+
+  Future<void> _saveLastWeddingDate() async {
+    if (weddingDate == null) return;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_wedding_date', weddingDate!.toIso8601String());
+  }
+
+  Future<void> _loadLastWeddingDate() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? lastDate = prefs.getString('last_wedding_date');
+    if (lastDate != null) {
+      setState(() {
+        weddingDate = DateTime.parse(lastDate);
+      });
+      await _loadProgress();
+    }
+  }
+
+  String getTimeframeLabel(int index) {
+    if (weddingDate == null) {
+      const labels = [
+        "12 MONTHS OR MORE TO GO",
+        "9 MONTHS TO GO",
+        "6 MONTHS TO GO",
+        "5 MONTHS TO GO",
+        "4 MONTHS TO GO",
+        "3 MONTHS TO GO",
+        "2 MONTHS TO GO",
+        "1 MONTH TO GO",
+        "1 WEEK TO GO"
+      ];
+      return index < labels.length ? labels[index] : "This Week";
+    }
+    int totalItems = timelineData.length;
+    int daysBeforeWedding = (totalItems - index) * 30;
+    DateTime taskDate = weddingDate!.subtract(Duration(days: daysBeforeWedding));
+    Duration difference = weddingDate!.difference(taskDate);
+    if (difference.inDays >= 365) return "12 MONTHS OR MORE TO GO";
+    if (difference.inDays >= 270) return "9 MONTHS TO GO";
+    if (difference.inDays >= 180) return "6 MONTHS TO GO";
+    if (difference.inDays >= 150) return "5 MONTHS TO GO";
+    if (difference.inDays >= 120) return "4 MONTHS TO GO";
+    if (difference.inDays >= 90) return "3 MONTHS TO GO";
+    if (difference.inDays >= 60) return "2 MONTHS TO GO";
+    if (difference.inDays >= 30) return "1 MONTH TO GO";
+    if (difference.inDays >= 7) return "1 WEEK TO GO";
+    return "This Week";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Color(0xFFF8F8F8),
+      appBar: AppBar(
+        title: Text('Wedding Timeline'),
+        backgroundColor: Color(0xFFFF7B9A),
+        centerTitle: true,
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFFF7B9A),
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                ),
+                onPressed: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: weddingDate ?? DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(Duration(days: 730)),
+                  );
+                  if (pickedDate != null) {
+                    setState(() {
+                      weddingDate = pickedDate;
+                    });
+                    await _loadProgress();
+                    await _saveLastWeddingDate();
+                  }
+                },
+                child: Text(
+                  weddingDate == null
+                      ? "Select Wedding Date"
+                      : "Wedding Date: ${weddingDate!.day}/${weddingDate!.month}/${weddingDate!.year}",
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+              SizedBox(height: 20),
+
+              ...timelineData.asMap().entries.map((entry) {
+                int index = entry.key;
+                TimelineItem item = entry.value;
+                return _buildTimelineCard(item, index);
+              }).toList(),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showProgressDialog,
+        backgroundColor: Color(0xFFFF7B9A),
+        child: Icon(Icons.analytics),
+      ),
+    );
+  }
+
+  Widget _buildTimelineCard(TimelineItem item, int index) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTimelineConnector(index, item.icon, item.color),
+          SizedBox(width: 16),
+          Expanded(child: _buildTaskCard(item, index)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineConnector(int index, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.white, size: 24),
+        ),
+        if (index < timelineData.length - 1)
+          Container(
+            width: 2,
+            height: 60,
+            color: Colors.grey.shade300,
+            margin: EdgeInsets.symmetric(vertical: 8),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTaskCard(TimelineItem item, int index) {
+    return Card(
+      elevation: 6,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade600,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                getTimeframeLabel(index),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+            SizedBox(height: 16),
+            ...item.tasks.map((task) => _buildTaskItem(task)).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskItem(String task) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () async {
+              if (weddingDate == null) {
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: Text('Select Wedding Date First'),
+                    content:
+                    Text('Please select your wedding date before marking tasks.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text('OK'),
+                      )
+                    ],
+                  ),
+                );
+                return;
+              }
+
+              if (checkedItems[task] == true) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Task already completed!'),
+                  duration: Duration(seconds: 2),
+                ));
+                return;
+              }
+
+              setState(() {
+                checkedItems[task] = true;
+              });
+              await _saveProgress();
+            },
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: 200),
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: checkedItems[task] == true
+                    ? Color(0xFFFF7B9A)
+                    : Colors.transparent,
+                border: Border.all(
+                    color: checkedItems[task] == true
+                        ? Color(0xFFFF7B9A)
+                        : Colors.grey.shade400,
+                    width: 2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: checkedItems[task] == true
+                  ? Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              task,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+                decoration: checkedItems[task] == true
+                    ? TextDecoration.lineThrough
+                    : null,
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showProgressDialog() {
+    int totalTasks = timelineData.fold(0, (sum, item) => sum + item.tasks.length);
+    int completedTasks = checkedItems.values.where((c) => c).length;
+    double progress = totalTasks > 0 ? completedTasks / totalTasks : 0.0;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Wedding Planning Progress',
+          style: TextStyle(color: Color(0xFFFF7B9A), fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF7B9A)),
+              strokeWidth: 6,
+            ),
+            SizedBox(height: 20),
+            Text('${(progress * 100).toInt()}% Complete',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 10),
+            Text('$completedTasks of $totalTasks tasks completed',
+                style: TextStyle(color: Colors.grey.shade600)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Close', style: TextStyle(color: Color(0xFFFF7B9A))),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+
+class TimelineItem {
+  final List<String> tasks;
+  final IconData icon;
+  final Color color;
+
+  TimelineItem({
+    required this.tasks,
+    required this.icon,
+    required this.color,
+  });
+}
+
+class WeddingTimelineData {
+  // This is the dynamic list of timeline items
+  static List<TimelineItem> timelineData = [
     TimelineItem(
       tasks: ["Browse and save outfit photos"],
       icon: Icons.favorite,
@@ -696,381 +1068,6 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       color: Color(0xFFFF7B9A),
     ),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    _animationController.forward();
-
-    _loadProgress();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveProgress() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setStringList('completedTasks', checkedItems.entries
-        .where((e) => e.value)
-        .map((e) => e.key)
-        .toList());
-  }
-
-  Future<void> _loadProgress() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      List<String>? completed = prefs.getStringList('completedTasks');
-      if (completed != null) {
-        setState(() {
-          for (var task in completed) {
-            checkedItems[task] = true;
-          }
-        });
-      }
-    } catch (e) {
-      print("SharedPreferences error: $e");
-    }
-  }
-
-  String getTimeframeLabel(int index) {
-    if (weddingDate == null) {
-      const labels = [
-        "12 MONTHS OR MORE TO GO",
-        "9 MONTHS TO GO",
-        "6 MONTHS TO GO",
-        "5 MONTHS TO GO",
-        "4 MONTHS TO GO",
-        "3 MONTHS TO GO",
-        "2 MONTHS TO GO",
-        "1 MONTH TO GO",
-        "1 WEEK TO GO"
-      ];
-      return labels[index];
-    }
-
-    DateTime taskDate = weddingDate!.subtract(Duration(days: (timelineData.length - index) * 30));
-    Duration difference = weddingDate!.difference(taskDate);
-    if (difference.inDays >= 365) return "12 MONTHS OR MORE TO GO";
-    if (difference.inDays >= 270) return "9 MONTHS TO GO";
-    if (difference.inDays >= 180) return "6 MONTHS TO GO";
-    if (difference.inDays >= 150) return "5 MONTHS TO GO";
-    if (difference.inDays >= 120) return "4 MONTHS TO GO";
-    if (difference.inDays >= 90) return "3 MONTHS TO GO";
-    if (difference.inDays >= 60) return "2 MONTHS TO GO";
-    if (difference.inDays >= 30) return "1 MONTH TO GO";
-    if (difference.inDays >= 7) return "1 WEEK TO GO";
-    return "This Week";
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFF8F8F8),
-      appBar: AppBar(
-        title: Text(
-          'Wedding Timeline',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: Color(0xFFFF7B9A),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.share),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Share timeline feature coming soon!')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Wedding Date Picker
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFFF7B9A),
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                ),
-                onPressed: () async {
-                  DateTime? pickedDate = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(Duration(days: 730)),
-                  );
-                  if (pickedDate != null) {
-                    setState(() {
-                      weddingDate = pickedDate;
-                    });
-                  }
-                },
-                child: Text(
-                  weddingDate == null
-                      ? "Select Wedding Date"
-                      : "Wedding Date: ${weddingDate!.day}/${weddingDate!.month}/${weddingDate!.year}",
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-              SizedBox(height: 20),
-
-              // Timeline
-              ...timelineData.asMap().entries.map((entry) {
-                int index = entry.key;
-                TimelineItem item = entry.value;
-                return _buildTimelineCard(item, index);
-              }).toList(),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showProgressDialog,
-        backgroundColor: Color(0xFFFF7B9A),
-        child: Icon(Icons.analytics),
-      ),
-    );
-  }
-
-  Widget _buildTimelineCard(TimelineItem item, int index) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTimelineConnector(index, item.icon, item.color),
-          SizedBox(width: 16),
-          Expanded(
-            child: AnimatedContainer(
-              duration: Duration(milliseconds: 500),
-              curve: Curves.easeInOut,
-              child: _buildTaskCard(item, index),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineConnector(int index, IconData icon, Color color) {
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.4),
-                blurRadius: 8,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: Colors.white, size: 24),
-        ),
-        if (index < timelineData.length - 1)
-          Container(
-            width: 2,
-            height: 60,
-            color: Colors.grey.shade300,
-            margin: EdgeInsets.symmetric(vertical: 8),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildTaskCard(TimelineItem item, int index) {
-    return Card(
-      elevation: 6,
-      shadowColor: Colors.black26,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [item.color.withOpacity(0.1), Colors.white],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade600,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  getTimeframeLabel(index),
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-              SizedBox(height: 16),
-              ...item.tasks.map((task) => _buildTaskItem(task)).toList(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTaskItem(String task) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                checkedItems[task] = !(checkedItems[task] ?? false);
-              });
-              _saveProgress();
-            },
-            child: AnimatedContainer(
-              duration: Duration(milliseconds: 200),
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: checkedItems[task] == true
-                    ? Color(0xFFFF7B9A)
-                    : Colors.transparent,
-                border: Border.all(
-                  color: checkedItems[task] == true
-                      ? Color(0xFFFF7B9A)
-                      : Colors.grey.shade400,
-                  width: 2,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: checkedItems[task] == true
-                  ? Icon(Icons.check, color: Colors.white, size: 14)
-                  : null,
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(
-                          'Tap to open vendors / search related to "$task"')),
-                );
-              },
-              child: Text(
-                task,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade700,
-                  decoration: checkedItems[task] == true
-                      ? TextDecoration.lineThrough
-                      : null,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showProgressDialog() {
-    int totalTasks = timelineData.fold(0, (sum, item) => sum + item.tasks.length);
-    int completedTasks = checkedItems.values.where((completed) => completed).length;
-    double progress = totalTasks > 0 ? completedTasks / totalTasks : 0.0;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            'Wedding Planning Progress',
-            style: TextStyle(
-              color: Color(0xFFFF7B9A),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(
-                value: progress,
-                backgroundColor: Colors.grey.shade200,
-                valueColor:
-                AlwaysStoppedAnimation<Color>(Color(0xFFFF7B9A)),
-                strokeWidth: 6,
-              ),
-              SizedBox(height: 20),
-              Text(
-                '${(progress * 100).toInt()}% Complete',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 10),
-              Text(
-                '$completedTasks of $totalTasks tasks completed',
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Close', style: TextStyle(color: Color(0xFFFF7B9A))),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class TimelineItem {
-  final List<String> tasks;
-  final IconData icon;
-  final Color color;
-
-  TimelineItem({
-    required this.tasks,
-    required this.icon,
-    required this.color,
-  });
 }
 
 
