@@ -47,14 +47,18 @@ dependencies:
   flutter_gcaptcha_v3:
   shared_preferences:
   image_picker: ^1.1.2
-  firebase_core:
-  firebase_auth:
-  google_sign_in:
+#  firebase_core:
+#  firebase_auth:
+  google_sign_in: ^6.1.1
   mailer:
   g_recaptcha_v3:
   intl:
   flutter_svg:
   firebase_app_check:
+  truecaller_sdk: ^1.0.0
+  flutter_facebook_auth: ^7.0.0
+  firebase_auth: ^5.0.0   # if you want Firebase integration
+  firebase_core: ^3.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -99,6 +103,7 @@ flutter:
    - assets/hwav.webp
    - assets/image.png
    - assets/file/recaptcha_v3.html
+   - assets/google.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

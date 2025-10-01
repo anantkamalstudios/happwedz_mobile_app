@@ -544,7 +544,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
                                 const Icon(Icons.star, color: Colors.orange, size: 20),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '5.0 Review Score',
+                                vendor['rating'] ?? '5.0 Review Score',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey[600],

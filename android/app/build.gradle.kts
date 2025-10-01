@@ -48,6 +48,7 @@ android {
         implementation(platform("com.google.firebase:firebase-bom:32.2.2"))
         implementation("com.google.firebase:firebase-auth-ktx:21.1.0")
         implementation("com.google.android.gms:play-services-auth:20.7.0")
+        implementation("com.facebook.android:facebook-android-sdk:latest.release")
     }
 
     buildTypes {

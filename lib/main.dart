@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
 
 void main() async {
@@ -41,10 +43,1464 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home:  TravelPromoScreen(),
+      home:  SignInScreen(),
     );
   }
 }
+
+
+class Country {
+  final String name;
+  final String code;
+  final String dialCode;
+  final String flag;
+  final int phoneLength;
+
+  Country({
+    required this.name,
+    required this.code,
+    required this.dialCode,
+    required this.flag,
+    required this.phoneLength,
+  });
+}
+
+class CountryData {
+  static List<Country> countries = [
+    Country(name: 'India', code: 'IN', dialCode: '+91', flag: '🇮🇳', phoneLength: 10),
+    Country(name: 'United States', code: 'US', dialCode: '+1', flag: '🇺🇸', phoneLength: 10),
+    Country(name: 'United Kingdom', code: 'GB', dialCode: '+44', flag: '🇬🇧', phoneLength: 10),
+    Country(name: 'Canada', code: 'CA', dialCode: '+1', flag: '🇨🇦', phoneLength: 10),
+    Country(name: 'Australia', code: 'AU', dialCode: '+61', flag: '🇦🇺', phoneLength: 9),
+    Country(name: 'Germany', code: 'DE', dialCode: '+49', flag: '🇩🇪', phoneLength: 10),
+    Country(name: 'France', code: 'FR', dialCode: '+33', flag: '🇫🇷', phoneLength: 9),
+    Country(name: 'Italy', code: 'IT', dialCode: '+39', flag: '🇮🇹', phoneLength: 10),
+    Country(name: 'Spain', code: 'ES', dialCode: '+34', flag: '🇪🇸', phoneLength: 9),
+    Country(name: 'China', code: 'CN', dialCode: '+86', flag: '🇨🇳', phoneLength: 11),
+    Country(name: 'Japan', code: 'JP', dialCode: '+81', flag: '🇯🇵', phoneLength: 10),
+    Country(name: 'South Korea', code: 'KR', dialCode: '+82', flag: '🇰🇷', phoneLength: 10),
+    Country(name: 'Brazil', code: 'BR', dialCode: '+55', flag: '🇧🇷', phoneLength: 11),
+    Country(name: 'Mexico', code: 'MX', dialCode: '+52', flag: '🇲🇽', phoneLength: 10),
+    Country(name: 'Russia', code: 'RU', dialCode: '+7', flag: '🇷🇺', phoneLength: 10),
+    Country(name: 'South Africa', code: 'ZA', dialCode: '+27', flag: '🇿🇦', phoneLength: 9),
+    Country(name: 'Singapore', code: 'SG', dialCode: '+65', flag: '🇸🇬', phoneLength: 8),
+    Country(name: 'Malaysia', code: 'MY', dialCode: '+60', flag: '🇲🇾', phoneLength: 9),
+    Country(name: 'Thailand', code: 'TH', dialCode: '+66', flag: '🇹🇭', phoneLength: 9),
+    Country(name: 'Indonesia', code: 'ID', dialCode: '+62', flag: '🇮🇩', phoneLength: 10),
+    Country(name: 'Philippines', code: 'PH', dialCode: '+63', flag: '🇵🇭', phoneLength: 10),
+    Country(name: 'Vietnam', code: 'VN', dialCode: '+84', flag: '🇻🇳', phoneLength: 9),
+    Country(name: 'Pakistan', code: 'PK', dialCode: '+92', flag: '🇵🇰', phoneLength: 10),
+    Country(name: 'Bangladesh', code: 'BD', dialCode: '+880', flag: '🇧🇩', phoneLength: 10),
+    Country(name: 'Sri Lanka', code: 'LK', dialCode: '+94', flag: '🇱🇰', phoneLength: 9),
+    Country(name: 'Nepal', code: 'NP', dialCode: '+977', flag: '🇳🇵', phoneLength: 10),
+    Country(name: 'UAE', code: 'AE', dialCode: '+971', flag: '🇦🇪', phoneLength: 9),
+    Country(name: 'Saudi Arabia', code: 'SA', dialCode: '+966', flag: '🇸🇦', phoneLength: 9),
+    Country(name: 'Turkey', code: 'TR', dialCode: '+90', flag: '🇹🇷', phoneLength: 10),
+    Country(name: 'Egypt', code: 'EG', dialCode: '+20', flag: '🇪🇬', phoneLength: 10),
+  ];
+}
+
+
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SignInScreen> createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
+  Country selectedCountry = CountryData.countries[0]; // Default to India
+  final TextEditingController phoneController = TextEditingController();
+  bool isEmailMode = false;
+  final TextEditingController emailController = TextEditingController();
+  bool isValidEmail = false;
+
+  bool isValidNumber = false;
+  // Google Sign-In
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email'],
+  );
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      final account = await _googleSignIn.signIn();
+      print("account: $account");
+      if (account != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>UserRoleScreen()
+          ),
+        );
+      }
+    } catch (error) {
+      print('Google Sign-In failed: $error');
+    }
+  }
+
+  void _authenticateWithEmail() {
+    if (!isValidEmail) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid email')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserRoleScreen()
+      ),
+    );
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+  void _onPhoneChanged(String value) {
+    setState(() {
+      isValidNumber = value.length == selectedCountry.phoneLength;
+    });
+  }
+  void _onEmailChanged(String value) {
+    setState(() {
+      // Simple email regex validation
+      isValidEmail = RegExp(
+          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$'
+      ).hasMatch(value);
+    });
+  }
+
+  // void _authenticateWithEmail() {
+  //   if (!isValidEmail) {
+  //     _showSnackBar('Enter a valid email address');
+  //     return;
+  //   }
+  //
+  //   final mockUserData = {
+  //     'name': 'Harshada Shinde', // Can keep dynamic if needed
+  //     'email': emailController.text,
+  //     'method': 'Email',
+  //   };
+  //
+  //   _navigateToTruecaller(mockUserData);
+  // }
+
+  // Mock fetch user name by phone
+  String _fetchUserName(String phoneNumber) {
+    // For mock, just return name based on last digit
+    int lastDigit = int.tryParse(phoneNumber.characters.last) ?? 0;
+    List<String> names = [
+      'Harshada Shinde',
+      'Rahul Sharma',
+      'Ananya Mehta',
+      'Rohan Kapoor',
+      'Priya Singh'
+    ];
+    return names[lastDigit % names.length];
+  }
+
+  void _authenticateWithPhone() {
+    if (!isValidNumber) {
+      _showSnackBar('Enter valid phone number for ${selectedCountry.name}');
+      return;
+    }
+
+    String fullNumber = '${selectedCountry.dialCode}${phoneController.text}';
+    String userName = _fetchUserName(phoneController.text);
+
+    final mockUserData = {
+      'name': userName,
+      'phone': fullNumber,
+      'method': 'Phone',
+    };
+
+    _navigateToTruecaller(mockUserData);
+  }
+
+  void _navigateToTruecaller(Map<String, String> userData) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (context) =>UserRoleScreen()),
+    );
+
+    if (result == false) {
+      // Navigate to signup screen (dummy for now)
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const SignInScreen())); // Mock signup
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: const Color(0xFFE91E63),
+    ));
+  }
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          children: [
+            Text(
+              'Select Country',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF424242),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: CountryData.countries.length,
+                itemBuilder: (context, index) {
+                  final country = CountryData.countries[index];
+                  return ListTile(
+                    leading: Text(
+                      country.flag,
+                      style: const TextStyle(fontSize: 28),
+                    ),
+                    title: Text(
+                      country.name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    trailing: Text(
+                      country.dialCode,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        selectedCountry = country;
+                      });
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loginWithFacebook(BuildContext context) async {
+    try {
+      final LoginResult result = await FacebookAuth.instance.login(
+        permissions: ['email', 'public_profile'],
+
+      );
+      print(result.status);
+      if (result.status == LoginStatus.success) {
+        // Get user data
+        final userData = await FacebookAuth.instance.getUserData();
+        print("✅ Facebook Login Success: $userData");
+        //
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(content: Text("Welcome, ${userData['name']}")),
+        // );
+
+        // TODO: Navigate to BottomBars or Home
+        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BottomBars()));
+      } else {
+        print("❌ Facebook Login Failed: ${result.status}");
+      }
+    } catch (e) {
+      print("⚠️ Error during Facebook login: $e");
+    }
+  }
+
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                color: Color(0xFFE91E63),
+              ),
+              const SizedBox(height: 15),
+              Text(
+                'Authenticating...',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4),
+              Color(0xFFFFB6C1),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.6],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // Decorative bunting at top
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Image.network(
+                  'https://cdn-icons-png.flaticon.com/512/2917/2917995.png',
+                  width: MediaQuery.of(context).size.width * 0.4,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                ),
+              ),
+              // Back button
+              // Positioned(
+              //   top: 20,
+              //   left: 20,
+              //   child: Container(
+              //     width: 50,
+              //     height: 50,
+              //     decoration: BoxDecoration(
+              //       color: Colors.white.withOpacity(0.9),
+              //       shape: BoxShape.circle,
+              //     ),
+              //     child: const Icon(
+              //       Icons.arrow_back_ios_new,
+              //       color: Color(0xFF424242),
+              //       size: 20,
+              //     ),
+              //   ),
+              // ),
+              // Main content
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 220),
+                      Text(
+                        'Sign In/ Sign Up',
+                        style: GoogleFonts.poppins(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF424242),
+                        ),
+                      ),
+                      const SizedBox(height: 50),
+                      // Phone number input
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 30),
+                        child: Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 15),
+                              if (!isEmailMode)
+                                GestureDetector(
+                                  onTap: _showCountryPicker,
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        selectedCountry.flag,
+                                        style: const TextStyle(fontSize: 24),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      const Icon(
+                                        Icons.arrow_drop_down,
+                                        color: Colors.grey,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        selectedCountry.dialCode,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (!isEmailMode) const SizedBox(width: 15),
+
+                              Expanded(
+                                child: TextField(
+                                  controller: isEmailMode ? emailController : phoneController,
+                                  decoration: InputDecoration(
+                                    hintText: isEmailMode ? 'Enter Email' : 'Enter Phone Number',
+                                    hintStyle: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    border: InputBorder.none,
+                                  ),
+                                  keyboardType: isEmailMode ? TextInputType.emailAddress : TextInputType.phone,
+                                  onChanged: isEmailMode ? _onEmailChanged : _onPhoneChanged,
+                                  onSubmitted: (value) => isEmailMode ? _authenticateWithEmail() : _authenticateWithPhone(),
+                                ),
+                              ),
+
+                              if ((isEmailMode && isValidEmail) || (!isEmailMode && isValidNumber))
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_forward, color: Color(0xFFE91E63)),
+                                  onPressed: isEmailMode ? _authenticateWithEmail : _authenticateWithPhone,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      Text(
+                        'OR',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Email button
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 30),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              isEmailMode = true; // Switch to email input
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE91E63),
+                            minimumSize: const Size(double.infinity, 60),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Continue with Email',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 15),
+                      // Facebook button
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 30),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _loginWithFacebook(context),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 60),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            side: BorderSide(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                            backgroundColor: Colors.white,
+                          ),
+                          icon: const Icon(
+                            Icons.facebook,
+                            color: Color(0xFF1877F2),
+                            size: 28,
+                          ),
+                          label: Text(
+                            'Continue with Facebook',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF424242),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      // Google button
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 30),
+                        child: OutlinedButton.icon(
+                         onPressed: _signInWithGoogle,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 60),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            side: BorderSide(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                            backgroundColor: Colors.white,
+                          ),
+                          icon: Image.network(
+                            'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
+                            width: 24,
+                            height: 24,
+                            errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.g_mobiledata, size: 24),
+                          ),
+                          label: Text(
+                            'Continue with Google',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF424242),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      TextButton(
+                        onPressed: () {},
+                        child: Text(
+                          'Looking for a Business Account?',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            color: const Color(0xFF00ACC1),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// class TruecallerScreen extends StatelessWidget {
+//   final Map<String, String> userData;
+//
+//   const TruecallerScreen({Key? key, required this.userData}) : super(key: key);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final String displayName = userData['name'] ?? '';
+//     final String contact = userData['phone'] ?? userData['email'] ?? '';
+//     final String method = userData['method'] ?? '';
+//
+//     return Scaffold(
+//       body: Container(
+//         decoration: const BoxDecoration(
+//           gradient: LinearGradient(
+//             begin: Alignment.topCenter,
+//             end: Alignment.bottomCenter,
+//             colors: [
+//               Color(0xFFFF69B4),
+//               Color(0xFFFFB6C1),
+//               Colors.white,
+//             ],
+//             stops: [0.0, 0.3, 0.6],
+//           ),
+//         ),
+//         child: SafeArea(
+//           child: Stack(
+//             children: [
+//               // Decorative bunting at top
+//               Positioned(
+//                 top: 0,
+//                 right: 0,
+//                 child: Image.network(
+//                   'https://cdn-icons-png.flaticon.com/512/2917/2917995.png',
+//                   width: MediaQuery.of(context).size.width * 0.8,
+//                   fit: BoxFit.contain,
+//                   errorBuilder: (context, error, stackTrace) => const SizedBox(),
+//                 ),
+//               ),
+//               // Dimmed background overlay
+//               Container(
+//                 color: Colors.black.withOpacity(0.4),
+//               ),
+//               // Bottom sheet
+//               Align(
+//                 alignment: Alignment.bottomCenter,
+//                 child: Container(
+//                   decoration: const BoxDecoration(
+//                     color: Colors.white,
+//                     borderRadius: BorderRadius.only(
+//                       topLeft: Radius.circular(25),
+//                       topRight: Radius.circular(25),
+//                     ),
+//                   ),
+//                   child: Padding(
+//                     padding: const EdgeInsets.all(30),
+//                     child: Column(
+//                       mainAxisSize: MainAxisSize.min,
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       children: [
+//                         // Dynamic user name
+//                         Text(
+//                           'Hi, $displayName',
+//                           style: GoogleFonts.poppins(
+//                             fontSize: 28,
+//                             fontWeight: FontWeight.w600,
+//                             color: const Color(0xFF424242),
+//                           ),
+//                         ),
+//                         const SizedBox(height: 10),
+//                         Text(
+//                           'To get started, please login/signup',
+//                           style: GoogleFonts.poppins(
+//                             fontSize: 16,
+//                             color: Colors.grey.shade600,
+//                           ),
+//                         ),
+//                         const SizedBox(height: 30),
+//                         // Continue button showing dynamic phone/email
+//                         ElevatedButton(
+//                           onPressed: () {
+//                             Navigator.push(
+//                               context,
+//                               MaterialPageRoute(
+//                                 builder: (context) => const UserRoleScreen(),
+//                               ),
+//                             );
+//                           },
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: const Color(0xFFE91E63),
+//                             minimumSize: const Size(double.infinity, 60),
+//                             shape: RoundedRectangleBorder(
+//                               borderRadius: BorderRadius.circular(15),
+//                             ),
+//                             elevation: 0,
+//                           ),
+//                           child: Text(
+//                             'CONTINUE WITH $contact',
+//                             style: GoogleFonts.poppins(
+//                               fontSize: 16,
+//                               fontWeight: FontWeight.w600,
+//                               color: Colors.white,
+//                               letterSpacing: 0.5,
+//                             ),
+//                           ),
+//                         ),
+//                         const SizedBox(height: 20),
+//                         // "Use another method" button
+//                         Center(
+//                           child: TextButton(
+//                             onPressed: () {
+//                               // Navigate back to SignInScreen for alternate method
+//                               Navigator.pop(context, false);
+//                             },
+//                             child: Text(
+//                               'USE ANOTHER METHOD',
+//                               style: GoogleFonts.poppins(
+//                                 fontSize: 14,
+//                                 color: Colors.grey.shade500,
+//                                 fontWeight: FontWeight.w500,
+//                                 letterSpacing: 0.5,
+//                               ),
+//                             ),
+//                           ),
+//                         ),
+//                         const SizedBox(height: 15),
+//                         // Info text
+//                         RichText(
+//                           text: TextSpan(
+//                             style: GoogleFonts.poppins(
+//                               fontSize: 12,
+//                               color: Colors.grey.shade500,
+//                             ),
+//                             children: const [
+//                               TextSpan(
+//                                 text: 'By continuing you consent to share your Truecaller profile information with ',
+//                               ),
+//                               TextSpan(
+//                                 text: 'Happy Wedz',
+//                                 style: TextStyle(fontWeight: FontWeight.w600),
+//                               ),
+//                               TextSpan(text: ', and agree to the '),
+//                               TextSpan(
+//                                 text: 'privacy policy',
+//                                 style: TextStyle(
+//                                   color: Color(0xFF00ACC1),
+//                                   decoration: TextDecoration.underline,
+//                                 ),
+//                               ),
+//                               TextSpan(text: ' and '),
+//                               TextSpan(
+//                                 text: 'terms of service',
+//                                 style: TextStyle(
+//                                   color: Color(0xFF00ACC1),
+//                                   decoration: TextDecoration.underline,
+//                                 ),
+//                               ),
+//                               TextSpan(text: ' of '),
+//                               TextSpan(
+//                                 text: 'Happy Wedz',
+//                                 style: TextStyle(fontWeight: FontWeight.w600),
+//                               ),
+//                               TextSpan(text: '.'),
+//                             ],
+//                           ),
+//                         ),
+//                         const SizedBox(height: 20),
+//                         // Instant verification info
+//                         Center(
+//                           child: Row(
+//                             mainAxisSize: MainAxisSize.min,
+//                             children: [
+//                               Text(
+//                                 'Instant Verification by ',
+//                                 style: GoogleFonts.poppins(
+//                                   fontSize: 13,
+//                                   color: Colors.grey.shade600,
+//                                 ),
+//                               ),
+//                               Image.network(
+//                                 'https://cdn-icons-png.flaticon.com/512/732/732221.png',
+//                                 height: 20,
+//                                 errorBuilder: (context, error, stackTrace) => Text(
+//                                   'Truecaller',
+//                                   style: GoogleFonts.poppins(
+//                                     fontSize: 13,
+//                                     color: const Color(0xFF2196F3),
+//                                     fontWeight: FontWeight.w600,
+//                                   ),
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         ),
+//                         const SizedBox(height: 10),
+//                       ],
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+class UserRoleScreen extends StatelessWidget {
+  const UserRoleScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4),
+              Color(0xFFFFB6C1),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.6],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Back button
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const BottomBars(), // 👉 main screen
+                          ),
+                              (route) => false, // clear all previous routes
+                        );
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Color(0xFF424242),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // Progress indicator
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE91E63),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 30,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 30,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 60),
+
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Text(
+                      'Tell us who you are',
+                      style: GoogleFonts.poppins(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF424242),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // Role buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Wrap(
+                      spacing: 15,
+                      runSpacing: 15,
+                      children: [
+                        _buildRoleButton(context, 'Bride'),
+                        _buildRoleButton(context, 'Groom'),
+                        _buildRoleButton(context, 'Other'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // Skip button (cross on top right)
+              Positioned(
+                top: 20,
+                right: 20,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const BottomBars(), // 👉 main screen
+                      ),
+                          (route) => false, // clear all previous routes
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Color(0xFF424242),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleButton(BuildContext context, String label) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const WeddingDateScreen(),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            color: const Color(0xFF424242),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class WeddingDateScreen extends StatefulWidget {
+  const WeddingDateScreen({Key? key}) : super(key: key);
+
+  @override
+  _WeddingDateScreenState createState() => _WeddingDateScreenState();
+}
+
+class _WeddingDateScreenState extends State<WeddingDateScreen> {
+  DateTime? selectedDate;
+  final TextEditingController _dateController = TextEditingController();
+
+  Future<void> _pickDate() async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+        _dateController.text =
+        '${picked.day}/${picked.month}/${picked.year}';
+      });
+
+      // Navigate automatically after picking date
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const WeddingCityScreen(),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _dateController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4),
+              Color(0xFFFFB6C1),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.6],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Back button (left)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Color(0xFF424242),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  // Progress indicator
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE91E63),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 60,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE91E63),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 30,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 60),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Text(
+                      'Do you have a wedding\ndate?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF424242),
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: TextFormField(
+                      controller: _dateController,
+                      readOnly: true,
+                      onTap: _pickDate,
+                      decoration: InputDecoration(
+                        hintText: 'Select Date',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: Colors.grey.shade400,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 18),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: Colors.grey.shade300, width: 1),
+                        ),
+                      ),
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Skip button (top right cross)
+              Positioned(
+                top: 20,
+                right: 20,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WeddingCityScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Color(0xFF424242),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class WeddingCityScreen extends StatefulWidget {
+  const WeddingCityScreen({Key? key}) : super(key: key);
+
+  @override
+  State<WeddingCityScreen> createState() => _WeddingCityScreenState();
+}
+
+class _WeddingCityScreenState extends State<WeddingCityScreen> {
+  String? selectedCity; // keep track of selected city
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4),
+              Color(0xFFFFB6C1),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.6],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Back button (left)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Color(0xFF424242),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // Progress indicator
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Row(
+                      children: [
+                        _progressBar(30, true),
+                        const SizedBox(width: 8),
+                        _progressBar(30, true),
+                        const SizedBox(width: 8),
+                        _progressBar(60, true),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 60),
+
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Text(
+                      'Which city is your\nwedding in?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF424242),
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // City buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Wrap(
+                      spacing: 15,
+                      runSpacing: 15,
+                      children: [
+                        _buildCityButton(context, 'Delhi NCR'),
+                        _buildCityButton(context, 'Mumbai'),
+                        _buildCityButton(context, 'Bangalore'),
+                        _buildCityButton(context, 'Hyderabad'),
+                        _buildCityButton(context, 'Chennai'),
+                        _buildCityButton(context, 'Pune'),
+                        _buildCityButton(context, 'Lucknow'),
+                        _buildCityButton(context, 'Jaipur'),
+                        _buildCityButton(context, 'Other'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // Skip button (cross on top right)
+              Positioned(
+                top: 20,
+                right: 20,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => const BottomBars()),
+                          (route) => false,
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Color(0xFF424242),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCityButton(BuildContext context, String label) {
+    final bool isSelected = selectedCity == label;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedCity = label;
+        });
+
+        // Navigate after short delay so color shows before navigation
+        Future.delayed(const Duration(milliseconds: 200), () {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const BottomBars()),
+                (route) => false,
+          );
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE91E63) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 17,
+            color: isSelected ? Colors.white : const Color(0xFF424242),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _progressBar(double width, bool active) {
+    return Container(
+      width: width,
+      height: 6,
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFE91E63) : Colors.grey.shade400,
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -225,355 +1681,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
 
 
-//
-//
-//
-// class WeddingPlanningScreen extends StatelessWidget {
-//   const WeddingPlanningScreen({Key? key}) : super(key: key);
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.black,
-//       body: Container(
-//         width: double.infinity,
-//         height: double.infinity,
-//         decoration: const BoxDecoration(
-//           gradient: LinearGradient(
-//             begin: Alignment.topCenter,
-//             end: Alignment.bottomCenter,
-//             colors: [
-//               Color(0xFFE91E63), // Pink
-//               Color(0xFFD81B60), // Slightly darker pink
-//             ],
-//           ),
-//         ),
-//         child: SafeArea(
-//           child: Stack(
-//             children: [
-//               // Top overlapping images cluster
-//               Positioned(
-//                 top: 60,
-//                 left: 0,
-//                 right: 0,
-//                 child: _buildTopImageCluster(),
-//               ),
-//
-//               // Bottom overlapping images cluster
-//               Positioned(
-//                 bottom: 100,
-//                 left: 0,
-//                 right: 0,
-//                 child: _buildBottomImageCluster(),
-//               ),
-//
-//               // Center content
-//               Center(
-//                 child: Column(
-//                   mainAxisAlignment: MainAxisAlignment.center,
-//                   children: [
-//                     // Logo with scissors/rings icon
-//                     Container(
-//                       width: 60,
-//                       height: 60,
-//                       decoration: BoxDecoration(
-//                         color: Colors.transparent,
-//                         borderRadius: BorderRadius.circular(30),
-//                       ),
-//                       child: Image.asset('assets/image 4.png')
-//                     ),
-//
-//                     const SizedBox(height: 8),
-//
-//                     // Brand name
-//                     const Text(
-//                       'HAPPY WED',
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 12,
-//                         fontWeight: FontWeight.w500,
-//                         letterSpacing: 1.5,
-//                       ),
-//                     ),
-//
-//                     const SizedBox(height: 40),
-//
-//                     // Main heading
-//                     const Padding(
-//                       padding: EdgeInsets.symmetric(horizontal: 40),
-//                       child: Text(
-//                         'We want to make your\nwedding planning\nprocess super easy!',
-//                         style: TextStyle(
-//                           color: Color(0xFF1A237E), // Dark blue
-//                           fontSize: 28,
-//                           fontWeight: FontWeight.bold,
-//                           height: 1.3,
-//                         ),
-//                         textAlign: TextAlign.center,
-//                       ),
-//                     ),
-//
-//                     const SizedBox(height: 25),
-//
-//                     // Services text
-//                     const Padding(
-//                       padding: EdgeInsets.symmetric(horizontal: 50),
-//                       child: Text(
-//                         'Wedding Photographers in India | Bridal Makeup Artists in India | Wedding Cards in India | Wedding Venues in India',
-//                         style: TextStyle(
-//                           color: Colors.white,
-//                           fontSize: 11,
-//                           fontWeight: FontWeight.w400,
-//                           height: 1.4,
-//                         ),
-//                         textAlign: TextAlign.center,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildTopImageCluster() {
-//     return SizedBox(
-//       height: 120,
-//       child: Stack(
-//         children: [
-//           // First image (leftmost, behind)
-//           Positioned(
-//             left: 40,
-//             top: 0,
-//             child: _buildPhotoCard(
-//               'assets/Rectangle 20.png',
-//               width: 100,
-//               height: 80,
-//               rotation: -0.1,
-//             ),
-//           ),
-//           // Second image (overlapping first, in front)
-//           Positioned(
-//             left: 110,
-//             top: 10,
-//             child: _buildPhotoCard(
-//               'assets/Rectangle 22.png',
-//               width: 100,
-//               height: 80,
-//               rotation: 0.05,
-//             ),
-//           ),
-//           // Third image (separate, with space)
-//           Positioned(
-//             right: 110,
-//             top: 10,
-//             child: _buildPhotoCard(
-//               'assets/Rectangle 23.png',
-//               width: 100,
-//               height: 80,
-//               rotation: -0.05,
-//             ),
-//           ),
-//           // Fourth image (overlapping third)
-//           Positioned(
-//             right: 40,
-//             top: 0,
-//             child: _buildPhotoCard(
-//               'assets/Rectangle 24.png',
-//               width: 100,
-//               height: 80,
-//               rotation: 0.1,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildBottomImageCluster() {
-//     return SizedBox(
-//       height: 120,
-//       child: Stack(
-//         children: [
-//           // First image (leftmost, behind)
-//           Positioned(
-//             left: 40,
-//             bottom: 0,
-//             child: _buildPhotoCard(
-//               'assets/image.png',
-//               width: 100,
-//               height: 80,
-//               rotation: 0.1,
-//             ),
-//           ),
-//           // Second image (overlapping first, in front)
-//           Positioned(
-//             left: 110,
-//             bottom: 10,
-//             child: _buildPhotoCard(
-//               'assets/Rectangle 25.png',
-//               width: 100,
-//               height: 80,
-//               rotation: -0.05,
-//             ),
-//           ),
-//           // Third image (separate, with space)
-//           Positioned(
-//             right: 110,
-//             bottom: 10,
-//             child: _buildPhotoCard(
-//               'assets/Rectangle 26.png',
-//               width: 100,
-//               height: 80,
-//               rotation: 0.05,
-//             ),
-//           ),
-//           // Fourth image (overlapping third)
-//           Positioned(
-//             right: 40,
-//             bottom: 0,
-//             child: _buildPhotoCard(
-//               'assets/Rectangle 22.png',
-//               width: 100,
-//               height: 80,
-//               rotation: -0.1,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildPhotoCard(String imagePath, {
-//     required double width,
-//     required double height,
-//     double rotation = 0,
-//   }) {
-//     return Transform.rotate(
-//       angle: rotation,
-//       child: Container(
-//         width: width,
-//         height: height,
-//         decoration: BoxDecoration(
-//           borderRadius: BorderRadius.circular(12),
-//           boxShadow: [
-//             BoxShadow(
-//               color: Colors.black.withOpacity(0.3),
-//               blurRadius: 8,
-//               offset: const Offset(0, 4),
-//             ),
-//           ],
-//           border: Border.all(
-//             color: Colors.white.withOpacity(0.3),
-//             width: 2,
-//           ),
-//         ),
-//         child: ClipRRect(
-//           borderRadius: BorderRadius.circular(10),
-//           child: Container(
-//             color: Colors.white,
-//             child:  Center(
-//               child: Image.asset(
-//                 imagePath,
-//                 fit: BoxFit.cover,)
-//             ),
-//             // Replace with actual images:
-//             // Image.asset(
-//             //   imagePath,
-//             //   fit: BoxFit.cover,
-//             // ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// Splash Screen with Animation (MakeMyTrip style)
-// class AnimatedWeddingSplash extends StatefulWidget {
-//   const AnimatedWeddingSplash({Key? key}) : super(key: key);
-//
-//   @override
-//   State<AnimatedWeddingSplash> createState() => _AnimatedWeddingSplashState();
-// }
-//
-// class _AnimatedWeddingSplashState extends State<AnimatedWeddingSplash>
-//     with TickerProviderStateMixin {
-//   late AnimationController _fadeController;
-//   late AnimationController _scaleController;
-//   late Animation<double> _fadeAnimation;
-//   late Animation<double> _scaleAnimation;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//
-//     _fadeController = AnimationController(
-//       duration: const Duration(milliseconds: 1500),
-//       vsync: this,
-//     );
-//
-//     _scaleController = AnimationController(
-//       duration: const Duration(milliseconds: 2000),
-//       vsync: this,
-//     );
-//
-//     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-//       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-//     );
-//
-//     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-//       CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
-//     );
-//
-//     // Start animations
-//     _fadeController.forward();
-//     _scaleController.forward();
-//
-//     // Navigate after the animation duration
-//     // Future.delayed(const Duration(milliseconds: 2000), () {
-//     //   Navigator.pushReplacement(
-//     //     context,
-//     //     MaterialPageRoute(builder: (context) => const BottomBars()),
-//     //   );
-//     // });
-//   }
-//
-//   @override
-//   void dispose() {
-//     _fadeController.dispose();
-//     _scaleController.dispose();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return AnimatedBuilder(
-//       animation: Listenable.merge([_fadeAnimation, _scaleAnimation]),
-//       builder: (context, child) {
-//         return Transform.scale(
-//           scale: _scaleAnimation.value,
-//           child: Opacity(
-//             opacity: _fadeAnimation.value,
-//             child: const WeddingPlanningScreen(),
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
-
-
-
-
-
-
-
-
-
 class TravelPromoScreen extends StatefulWidget {
   @override
   _TravelPromoScreenState createState() => _TravelPromoScreenState();
@@ -692,111 +1799,6 @@ class _TravelPromoScreenState extends State<TravelPromoScreen> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-// SizedBox(height: 40),
-// // Logo
-// Center(
-//   child: Row(
-//     mainAxisSize: MainAxisSize.min,
-//     children: [
-//       Text(
-//         'make',
-//         style: TextStyle(
-//           fontWeight: FontWeight.w500,
-//           fontSize: 20,
-//           color: Colors.blue[900],
-//         ),
-//       ),
-//       Container(
-//         padding:
-//         EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-//         decoration: BoxDecoration(
-//           color: Colors.red[400],
-//           borderRadius: BorderRadius.circular(7),
-//         ),
-//         child: Text(
-//           'my',
-//           style: TextStyle(
-//             color: Colors.white,
-//             fontWeight: FontWeight.bold,
-//             fontSize: 18,
-//           ),
-//         ),
-//       ),
-//       Text(
-//         'trip',
-//         style: TextStyle(
-//           fontWeight: FontWeight.w500,
-//           fontSize: 20,
-//           color: Colors.blue[900],
-//         ),
-//       ),
-//     ],
-//   ),
-// ),
-// SizedBox(height: 25),
-// // Title and subtitle
-// Center(
-//   child: Text(
-//     'Book India\n&',
-//     textAlign: TextAlign.center,
-//     style: TextStyle(
-//         fontSize: 28,
-//         fontWeight: FontWeight.w600,
-//         color: Colors.grey[900]),
-//   ),
-// ),
-// SizedBox(height: 8),
-// Center(
-//   child: Text(
-//     'International Travel',
-//     textAlign: TextAlign.center,
-//     style: TextStyle(
-//       fontSize: 26,
-//       fontWeight: FontWeight.w700,
-//       color: secondaryBlue,
-//       fontStyle: FontStyle.italic,
-//     ),
-//   ),
-// ),
-// SizedBox(height: 10),
-// Center(
-//   child: Text(
-//     "Flights, Stays, Visa, Forex & Attractions",
-//     textAlign: TextAlign.center,
-//     style: TextStyle(
-//       fontSize: 18,
-//       color: Colors.grey[900],
-//     ),
-//   ),
-// ),
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1781,3 +2783,7 @@ class MakeMyTripHomePage extends StatelessWidget {
 //     );
 //   }
 // }
+
+
+
+// gt7crz05tgi0o3mk10wimjig0irao0fr7xgsljqdfh8
