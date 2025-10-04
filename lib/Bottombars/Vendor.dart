@@ -570,13 +570,17 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+
+                                ),
                                 overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                             const SizedBox(width: 8),

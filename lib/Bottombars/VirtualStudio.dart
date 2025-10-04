@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+// import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 //
@@ -246,9 +247,13 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
+import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 
 class MakeupTryOnScreen extends StatefulWidget {
   @override
@@ -2525,15 +2530,52 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
       ),
     );
   }
+  // Future<void> _saveResult() async {
+  //   if (_resultImage == null) return;
+  //
+  //   // Request storage permission
+  //   var status = await Permission.storage.request();
+  //   if (!status.isGranted) {
+  //     _showSnackBar('Storage permission is required', Colors.red, Icons.error);
+  //     return;
+  //   }
+  //
+  //   final result = await ImageGallerySaver.saveImage(
+  //     Uint8List.fromList(_resultImage!), // Your image bytes
+  //     quality: 100,
+  //     name: "makeup_result_${DateTime.now().millisecondsSinceEpoch}",
+  //   );
+  //
+  //   if (result['isSuccess']) {
+  //     _showSnackBar('Saved to Gallery!', Colors.green, Icons.check);
+  //   } else {
+  //     _showSnackBar('Failed to save', Colors.red, Icons.error);
+  //   }
+  // }
+  // Future<void> _shareResult() async {
+  //   if (_resultImage == null) return;
+  //
+  //   // Save temporary file to share
+  //   final tempDir = await getTemporaryDirectory();
+  //   final file = await File('${tempDir.path}/result.png').create();
+  //   await file.writeAsBytes(_resultImage!);
+  //
+  //   // Share image
+  //   await Share.shareXFiles(
+  //     [XFile(file.path)],
+  //     text: 'Check out my new look!',
+  //   );
+  // }
 
   void _saveResult() {
     _showSnackBar('Save functionality will be not implemented here', Colors.blue, Icons.info);
   }
 
   void _shareResult() {
+
     _showSnackBar('Share functionality will be not implemented here', Colors.blue, Icons.info);
   }
-}
+ }
 
 class Product {
   final int id;

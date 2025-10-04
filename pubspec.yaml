@@ -59,6 +59,12 @@ dependencies:
   flutter_facebook_auth: ^7.0.0
   firebase_auth: ^5.0.0   # if you want Firebase integration
   firebase_core: ^3.0.0
+  before_after: ^3.2.0
+#  image_gallery_saver: ^1.7.1
+
+
+  permission_handler: ^11.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -104,6 +110,22 @@ flutter:
    - assets/image.png
    - assets/file/recaptcha_v3.html
    - assets/google.png
+   - assets/1.webp
+   - assets/12.webp
+   - assets/13.webp
+   - assets/14.webp
+   - assets/15.webp
+   - assets/16.webp
+   - assets/17.webp
+   - assets/18.webp
+   - assets/19.webp
+   - assets/2.webp
+   - assets/21.webp
+   - assets/22.webp
+   - assets/23.webp
+   - assets/24.webp
+   - assets/25.webp
+   - assets/26.webp
 
   # To add assets to your application, add an assets section, like this:
   # assets:

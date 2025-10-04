@@ -397,25 +397,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   errorBuilder: (context, error, stackTrace) => const SizedBox(),
                 ),
               ),
-              // Back button
-              // Positioned(
-              //   top: 20,
-              //   left: 20,
-              //   child: Container(
-              //     width: 50,
-              //     height: 50,
-              //     decoration: BoxDecoration(
-              //       color: Colors.white.withOpacity(0.9),
-              //       shape: BoxShape.circle,
-              //     ),
-              //     child: const Icon(
-              //       Icons.arrow_back_ios_new,
-              //       color: Color(0xFF424242),
-              //       size: 20,
-              //     ),
-              //   ),
-              // ),
-              // Main content
               SingleChildScrollView(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
@@ -433,7 +414,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                       ),
                       const SizedBox(height: 50),
-                      // Phone number input
+                      // Input Field (Phone/Email)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 30),
                         child: Container(
@@ -475,12 +456,13 @@ class _SignInScreenState extends State<SignInScreen> {
                                   ),
                                 ),
                               if (!isEmailMode) const SizedBox(width: 15),
-
                               Expanded(
                                 child: TextField(
                                   controller: isEmailMode ? emailController : phoneController,
                                   decoration: InputDecoration(
-                                    hintText: isEmailMode ? 'Enter Email' : 'Enter Phone Number',
+                                    hintText: isEmailMode
+                                        ? 'Enter your email'
+                                        : 'Enter your mobile number',
                                     hintStyle: GoogleFonts.poppins(
                                       fontSize: 16,
                                       color: Colors.grey.shade400,
@@ -489,10 +471,10 @@ class _SignInScreenState extends State<SignInScreen> {
                                   ),
                                   keyboardType: isEmailMode ? TextInputType.emailAddress : TextInputType.phone,
                                   onChanged: isEmailMode ? _onEmailChanged : _onPhoneChanged,
-                                  onSubmitted: (value) => isEmailMode ? _authenticateWithEmail() : _authenticateWithPhone(),
+                                  onSubmitted: (value) =>
+                                  isEmailMode ? _authenticateWithEmail() : _authenticateWithPhone(),
                                 ),
                               ),
-
                               if ((isEmailMode && isValidEmail) || (!isEmailMode && isValidNumber))
                                 IconButton(
                                   icon: const Icon(Icons.arrow_forward, color: Color(0xFFE91E63)),
@@ -512,13 +494,18 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // Email button
+                      // Toggle Button (Email <-> Phone)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 30),
                         child: ElevatedButton(
                           onPressed: () {
                             setState(() {
-                              isEmailMode = true; // Switch to email input
+                              isEmailMode = !isEmailMode; // toggle mode
+                              if (isEmailMode) {
+                                emailController.clear();
+                              } else {
+                                phoneController.clear();
+                              }
                             });
                           },
                           style: ElevatedButton.styleFrom(
@@ -530,7 +517,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             elevation: 0,
                           ),
                           child: Text(
-                            'Continue with Email',
+                            isEmailMode ? 'Continue with Mobile Number' : 'Continue with Email',
                             style: GoogleFonts.poppins(
                               fontSize: 18,
                               fontWeight: FontWeight.w500,
@@ -539,7 +526,6 @@ class _SignInScreenState extends State<SignInScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 15),
                       // Facebook button
                       Padding(
@@ -577,7 +563,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 30),
                         child: OutlinedButton.icon(
-                         onPressed: _signInWithGoogle,
+                          onPressed: _signInWithGoogle,
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 60),
                             shape: RoundedRectangleBorder(
@@ -865,34 +851,34 @@ class UserRoleScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Back button
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const BottomBars(), // 👉 main screen
-                          ),
-                              (route) => false, // clear all previous routes
-                        );
-                      },
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: Color(0xFF424242),
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
+                  // Padding(
+                  //   padding: const EdgeInsets.all(20),
+                  //   child: GestureDetector(
+                  //     onTap: () {
+                  //       Navigator.pushAndRemoveUntil(
+                  //         context,
+                  //         MaterialPageRoute(
+                  //           builder: (context) => const BottomBars(), // 👉 main screen
+                  //         ),
+                  //             (route) => false, // clear all previous routes
+                  //       );
+                  //     },
+                  //     child: Container(
+                  //       width: 50,
+                  //       height: 50,
+                  //       decoration: BoxDecoration(
+                  //         color: Colors.white.withOpacity(0.9),
+                  //         shape: BoxShape.circle,
+                  //       ),
+                  //       child: const Icon(
+                  //         Icons.arrow_back_ios_new,
+                  //         color: Color(0xFF424242),
+                  //         size: 20,
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
+                  const SizedBox(height: 130),
 
                   // Progress indicator
                   Padding(
@@ -969,22 +955,24 @@ class UserRoleScreen extends StatelessWidget {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const BottomBars(), // 👉 main screen
+                        builder: (context) => const WeddingDateScreen(), // main screen
                       ),
                           (route) => false, // clear all previous routes
                     );
                   },
                   child: Container(
-                    width: 40,
-                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Color(0xFF424242),
-                      size: 22,
+                    child: Text(
+                      'Skip',
+                      style: const TextStyle(
+                        color: Color(0xFF424242),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -1099,17 +1087,27 @@ class _WeddingDateScreenState extends State<WeddingDateScreen> {
                   // Back button (left)
                   Padding(
                     padding: const EdgeInsets.all(20),
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new,
-                        color: Color(0xFF424242),
-                        size: 20,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const UserRoleScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Color(0xFF424242),
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
@@ -1207,16 +1205,18 @@ class _WeddingDateScreenState extends State<WeddingDateScreen> {
                     );
                   },
                   child: Container(
-                    width: 40,
-                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(20), // pill-shaped
                     ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Color(0xFF424242),
-                      size: 22,
+                    child: Text(
+                      'Skip',
+                      style: const TextStyle(
+                        color: Color(0xFF424242),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -1349,16 +1349,18 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
                     );
                   },
                   child: Container(
-                    width: 40,
-                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(20), // pill-shaped for text
                     ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Color(0xFF424242),
-                      size: 22,
+                    child: Text(
+                      'Skip',
+                      style: const TextStyle(
+                        color: Color(0xFF424242),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -1380,7 +1382,7 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
         });
 
         // Navigate after short delay so color shows before navigation
-        Future.delayed(const Duration(milliseconds: 200), () {
+        Future.delayed(const Duration(milliseconds: 100), () {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const BottomBars()),

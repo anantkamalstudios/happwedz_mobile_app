@@ -18,25 +18,10 @@ class Ideas extends StatefulWidget {
 
 
 class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
-  // int _selectedSubTabIndex = 1; // Default to Stories (index 1)
-  // late TabController _tabController;
-  //
-  // final List<String> _subTabs = ['Photos', 'Stories', 'Real Weddings'];
-  //
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _tabController = TabController(length: 3, vsync: this, initialIndex: 1);
-  // }
-  //
-  // @override
-  // void dispose() {
-  //   _tabController.dispose();
-  //   super.dispose();
-  // }
+
   late int _selectedSubTabIndex;
   late TabController _tabController;
-  late Future<List<dynamic>> _storiesFuture;
+  late Future<List<Map<String, dynamic>>> _storiesFuture;
 
   final List<String> _subTabs = ['Photos', 'Stories', 'Real Weddings'];
 
@@ -53,24 +38,16 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   }
 // Fetch stories from API
   Future<List<Map<String, dynamic>>> fetchStories() async {
-    final response = await http.get(Uri.parse('https://happywedz.com/api/blogs'));
+    final response = await http.get(Uri.parse('https://happywedz.com/api/blog-deatils/all'));
 
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      print(data);
-      print(data.runtimeType);
-
-      if (data is List) {
-        // Ensure each item is a Map<String, dynamic>
-        return data.map((e) => e as Map<String, dynamic>).toList();
-      } else {
-        return [];
-      }
+      final Map<String, dynamic> decodedJson = json.decode(response.body);
+      final List<dynamic> dataList = decodedJson['data'];
+      return dataList.cast<Map<String, dynamic>>().toList();
     } else {
       throw Exception('Failed to load stories');
     }
   }
-
 // Helper for full image URL
   String getFullImageUrl(String? path) {
     if (path == null || path.isEmpty) {
@@ -416,48 +393,68 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
 // Refactored Stories Tab
   Widget _buildStoriesTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: fetchStories(),
+      future: _storiesFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting)
           return Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
+        if (snapshot.hasError)
           return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty)
           return Center(child: Text('No stories found'));
-        } else {
-          final stories = snapshot.data!;
-          return ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            itemCount: stories.length,
-            itemBuilder: (context, index) {
-              final story = stories[index];
-              final imageUrl = getFullImageUrl(story['images']);
 
-              return Column(
-                children: [
-                  _buildStoryCard(
-                    story['postTitle'] ?? '',
-                    formatDate(story['createdAt'] ?? ''),
-                    '', // no read_time
-                    imageUrl,
-                        () => _navigateToBlogPage(
-                      story['postTitle'] ?? '',
-                      formatDate(story['createdAt'] ?? ''),
-                      '', // no read_time
-                      imageUrl,
-                      story['postDescription'] ?? '',
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                ],
-              );
-            },
-          );
-        }
+        final stories = snapshot.data!;
+
+        return ListView.builder(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          itemCount: stories.length,
+          itemBuilder: (context, index) {
+            final story = stories[index];
+            final title = story['title'] ?? 'No Title';
+            final imageUrl = story['image'] ?? '';
+            final postDate = formatDate(story['postDate'] ?? '');
+            final blogId = story['id']; // 👈 make sure this matches your API
+
+            return Column(
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    print('Story tapped with blogId: $blogId');
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => Center(child: CircularProgressIndicator()),
+                    );
+
+                    try {
+                      final fullBlog = await fetchBlogDetail(blogId);
+                      print('Fetched blog detail: ${fullBlog['title']}');
+                      Navigator.pop(context); // remove loading dialog
+
+                      _navigateToBlogPage(
+                        fullBlog['title'],
+                        formatDate(fullBlog['date']),
+                        fullBlog['readTime'],
+                        fullBlog['images'],
+                        fullBlog['content'],
+                      );
+                    } catch (e) {
+                      Navigator.pop(context);
+                      print('Failed to load blog detail: $e');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to load blog: $e')),
+                      );
+                    }
+                  },
+                  child: _buildStoryCard(title, postDate, '5 min read', imageUrl, () {}),
+                ),
+                SizedBox(height: 16),
+              ],
+            );
+          },
+        );
       },
     );
   }
-
 
 
 
@@ -728,6 +725,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   }
 
 
+
   Widget _buildPartialStoryCard() {
     return Container(
       height: 100,
@@ -832,7 +830,13 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-  void _navigateToBlogPage(String title, String date, String readTime, String imageUrl, String content) {
+  void _navigateToBlogPage(
+      String title,
+      String date,
+      String readTime,
+      List<String> images,
+      String content,
+      ) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -840,7 +844,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
           title: title,
           date: date,
           readTime: readTime,
-          imageUrl: imageUrl,
+          images: images,
           content: content,
         ),
       ),
@@ -1007,11 +1011,44 @@ The key to perfect mehendi is choosing a design that resonates with your persona
 """;
   }
 }
+Future<Map<String, dynamic>> fetchBlogDetail(int blogId) async {
+  final response = await http.get(Uri.parse('https://happywedz.com/api/blog-deatils/$blogId'));
+
+  if (response.statusCode == 200) {
+    final Map<String, dynamic> decodedJson = json.decode(response.body);
+    final data = decodedJson['data'];
+
+    // Join fullDescription list into one text
+    String content = "";
+    if (data['fullDescription'] != null) {
+      content = (data['fullDescription'] as List<dynamic>).join("\n\n");
+    }
+
+    // Prepare a cleaned-up map
+    return {
+      "id": data['id'],
+      "title": data['title'],
+      "date": data['createdDate'],
+      "readTime": data['readTime'] ?? "5 min",
+      "images": List<String>.from(data['images'] ?? []),
+      "tags": List<String>.from(data['tags'] ?? []),
+      "author": data['author'],
+      "content": content,
+    };
+  } else {
+    throw Exception('Failed to load blog details');
+  }
+}
+
+
+
+
+
 class BlogDetailPage extends StatelessWidget {
   final String title;
   final String date;
   final String readTime;
-  final String imageUrl;
+  final List<String> images;
   final String content;
 
   const BlogDetailPage({
@@ -1019,9 +1056,10 @@ class BlogDetailPage extends StatelessWidget {
     required this.title,
     required this.date,
     required this.readTime,
-    required this.imageUrl,
+    required this.images,
     required this.content,
   }) : super(key: key);
+
 
   @override
   Widget build(BuildContext context) {
@@ -1033,35 +1071,22 @@ class BlogDetailPage extends StatelessWidget {
             pinned: true,
             backgroundColor: Colors.white,
             iconTheme: IconThemeData(color: Colors.white),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    imageUrl,
+            flexibleSpace:FlexibleSpaceBar(
+              background: PageView.builder(
+                itemCount: images.length,
+                itemBuilder: (context, index) {
+                  return Image.network(
+                    images[index],
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[300],
-                        child: Icon(Icons.image, size: 50, color: Colors.grey[600]),
-                      );
-                    },
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.3),
-                        ],
-                      ),
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Colors.grey[300],
+                      child: Icon(Icons.image, size: 50, color: Colors.grey[600]),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
+
           ),
           SliverToBoxAdapter(
             child: Padding(

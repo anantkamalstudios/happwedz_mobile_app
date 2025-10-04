@@ -1461,6 +1461,8 @@ import '../designstudio.dart';
 import '../favscreen.dart';
 import '../fetch_location.dart';
 import '../ideas.dart';
+import '../mkp.dart';
+import '../profile.dart';
 import '../vendor/makeup.dart';
 import '../vendor/photographer.dart';
 import '../venuedetails.dart';
@@ -2949,7 +2951,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               const SizedBox(width: 10),
               InkWell(
                 onTap: () {
-                  // Navigate to login
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) =>  ProfileSettingsScreen()),
+                  );
                 },
                 child: Container(
                   padding: const EdgeInsets.all(8),
@@ -3072,10 +3077,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   Widget _buildCategorySection(BuildContext context) {
     final categories = [
-      {'name': 'Wedding\nVenues', 'image': 'assets/venues.jpg', 'page': const VenuesScreen()},
-       {'name': 'Wedding\nPhotographer', 'image': 'assets/photographer.jpg', 'page':  PhotographerScreen()},
-      {'name': 'Bridal\nmakeup', 'image': 'assets/makeup.jpg', 'page': const MakeupScreen()},
-      {'name': 'Wedding\nDecorators','image':'assets/decorators.jpg', 'page': const WeddingDecoratorsScreen()},
+      {'name': 'Wedding\nVenues', 'image': 'assets/17.webp', 'page': const VenuesScreen()},
+       {'name': 'Wedding\nPhotographer', 'image': 'assets/19.webp', 'page':  PhotographerScreen()},
+      {'name': 'Bridal\nmakeup', 'image': 'assets/18.webp', 'page': const MakeupScreen()},
+      {'name': 'Wedding\nDecorators','image':'assets/16.webp', 'page': const WeddingDecoratorsScreen()},
       {'name': 'All\nCategories', 'icon': Icons.add, 'page': const VendorCategoriesScreen()},
 
     ];
@@ -3116,15 +3121,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       size: 30,
                     )
                         : ClipOval(
-                      child: Container(
-                        color: Colors.grey[300],
-                        child: const Icon(
-                          Icons.image,
-                          color: Colors.grey,
-                          size: 40,
-                        ),
+                      child: Image.asset(
+                        category['image'] as String,
+                        fit: BoxFit.cover,
+                        width: 70,
+                        height: 70,
                       ),
                     ),
+
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -3278,7 +3282,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 'Fort Jadhavgadh, Pune',
                 '₹50/000',
                 '₹ 2,500 per plate',
-                'assets/venue1.jpg',
+                'assets/15.webp',
               ),
             ),
             const SizedBox(width: 12),
@@ -3287,7 +3291,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 'Gharful Lawns',
                 'Lonekawne',
                 '₹ 699 per plate',
-                'assets/venue2.jpg',
+                'assets/21.webp',
               ),
             ),
           ],
@@ -3318,14 +3322,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               color: Colors.pink[100],
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
-            child: const Center(
-              child: Icon(
-                Icons.image,
-                color: Colors.grey,
-                size: 40,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.asset(
+                imagePath,        // 👈 use your asset path
+                fit: BoxFit.cover,
+                width: double.infinity,
+                errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.broken_image, size: 40, color: Colors.grey),
               ),
             ),
           ),
+
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -3422,7 +3430,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 'Fearless Pheras',
                 'Pune',
                 '₹ 55,000 per Day',
-                'assets/photographer1.jpg',
+                'assets/13.webp',
               ),
             ),
             const SizedBox(width: 12),
@@ -3431,7 +3439,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 'Firefly Photography',
                 'Pune',
                 '₹ 55,000 per Day',
-                'assets/photographer2.jpg',
+                'assets/19.webp',
               ),
             ),
           ],
@@ -3459,14 +3467,16 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           Container(
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.pink[100],
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
-            child: const Center(
-              child: Icon(
-                Icons.camera_alt,
-                color: Colors.grey,
-                size: 40,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.asset(
+                imagePath,        // 👈 use the asset path
+                fit: BoxFit.cover,
+                width: double.infinity,
+                errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.broken_image, size: 40, color: Colors.grey),
               ),
             ),
           ),
@@ -3736,14 +3746,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           children: [
             Expanded(
               child: _buildTrendingCard(
-                'assets/trending1.jpg',
+                'assets/1.webp',
                 Colors.pink[50]!,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildTrendingCard(
-                'assets/trending2.jpg',
+                'assets/12.webp',
                 Colors.orange[50]!,
               ),
             ),
@@ -3760,11 +3770,22 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Center(
-        child: Icon(
-          Icons.image,
-          color: Colors.grey,
-          size: 40,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: imagePath.startsWith("http")
+            ? Image.network(
+          imagePath,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) =>
+          const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+        )
+            : Image.asset(
+          imagePath,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) =>
+          const Icon(Icons.broken_image, color: Colors.grey, size: 40),
         ),
       ),
     );
@@ -3904,6 +3925,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 child: _buildServiceCard(
                   'Couple Services',
                   'Book your perfect shoot',
+                  'assets/25.webp',   // ✅ image path
                   Colors.green[100]!,
                 ),
               ),
@@ -3912,9 +3934,26 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 child: _buildServiceCard(
                   'Couple Services',
                   'Book your perfect shoot',
+                  'assets/26.webp',     // ✅ image path
                   Colors.orange[100]!,
                 ),
               ),
+
+              // Expanded(
+              //   child: _buildServiceCard(
+              //     'Couple Services',
+              //     'Book your perfect shoot',
+              //     Colors.green[100]!,
+              //   ),
+              // ),
+              // const SizedBox(width: 12),
+              // Expanded(
+              //   child: _buildServiceCard(
+              //     'Couple Services',
+              //     'Book your perfect shoot',
+              //     Colors.orange[100]!,
+              //   ),
+              // ),
             ],
           ),
         ],
@@ -3922,7 +3961,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
-  Widget _buildServiceCard(String title, String subtitle, Color bgColor) {
+  Widget _buildServiceCard(String title, String subtitle, String imagePath, Color bgColor) {
     return Container(
       height: 100,
       padding: const EdgeInsets.all(12),
@@ -3943,13 +3982,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             child: Container(
               width: double.infinity,
               height: double.infinity,
-              color: bgColor,
-              child: const Center(
-                child: Icon(
-                  Icons.image,
-                  color: Colors.grey,
-                  size: 30,
-                ),
+              color: bgColor, // optional, acts as background before image loads
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
               ),
             ),
           ),
@@ -4026,14 +4062,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               Expanded(
                 child: _buildWeddingIdeaCard(
                   'Wedding day bridal portrait',
-                  'assets/bridal_portrait.jpg',
+                  'assets/23.webp',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildWeddingIdeaCard(
                   'Romantic couple shot',
-                  'assets/couple_shot.jpg',
+                  'assets/24.webp',
                 ),
               ),
             ],
@@ -4062,21 +4098,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           Container(
             height: 140,
             decoration: BoxDecoration(
-              color: Colors.brown[100],
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Container(
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover, // makes the image fill the container nicely
                 width: double.infinity,
-                color: Colors.brown[200],
-                child: const Center(
-                  child: Icon(
-                    Icons.image,
-                    color: Colors.brown,
-                    size: 40,
-                  ),
-                ),
               ),
             ),
           ),
