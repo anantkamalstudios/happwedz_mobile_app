@@ -1465,10 +1465,12 @@ import '../mkp.dart';
 import '../profile.dart';
 import '../vendor/makeup.dart';
 import '../vendor/photographer.dart';
+import '../vendor/vendordetailsscreen.dart';
 import '../venuedetails.dart';
 import 'Vendor.dart';
 import 'VenuesScreen.dart';
 import 'VirtualStudio.dart';
+import 'designstudio1.dart';
 import 'morescreen.dart';
 
 
@@ -2522,8 +2524,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   void initState() {
     super.initState();
     _loadCountries();
-    _loadWeddingChecklistData();
-
+    // _loadWeddingChecklistData();
+    fetchHorizontalCategories();
+    fetchVenues();
+    fetchPhotographers();
   }
 
   Future<void> _loadCountries() async {
@@ -2671,42 +2675,42 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   // ------------------------ Checklist Methods ------------------------
 
-  Future<void> _loadWeddingChecklistData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+  // Future<void> _loadWeddingChecklistData() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //
+  //   String? lastDate = prefs.getString('last_wedding_date');
+  //   if (lastDate != null) {
+  //     weddingDate = DateTime.parse(lastDate);
+  //
+  //     String key = 'wedding_${weddingDate!.toIso8601String()}_tasks';
+  //     List<String>? completedTasks = prefs.getStringList(key);
+  //
+  //     // Get all tasks dynamically from timeline data
+  //     List<String> allTasks = WeddingTimelineData.timelineData
+  //         .expand((item) => item.tasks)
+  //         .toList();
+  //
+  //     setState(() {
+  //       completedCount = completedTasks?.length ?? 0;
+  //       totalTasks = allTasks.length;
+  //
+  //       upcomingTasks = allTasks
+  //           .where((task) => !(completedTasks?.contains(task) ?? false))
+  //           .take(3)
+  //           .toList();
+  //
+  //       checkedItems = {
+  //         for (var task in allTasks)
+  //           task: completedTasks?.contains(task) ?? false,
+  //       };
+  //     });
+  //   }
+  // }
 
-    String? lastDate = prefs.getString('last_wedding_date');
-    if (lastDate != null) {
-      weddingDate = DateTime.parse(lastDate);
-
-      String key = 'wedding_${weddingDate!.toIso8601String()}_tasks';
-      List<String>? completedTasks = prefs.getStringList(key);
-
-      // Get all tasks dynamically from timeline data
-      List<String> allTasks = WeddingTimelineData.timelineData
-          .expand((item) => item.tasks)
-          .toList();
-
-      setState(() {
-        completedCount = completedTasks?.length ?? 0;
-        totalTasks = allTasks.length;
-
-        upcomingTasks = allTasks
-            .where((task) => !(completedTasks?.contains(task) ?? false))
-            .take(3)
-            .toList();
-
-        checkedItems = {
-          for (var task in allTasks)
-            task: completedTasks?.contains(task) ?? false,
-        };
-      });
-    }
-  }
-
-  Future<void> _updateChecklistFromTimeline() async {
-    // Reload progress when returning from timeline page
-    await _loadWeddingChecklistData();
-  }
+  // Future<void> _updateChecklistFromTimeline() async {
+  //   // Reload progress when returning from timeline page
+  //   await _loadWeddingChecklistData();
+  // }
 
 
 
@@ -2744,28 +2748,75 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
   List<VendorCategory> categories = [];
-  Future<void> fetchCategories() async {
-    try {
-      final response = await http.get(
-        Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
-        headers: {"Accept": "application/json"},
-      );
+  List<dynamic> venues = [];
+  List<dynamic> photographers = [];
+  bool isLoadingVenues = true;
+  bool isLoadingPhotographers = true;
 
+  Future<void> fetchVenues() async {
+    setState(() => isLoadingVenues = true);
+    try {
+      final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=venue");
+      final response = await http.get(url, headers: {"Accept": "application/json"});
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final data = json.decode(response.body) as List<dynamic>;
         setState(() {
-          categories = data.map((e) => VendorCategory.fromJson(e)).toList();
-          _isLoading = false;
+          venues = data;
+          isLoadingVenues = false;
         });
       } else {
-        print("Error: ${response.statusCode}");
-        setState(() => _isLoading = false);
+        setState(() => isLoadingVenues = false);
+        print("Error fetching venues: ${response.statusCode}");
       }
     } catch (e) {
-      print("API Error: $e");
-      setState(() => _isLoading = false);
+      setState(() => isLoadingVenues = false);
+      print("Error fetching venues: $e");
     }
   }
+
+  Future<void> fetchPhotographers() async {
+    setState(() => isLoadingPhotographers = true);
+    try {
+      final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=photographer");
+      final response = await http.get(url, headers: {"Accept": "application/json"});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List<dynamic>;
+        setState(() {
+          photographers = data;
+          isLoadingPhotographers = false;
+        });
+      } else {
+        setState(() => isLoadingPhotographers = false);
+        print("Error fetching photographers: ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() => isLoadingPhotographers = false);
+      print("Error fetching photographers: $e");
+    }
+  }
+
+  // Future<void> fetchCategories() async {
+  //   try {
+  //     final response = await http.get(
+  //       Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
+  //       headers: {"Accept": "application/json"},
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final List<dynamic> data = json.decode(response.body);
+  //       setState(() {
+  //         categories = data.map((e) => VendorCategory.fromJson(e)).toList();
+  //         _isLoading = false;
+  //       });
+  //     } else {
+  //       print("Error: ${response.statusCode}");
+  //       setState(() => _isLoading = false);
+  //     }
+  //   } catch (e) {
+  //     print("API Error: $e");
+  //     setState(() => _isLoading = false);
+  //   }
+  // }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2798,7 +2849,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       const SizedBox(height: 20),
 
                       // Category Circles
-                      _buildCategorySection(context),
+                      _buildCategorySection(),
 
                       const SizedBox(height: 30),
 
@@ -2828,11 +2879,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                         totalTasks: totalTasks,
                         upcomingTasks: upcomingTasks,
                         onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => WeddingTimelinePage()),
-                          );
-                          _updateChecklistFromTimeline(); // refresh after returning
+                          // await Navigator.push(
+                          //   context,
+                          //   MaterialPageRoute(builder: (_) => WeddingTimelinePage()),
+                          // );
+                          // _updateChecklistFromTimeline(); // refresh after returning
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingTimelinePage()));
                         },
                       ),
 
@@ -3063,47 +3115,118 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //   );
   // }
 
+  List<VendorCategory> horizontalCategories = [];
+  bool isLoadingCategories = true;
 
-  Widget _circleIcon(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: Colors.white, size: 20),
-    );
+  Future<void> fetchHorizontalCategories() async {
+    try {
+      final response = await http.get(
+        Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
+        headers: {"Accept": "application/json"},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          horizontalCategories =
+              data.map((e) => VendorCategory.fromJson(e)).toList();
+          isLoadingCategories = false;
+        });
+      } else {
+        setState(() => isLoadingCategories = false);
+        print("Error fetching categories: ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() => isLoadingCategories = false);
+      print("API Error: $e");
+    }
   }
 
-  Widget _buildCategorySection(BuildContext context) {
-    final categories = [
-      {'name': 'Wedding\nVenues', 'image': 'assets/17.webp', 'page': const VenuesScreen()},
-       {'name': 'Wedding\nPhotographer', 'image': 'assets/19.webp', 'page':  PhotographerScreen()},
-      {'name': 'Bridal\nmakeup', 'image': 'assets/18.webp', 'page': const MakeupScreen()},
-      {'name': 'Wedding\nDecorators','image':'assets/16.webp', 'page': const WeddingDecoratorsScreen()},
-      {'name': 'All\nCategories', 'icon': Icons.add, 'page': const VendorCategoriesScreen()},
-
-    ];
+  Widget _buildCategorySection() {
+    if (isLoadingCategories) {
+      return const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return SizedBox(
       height: 120,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
+        itemCount: horizontalCategories.length + 1, // +1 for "All Categories"
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemBuilder: (context, index) {
-          final category = categories[index];
-          final isLast = index == categories.length - 1;
+          final isLast = index == horizontalCategories.length;
+
+          if (isLast) {
+            // "All Categories" button
+            return Container(
+              margin: const EdgeInsets.only(right: 0),
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const VendorCategoriesScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(50),
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.pink, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.pink,
+                        size: 30,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'All\nCategories',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final category = horizontalCategories[index];
+          final imageUrl = category.heroImage.isNotEmpty
+              ? "https://happywedzbackend.happywedz.com/${category.heroImage}"
+              : '';
 
           return Container(
-            margin: EdgeInsets.only(right: isLast ? 0 : 15),
+            margin: const EdgeInsets.only(right: 15),
             child: Column(
               children: [
                 InkWell(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => category['page'] as Widget),
-                    );
+                    // Open VendorServicesScreen directly with the first subcategory
+                    if (category.subcategories.isNotEmpty) {
+                      final subcategoryName = category.subcategories.first.name;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VendorServicesScreen(
+                            subcategoryName: subcategoryName,
+                          ),
+                        ),
+                      );
+                    }
                   },
                   borderRadius: BorderRadius.circular(50),
                   child: Container(
@@ -3111,29 +3234,25 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                     height: 70,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isLast ? Colors.white : Colors.grey[300],
-                      border: isLast ? Border.all(color: Colors.pink, width: 2) : null,
+                      color: Colors.grey[300],
                     ),
-                    child: isLast
-                        ? Icon(
-                      category['icon'] as IconData,
-                      color: Colors.pink,
-                      size: 30,
-                    )
-                        : ClipOval(
-                      child: Image.asset(
-                        category['image'] as String,
+                    child: ClipOval(
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(
+                        imageUrl,
                         fit: BoxFit.cover,
                         width: 70,
                         height: 70,
-                      ),
+                        errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.image, color: Colors.white),
+                      )
+                          : const Icon(Icons.image, color: Colors.white),
                     ),
-
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  category['name'] as String,
+                  category.name,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 11,
@@ -3148,6 +3267,98 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       ),
     );
   }
+
+  /// API Call
+  Future<List<VendorCategory>> fetchCategories() async {
+    try {
+      final response = await http.get(
+        Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
+        headers: {"Accept": "application/json"},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((e) => VendorCategory.fromJson(e)).toList();
+      } else {
+        throw Exception("Failed to load categories");
+      }
+    } catch (e) {
+      throw Exception("Error fetching categories: $e");
+    }
+  }
+  // Widget _buildCategorySection(BuildContext context) {
+  //   final categories = [
+  //     {'name': 'Wedding\nVenues', 'image': 'assets/17.webp', 'page': const VenuesScreen()},
+  //      {'name': 'Wedding\nPhotographer', 'image': 'assets/19.webp', 'page':  PhotographerScreen()},
+  //     {'name': 'Bridal\nmakeup', 'image': 'assets/18.webp', 'page': const MakeupScreen()},
+  //     {'name': 'Wedding\nDecorators','image':'assets/16.webp', 'page': const WeddingDecoratorsScreen()},
+  //     {'name': 'All\nCategories', 'icon': Icons.add, 'page': const VendorCategoriesScreen()},
+  //
+  //   ];
+  //
+  //   return SizedBox(
+  //     height: 120,
+  //     child: ListView.builder(
+  //       scrollDirection: Axis.horizontal,
+  //       itemCount: categories.length,
+  //       itemBuilder: (context, index) {
+  //         final category = categories[index];
+  //         final isLast = index == categories.length - 1;
+  //
+  //         return Container(
+  //           margin: EdgeInsets.only(right: isLast ? 0 : 15),
+  //           child: Column(
+  //             children: [
+  //               InkWell(
+  //                 onTap: () {
+  //                   Navigator.push(
+  //                     context,
+  //                     MaterialPageRoute(builder: (_) => category['page'] as Widget),
+  //                   );
+  //                 },
+  //                 borderRadius: BorderRadius.circular(50),
+  //                 child: Container(
+  //                   width: 70,
+  //                   height: 70,
+  //                   decoration: BoxDecoration(
+  //                     shape: BoxShape.circle,
+  //                     color: isLast ? Colors.white : Colors.grey[300],
+  //                     border: isLast ? Border.all(color: Colors.pink, width: 2) : null,
+  //                   ),
+  //                   child: isLast
+  //                       ? Icon(
+  //                     category['icon'] as IconData,
+  //                     color: Colors.pink,
+  //                     size: 30,
+  //                   )
+  //                       : ClipOval(
+  //                     child: Image.asset(
+  //                       category['image'] as String,
+  //                       fit: BoxFit.cover,
+  //                       width: 70,
+  //                       height: 70,
+  //                     ),
+  //                   ),
+  //
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 8),
+  //               Text(
+  //                 category['name'] as String,
+  //                 textAlign: TextAlign.center,
+  //                 style: const TextStyle(
+  //                   fontSize: 11,
+  //                   fontWeight: FontWeight.w500,
+  //                   color: Colors.black87,
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         );
+  //       },
+  //     ),
+  //   );
+  // }
 
   Widget _buildPlanningToolsSection() {
     return Column(
@@ -3261,7 +3472,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       ),
     );
   }
-
   Widget _buildVenuesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3275,30 +3485,192 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           ),
         ),
         const SizedBox(height: 15),
-        Row(
-          children: [
-            Expanded(
-              child: _buildVenueCard(
-                'Fort Jadhavgadh, Pune',
-                '₹50/000',
-                '₹ 2,500 per plate',
-                'assets/15.webp',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildVenueCard(
-                'Gharful Lawns',
-                'Lonekawne',
-                '₹ 699 per plate',
-                'assets/21.webp',
-              ),
-            ),
-          ],
+        isLoadingVenues
+            ? const Center(child: CircularProgressIndicator())
+            : venues.isEmpty
+            ? const Text("No venues found")
+            : SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: venues.map<Widget>((venue) {
+              final vendor =
+              (venue is Map && venue['vendor'] is Map)
+                  ? venue['vendor'] as Map<String, dynamic>
+                  : <String, dynamic>{};
+
+              final attributes =
+              (venue is Map && venue['attributes'] is Map)
+                  ? venue['attributes'] as Map<String, dynamic>
+                  : <String, dynamic>{};
+
+              final media =
+              (venue is Map && venue['media'] is Map)
+                  ? venue['media'] as Map<String, dynamic>
+                  : <String, dynamic>{};
+
+              // ✅ Robust image logic
+              String imageUrl = 'https://via.placeholder.com/200x120';
+
+              // 1️⃣ Try coverImage
+              if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+                final cover = media['coverImage'].toString();
+                imageUrl = cover.startsWith('/uploads/')
+                    ? "https://happywedzbackend.happywedz.com$cover"
+                    : cover;
+              }
+              // 2️⃣ Fallback to gallery
+              else if (media['gallery'] != null && media['gallery'] is List) {
+                for (var item in media['gallery']) {
+                  if (item is String && item.isNotEmpty) {
+                    imageUrl = item.startsWith('/uploads/')
+                        ? "https://happywedzbackend.happywedz.com$item"
+                        : item;
+                    break;
+                  } else if (item is Map && item['url'] != null) {
+                    final url = item['url'].toString();
+                    imageUrl = url.startsWith('/uploads/')
+                        ? "https://happywedzbackend.happywedz.com$url"
+                        : url;
+                    break;
+                  }
+                }
+              }
+
+              // Debug log
+              print("🖼️ Venue image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
+
+              final String name =
+              (vendor['businessName'] ?? attributes['name'] ?? "No Name").toString();
+
+              final String location =
+              (attributes['location'] ?? 'Unknown Location').toString();
+
+              final String price = attributes['starting_price'] != null
+                  ? "₹${attributes['starting_price']}"
+                  : "--";
+
+              return Container(
+                width: 200,
+                margin: const EdgeInsets.only(right: 12),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            VendorDetailsScreen(service: venue),
+                      ),
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          imageUrl,
+                          height: 120,
+                          width: 200,
+                          fit: BoxFit.cover,
+                          loadingBuilder:
+                              (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 120,
+                              width: 200,
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print("Image load error: $error");
+                            return Container(
+                              height: 120,
+                              width: 200,
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.image,
+                                size: 40,
+                                color: Colors.white,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        location,
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        price,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
   }
+
+  // Widget _buildVenuesSection() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       const Text(
+  //         'Venues in your city',
+  //         style: TextStyle(
+  //           fontSize: 18,
+  //           fontWeight: FontWeight.bold,
+  //           color: Colors.black87,
+  //         ),
+  //       ),
+  //       const SizedBox(height: 15),
+  //       Row(
+  //         children: [
+  //           Expanded(
+  //             child: _buildVenueCard(
+  //               'Fort Jadhavgadh, Pune',
+  //               '₹50/000',
+  //               '₹ 2,500 per plate',
+  //               'assets/15.webp',
+  //             ),
+  //           ),
+  //           const SizedBox(width: 12),
+  //           Expanded(
+  //             child: _buildVenueCard(
+  //               'Gharful Lawns',
+  //               'Lonekawne',
+  //               '₹ 699 per plate',
+  //               'assets/21.webp',
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildVenueCard(String name, String location, String price, String imagePath) {
     return Container(
@@ -3409,13 +3781,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       ),
     );
   }
-
   Widget _buildPhotographerSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Photographer for you',
+          'Photographers for you',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -3423,30 +3794,212 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           ),
         ),
         const SizedBox(height: 15),
-        Row(
-          children: [
-            Expanded(
-              child: _buildPhotographerCard(
-                'Fearless Pheras',
-                'Pune',
-                '₹ 55,000 per Day',
-                'assets/13.webp',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildPhotographerCard(
-                'Firefly Photography',
-                'Pune',
-                '₹ 55,000 per Day',
-                'assets/19.webp',
-              ),
-            ),
-          ],
+        isLoadingPhotographers
+            ? const Center(child: CircularProgressIndicator())
+            : photographers.isEmpty
+            ? const Text("No photographers found")
+            : SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: photographers.map<Widget>((photo) {
+              final vendor =
+              (photo is Map && photo['vendor'] is Map)
+                  ? photo['vendor'] as Map<String, dynamic>
+                  : <String, dynamic>{};
+
+              final attributes =
+              (photo is Map && photo['attributes'] is Map)
+                  ? photo['attributes'] as Map<String, dynamic>
+                  : <String, dynamic>{};
+
+              final media =
+              (photo is Map && photo['media'] is Map)
+                  ? photo['media'] as Map<String, dynamic>
+                  : <String, dynamic>{};
+
+              // ✅ Robust Image Logic
+              String imageUrl = 'https://via.placeholder.com/200x120';
+
+              // 1️⃣ Try coverImage
+              if (media['coverImage'] != null &&
+                  media['coverImage'].toString().isNotEmpty) {
+                final cover = media['coverImage'];
+                if (cover is String) {
+                  imageUrl = cover.startsWith('/uploads/')
+                      ? "https://happywedzbackend.happywedz.com$cover"
+                      : cover;
+                } else if (cover is Map && cover['url'] != null) {
+                  final url = cover['url'].toString();
+                  imageUrl = url.startsWith('/uploads/')
+                      ? "https://happywedzbackend.happywedz.com$url"
+                      : url;
+                } else if (cover is List && cover.isNotEmpty) {
+                  final first = cover.first;
+                  if (first is Map && first['url'] != null) {
+                    final url = first['url'].toString();
+                    imageUrl = url.startsWith('/uploads/')
+                        ? "https://happywedzbackend.happywedz.com$url"
+                        : url;
+                  } else if (first is String) {
+                    imageUrl = first.startsWith('/uploads/')
+                        ? "https://happywedzbackend.happywedz.com$first"
+                        : first;
+                  }
+                }
+              }
+              // 2️⃣ Fallback to gallery
+              else if (media['gallery'] != null && media['gallery'] is List) {
+                for (var item in media['gallery']) {
+                  if (item is String && item.isNotEmpty) {
+                    imageUrl = item.startsWith('/uploads/')
+                        ? "https://happywedzbackend.happywedz.com$item"
+                        : item;
+                    break;
+                  } else if (item is Map && item['url'] != null) {
+                    final url = item['url'].toString();
+                    imageUrl = url.startsWith('/uploads/')
+                        ? "https://happywedzbackend.happywedz.com$url"
+                        : url;
+                    break;
+                  }
+                }
+              }
+
+              // Debug log
+              print("🖼️ Photographer image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
+
+              final String name =
+              (vendor['businessName'] ?? attributes['name'] ?? "No Name").toString();
+
+              final String location =
+              (attributes['location'] ?? 'Unknown Location').toString();
+
+              final String price = attributes['starting_price'] != null
+                  ? "₹${attributes['starting_price']}"
+                  : "--";
+
+              return Container(
+                width: 200,
+                margin: const EdgeInsets.only(right: 12),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            VendorDetailsScreen(service: photo),
+                      ),
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          imageUrl,
+                          height: 120,
+                          width: 200,
+                          fit: BoxFit.cover,
+                          loadingBuilder:
+                              (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 120,
+                              width: 200,
+                              color: Colors.grey[200],
+                              child: const Center(
+                                  child: CircularProgressIndicator()),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print("Image load error: $error");
+                            return Container(
+                              height: 120,
+                              width: 200,
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.image,
+                                size: 40,
+                                color: Colors.white,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        location,
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        price,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
   }
+
+  // Widget _buildPhotographerSection() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       const Text(
+  //         'Photographer for you',
+  //         style: TextStyle(
+  //           fontSize: 18,
+  //           fontWeight: FontWeight.bold,
+  //           color: Colors.black87,
+  //         ),
+  //       ),
+  //       const SizedBox(height: 15),
+  //       Row(
+  //         children: [
+  //           Expanded(
+  //             child: _buildPhotographerCard(
+  //               'Fearless Pheras',
+  //               'Pune',
+  //               '₹ 55,000 per Day',
+  //               'assets/13.webp',
+  //             ),
+  //           ),
+  //           const SizedBox(width: 12),
+  //           Expanded(
+  //             child: _buildPhotographerCard(
+  //               'Firefly Photography',
+  //               'Pune',
+  //               '₹ 55,000 per Day',
+  //               'assets/19.webp',
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildPhotographerCard(String name, String location, String price, String imagePath) {
     return Container(
@@ -4667,7 +5220,8 @@ class _BottomBarsState extends State<BottomBars> {
   final List<Widget> _screens = [
     const WeddingHomePage(),
     const VenuesScreen(),
-    LancomeMakeupTryOnScreen(),
+    VirtualTryOnScreennnnnnn(),
+    // LancomeMakeupTryOnScreen(),
     // FinalLookResultScreen(),
     const VendorCategoriesScreen(),
     MoreOptionsScreen()
@@ -4933,5 +5487,176 @@ class LocationService {
     } else {
       throw Exception("HTTP Error: ${response.statusCode}");
     }
+  }
+}
+
+
+
+
+
+
+class CategoryItemsScreen extends StatefulWidget {
+  final VendorCategory category;
+
+  const CategoryItemsScreen({Key? key, required this.category}) : super(key: key);
+
+  @override
+  State<CategoryItemsScreen> createState() => _CategoryItemsScreenState();
+}
+
+class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
+  List<dynamic> _services = [];
+  bool _loading = false;
+
+  Future<void> fetchServices(String subcategoryName) async {
+    setState(() => _loading = true);
+    try {
+      final url =
+          "https://happywedz.com/api/vendor-services?subCategory=${Uri.encodeComponent(subcategoryName)}";
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _services = data;
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final category = widget.category;
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
+            stops: [0.0, 0.3, 0.6],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // AppBar style header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: Text(
+                        category.name,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+
+              // Subcategory selector
+              SizedBox(
+                height: 60,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: category.subcategories.length,
+                  itemBuilder: (context, index) {
+                    final sub = category.subcategories[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.pink,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                        onPressed: () => fetchServices(sub.name),
+                        child: Text(sub.name,
+                            style: const TextStyle(color: Colors.white, fontSize: 12)),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator(color: Colors.pink))
+                    : _services.isEmpty
+                    ? const Center(child: Text("Select a subcategory to view vendors"))
+                    : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _services.length,
+                  itemBuilder: (context, index) {
+                    final item = _services[index];
+                    final image = item['hero_image'] != null
+                        ? "https://happywedz.com${item['hero_image']}"
+                        : "https://via.placeholder.com/400x300?text=No+Image";
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(12)),
+                            child: Image.network(
+                              image,
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Text(
+                              item['name'] ?? 'No name',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

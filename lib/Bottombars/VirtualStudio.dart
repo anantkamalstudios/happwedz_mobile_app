@@ -2368,6 +2368,11 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         setState(() {
           _uploadedImageId = data['id'].toString();
         });
+
+
+
+
+
         print('Upload successful: $_uploadedImageId');
         _showSnackBar('Image uploaded successfully! ✨', Colors.green, Icons.check_circle);
       } else {

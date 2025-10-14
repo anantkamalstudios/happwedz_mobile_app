@@ -20,6 +20,10 @@
             "package_name": "com.example.happy_wedz",
             "certificate_hash": "1eac3931e25ff05bb2cb16b1788f2bf0c020e71f"
           }
+        },
+        {
+          "client_id": "27907630225-6bgema2fjbf4tjtb36b2grv8umle6ud4.apps.googleusercontent.com",
+          "client_type": 3
         }
       ],
       "api_key": [
@@ -29,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "27907630225-6bgema2fjbf4tjtb36b2grv8umle6ud4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "27907630225-4tspogup0v65vdj6k0arbrv5gdh5hi7f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.happyWedz"
+              }
+            }
+          ]
         }
       }
     }

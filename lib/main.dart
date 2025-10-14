@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
@@ -7,47 +9,161 @@ import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
+import 'package:hive_flutter/adapters.dart';
+import 'package:provider/provider.dart' show MultiProvider, ChangeNotifierProvider;
 
-void main() async {
+import 'Wishlist/Wishlistscreen.dart';
+import 'firebase_options.dart';
+import 'guestlist/guestlist.dart';
 
+// void main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   await Firebase.initializeApp(
+//     options: DefaultFirebaseOptions.currentPlatform,
+//   );
+//   runApp(const MyApp());
+// }
+
+// ///////////////////////////////////
+// Future<void> main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//
+//   // 1️⃣ Initialize Firebase
+//   await Firebase.initializeApp(
+//     options: DefaultFirebaseOptions.currentPlatform,
+//   );
+//
+//   // 2️⃣ Set language (removes “X-Firebase-Locale is null”)
+//   FirebaseAuth.instance.setLanguageCode('en');
+//
+//   // 3️⃣ Enable App Check (removes “No AppCheckProvider installed”)
+//   await FirebaseAppCheck.instance.activate(
+//     androidProvider: AndroidProvider.playIntegrity,
+//     appleProvider: AppleProvider.deviceCheck,
+//   );
+//   await Hive.initFlutter();
+//   await Hive.openBox('weddingBox');
+//   runApp(const MyApp());
+// }
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
+//
+//   // This widget is the root of your application.
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//   debugShowCheckedModeBanner: false,
+//       theme: ThemeData(
+//
+//         // This is the theme of your application.
+//         //
+//         // TRY THIS: Try running your application with "flutter run". You'll see
+//         // the application has a purple toolbar. Then, without quitting the app,
+//         // try changing the seedColor in the colorScheme below to Colors.green
+//         // and then invoke "hot reload" (save your changes or press the "hot
+//         // reload" button in a Flutter-supported IDE, or press "r" if you used
+//         // the command line to start the app).
+//         //
+//         // Notice that the counter didn't reset back to zero; the application
+//         // state is not lost during the reload. To reset the state, use hot
+//         // restart instead.
+//         //
+//         // This works for code too, not just values: Most code changes can be
+//         // tested with just a hot reload.
+//         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+//       ),
+//       home:  AuthWrapper(),
+//     );
+//   }
+// }
+// ///////////////////////////////////////////
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
-  runApp(const MyApp());
+  // ✅ Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseAuth.instance.setLanguageCode('en');
+
+  // ✅ Enable Firebase App Check
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: AndroidProvider.playIntegrity,
+    appleProvider: AppleProvider.deviceCheck,
+  );
+
+  // ✅ Initialize Hive
+  await Hive.initFlutter();
+
+
+
+  // ✅ Open all boxes safely
+  await _openBoxSafe('weddingBox');
+  await _openBoxSafe('guestBox');
+
+  // ✅ Run App with Providers
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => FavouritesProvider(),
+      child: const MyApp(),
+    ),
+  );
+  // runApp(
+  //   const MyApp(),
+  //
+  // );
+}
+
+/// Utility to safely open a Hive box (only if not already open)
+Future<void> _openBoxSafe(String boxName) async {
+  if (!Hive.isBoxOpen(boxName)) {
+    await Hive.openBox(boxName);
+  }
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-  debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home:  SignInScreen(),
+      home: const BottomBars(),
     );
   }
 }
 
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // 1️⃣ Loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // 2️⃣ User logged in
+        if (snapshot.hasData) {
+          return const BottomBars();
+        }
+
+        // 3️⃣ Not logged in
+        return const LoginScreen();
+      },
+    );
+  }
+}
 
 class Country {
   final String name;
@@ -2785,6 +2901,128 @@ class MakeMyTripHomePage extends StatelessWidget {
 //     );
 //   }
 // }
+
+
+
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({Key? key}) : super(key: key);
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  bool _isLoading = false;       // For showing a loading spinner
+  User? _user;                   // Stores the logged-in user
+  String? _errorMessage;         // Stores login errors
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _user = userCredential.user;
+      });
+
+      // Navigate to home
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (_) => HomeScreen()));
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Login")),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: "Email"),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: "Password"),
+            ),
+            const SizedBox(height: 24),
+            if (_errorMessage != null)
+              Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            const SizedBox(height: 24),
+            _isLoading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+              onPressed: _login,
+              child: const Text("Login"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+// rules_version = '2';
+//
+// service cloud.firestore {
+// match /databases/{database}/documents {
+// match /{document=**} {
+// allow read, write: if
+// request.time < timestamp.date(2025, 11, 6);
+// }
+// }
+// }
+
+
 
 
 

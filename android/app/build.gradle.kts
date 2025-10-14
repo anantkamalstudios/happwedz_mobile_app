@@ -4,6 +4,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+//    id("com.google.gms.google-services")
 }
 
 android {
@@ -45,10 +46,11 @@ android {
 //    }
 
     dependencies {
-        implementation(platform("com.google.firebase:firebase-bom:32.2.2"))
+        implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
         implementation("com.google.firebase:firebase-auth-ktx:21.1.0")
         implementation("com.google.android.gms:play-services-auth:20.7.0")
         implementation("com.facebook.android:facebook-android-sdk:latest.release")
+        implementation("com.google.firebase:firebase-analytics")
     }
 
     buildTypes {
