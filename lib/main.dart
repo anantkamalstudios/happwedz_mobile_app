@@ -9,10 +9,12 @@ import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
+import 'package:happy_wedz/auths/registration.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart' show MultiProvider, ChangeNotifierProvider;
 
 import 'Wishlist/Wishlistscreen.dart';
+import 'auths/login.dart';
 import 'firebase_options.dart';
 import 'guestlist/guestlist.dart';
 
@@ -80,6 +82,9 @@ import 'guestlist/guestlist.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: AndroidProvider.debug,
+  );
 
   // ✅ Initialize Firebase
   await Firebase.initializeApp(
@@ -133,7 +138,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const BottomBars(),
+      home: SignInScreen(),
+      // home: const BottomBars(),
     );
   }
 }
@@ -232,27 +238,68 @@ class _SignInScreenState extends State<SignInScreen> {
   bool isValidEmail = false;
 
   bool isValidNumber = false;
-  // Google Sign-In
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email'],
-  );
+  // // Google Sign-In
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Google Auth
   Future<void> _signInWithGoogle() async {
     try {
-      final account = await _googleSignIn.signIn();
-      print("account: $account");
-      if (account != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>UserRoleScreen()
-          ),
-        );
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return; // User canceled
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null) {
+        _showSnackBar('Signed in as ${user.displayName}');
+        print(credential);
+        // Navigate to your home screen
       }
-    } catch (error) {
-      print('Google Sign-In failed: $error');
+    } catch (e) {
+      _showSnackBar('Google Sign-In failed: $e');
+      print(e);
     }
   }
+// 1️⃣ Initialize
+// 1️⃣ Initialize
+
+  // Facebook Auth
+  Future<void> _signInWithFacebook() async {
+    try {
+      final LoginResult result = await FacebookAuth.instance.login();
+
+      if (result.status == LoginStatus.success) {
+        final OAuthCredential facebookCredential =
+        FacebookAuthProvider.credential(result.accessToken!.token);
+
+        final userCredential = await _auth.signInWithCredential(facebookCredential);
+        final user = userCredential.user;
+
+        if (user != null) {
+          _showSnackBar('Signed in as ${user.displayName}');
+          // Navigate to your home screen
+        }
+      } else {
+        _showSnackBar('Facebook Sign-In canceled');
+      }
+    } catch (e) {
+      _showSnackBar('Facebook Sign-In failed: $e');
+    }
+  }
+
+  // void _showSnackBar(String message) {
+  //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  // }
+
+
 
   void _authenticateWithEmail() {
     if (!isValidEmail) {
@@ -264,7 +311,7 @@ class _SignInScreenState extends State<SignInScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UserRoleScreen()
+        builder: (context) => BottomBars()
       ),
     );
   }
@@ -345,7 +392,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (context) =>UserRoleScreen()),
+          builder: (context) =>BottomBars()),
     );
 
     if (result == false) {
@@ -423,31 +470,6 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Future<void> _loginWithFacebook(BuildContext context) async {
-    try {
-      final LoginResult result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
-
-      );
-      print(result.status);
-      if (result.status == LoginStatus.success) {
-        // Get user data
-        final userData = await FacebookAuth.instance.getUserData();
-        print("✅ Facebook Login Success: $userData");
-        //
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(content: Text("Welcome, ${userData['name']}")),
-        // );
-
-        // TODO: Navigate to BottomBars or Home
-        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BottomBars()));
-      } else {
-        print("❌ Facebook Login Failed: ${result.status}");
-      }
-    } catch (e) {
-      print("⚠️ Error during Facebook login: $e");
-    }
-  }
 
   void _showLoadingDialog() {
     showDialog(
@@ -647,7 +669,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 30),
                         child: OutlinedButton.icon(
-                          onPressed: () => _loginWithFacebook(context),
+                          onPressed: _signInWithFacebook,
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 60),
                             shape: RoundedRectangleBorder(
@@ -2904,100 +2926,100 @@ class MakeMyTripHomePage extends StatelessWidget {
 
 
 
-
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  bool _isLoading = false;       // For showing a loading spinner
-  User? _user;                   // Stores the logged-in user
-  String? _errorMessage;         // Stores login errors
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _login() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      UserCredential userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(
-          email: _emailController.text,
-          password: _passwordController.text);
-
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _user = userCredential.user;
-      });
-
-      // Navigate to home
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => HomeScreen()));
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString();
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Login")),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: "Email"),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: "Password"),
-            ),
-            const SizedBox(height: 24),
-            if (_errorMessage != null)
-              Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.red),
-              ),
-            const SizedBox(height: 24),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-              onPressed: _login,
-              child: const Text("Login"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
+//
+// class LoginScreen extends StatefulWidget {
+//   const LoginScreen({Key? key}) : super(key: key);
+//
+//   @override
+//   State<LoginScreen> createState() => _LoginScreenState();
+// }
+//
+// class _LoginScreenState extends State<LoginScreen> {
+//   final TextEditingController _emailController = TextEditingController();
+//   final TextEditingController _passwordController = TextEditingController();
+//
+//   bool _isLoading = false;       // For showing a loading spinner
+//   User? _user;                   // Stores the logged-in user
+//   String? _errorMessage;         // Stores login errors
+//
+//   @override
+//   void dispose() {
+//     _emailController.dispose();
+//     _passwordController.dispose();
+//     super.dispose();
+//   }
+//
+//   Future<void> _login() async {
+//     setState(() {
+//       _isLoading = true;
+//       _errorMessage = null;
+//     });
+//
+//     try {
+//       UserCredential userCredential = await FirebaseAuth.instance
+//           .signInWithEmailAndPassword(
+//           email: _emailController.text,
+//           password: _passwordController.text);
+//
+//       if (!mounted) return;
+//
+//       setState(() {
+//         _isLoading = false;
+//         _user = userCredential.user;
+//       });
+//
+//       // Navigate to home
+//       Navigator.pushReplacement(
+//           context, MaterialPageRoute(builder: (_) => HomeScreen()));
+//     } catch (e) {
+//       if (!mounted) return;
+//
+//       setState(() {
+//         _isLoading = false;
+//         _errorMessage = e.toString();
+//       });
+//     }
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(title: const Text("Login")),
+//       body: Padding(
+//         padding: const EdgeInsets.all(20),
+//         child: Column(
+//           children: [
+//             TextField(
+//               controller: _emailController,
+//               decoration: const InputDecoration(labelText: "Email"),
+//             ),
+//             const SizedBox(height: 16),
+//             TextField(
+//               controller: _passwordController,
+//               obscureText: true,
+//               decoration: const InputDecoration(labelText: "Password"),
+//             ),
+//             const SizedBox(height: 24),
+//             if (_errorMessage != null)
+//               Text(
+//                 _errorMessage!,
+//                 style: const TextStyle(color: Colors.red),
+//               ),
+//             const SizedBox(height: 24),
+//             _isLoading
+//                 ? const CircularProgressIndicator()
+//                 : ElevatedButton(
+//               onPressed: _login,
+//               child: const Text("Login"),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
+//
+//
 
 
 

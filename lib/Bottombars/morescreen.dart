@@ -3,6 +3,7 @@ import 'package:happy_wedz/guestlist/guestlist.dart';
 
 import '../InboxScreen.dart';
 import '../Wishlist/Wishlistscreen.dart';
+import '../auths/login.dart';
 import '../einvite/einvite.dart';
 import '../ideas.dart';
 import '../login.dart';

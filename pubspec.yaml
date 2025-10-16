@@ -49,16 +49,16 @@ dependencies:
   image_picker: ^1.1.2
 #  firebase_core:
 #  firebase_auth:
-  google_sign_in: ^6.1.1
+#  google_sign_in: ^6.1.1
   mailer:
   g_recaptcha_v3:
   intl:
   flutter_svg:
   firebase_app_check:
-  truecaller_sdk: ^1.0.0
-  flutter_facebook_auth: ^7.0.0
-  firebase_auth:    # if you want Firebase integration
-  firebase_core: ^3.0.0
+#  truecaller_sdk: ^1.0.0
+#  flutter_facebook_auth: ^7.0.0
+#  firebase_auth:    # if you want Firebase integration
+#  firebase_core: ^3.0.0
   before_after: ^3.2.0
   cloud_firestore:
   url_launcher:
@@ -67,14 +67,19 @@ dependencies:
   hive_flutter:
   provider: ^6.0.5
   hive: ^2.2.3
-  csv: ^5.0.0
-  permission_handler: ^11.3.0
+  csv: ^6.0.0
+  permission_handler: ^12.0.1
   qr_flutter: ^4.0.0
+  google_sign_in: ^6.1.1
+  flutter_facebook_auth: ^6.0.1
+  firebase_auth: ^6.1.1
+  firebase_core:
 dev_dependencies:
   flutter_test:
     sdk: flutter
   hive_generator: ^2.0.0
   build_runner: ^2.4.4
+
 flutter_icons:
   android: true
   ios: true
@@ -137,6 +142,14 @@ flutter:
    - assets/bride.png
    - assets/groom.png
    - assets/other.png
+   - assets/group1.png
+   - assets/group2.png
+   - assets/group3.png
+   - assets/rect.png
+   - assets/foundation.png
+   - assets/blush.png
+   - assets/eyeshadow.png
+   - assets/lipstick.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
