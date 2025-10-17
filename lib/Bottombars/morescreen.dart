@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:happy_wedz/guestlist/guestlist.dart';
 
 import '../InboxScreen.dart';
+import '../RealWedding/share_ur_story.dart';
 import '../Wishlist/Wishlistscreen.dart';
 import '../auths/login.dart';
 import '../einvite/einvite.dart';
+import '../einvite1/einvite.dart';
 import '../ideas.dart';
 import '../login.dart';
 import '../main.dart';
@@ -72,8 +74,8 @@ class MoreOptionsScreen extends StatelessWidget {
                       ),
                       _buildMenuItem(
                         icon: Icons.favorite,
-                        title: 'Matrimony',
-                        onTap: () => _handleMenuTap(context, 'Matrimony'),
+                        title: 'Real Wedding',
+                        onTap: () => _handleMenuTap(context, 'Real Wedding'),
                       ),
                       _buildMenuItem(
                         icon: Icons.inbox,
@@ -264,7 +266,7 @@ class MoreOptionsScreen extends StatelessWidget {
     // Example navigation logic:
     switch (menuTitle) {
       case 'E-Invites':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingInvitesScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingInvitesScreen1()));
         break;
         case 'Shop':
         Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen()));
@@ -291,6 +293,10 @@ class MoreOptionsScreen extends StatelessWidget {
       case 'Wishlist':
         Navigator.push(context, MaterialPageRoute(builder: (_) => FavouritesPage()));
       break;
+      case 'Real Wedding':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => ShareWeddingStory()));
+      break;
+
     // case 'Matrimony':
       //   Navigator.push(context, MaterialPageRoute(builder: (_) => MatrimonyScreen()));
       //   break;

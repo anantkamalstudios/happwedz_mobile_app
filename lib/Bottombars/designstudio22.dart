@@ -1,4 +1,603 @@
-// visual_design_screen.dart
+// // visual_design_screen.dart
+// import 'dart:convert';
+// import 'dart:io';
+// import 'dart:typed_data';
+//
+// import 'package:flutter/material.dart';
+// import 'package:http/http.dart' as http;
+// import 'package:image_picker/image_picker.dart';
+//
+// /// ---------- CONFIG ----------
+// const String baseUrl = 'https://www.happywedz.com/ai/api';
+// const String productsApi = 'http://www.happywedz.com/ai/api/products/filter_products?category=MAKEUP';
+// /// ----------------------------
+//
+// /// --- Models ---
+// class CategoryModel {
+//   final int id;
+//   final String name;
+//   final String? imageDataUri; // base64 image data or remote URL (if provided)
+//
+//   CategoryModel({required this.id, required this.name, this.imageDataUri});
+//
+//   factory CategoryModel.fromApi(int id, Map<String, dynamic> json) {
+//     return CategoryModel(
+//       id: id,
+//       name: json['product_detailed_category_name'] ?? json['name'] ?? 'Unknown',
+//       imageDataUri: json['product_detailed_image'],
+//     );
+//   }
+// }
+//
+// class Brand {
+//   final String name;
+//   final int id; // product id from API
+//   final List<Color> shades;
+//   final String? productImageDataUri;
+//
+//   Brand({
+//     required this.name,
+//     required this.id,
+//     List<Color>? shades,
+//     this.productImageDataUri,
+//   }) : shades = shades ?? [];
+//
+//   @override
+//   String toString() => 'Brand(name:$name,id:$id,shades:${shades.length})';
+// }
+//
+// /// ---------------- VisualDesignScreen ----------------
+// class VisualDesignScreen extends StatefulWidget {
+//   final File? userImage;
+//   const VisualDesignScreen({Key? key, this.userImage}) : super(key: key);
+//
+//   @override
+//   State<VisualDesignScreen> createState() => _VisualDesignScreenState();
+// }
+//
+// class _VisualDesignScreenState extends State<VisualDesignScreen> {
+//   int _currentTab = 0;
+//
+//   // Shared selection state
+//   int selectedCategory = 0;
+//   int? selectedBrandIndex;
+//   int? selectedShadeIndex;
+//   final Map<int, Map<String, dynamic>> selections = {};
+//
+//   ImageProvider get _placeholderImage => const NetworkImage(
+//       'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=1200&q=80');
+//
+//   // Networking / image handling
+//   String? _uploadedImageId; // id returned by upload (e.g. 4896)
+//   bool _isApplying = false;
+//   Uint8List? _processedImageBytes;
+//   bool _isUploading = false;
+//
+//   // Data fetched from API
+//   List<CategoryModel> apiCategories = [];
+//   List<List<Brand>> apiBrandsByCategory = [];
+//
+//   // Image picker
+//   final ImagePicker _picker = ImagePicker();
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     if (widget.userImage != null) {
+//       // upload original image if passed in constructor
+//       _uploadOriginalImage(widget.userImage!);
+//     }
+//     _fetchProducts(); // fetch categories & brands/shades from products API
+//   }
+//
+//   // ---------------- UI ----------------
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.white,
+//       body: Column(
+//         children: [
+//           _buildTopBar(),
+//           Expanded(
+//             child: IndexedStack(
+//               index: _currentTab,
+//               children: [
+//                 Column(
+//                   children: [
+//                     // photo area
+//                     Container(
+//                       height: 525,
+//                       margin: const EdgeInsets.all(16),
+//                       decoration: BoxDecoration(
+//                         color: const Color(0xFFEDEDED),
+//                         borderRadius: BorderRadius.circular(16),
+//                         boxShadow: [
+//                           BoxShadow(
+//                             color: Colors.black.withOpacity(0.08),
+//                             blurRadius: 8,
+//                             offset: const Offset(0, 4),
+//                           ),
+//                         ],
+//                       ),
+//                       child: Stack(
+//                         children: [
+//                           ClipRRect(
+//                             borderRadius: BorderRadius.circular(16),
+//                             child: widget.userImage != null
+//                                 ? Image.file(widget.userImage!, fit: BoxFit.cover)
+//                                 : _processedImageBytes != null
+//                                 ? Image.memory(_processedImageBytes!, fit: BoxFit.cover)
+//                                 : Image(image: _placeholderImage, fit: BoxFit.cover),
+//                           ),
+//                           if (_isUploading)
+//                             const Positioned.fill(
+//                               child: Center(child: CircularProgressIndicator()),
+//                             ),
+//                           if (selectedShadeIndex != null)
+//                             Positioned(
+//                               top: 50,
+//                               bottom: 50,
+//                               right: 8,
+//                               child: RotatedBox(
+//                                 quarterTurns: -1,
+//                                 child: Slider(
+//                                   value: selections[selectedCategory]?['intensity']?.toDouble() ?? 1.0,
+//                                   min: 0.0,
+//                                   max: 1.0,
+//                                   onChanged: (val) {
+//                                     setState(() {
+//                                       selections[selectedCategory]?['intensity'] = val;
+//                                     });
+//                                   },
+//                                   activeColor: Colors.pink,
+//                                   inactiveColor: Colors.grey[300],
+//                                 ),
+//                               ),
+//                             ),
+//                         ],
+//                       ),
+//                     ),
+//                     Expanded(
+//                       child: ShadesScreen(
+//                         selectedCategory: selectedCategory,
+//                         selectedBrandIndex: selectedBrandIndex,
+//                         selectedShadeIndex: selectedShadeIndex,
+//                         onCategorySelected: (catIndex) async {
+//                           setState(() {
+//                             selectedCategory = catIndex;
+//                             selectedBrandIndex = null;
+//                             selectedShadeIndex = null;
+//                           });
+//                           // non-blocking: ensure brands are present (we already load all via _fetchProducts)
+//                           if (apiBrandsByCategory.length <= catIndex) {
+//                             // nothing
+//                           }
+//                         },
+//                         onBrandSelected: (brandIndex) {
+//                           setState(() {
+//                             selectedBrandIndex = brandIndex;
+//                             selectedShadeIndex = null;
+//                           });
+//                         },
+//                         onShadeSelected: (shadeIndex) {
+//                           setState(() {
+//                             selectedShadeIndex = shadeIndex;
+//                             selections[selectedCategory] = {
+//                               'brand': selectedBrandIndex ?? 0,
+//                               'shade': shadeIndex,
+//                               'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
+//                             };
+//                           });
+//                         },
+//                         brandsByCategory: apiBrandsByCategory,
+//                         categories: apiCategories.isNotEmpty ? apiCategories.map((c) => c.name).toList() : null,
+//                         fetchBrandsForCategory: (int idx) async {
+//                           // Products endpoint already returns brands/shades; nothing extra needed.
+//                           // But we keep this hook if you want to implement per-category fetch later.
+//                           return;
+//                         },
+//                         fetchShadesForBrand: (int brandId) async {
+//                           // The product objects from product API contain product_colors already,
+//                           // so here we attempt to find them in loaded data. Fallback empty.
+//                           for (final list in apiBrandsByCategory) {
+//                             for (final b in list) {
+//                               if (b.id == brandId) return b.shades;
+//                             }
+//                           }
+//                           return <Color>[];
+//                         },
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//
+//                 CompareScreen(
+//                   image: _processedImageBytes != null
+//                       ? MemoryImage(_processedImageBytes!)
+//                       : widget.userImage != null
+//                       ? Image.file(widget.userImage!, fit: BoxFit.cover).image
+//                       : _placeholderImage,
+//                 ),
+//
+//                 CompleteLooksScreen(
+//                   userImageProvider: _processedImageBytes != null
+//                       ? MemoryImage(_processedImageBytes!)
+//                       : widget.userImage != null
+//                       ? Image.file(widget.userImage!).image
+//                       : _placeholderImage,
+//                   selections: selections,
+//                 ),
+//               ],
+//             ),
+//           ),
+//           _buildBottomTabs(),
+//         ],
+//       ),
+//       floatingActionButton: _buildFloatingActions(),
+//     );
+//   }
+//
+//   Widget _buildTopBar() {
+//     return Container(
+//       height: 72,
+//       padding: const EdgeInsets.symmetric(horizontal: 12),
+//       decoration: const BoxDecoration(
+//         gradient: LinearGradient(
+//           colors: [Color(0xFFEC1E79), Color(0xFFEF6AA9)],
+//         ),
+//       ),
+//       child: SafeArea(
+//         bottom: false,
+//         child: Row(
+//           children: [
+//             IconButton(
+//               icon: const Icon(Icons.arrow_back, color: Colors.white),
+//               onPressed: () => Navigator.of(context).maybePop(),
+//             ),
+//             const SizedBox(width: 8),
+//             const Expanded(
+//               child: Center(
+//                 child: Text(
+//                   'Visual Design',
+//                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+//                 ),
+//               ),
+//             ),
+//             IconButton(
+//               icon: const Icon(Icons.location_on, color: Colors.white),
+//               onPressed: () {},
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildBottomTabs() {
+//     return Container(
+//       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+//       child: SafeArea(
+//         top: false,
+//         child: Row(
+//           children: [
+//             _bottomTabButton('Shades', 0),
+//             _bottomTabButton('Compare', 1),
+//             _bottomTabButton('Complete Looks', 2),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _bottomTabButton(String label, int index) {
+//     final isSelected = index == _currentTab;
+//     return Expanded(
+//       child: InkWell(
+//         onTap: () async {
+//           if (index == 2) {
+//             await _maybeApplyMakeupForSelections();
+//           }
+//           setState(() => _currentTab = index);
+//         },
+//         child: Container(
+//           padding: const EdgeInsets.symmetric(vertical: 14),
+//           decoration: BoxDecoration(
+//             border: Border(top: BorderSide(color: isSelected ? Colors.pink : Colors.transparent, width: 3)),
+//             color: isSelected ? const Color(0xFFFFF1F6) : Colors.white,
+//           ),
+//           child: Text(
+//             label,
+//             textAlign: TextAlign.center,
+//             style: TextStyle(color: isSelected ? Colors.pink : Colors.black54, fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildFloatingActions() {
+//     return Column(
+//       mainAxisSize: MainAxisSize.min,
+//       children: [
+//         FloatingActionButton(
+//           heroTag: 'pick_image',
+//           backgroundColor: Colors.pink,
+//           onPressed: () async {
+//             final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
+//             if (picked != null) {
+//               setState(() {});
+//               await _uploadOriginalImage(File(picked.path));
+//             }
+//           },
+//           child: const Icon(Icons.photo_library),
+//         ),
+//         const SizedBox(height: 8),
+//         FloatingActionButton(
+//           heroTag: 'camera',
+//           backgroundColor: Colors.pink,
+//           onPressed: () async {
+//             final XFile? picked = await _picker.pickImage(source: ImageSource.camera);
+//             if (picked != null) {
+//               setState(() {});
+//               await _uploadOriginalImage(File(picked.path));
+//             }
+//           },
+//           child: const Icon(Icons.camera_alt),
+//         ),
+//       ],
+//     );
+//   }
+//
+//   // ---------------- Networking helper functions ----------------
+//
+//   Future<void> _fetchProducts() async {
+//     try {
+//       final resp = await http.get(Uri.parse(productsApi));
+//       if (resp.statusCode == 200) {
+//         final jsonList = jsonDecode(resp.body) as List;
+//         apiCategories.clear();
+//         apiBrandsByCategory.clear();
+//         int idx = 0;
+//         for (final item in jsonList) {
+//           final cat = CategoryModel.fromApi(idx, item as Map<String, dynamic>);
+//           apiCategories.add(cat);
+//
+//           // parse products -> each product is effectively a brand entry in our UI
+//           final products = (item['products'] as List?) ?? [];
+//           final List<Brand> brands = [];
+//           for (final p in products) {
+//             final product = p as Map<String, dynamic>;
+//             final List<Color> shades = [];
+//             final colors = product['product_colors'] as List<dynamic>? ?? [];
+//             for (final c in colors) {
+//               try {
+//                 shades.add(_hexToColor(c.toString()));
+//               } catch (_) {}
+//             }
+//             final brand = Brand(
+//               name: (product['brand_name'] ?? product['product_name'] ?? 'Brand').toString(),
+//               id: (product['id'] is int) ? product['id'] as int : int.tryParse(product['id']?.toString() ?? '') ?? 0,
+//               shades: shades,
+//               productImageDataUri: product['product_real_image'],
+//             );
+//             brands.add(brand);
+//           }
+//
+//           apiBrandsByCategory.add(brands);
+//           idx++;
+//         }
+//         setState(() {});
+//       } else {
+//         _showSnackBar('Failed to load products: ${resp.statusCode}', Colors.red);
+//       }
+//     } catch (e) {
+//       _showSnackBar('Error fetching products: $e', Colors.red);
+//     }
+//   }
+//
+//   Future<void> _uploadOriginalImage(File imageFile) async {
+//     setState(() => _isUploading = true);
+//     try {
+//       final uri = Uri.parse('$baseUrl/images');
+//       var request = http.MultipartRequest('POST', uri);
+//       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+//       request.fields['image_type'] = 'ORIGINAL';
+//
+//       final streamedResp = await request.send();
+//       final respStr = await streamedResp.stream.bytesToString();
+//
+//       if (streamedResp.statusCode == 200 || streamedResp.statusCode == 201) {
+//         final json = jsonDecode(respStr);
+//         String? idStr;
+//         if (json['id'] != null) idStr = json['id'].toString();
+//         if (json['image_id'] != null) idStr = json['image_id'].toString();
+//         if (json['uploaded_image_id'] != null) idStr = json['uploaded_image_id'].toString();
+//         if (idStr == null && json['processed_image_id'] != null) idStr = json['processed_image_id'].toString();
+//
+//         if (idStr != null) {
+//           _uploadedImageId = idStr;
+//           _showSnackBar('Image uploaded (id: $_uploadedImageId)', Colors.green);
+//         } else {
+//           _showSnackBar('Upload succeeded but id not found', Colors.orange);
+//         }
+//       } else {
+//         _showSnackBar('Failed to upload image: ${streamedResp.statusCode}', Colors.red);
+//       }
+//     } catch (e) {
+//       _showSnackBar('Error uploading image: $e', Colors.red);
+//     } finally {
+//       setState(() => _isUploading = false);
+//     }
+//   }
+//
+//   Future<void> _maybeApplyMakeupForSelections() async {
+//     if (_isApplying) return;
+//     if (_uploadedImageId == null) {
+//       if (widget.userImage != null) {
+//         await _uploadOriginalImage(widget.userImage!);
+//       } else {
+//         _showSnackBar('Please upload an image first (use camera or gallery)', Colors.orange);
+//         return;
+//       }
+//     }
+//     if (_uploadedImageId == null) {
+//       _showSnackBar('No uploaded image id available', Colors.red);
+//       return;
+//     }
+//
+//     // collect product ids from selections (brand id)
+//     final productIds = <int>[];
+//     selections.forEach((catIndex, map) {
+//       final brand = map['brand'];
+//       if (brand is int) {
+//         if (apiBrandsByCategory.length > catIndex && apiBrandsByCategory[catIndex].isNotEmpty) {
+//           final b = apiBrandsByCategory[catIndex][brand];
+//           if (b != null && b.id != 0) {
+//             productIds.add(b.id);
+//             return;
+//           }
+//         }
+//         // fallback: try brand index + 1
+//         productIds.add((brand as int) + 1);
+//       }
+//     });
+//
+//     if (productIds.isEmpty) {
+//       // fallback to first product id available globally
+//       final first = apiBrandsByCategory.expand((e) => e).firstWhere((_) => true, orElse: () => Brand(name: 'dummy', id: 1));
+//       productIds.add(first.id);
+//     }
+//
+//     final requestData = <String, dynamic>{
+//       "image_id": int.tryParse(_uploadedImageId!) ?? 0,
+//       "product_ids": productIds,
+//     };
+//
+//     // Prefer shade hexes from selection if available
+//     selections.forEach((catIndex, map) {
+//       final brandIndex = map['brand'];
+//       final shadeIndex = map['shade'];
+//       final intensity = map['intensity'];
+//       if (brandIndex is int && shadeIndex is int) {
+//         if (apiBrandsByCategory.length > catIndex) {
+//           final brands = apiBrandsByCategory[catIndex];
+//           if (brandIndex < brands.length) {
+//             final b = brands[brandIndex];
+//             if (b.shades.isNotEmpty && shadeIndex < b.shades.length) {
+//               final hex = _colorToHex(b.shades[shadeIndex]);
+//               final catName = (apiCategories.isNotEmpty && catIndex < apiCategories.length) ? apiCategories[catIndex].name.toLowerCase() : '';
+//               if (catName.contains('lip') || catName.contains('lipstick')) {
+//                 requestData["lipstick_color"] = hex;
+//                 if (intensity != null) requestData["lipstick_intensity"] = intensity;
+//               } else if (catName.contains('blush')) {
+//                 requestData["blush_color"] = hex;
+//                 if (intensity != null) requestData["blush_intensity"] = intensity;
+//               } else if (catName.contains('eye') || catName.contains('eyeshadow')) {
+//                 requestData["eyeshadow_color"] = hex;
+//                 if (intensity != null) requestData["eyeshadow_intensity"] = intensity;
+//               } else if (catName.contains('found') || catName.contains('foundation')) {
+//                 requestData["foundation_color"] = hex;
+//                 if (intensity != null) requestData["foundation_intensity"] = intensity;
+//               } else {
+//                 // generic map by index
+//                 if (catIndex == 1) {
+//                   requestData["lipstick_color"] = hex;
+//                   if (intensity != null) requestData["lipstick_intensity"] = intensity;
+//                 } else if (catIndex == 2) {
+//                   requestData["blush_color"] = hex;
+//                   if (intensity != null) requestData["blush_intensity"] = intensity;
+//                 } else if (catIndex == 3) {
+//                   requestData["eyeshadow_color"] = hex;
+//                   if (intensity != null) requestData["eyeshadow_intensity"] = intensity;
+//                 } else if (catIndex == 0) {
+//                   requestData["foundation_color"] = hex;
+//                   if (intensity != null) requestData["foundation_intensity"] = intensity;
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     });
+//
+//     // Add default intensities if not present
+//     requestData.addAll({
+//       "lipstick_intensity": requestData["lipstick_intensity"] ?? 0.8,
+//       "blush_intensity": requestData["blush_intensity"] ?? 0.6,
+//       "eyeshadow_intensity": requestData["eyeshadow_intensity"] ?? 0.9,
+//       "foundation_intensity": requestData["foundation_intensity"] ?? 0.6,
+//     });
+//
+//     setState(() => _isApplying = true);
+//     try {
+//       final resp = await http.post(
+//         Uri.parse('$baseUrl/images/apply-makeup'),
+//         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+//         body: jsonEncode(requestData),
+//       );
+//
+//       if (resp.statusCode == 200 || resp.statusCode == 201) {
+//         final jsonResp = jsonDecode(resp.body) as Map<String, dynamic>;
+//         final processedId = jsonResp['processed_image_id'] ?? jsonResp['id'] ?? jsonResp['image_id'];
+//         String? imageUrl;
+//         if (jsonResp['url'] != null) {
+//           imageUrl = jsonResp['url'].toString();
+//         } else if (processedId != null) {
+//           imageUrl = '$baseUrl/images/$processedId';
+//         }
+//
+//         if (imageUrl != null) {
+//           final imgResp = await http.get(Uri.parse(imageUrl));
+//           if (imgResp.statusCode == 200) {
+//             setState(() {
+//               _processedImageBytes = imgResp.bodyBytes;
+//             });
+//             _showSnackBar('Processed image loaded', Colors.green);
+//           } else {
+//             _showSnackBar('Failed to fetch processed image (${imgResp.statusCode})', Colors.red);
+//           }
+//         } else {
+//           _showSnackBar('No processed image id or url returned', Colors.red);
+//         }
+//       } else {
+//         String err = 'Apply makeup failed: ${resp.statusCode}';
+//         try {
+//           err += '\n${resp.body}';
+//         } catch (_) {}
+//         _showSnackBar(err, Colors.red);
+//       }
+//     } catch (e) {
+//       _showSnackBar('Error applying makeup: $e', Colors.red);
+//     } finally {
+//       setState(() => _isApplying = false);
+//     }
+//   }
+//
+//   // ---------------- Utilities ----------------
+//   Color _hexToColor(String hex) {
+//     var h = hex.replaceAll('#', '').trim();
+//     if (h.length == 6) h = 'FF$h';
+//     final val = int.tryParse(h, radix: 16) ?? 0xFFFFFFFF;
+//     return Color(val);
+//   }
+//
+//   String _colorToHex(Color color) {
+//     String hex = color.value.toRadixString(16).padLeft(8, '0');
+//     return '#${hex.substring(2).toUpperCase()}';
+//   }
+//
+//   void _showSnackBar(String message, Color color) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(message, maxLines: 6),
+//         backgroundColor: color,
+//         behavior: SnackBarBehavior.floating,
+//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+//       ),
+//     );
+//   }
+// }
+// lib/screens/visual_design_screen.dart
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -7,12 +606,18 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
-/// ---------- CONFIG ----------
+// ---------------- CONFIG ----------------
 const String baseUrl = 'https://www.happywedz.com/ai/api';
-/// ----------------------------
+const String productsApi = 'http://69.62.85.170:5001/api/products/filter_products?category=MAKEUP';
+// ----------------------------------------
 
+/// NOTE:
+/// This file expects your existing ShadesScreen, CompareScreen, CompleteLooksScreen
+/// to be available (unchanged). This file only updates networking/logic while keeping UI intact.
+///
+///
 class VisualDesignScreen extends StatefulWidget {
-  final File? userImage; // optional local image file
+  final File? userImage;
   const VisualDesignScreen({Key? key, this.userImage}) : super(key: key);
 
   @override
@@ -22,62 +627,46 @@ class VisualDesignScreen extends StatefulWidget {
 class _VisualDesignScreenState extends State<VisualDesignScreen> {
   int _currentTab = 0;
 
-  // Shared state across tab widgets
-  int selectedCategory = 0; // 0: Foundation, 1: Lipstick, ...
+  int selectedCategory = 0;
   int? selectedBrandIndex;
   int? selectedShadeIndex;
-
-  // store final selections as map: categoryIndex -> (brandIndex, shadeIndex, intensity)
   final Map<int, Map<String, dynamic>> selections = {};
+
+  String? _uploadedImageId;
+  bool _isUploading = false;
+  bool _isApplying = false;
+  Uint8List? _processedImageBytes;
+  final ImagePicker _picker = ImagePicker();
+
+  List<CategoryModel> apiCategories = [];
+  List<List<Brand>> apiBrandsByCategory = [];
+
+  final String baseUrl = 'https://www.happywedz.com/ai/api';
+  final String productsApi = 'https://www.happywedz.com/ai/api/products/filter_products?category=MAKEUP';
 
   ImageProvider get _placeholderImage => const NetworkImage(
       'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=1200&q=80');
 
-  // --- Networking / image handling ---
-  String? _uploadedImageId; // id returned when uploading original image
-  bool _isApplying = false;
-  Uint8List? _processedImageBytes; // result from apply-makeup
-  bool _isUploading = false;
-
-  // Data fetched from API (if available)
-  List<CategoryModel> apiCategories = [];
-  List<List<Brand>> apiBrandsByCategory = []; // brand lists per category (fetched)
-  // Shades are stored inside Brand.shades list
-
-  // Image picker for optional local upload from VisualDesignScreen
-  final ImagePicker _picker = ImagePicker();
-
   @override
   void initState() {
     super.initState();
-    // optionally upload widget.userImage (if provided)
-    if (widget.userImage != null) {
-      // upload and fetch processed image only when apply is called; but we will upload original to get an image_id now
-      _uploadOriginalImage(widget.userImage!);
-    }
-    // Optionally prefetch categories from API
-    _fetchCategories();
+    if (widget.userImage != null) _uploadOriginalImage(widget.userImage!);
+    _fetchProducts();
   }
 
-  // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // 1️⃣ AppBar
           _buildTopBar(),
-
-          // 2️⃣ Tab content
           Expanded(
             child: IndexedStack(
               index: _currentTab,
               children: [
-                // Shades tab: photo + product + brand + shades + intensity
                 Column(
                   children: [
-                    // 1️⃣ Photo area
                     Container(
                       height: 525,
                       margin: const EdgeInsets.all(16),
@@ -85,11 +674,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
                         color: const Color(0xFFEDEDED),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
+                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))
                         ],
                       ),
                       child: Stack(
@@ -98,10 +683,14 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
                             borderRadius: BorderRadius.circular(16),
                             child: widget.userImage != null
                                 ? Image.file(widget.userImage!, fit: BoxFit.cover)
+                                : _processedImageBytes != null
+                                ? Image.memory(_processedImageBytes!, fit: BoxFit.cover)
                                 : Image(image: _placeholderImage, fit: BoxFit.cover),
                           ),
-
-                          // 2️⃣ Intensity slider only if shade is selected
+                          if (_isUploading)
+                            const Positioned.fill(
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
                           if (selectedShadeIndex != null)
                             Positioned(
                               top: 50,
@@ -126,21 +715,17 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
                         ],
                       ),
                     ),
-
-                    // 3️⃣ Products + Brands + Shades
                     Expanded(
                       child: ShadesScreen(
                         selectedCategory: selectedCategory,
                         selectedBrandIndex: selectedBrandIndex,
                         selectedShadeIndex: selectedShadeIndex,
-                        onCategorySelected: (catIndex) async {
+                        onCategorySelected: (catIndex) {
                           setState(() {
                             selectedCategory = catIndex;
                             selectedBrandIndex = null;
                             selectedShadeIndex = null;
                           });
-                          // Try to fetch brands for this category from API (non-blocking)
-                          await _fetchBrandsForCategory(catIndex);
                         },
                         onBrandSelected: (brandIndex) {
                           setState(() {
@@ -154,22 +739,17 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
                             selections[selectedCategory] = {
                               'brand': selectedBrandIndex ?? 0,
                               'shade': shadeIndex,
-                              'intensity': 1.0,
+                              'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
                             };
                           });
                         },
-
-                        // pass API-fed brands if available
                         brandsByCategory: apiBrandsByCategory,
                         categories: apiCategories.isNotEmpty ? apiCategories.map((c) => c.name).toList() : null,
-                        fetchBrandsForCategory: _fetchBrandsForCategory,
-                        fetchShadesForBrand: _fetchShadesForBrand,
                       ),
-                    ),
+
+                    )
                   ],
                 ),
-
-                // Compare tab: only CompareScreen (no photo above)
                 CompareScreen(
                   image: _processedImageBytes != null
                       ? MemoryImage(_processedImageBytes!)
@@ -177,8 +757,6 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
                       ? Image.file(widget.userImage!, fit: BoxFit.cover).image
                       : _placeholderImage,
                 ),
-
-                // Complete Looks tab: just content (we'll trigger apply-makeup on entering tab)
                 CompleteLooksScreen(
                   userImageProvider: _processedImageBytes != null
                       ? MemoryImage(_processedImageBytes!)
@@ -190,12 +768,9 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
               ],
             ),
           ),
-
-          // 3️⃣ Bottom tab bar
           _buildBottomTabs(),
         ],
       ),
-      // floatingActionButton: _buildFloatingActions(),
     );
   }
 
@@ -204,34 +779,20 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFEC1E79), Color(0xFFEF6AA9)],
-        ),
+        gradient: LinearGradient(colors: [Color(0xFFEC1E79), Color(0xFFEF6AA9)]),
       ),
       child: SafeArea(
         bottom: false,
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+            IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.of(context).maybePop()),
             const SizedBox(width: 8),
             const Expanded(
               child: Center(
-                child: Text(
-                  'Visual Design',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18),
-                ),
+                child: Text('Visual Design', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.location_on, color: Colors.white),
-              onPressed: () {},
-            ),
+            IconButton(icon: const Icon(Icons.location_on, color: Colors.white), onPressed: () {}),
           ],
         ),
       ),
@@ -240,10 +801,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
 
   Widget _buildBottomTabs() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)],
-      ),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
       child: SafeArea(
         top: false,
         child: Row(
@@ -262,140 +820,68 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
     return Expanded(
       child: InkWell(
         onTap: () async {
-          // if going to Complete Looks, apply makeup automatically
-          if (index == 2) {
-            await _maybeApplyMakeupForSelections();
-          }
+          if (index == 2) await _maybeApplyMakeupForSelections();
           setState(() => _currentTab = index);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: isSelected ? Colors.pink : Colors.transparent, width: 3),
-            ),
+            border: Border(top: BorderSide(color: isSelected ? Colors.pink : Colors.transparent, width: 3)),
             color: isSelected ? const Color(0xFFFFF1F6) : Colors.white,
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.pink : Colors.black54,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
-            ),
-          ),
+          child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: isSelected ? Colors.pink : Colors.black54, fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal)),
         ),
       ),
     );
   }
 
-  Widget _buildFloatingActions() {
-    // allow picking/uploading image from this screen (keeps UI unchanged)
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FloatingActionButton(
-          heroTag: 'pick_image',
-          backgroundColor: Colors.pink,
-          onPressed: () async {
-            final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
-            if (picked != null) {
-              setState(() {
-                // update displayed image
-                // Note: this only updates the local displayed image; the upload will happen automatically when needed
-              });
-              // Upload and store id
-              await _uploadOriginalImage(File(picked.path));
-            }
-          },
-          child: const Icon(Icons.photo_library),
-        ),
-        const SizedBox(height: 8),
-        FloatingActionButton(
-          heroTag: 'camera',
-          backgroundColor: Colors.pink,
-          onPressed: () async {
-            final XFile? picked = await _picker.pickImage(source: ImageSource.camera);
-            if (picked != null) {
-              setState(() {});
-              await _uploadOriginalImage(File(picked.path));
-            }
-          },
-          child: const Icon(Icons.camera_alt),
-        ),
-      ],
-    );
-  }
-
-  // ---------------- Networking helper functions ----------------
-
-  Future<void> _fetchCategories() async {
+  Future<void> _fetchProducts() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/categories'));
-      if (response.statusCode == 200) {
-        final jsonList = jsonDecode(response.body) as List;
-        apiCategories = jsonList.map((e) => CategoryModel.fromJson(e)).toList();
-      } else {
-        // ignore; keep defaults inside ShadesScreen
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
+      debugPrint('GET $productsApi');
+      final resp = await http.get(Uri.parse(productsApi));
+      debugPrint('Products API status: ${resp.statusCode}');
+      print('--- PRODUCTS RESPONSE ---\n${resp.body}');
 
-  /// fetch brands for a given category index (we map index -> category id if available)
-  Future<void> _fetchBrandsForCategory(int categoryIndex) async {
-    try {
-      if (apiCategories.isEmpty) {
-        // if categories not fetched, try to fetch once
-        await _fetchCategories();
-      }
-      if (apiCategories.isNotEmpty && categoryIndex < apiCategories.length) {
-        final catId = apiCategories[categoryIndex].id;
-        final response = await http.get(Uri.parse('$baseUrl/brands?category_id=$catId'));
-        if (response.statusCode == 200) {
-          final jsonList = jsonDecode(response.body) as List;
-          final brands = jsonList.map((b) {
-            // brand must include shades? if not, we'll fetch shades separately
-            return Brand(name: b['name'] ?? 'Unknown', id: b['id'] ?? 0, shades: (b['shades'] as List?)
-                ?.map<Color>((s) => _hexToColor(s['hex'] ?? '#FFFFFF'))
-                .toList() ??
-                []);
-          }).toList();
+      if (resp.statusCode == 200) {
+        final jsonList = jsonDecode(resp.body) as List;
+        apiCategories.clear();
+        apiBrandsByCategory.clear();
+        int idx = 0;
+        for (final itm in jsonList) {
+          final map = itm as Map<String, dynamic>;
+          final cat = CategoryModel.fromApi(idx, map);
+          apiCategories.add(cat);
 
-          // ensure apiBrandsByCategory has proper length
-          if (apiBrandsByCategory.length <= categoryIndex) {
-            // extend list
-            while (apiBrandsByCategory.length <= categoryIndex) apiBrandsByCategory.add([]);
+          final products = (map['products'] as List?) ?? [];
+          final List<Brand> brands = [];
+          for (final p in products) {
+            final product = p as Map<String, dynamic>;
+            final List<Color> shades = [];
+            for (final c in (product['product_colors'] as List? ?? [])) {
+              try { shades.add(_hexToColor(c.toString())); } catch (_) {}
+            }
+            final brand = Brand(
+              name: (product['brand_name'] ?? product['product_name'] ?? 'Brand').toString(),
+              id: product['id'] is int ? product['id'] : int.tryParse(product['id']?.toString() ?? '') ?? 0,
+              shades: shades,
+              productImageDataUri: product['product_real_image'],
+              // productName: product['product_name']?.toString(),
+            );
+            brands.add(brand);
           }
-          apiBrandsByCategory[categoryIndex] = brands;
-          setState(() {});
+          apiBrandsByCategory.add(brands);
+          idx++;
         }
+        setState(() {});
+        print('Products & shades loaded successfully.');
+      } else {
+        print('Failed to load products: ${resp.statusCode}');
       }
     } catch (e) {
-      // ignore network errors for now
+      print('Error fetching products: $e');
     }
   }
 
-  /// fetch shades for a brand (if the brand has an id)
-  Future<List<Color>> _fetchShadesForBrand(int brandId) async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/shades?brand_id=$brandId'));
-      if (response.statusCode == 200) {
-        final jsonList = jsonDecode(response.body) as List;
-        final colors = jsonList.map<Color>((s) {
-          final hex = s['hex'] ?? s['color'] ?? '#FFFFFF';
-          return _hexToColor(hex);
-        }).toList();
-        return colors;
-      }
-    } catch (e) {
-      // ignore
-    }
-    return [];
-  }
-
-  /// upload original image to /images to receive image id (like your other code)
   Future<void> _uploadOriginalImage(File imageFile) async {
     setState(() => _isUploading = true);
     try {
@@ -404,280 +890,743 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
       request.fields['image_type'] = 'ORIGINAL';
 
-      final streamedResp = await request.send();
-      final respStr = await streamedResp.stream.bytesToString();
-      if (streamedResp.statusCode == 200 || streamedResp.statusCode == 201) {
-        final json = jsonDecode(respStr);
-        // some APIs return 'id' or 'image_id' or 'processed_image_id' - check which
-        String? idStr;
-        if (json['id'] != null) idStr = json['id'].toString();
-        if (json['image_id'] != null) idStr = json['image_id'].toString();
-        if (json['uploaded_image_id'] != null) idStr = json['uploaded_image_id'].toString();
-        if (idStr == null && json['processed_image_id'] != null) idStr = json['processed_image_id'].toString();
+      final streamed = await request.send();
+      final respStr = await streamed.stream.bytesToString();
 
-        if (idStr != null) {
-          _uploadedImageId = idStr;
-          _showSnackBar('Image uploaded (id: $_uploadedImageId)', Colors.green);
-        } else {
-          _showSnackBar('Upload succeeded but id not found', Colors.orange);
-        }
+      print('--- UPLOAD RESPONSE ---\nStatus: ${streamed.statusCode}\n$respStr');
+
+      if (streamed.statusCode == 200 || streamed.statusCode == 201) {
+        final jsonResp = jsonDecode(respStr) as Map<String, dynamic>;
+        _uploadedImageId = jsonResp['id']?.toString();
+        print('Uploaded image id: $_uploadedImageId');
       } else {
-        _showSnackBar('Failed to upload image: ${streamedResp.statusCode}', Colors.red);
+        print('Upload failed: ${streamed.statusCode}');
       }
     } catch (e) {
-      _showSnackBar('Error uploading image: $e', Colors.red);
+      print('Error uploading image: $e');
     } finally {
       setState(() => _isUploading = false);
     }
   }
 
-  /// When user navigates to Complete Looks, we automatically call apply-makeup to get processed image
   Future<void> _maybeApplyMakeupForSelections() async {
     if (_isApplying) return;
     if (_uploadedImageId == null) {
-      // can't apply without image id: try uploading widget.userImage if present
-      if (widget.userImage != null) {
-        await _uploadOriginalImage(widget.userImage!);
-      } else {
-        _showSnackBar('Please upload an image first (or provide widget.userImage with an image id).', Colors.orange);
-        return;
-      }
-    }
-    if (_uploadedImageId == null) {
-      _showSnackBar('No uploaded image id available to apply makeup', Colors.red);
-      return;
+      if (widget.userImage != null) await _uploadOriginalImage(widget.userImage!);
+      if (_uploadedImageId == null) return;
     }
 
-    // Build product_ids from selections (we map brand->product id if available; fallback: brand index)
     final productIds = <int>[];
     selections.forEach((catIndex, map) {
-      final brand = map['brand'];
-      if (brand is int) {
-        // Try to find brand id (if apiBrandsByCategory available)
-        int resolvedId = 0;
-        if (apiBrandsByCategory.length > catIndex && apiBrandsByCategory[catIndex].isNotEmpty) {
-          final b = apiBrandsByCategory[catIndex][brand];
-          if (b != null && b.id != 0) resolvedId = b.id;
-        }
-        if (resolvedId == 0) {
-          // fallback: use brand index + 1 as dummy
-          resolvedId = brand + 1;
-        }
-        productIds.add(resolvedId);
+      final brandIdx = map['brand'];
+      if (brandIdx is int && apiBrandsByCategory.length > catIndex) {
+        final b = apiBrandsByCategory[catIndex][brandIdx];
+        if (b != null && b.id != 0) productIds.add(b.id);
       }
     });
+    if (productIds.isEmpty) productIds.add(apiBrandsByCategory.expand((e) => e).first.id);
 
-    if (productIds.isEmpty) {
-      // fallback single product id if none selected
-      productIds.add(1);
-    }
+    final Map<String, dynamic> payload = {"image_id": int.parse(_uploadedImageId!), "product_ids": productIds};
 
-    // Build request payload similar to your sample JSON
-    final Map<String, dynamic> requestData = {
-      "image_id": int.tryParse(_uploadedImageId!) ?? 0,
-      "product_ids": productIds,
-      // Hardcode makeup params per selection entries (or use single global intensity stored in selections)
-    };
-
-    // Optionally attach params per category if present (we'll attach some generic defaults)
-    // If you stored intensities per selection, include them. Here we include default values
-    requestData.addAll({
-      "lipstick_intensity": selections[1]?['intensity'] ?? 0.8,
-      "lipstick_color": selections[1]?['hex'] ?? '#B22222',
-      "blush_intensity": selections[2]?['intensity'] ?? 0.2,
-      "blush_radius": selections[2]?['radius'] ?? 60,
-      "blush_color": selections[2]?['hex'] ?? '#F08080',
-      "eyeshadow_intensity": selections[3]?['intensity'] ?? 0.4,
-      "eyeshadow_thickness": selections[3]?['thickness'] ?? 25,
-      "eyeshadow_color": selections[3]?['hex'] ?? '#9370DB',
-      "lens_intensity": 0.2,
-      "lens_radius_scale": 1.3,
-      "lens_color": "#4B9CD3",
-      "foundation_intensity": 0.6,
-      "foundation_color": "#F5D6C6",
-      "kajal_intensity": 1.0,
-      "kajal_color": "#000000",
-      "concealer_intensity": 0.9,
-      "concealer_color": "#FFDAB9",
-      "contour_intensity": 0.3,
-      "contour_color": "#8B4513",
-      "bindi_size": 6,
-      "bindi_color": "#FF0000",
-    });
-
-    // If selections include explicit hex colors or intensities, prefer them
-    // For example if selections store a 'hex' for the chosen shade:
     selections.forEach((catIndex, map) {
       final brandIndex = map['brand'];
       final shadeIndex = map['shade'];
-      final intensity = map['intensity'];
-      Color? shadeColor;
-      if (apiBrandsByCategory.length > catIndex && apiBrandsByCategory[catIndex].isNotEmpty) {
-        final brands = apiBrandsByCategory[catIndex];
-        if (brandIndex != null && brandIndex < brands.length) {
-          final brand = brands[brandIndex];
-          if (brand.shades.isNotEmpty && shadeIndex != null && shadeIndex < brand.shades.length) {
-            shadeColor = brand.shades[shadeIndex];
-          }
-        }
-      }
-      if (shadeColor != null) {
-        final hex = _colorToHex(shadeColor);
-        // map categories (approx): 0 Foundation, 1 Lipstick, 2 Blush, 3 Eyeshadow ...
-        final catName = apiCategories.isNotEmpty && catIndex < apiCategories.length ? apiCategories[catIndex].name.toLowerCase() : 'cat$catIndex';
-        if (catName.contains('lip') || catName.contains('lipstick')) {
-          requestData["lipstick_color"] = hex;
-          if (intensity != null) requestData["lipstick_intensity"] = intensity;
-        } else if (catName.contains('blush')) {
-          requestData["blush_color"] = hex;
-          if (intensity != null) requestData["blush_intensity"] = intensity;
-        } else if (catName.contains('eye') || catName.contains('eyeshadow')) {
-          requestData["eyeshadow_color"] = hex;
-          if (intensity != null) requestData["eyeshadow_intensity"] = intensity;
-        } else if (catName.contains('foundation')) {
-          requestData["foundation_color"] = hex;
-          if (intensity != null) requestData["foundation_intensity"] = intensity;
-        } else {
-          // generic mapping based on index (if categor names not available)
-          if (catIndex == 1) { // lipstick
-            requestData["lipstick_color"] = hex;
-            if (intensity != null) requestData["lipstick_intensity"] = intensity;
-          } else if (catIndex == 2) {
-            requestData["blush_color"] = hex;
-            if (intensity != null) requestData["blush_intensity"] = intensity;
-          } else if (catIndex == 3) {
-            requestData["eyeshadow_color"] = hex;
-            if (intensity != null) requestData["eyeshadow_intensity"] = intensity;
-          } else if (catIndex == 0) {
-            requestData["foundation_color"] = hex;
-            if (intensity != null) requestData["foundation_intensity"] = intensity;
-          }
+      final intensity = map['intensity'] ?? 1.0;
+      if (brandIndex != null && shadeIndex != null && apiBrandsByCategory.length > catIndex) {
+        final b = apiBrandsByCategory[catIndex][brandIndex];
+        if (b.shades.isNotEmpty && shadeIndex < b.shades.length) {
+          final hex = _colorToHex(b.shades[shadeIndex]);
+          final catName = apiCategories[catIndex].name.toLowerCase();
+          if (catName.contains('lip')) { payload['lipstick_color'] = hex; payload['lipstick_intensity'] = intensity; }
+          else if (catName.contains('blush')) { payload['blush_color'] = hex; payload['blush_intensity'] = intensity; }
+          else if (catName.contains('eye')) { payload['eyeshadow_color'] = hex; payload['eyeshadow_intensity'] = intensity; }
+          else if (catName.contains('found')) { payload['foundation_color'] = hex; payload['foundation_intensity'] = intensity; }
         }
       }
     });
 
-    // Post to /images/apply-makeup
+    print('--- APPLY MAKEUP REQUEST ---\n${jsonEncode(payload)}');
     setState(() => _isApplying = true);
+
     try {
-      final response = await http.post(
+      final resp = await http.post(
         Uri.parse('$baseUrl/images/apply-makeup'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(requestData),
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: jsonEncode(payload),
       );
+      print('--- APPLY MAKEUP RESPONSE ---\nStatus: ${resp.statusCode}\n${resp.body}');
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final jsonResponse = jsonDecode(response.body);
-        final processedId = jsonResponse['processed_image_id'] ?? jsonResponse['id'] ?? jsonResponse['image_id'];
-
-        if (processedId != null) {
-          final imageUrl = '$baseUrl/images/$processedId';
-          final imageResp = await http.get(Uri.parse(imageUrl));
-          if (imageResp.statusCode == 200) {
-            setState(() {
-              _processedImageBytes = imageResp.bodyBytes;
-            });
-            _showSnackBar('Processed image loaded', Colors.green);
-          } else {
-            _showSnackBar('Failed to fetch processed image: ${imageResp.statusCode}', Colors.red);
-          }
-        } else if (jsonResponse['url'] != null) {
-          final imageResp = await http.get(Uri.parse(jsonResponse['url']));
-          if (imageResp.statusCode == 200) {
-            setState(() {
-              _processedImageBytes = imageResp.bodyBytes;
-            });
-            _showSnackBar('Processed image loaded', Colors.green);
-          } else {
-            _showSnackBar('Failed to fetch processed image from URL', Colors.red);
-          }
-        } else {
-          _showSnackBar('No processed image id/url returned', Colors.red);
-        }
-      } else {
-        // parse error body
-        String err = 'Apply makeup failed: ${response.statusCode}';
-        try {
-          final errJson = jsonDecode(response.body);
-          err += '\n${errJson.toString()}';
-        } catch (_) {
-          err += '\n${response.body}';
-        }
-        _showSnackBar(err, Colors.red);
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final jsonResp = jsonDecode(resp.body);
+        final processedId = jsonResp['processed_image_id'] ?? jsonResp['id'] ?? jsonResp['image_id'];
+        final imageUrl = jsonResp['url']?.toString() ?? '$baseUrl/images/$processedId';
+        final imgResp = await http.get(Uri.parse(imageUrl));
+        if (imgResp.statusCode == 200) setState(() => _processedImageBytes = imgResp.bodyBytes);
       }
     } catch (e) {
-      _showSnackBar('Error applying makeup: $e', Colors.red);
+      print('Error applying makeup: $e');
     } finally {
       setState(() => _isApplying = false);
     }
   }
 
-  // ---------------- Utilities ----------------
   Color _hexToColor(String hex) {
-    var h = hex.replaceAll('#', '');
+    var h = hex.replaceAll('#', '').trim();
     if (h.length == 6) h = 'FF$h';
-    final val = int.tryParse(h, radix: 16) ?? 0xFFFFFFFF;
-    return Color(val);
+    return Color(int.tryParse(h, radix: 16) ?? 0xFFFFFFFF);
   }
 
   String _colorToHex(Color color) {
-    String hex = color.value.toRadixString(16).padLeft(8, '0');
+    final hex = color.value.toRadixString(16).padLeft(8, '0');
     return '#${hex.substring(2).toUpperCase()}';
   }
+}
 
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, maxLines: 5),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+//
+// class VisualDesignScreen extends StatefulWidget {
+//   final File? userImage;
+//   const VisualDesignScreen({Key? key, this.userImage}) : super(key: key);
+//
+//   @override
+//   State<VisualDesignScreen> createState() => _VisualDesignScreenState();
+// }
+//
+// class _VisualDesignScreenState extends State<VisualDesignScreen> {
+//   int _currentTab = 0;
+//
+//   // State for selections
+//   int selectedCategory = 0;
+//   int? selectedBrandIndex;
+//   int? selectedShadeIndex;
+//   final Map<int, Map<String, dynamic>> selections = {};
+//
+//   // Images & network state
+//   String? _uploadedImageId;
+//   bool _isUploading = false;
+//   bool _isApplying = false;
+//   Uint8List? _processedImageBytes;
+//   final ImagePicker _picker = ImagePicker();
+//
+//   // Data from products API
+//   List<CategoryModel> apiCategories = [];
+//   List<List<Brand>> apiBrandsByCategory = [];
+//
+//   ImageProvider get _placeholderImage => const NetworkImage(
+//       'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=1200&q=80');
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     // If a file was supplied from previous screen, upload it now
+//     if (widget.userImage != null) {
+//       _uploadOriginalImage(widget.userImage!);
+//     }
+//     // fetch product categories & brands
+//     _fetchProducts();
+//   }
+//
+//   // ---------------- UI BUILD ----------------
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.white,
+//       body: Column(
+//         children: [
+//           _buildTopBar(),
+//           Expanded(
+//             child: IndexedStack(
+//               index: _currentTab,
+//               children: [
+//                 // Shades tab (photo + ShadesScreen below)
+//                 Column(
+//                   children: [
+//                     Container(
+//                       height: 525,
+//                       margin: const EdgeInsets.all(16),
+//                       decoration: BoxDecoration(
+//                         color: const Color(0xFFEDEDED),
+//                         borderRadius: BorderRadius.circular(16),
+//                         boxShadow: [
+//                           BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))
+//                         ],
+//                       ),
+//                       child: Stack(
+//                         children: [
+//                           ClipRRect(
+//                             borderRadius: BorderRadius.circular(16),
+//                             child: widget.userImage != null
+//                                 ? Image.file(widget.userImage!, fit: BoxFit.cover)
+//                                 : _processedImageBytes != null
+//                                 ? Image.memory(_processedImageBytes!, fit: BoxFit.cover)
+//                                 : Image(image: _placeholderImage, fit: BoxFit.cover),
+//                           ),
+//
+//                           if (_isUploading)
+//                             const Positioned.fill(
+//                               child: Center(child: CircularProgressIndicator()),
+//                             ),
+//
+//                           // Intensity slider (vertical) shown when a shade is selected
+//                           if (selectedShadeIndex != null)
+//                             Positioned(
+//                               top: 50,
+//                               bottom: 50,
+//                               right: 8,
+//                               child: RotatedBox(
+//                                 quarterTurns: -1,
+//                                 child: Slider(
+//                                   value: selections[selectedCategory]?['intensity']?.toDouble() ?? 1.0,
+//                                   min: 0.0,
+//                                   max: 1.0,
+//                                   onChanged: (val) {
+//                                     setState(() {
+//                                       selections[selectedCategory]?['intensity'] = val;
+//                                     });
+//                                   },
+//                                   activeColor: Colors.pink,
+//                                   inactiveColor: Colors.grey[300],
+//                                 ),
+//                               ),
+//                             ),
+//                         ],
+//                       ),
+//                     ),
+//
+//                     Expanded(
+//                       child: ShadesScreen(
+//                         selectedCategory: selectedCategory,
+//                         selectedBrandIndex: selectedBrandIndex,
+//                         selectedShadeIndex: selectedShadeIndex,
+//                         onCategorySelected: (catIndex) {
+//                           setState(() {
+//                             selectedCategory = catIndex;
+//                             selectedBrandIndex = null;
+//                             selectedShadeIndex = null;
+//                           });
+//                         },
+//                         onBrandSelected: (brandIndex) {
+//                           setState(() {
+//                             selectedBrandIndex = brandIndex;
+//                             selectedShadeIndex = null;
+//                           });
+//                         },
+//                         onShadeSelected: (shadeIndex) {
+//                           setState(() {
+//                             selectedShadeIndex = shadeIndex;
+//                             selections[selectedCategory] = {
+//                               'brand': selectedBrandIndex ?? 0,
+//                               'shade': shadeIndex,
+//                               'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
+//                             };
+//                           });
+//                         },
+//                         brandsByCategory: apiBrandsByCategory,
+//                         categories: apiCategories.isNotEmpty ? apiCategories.map((c) => c.name).toList() : null,
+//                         fetchBrandsForCategory: (int idx) async {
+//                           // we already load everything via _fetchProducts(); keep hook for later
+//                           return;
+//                         },
+//                         fetchShadesForBrand: (int brandId) async {
+//                           for (final list in apiBrandsByCategory) {
+//                             for (final b in list) {
+//                               if (b.id == brandId) return b.shades;
+//                             }
+//                           }
+//                           return <Color>[];
+//                         },
+//                       ),
+//                     )
+//                   ],
+//                 ),
+//
+//                 // Compare tab
+//                 CompareScreen(
+//                   image: _processedImageBytes != null
+//                       ? MemoryImage(_processedImageBytes!)
+//                       : widget.userImage != null
+//                       ? Image.file(widget.userImage!, fit: BoxFit.cover).image
+//                       : _placeholderImage,
+//                 ),
+//
+//                 // Complete Looks tab
+//                 CompleteLooksScreen(
+//                   userImageProvider: _processedImageBytes != null
+//                       ? MemoryImage(_processedImageBytes!)
+//                       : widget.userImage != null
+//                       ? Image.file(widget.userImage!).image
+//                       : _placeholderImage,
+//                   selections: selections,
+//                 ),
+//               ],
+//             ),
+//           ),
+//           _buildBottomTabs(),
+//         ],
+//       ),
+//       // floatingActionButton: _buildFloatingActions(),
+//     );
+//   }
+//
+//   Widget _buildTopBar() {
+//     return Container(
+//       height: 72,
+//       padding: const EdgeInsets.symmetric(horizontal: 12),
+//       decoration: const BoxDecoration(
+//         gradient: LinearGradient(colors: [Color(0xFFEC1E79), Color(0xFFEF6AA9)]),
+//       ),
+//       child: SafeArea(
+//         bottom: false,
+//         child: Row(
+//           children: [
+//             IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.of(context).maybePop()),
+//             const SizedBox(width: 8),
+//             const Expanded(
+//               child: Center(
+//                 child: Text('Visual Design', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
+//               ),
+//             ),
+//             IconButton(icon: const Icon(Icons.location_on, color: Colors.white), onPressed: () {}),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildBottomTabs() {
+//     return Container(
+//       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+//       child: SafeArea(
+//         top: false,
+//         child: Row(
+//           children: [
+//             _bottomTabButton('Shades', 0),
+//             _bottomTabButton('Compare', 1),
+//             _bottomTabButton('Complete Looks', 2),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _bottomTabButton(String label, int index) {
+//     final isSelected = index == _currentTab;
+//     return Expanded(
+//       child: InkWell(
+//         onTap: () async {
+//           if (index == 2) {
+//             // when going to Complete Looks, run apply makeup (uses intensities from selections)
+//             await _maybeApplyMakeupForSelections();
+//           }
+//           setState(() => _currentTab = index);
+//         },
+//         child: Container(
+//           padding: const EdgeInsets.symmetric(vertical: 14),
+//           decoration: BoxDecoration(
+//             border: Border(top: BorderSide(color: isSelected ? Colors.pink : Colors.transparent, width: 3)),
+//             color: isSelected ? const Color(0xFFFFF1F6) : Colors.white,
+//           ),
+//           child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: isSelected ? Colors.pink : Colors.black54, fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal)),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildFloatingActions() {
+//     return Column(
+//       mainAxisSize: MainAxisSize.min,
+//       children: [
+//         FloatingActionButton(
+//           heroTag: 'pick_image',
+//           backgroundColor: Colors.pink,
+//           onPressed: () async {
+//             final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
+//             if (picked != null) {
+//               // update displayed image (widget.userImage is immutable; for simplicity show via local file in the constructor when you push this screen)
+//               await _uploadOriginalImage(File(picked.path));
+//               setState(() {});
+//             }
+//           },
+//           child: const Icon(Icons.photo_library),
+//         ),
+//         const SizedBox(height: 8),
+//         FloatingActionButton(
+//           heroTag: 'camera',
+//           backgroundColor: Colors.pink,
+//           onPressed: () async {
+//             final XFile? picked = await _picker.pickImage(source: ImageSource.camera);
+//             if (picked != null) {
+//               await _uploadOriginalImage(File(picked.path));
+//               setState(() {});
+//             }
+//           },
+//           child: const Icon(Icons.camera_alt),
+//         ),
+//       ],
+//     );
+//   }
+//
+//   // ---------------- Networking Logic ----------------
+//
+//   /// Fetch products from your product API and populate categories -> brands -> shades
+//   Future<void> _fetchProducts() async {
+//     try {
+//       debugPrint('GET $productsApi');
+//       final resp = await http.get(Uri.parse(productsApi));
+//       debugPrint('Products API response status: ${resp.statusCode}');
+//       debugPrint('Products API response body: ${resp.body}');
+//       print('--- PRODUCTS RESPONSE (full) ---');
+//       print(resp.body);
+//
+//       if (resp.statusCode == 200) {
+//         final jsonList = jsonDecode(resp.body) as List;
+//         apiCategories.clear();
+//         apiBrandsByCategory.clear();
+//         int idx = 0;
+//         for (final itm in jsonList) {
+//           final map = itm as Map<String, dynamic>;
+//           final cat = CategoryModel.fromApi(idx, map);
+//           apiCategories.add(cat);
+//
+//           final products = (map['products'] as List?) ?? [];
+//           final List<Brand> brands = [];
+//           for (final p in products) {
+//             final product = p as Map<String, dynamic>;
+//             final List<Color> shades = [];
+//             final colors = product['product_colors'] as List<dynamic>? ?? [];
+//             for (final c in colors) {
+//               try {
+//                 shades.add(_hexToColor(c.toString()));
+//               } catch (_) {}
+//             }
+//             final brand = Brand(
+//               name: (product['brand_name'] ?? product['product_name'] ?? 'Brand').toString(),
+//               id: (product['id'] is int) ? product['id'] as int : int.tryParse(product['id']?.toString() ?? '') ?? 0,
+//               shades: shades,
+//               productImageDataUri: product['product_real_image'],
+//               productName: product['product_name']?.toString(),
+//             );
+//             brands.add(brand);
+//           }
+//
+//           apiBrandsByCategory.add(brands);
+//           idx++;
+//         }
+//         setState(() {});
+//         _showBeautifulDialog('Products Loaded', 'Products & shades loaded successfully from API.');
+//       } else {
+//         _showSnackBar('Failed to load products: ${resp.statusCode}', Colors.red);
+//         _showBeautifulDialog('Products Error', 'Failed to load products: ${resp.statusCode}');
+//       }
+//     } catch (e) {
+//       print('Error fetching products: $e');
+//       _showSnackBar('Error fetching products: $e', Colors.red);
+//       _showBeautifulDialog('Products Error', 'Error fetching products: $e');
+//     }
+//   }
+//
+//   /// Upload original image to server to obtain image id
+//   Future<void> _uploadOriginalImage(File imageFile) async {
+//     setState(() => _isUploading = true);
+//     try {
+//       final uri = Uri.parse('$baseUrl/images');
+//       var request = http.MultipartRequest('POST', uri);
+//       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+//       request.fields['image_type'] = 'ORIGINAL';
+//
+//       debugPrint('POST $uri (multipart) - uploading file: ${imageFile.path}');
+//       final streamed = await request.send();
+//       final respStr = await streamed.stream.bytesToString();
+//
+//       debugPrint('Upload response status: ${streamed.statusCode}');
+//       debugPrint('Upload response body: $respStr');
+//       print('--- UPLOAD RESPONSE (full) ---');
+//       print(respStr);
+//
+//       if (streamed.statusCode == 200 || streamed.statusCode == 201) {
+//         final jsonResp = jsonDecode(respStr) as Map<String, dynamic>;
+//         final idVal = jsonResp['id'] ?? jsonResp['image_id'] ?? jsonResp['uploaded_image_id'] ?? jsonResp['processed_image_id'];
+//         if (idVal != null) {
+//           _uploadedImageId = idVal.toString();
+//           _showSnackBar('Image uploaded (id: $_uploadedImageId)', Colors.green);
+//           _showBeautifulDialog('Upload Success', 'Image uploaded successfully.\nID: $_uploadedImageId\n\nFull response:\n${jsonEncode(jsonResp)}');
+//         } else {
+//           _showSnackBar('Upload succeeded but id not found', Colors.orange);
+//           _showBeautifulDialog('Upload Partial', 'Upload succeeded but id not found.\nResponse:\n$respStr');
+//         }
+//       } else {
+//         _showSnackBar('Failed to upload image: ${streamed.statusCode}', Colors.red);
+//         _showBeautifulDialog('Upload Failed', 'Status: ${streamed.statusCode}\nBody:\n$respStr');
+//       }
+//     } catch (e) {
+//       print('Error uploading image: $e');
+//       _showSnackBar('Error uploading image: $e', Colors.red);
+//       _showBeautifulDialog('Upload Error', 'Error uploading image: $e');
+//     } finally {
+//       setState(() => _isUploading = false);
+//     }
+//   }
+//
+//   /// Apply makeup using the selections map and intensities; fetch processed image
+//   Future<void> _maybeApplyMakeupForSelections() async {
+//     if (_isApplying) {
+//       _showSnackBar('Already applying makeup... please wait', Colors.orange);
+//       return;
+//     }
+//
+//     if (_uploadedImageId == null) {
+//       // If widget.userImage passed in and not uploaded yet, upload now
+//       if (widget.userImage != null) {
+//         await _uploadOriginalImage(widget.userImage!);
+//       } else {
+//         _showSnackBar('Please upload an image first (camera/gallery)', Colors.orange);
+//         _showBeautifulDialog('No Image', 'Please upload an image first (camera or gallery).');
+//         return;
+//       }
+//     }
+//
+//     if (_uploadedImageId == null) {
+//       _showSnackBar('Image ID missing; cannot apply makeup', Colors.red);
+//       return;
+//     }
+//
+//     // Prepare product_ids from selections
+//     final productIds = <int>[];
+//     selections.forEach((catIndex, map) {
+//       final brandIdx = map['brand'];
+//       if (brandIdx is int) {
+//         if (apiBrandsByCategory.length > catIndex && apiBrandsByCategory[catIndex].isNotEmpty) {
+//           final b = apiBrandsByCategory[catIndex][brandIdx];
+//           if (b != null && b.id != 0) {
+//             productIds.add(b.id);
+//             return;
+//           }
+//         }
+//         // fallback: brand index + 1 (shouldn't be needed if API product ids exist)
+//         productIds.add(brandIdx + 1);
+//       }
+//     });
+//
+//     // fallback to first available product id if user didn't select anything
+//     if (productIds.isEmpty) {
+//       final found = apiBrandsByCategory.expand((e) => e).firstWhere((_) => true, orElse: () => Brand(name: 'fallback', id: 1));
+//       productIds.add(found.id);
+//     }
+//
+//     // Build request payload
+//     final Map<String, dynamic> payload = {
+//       "image_id": int.tryParse(_uploadedImageId!) ?? 0,
+//       "product_ids": productIds,
+//     };
+//
+//     // Merge shade colors + intensities from selections (try to map by category name where possible)
+//     selections.forEach((catIndex, map) {
+//       final brandIndex = map['brand'];
+//       final shadeIndex = map['shade'];
+//       final intensity = map['intensity'] ?? 1.0;
+//       if (brandIndex is int && shadeIndex is int) {
+//         if (apiBrandsByCategory.length > catIndex) {
+//           final brands = apiBrandsByCategory[catIndex];
+//           if (brandIndex < brands.length) {
+//             final b = brands[brandIndex];
+//             if (b.shades.isNotEmpty && shadeIndex < b.shades.length) {
+//               final hex = _colorToHex(b.shades[shadeIndex]);
+//               final catName = (apiCategories.isNotEmpty && catIndex < apiCategories.length) ? apiCategories[catIndex].name.toLowerCase() : '';
+//
+//               if (catName.contains('lip') || catName.contains('lipstick')) {
+//                 payload['lipstick_color'] = hex;
+//                 payload['lipstick_intensity'] = intensity;
+//               } else if (catName.contains('blush')) {
+//                 payload['blush_color'] = hex;
+//                 payload['blush_intensity'] = intensity;
+//               } else if (catName.contains('eye') || catName.contains('eyeshadow')) {
+//                 payload['eyeshadow_color'] = hex;
+//                 payload['eyeshadow_intensity'] = intensity;
+//               } else if (catName.contains('found') || catName.contains('foundation')) {
+//                 payload['foundation_color'] = hex;
+//                 payload['foundation_intensity'] = intensity;
+//               } else {
+//                 // generic mapping by index fallback
+//                 if (catIndex == 1) {
+//                   payload['lipstick_color'] = hex;
+//                   payload['lipstick_intensity'] = intensity;
+//                 } else if (catIndex == 2) {
+//                   payload['blush_color'] = hex;
+//                   payload['blush_intensity'] = intensity;
+//                 } else if (catIndex == 3) {
+//                   payload['eyeshadow_color'] = hex;
+//                   payload['eyeshadow_intensity'] = intensity;
+//                 } else if (catIndex == 0) {
+//                   payload['foundation_color'] = hex;
+//                   payload['foundation_intensity'] = intensity;
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     });
+//
+//     // Ensure some default intensities exist
+//     payload.putIfAbsent('lipstick_intensity', () => 0.8);
+//     payload.putIfAbsent('blush_intensity', () => 0.6);
+//     payload.putIfAbsent('eyeshadow_intensity', () => 0.9);
+//     payload.putIfAbsent('foundation_intensity', () => 0.6);
+//
+//     debugPrint('POST $baseUrl/images/apply-makeup');
+//     debugPrint('Payload: ${jsonEncode(payload)}');
+//     print('--- APPLY MAKEUP REQUEST ---');
+//     print(jsonEncode(payload));
+//
+//     setState(() => _isApplying = true);
+//     try {
+//       final resp = await http.post(
+//         Uri.parse('$baseUrl/images/apply-makeup'),
+//         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+//         body: jsonEncode(payload),
+//       );
+//
+//       debugPrint('Apply response status: ${resp.statusCode}');
+//       debugPrint('Apply response body: ${resp.body}');
+//       print('--- APPLY MAKEUP RESPONSE (full) ---');
+//       print(resp.body);
+//
+//       if (resp.statusCode == 200 || resp.statusCode == 201) {
+//         final jsonResp = jsonDecode(resp.body) as Map<String, dynamic>;
+//         final processedId = jsonResp['processed_image_id'] ?? jsonResp['id'] ?? jsonResp['image_id'];
+//         String? imageUrl;
+//         if (jsonResp['url'] != null) imageUrl = jsonResp['url'].toString();
+//         if (imageUrl == null && processedId != null) imageUrl = '$baseUrl/images/$processedId';
+//
+//         if (imageUrl != null) {
+//           final imgResp = await http.get(Uri.parse(imageUrl));
+//           debugPrint('Fetched processed image status: ${imgResp.statusCode}');
+//           if (imgResp.statusCode == 200) {
+//             setState(() {
+//               _processedImageBytes = imgResp.bodyBytes;
+//             });
+//             _showSnackBar('Processed image loaded', Colors.green);
+//             _showBeautifulDialog('Makeup Applied', 'Makeup applied successfully. Processed image loaded.');
+//           } else {
+//             _showSnackBar('Failed to download processed image: ${imgResp.statusCode}', Colors.red);
+//             _showBeautifulDialog('Processed Image Error', 'Failed to download processed image. Status: ${imgResp.statusCode}');
+//           }
+//         } else {
+//           _showSnackBar('No processed image id/url returned', Colors.red);
+//           _showBeautifulDialog('Apply Response Missing', 'No processed image id or url returned.\n\nResponse:\n${jsonEncode(jsonResp)}');
+//         }
+//       } else {
+//         _showSnackBar('Apply makeup failed: ${resp.statusCode}', Colors.red);
+//         _showBeautifulDialog('Apply Failed', 'Status: ${resp.statusCode}\nBody:\n${resp.body}');
+//       }
+//     } catch (e) {
+//       print('Error applying makeup: $e');
+//       _showSnackBar('Error applying makeup: $e', Colors.red);
+//       _showBeautifulDialog('Apply Error', 'Error applying makeup: $e');
+//     } finally {
+//       setState(() => _isApplying = false);
+//     }
+//   }
+//
+//   // ---------------- Utilities ----------------
+//
+//   Color _hexToColor(String hex) {
+//     var h = hex.replaceAll('#', '').trim();
+//     if (h.length == 6) h = 'FF$h';
+//     final val = int.tryParse(h, radix: 16) ?? 0xFFFFFFFF;
+//     return Color(val);
+//   }
+//
+//   String _colorToHex(Color color) {
+//     final hex = color.value.toRadixString(16).padLeft(8, '0');
+//     return '#${hex.substring(2).toUpperCase()}';
+//   }
+//
+//   void _showSnackBar(String message, Color color) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(message, maxLines: 6),
+//         backgroundColor: color,
+//         behavior: SnackBarBehavior.floating,
+//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+//       ),
+//     );
+//   }
+//
+//   /// A slightly prettier dialog for important API responses / errors
+//   void _showBeautifulDialog(String title, String body) {
+//     showDialog(
+//       context: context,
+//       builder: (ctx) {
+//         return Dialog(
+//           backgroundColor: Colors.white,
+//           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+//           child: Container(
+//             constraints: const BoxConstraints(maxWidth: 520),
+//             padding: const EdgeInsets.all(18),
+//             child: Column(
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 Row(children: [
+//                   const Icon(Icons.info_outline, color: Colors.pink),
+//                   const SizedBox(width: 8),
+//                   Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+//                 ]),
+//                 const SizedBox(height: 12),
+//                 Text(body, style: const TextStyle(fontSize: 14, height: 1.35)),
+//                 const SizedBox(height: 18),
+//                 Row(
+//                   mainAxisAlignment: MainAxisAlignment.end,
+//                   children: [
+//                     TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK')),
+//                   ],
+//                 )
+//               ],
+//             ),
+//           ),
+//         );
+//       },
+//     );
+//   }
+// }
+
+/// ----------------- Small data models used by this screen -----------------
+class CategoryModel {
+  final int id;
+  final String name;
+  final String? imageDataUri;
+  CategoryModel({required this.id, required this.name, this.imageDataUri});
+
+  factory CategoryModel.fromApi(int idIndex, Map<String, dynamic> json) {
+    return CategoryModel(
+      id: idIndex,
+      name: json['product_detailed_category_name'] ?? json['name'] ?? 'Unknown',
+      imageDataUri: json['product_detailed_image'],
     );
   }
 }
 
-/// ---------------------------
-/// Data models & child widgets
-/// ---------------------------
-
-class CategoryModel {
-  final int id;
-  final String name;
-
-  CategoryModel({required this.id, required this.name});
-
-  factory CategoryModel.fromJson(Map<String, dynamic> json) {
-    return CategoryModel(id: json['id'] ?? 0, name: json['name'] ?? json['detailed_category'] ?? 'Unknown');
-  }
-}
-
-class Brand {
-  final String name;
-  final int id;
-  final List<Color> shades;
-
-  Brand({required this.name, this.id = 0, List<Color>? shades}) : shades = shades ?? [];
-}
-
-/// ShadesScreen (modified to accept API-driven brands list and fetch callbacks)
-enum BarStage { categories, brands, shades }
-
+// class Brand {
+//   final String name;
+//   final int id;
+//   final List<Color> shades;
+//   final String? productImageDataUri;
+//   final String? productName;
+//
+//   Brand({required this.name, required this.id, List<Color>? shades, this.productImageDataUri, this.productName}) : shades = shades ?? [];
+// }
+//
+// /// ---------------- ShadesScreen (unchanged UI, hooked to dynamic data) ----------------
+// enum BarStage { categories, brands, shades }
 class ShadesScreen extends StatefulWidget {
-  final int selectedCategory; // 0..n
+  final int selectedCategory;
   final void Function(int) onCategorySelected;
   final void Function(int) onBrandSelected;
   final void Function(int) onShadeSelected;
   final int? selectedBrandIndex;
   final int? selectedShadeIndex;
 
-  // optional API-driven inputs (if provided these will replace the internal mock)
   final List<List<Brand>>? brandsByCategory;
   final List<String>? categories;
-  final Future<void> Function(int)? fetchBrandsForCategory;
-  final Future<List<Color>> Function(int)? fetchShadesForBrand;
 
   const ShadesScreen({
     Key? key,
@@ -689,8 +1638,6 @@ class ShadesScreen extends StatefulWidget {
     this.selectedShadeIndex,
     this.brandsByCategory,
     this.categories,
-    this.fetchBrandsForCategory,
-    this.fetchShadesForBrand,
   }) : super(key: key);
 
   @override
@@ -703,48 +1650,29 @@ class _ShadesScreenState extends State<ShadesScreen> {
   int _brandIndex = 0;
   int _shadeIndex = 0;
 
-  // Local categories (fallback to mock)
-  List<String> categoriesLocal = ['Foundation', 'Lipstick', 'Blush', 'Eyeshadow'];
-
-  // Mock brands and shades per category as fallback
-  late List<List<Brand>> brandsByCategoryLocal;
-
   @override
   void initState() {
     super.initState();
     _categoryIndex = widget.selectedCategory;
-
-    brandsByCategoryLocal = [
-      // Foundation
-      [
-        Brand(name: "L'Oreal Paris", shades: [Color(0xFFDDB79B), Color(0xFFC89C74)], id: 1),
-        Brand(name: "Maybelline Fit Me", shades: [Color(0xFFD7A883), Color(0xFFC4906A)], id: 2),
-        Brand(name: "NARS Natural", shades: [Color(0xFFE0BFA0), Color(0xFFD1A383)], id: 3),
-      ],
-      // Lipstick
-      [
-        Brand(name: "MAC Retro", shades: [Color(0xFFD32F2F), Color(0xFFB71C1C)], id: 4),
-        Brand(name: "Maybelline SuperStay", shades: [Color(0xFFD05B77), Color(0xFFC13F5A)], id: 5),
-      ],
-      // Blush
-      [
-        Brand(name: "NARS Orgasm", shades: [Color(0xFFF8BBD0), Color(0xFFF06292)], id: 6),
-      ],
-      // Eyeshadow
-      [
-        Brand(name: "Urban Decay", shades: [Color(0xFF8D6E63), Color(0xFF5D4037)], id: 7),
-      ],
-    ];
-
     _brandIndex = widget.selectedBrandIndex ?? 0;
     _shadeIndex = widget.selectedShadeIndex ?? 0;
     _stage = BarStage.categories;
   }
 
-  List<String> get effectiveCategories => widget.categories ?? categoriesLocal;
-  List<List<Brand>> get effectiveBrandsByCategory => widget.brandsByCategory ?? brandsByCategoryLocal;
+  List<String> get effectiveCategories => widget.categories ?? [];
+  List<List<Brand>> get effectiveBrandsByCategory => widget.brandsByCategory ?? [];
 
-  void _goToBrands(int categoryIdx) async {
+  Brand? _safeGetBrand(int catIdx, int brandIdx) {
+    if (catIdx < effectiveBrandsByCategory.length) {
+      final brands = effectiveBrandsByCategory[catIdx];
+      if (brandIdx < brands.length) return brands[brandIdx];
+    }
+    return null;
+  }
+
+  Color _hexToColor(String hex) => Color(int.parse(hex.replaceFirst('#', '0xFF')));
+
+  void _goToBrands(int categoryIdx) {
     setState(() {
       _categoryIndex = categoryIdx;
       _stage = BarStage.brands;
@@ -752,15 +1680,9 @@ class _ShadesScreenState extends State<ShadesScreen> {
       _shadeIndex = 0;
       widget.onCategorySelected(categoryIdx);
     });
-
-    // If fetch callback provided, use it to refresh brand list for the category (non-blocking)
-    if (widget.fetchBrandsForCategory != null) {
-      await widget.fetchBrandsForCategory!(categoryIdx);
-      setState(() {}); // pick up any changes passed by parent
-    }
   }
 
-  void _goToShades(int brandIdx) async {
+  void _goToShades(int brandIdx) {
     setState(() {
       _brandIndex = brandIdx;
       _stage = BarStage.shades;
@@ -768,19 +1690,12 @@ class _ShadesScreenState extends State<ShadesScreen> {
       widget.onBrandSelected(brandIdx);
     });
 
-    // If fetch shades callback provided, fetch shades for brand id (non-blocking)
-    if (widget.fetchShadesForBrand != null) {
-      final brand = _safeGetBrand(_categoryIndex, _brandIndex);
-      if (brand != null && brand.id != 0) {
-        final colors = await widget.fetchShadesForBrand!(brand.id);
-        if (colors.isNotEmpty) {
-          // if parent holds same reference array, update brand shades
-          setState(() {
-            brand.shades.clear();
-            brand.shades.addAll(colors);
-          });
-        }
-      }
+    final brand = _safeGetBrand(_categoryIndex, _brandIndex);
+    if (brand != null) {
+      final colors = brand.productColors?.map(_hexToColor).toList() ?? [];
+      setState(() {
+        brand.shades = colors; // populate shades dynamically
+      });
     }
   }
 
@@ -791,24 +1706,16 @@ class _ShadesScreenState extends State<ShadesScreen> {
     });
   }
 
-  Brand? _safeGetBrand(int catIdx, int brandIdx) {
-    final list = effectiveBrandsByCategory;
-    if (catIdx < list.length) {
-      final brands = list[catIdx];
-      if (brandIdx < brands.length) return brands[brandIdx];
-    }
-    return null;
-  }
-
   Widget _buildCategoriesBar() {
     return SizedBox(
       height: 100,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         scrollDirection: Axis.horizontal,
+        itemCount: effectiveCategories.length,
         itemBuilder: (context, i) {
           final selected = i == _categoryIndex && _stage == BarStage.categories;
-          final label = i < effectiveCategories.length ? effectiveCategories[i] : 'Category $i';
+          final label = effectiveCategories[i];
           return GestureDetector(
             onTap: () => _goToBrands(i),
             child: AnimatedContainer(
@@ -824,8 +1731,17 @@ class _ShadesScreenState extends State<ShadesScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(i == 0 ? Icons.blur_on : i == 1 ? Icons.brightness_4 : i == 2 ? Icons.circle : Icons.remove_red_eye,
-                      size: 36, color: selected ? Colors.pink : Colors.grey[700]),
+                  Icon(
+                    i == 0
+                        ? Icons.blur_on
+                        : i == 1
+                        ? Icons.brightness_4
+                        : i == 2
+                        ? Icons.circle
+                        : Icons.remove_red_eye,
+                    size: 36,
+                    color: selected ? Colors.pink : Colors.grey[700],
+                  ),
                   const SizedBox(height: 6),
                   Text(label, style: TextStyle(color: selected ? Colors.pink : Colors.black87)),
                 ],
@@ -834,29 +1750,32 @@ class _ShadesScreenState extends State<ShadesScreen> {
           );
         },
         separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemCount: effectiveCategories.length,
       ),
     );
   }
 
   Widget _buildBrandsBar() {
-    final brands = (effectiveBrandsByCategory.length > _categoryIndex) ? effectiveBrandsByCategory[_categoryIndex] : <Brand>[];
+    final brands = (_categoryIndex < effectiveBrandsByCategory.length)
+        ? effectiveBrandsByCategory[_categoryIndex]
+        : <Brand>[];
     return SizedBox(
       height: 100,
       child: Row(
         children: [
           IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: () {
-                setState(() => _stage = BarStage.categories);
-              }),
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () {
+              setState(() => _stage = BarStage.categories);
+            },
+          ),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               scrollDirection: Axis.horizontal,
+              itemCount: brands.length,
               itemBuilder: (context, i) {
                 final isSel = i == _brandIndex && _stage == BarStage.brands;
-                final brand = i < brands.length ? brands[i] : Brand(name: 'Brand $i');
+                final brand = brands[i];
                 return GestureDetector(
                   onTap: () => _goToShades(i),
                   child: AnimatedContainer(
@@ -875,23 +1794,19 @@ class _ShadesScreenState extends State<ShadesScreen> {
                         Container(
                           width: 58,
                           height: 58,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.image, color: Colors.grey),
+                          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(10)),
+                          child: brand.productImageDataUri != null
+                              ? _maybeShowBase64(brand.productImageDataUri!)
+                              : const Icon(Icons.image, color: Colors.grey),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(brand.name, style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.normal)),
-                        ),
+                        Expanded(child: Text(brand.name, style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.normal))),
                       ],
                     ),
                   ),
                 );
               },
               separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemCount: brands.length,
             ),
           ),
           IconButton(icon: const Icon(Icons.chevron_right), onPressed: () {}),
@@ -901,8 +1816,8 @@ class _ShadesScreenState extends State<ShadesScreen> {
   }
 
   Widget _buildShadesBar() {
-    final brands = (effectiveBrandsByCategory.length > _categoryIndex) ? effectiveBrandsByCategory[_categoryIndex] : <Brand>[];
-    final selectedBrand = brands.isNotEmpty && _brandIndex < brands.length ? brands[_brandIndex] : Brand(name: 'Brand', shades: []);
+    final brands = (_categoryIndex < effectiveBrandsByCategory.length) ? effectiveBrandsByCategory[_categoryIndex] : <Brand>[];
+    final selectedBrand = (brands.isNotEmpty && _brandIndex < brands.length) ? brands[_brandIndex] : Brand(name: 'Brand', id: 0, shades: []);
     return SizedBox(
       height: 120,
       child: Row(
@@ -956,6 +1871,17 @@ class _ShadesScreenState extends State<ShadesScreen> {
     );
   }
 
+  static Widget _maybeShowBase64(String dataUri) {
+    try {
+      if (dataUri.startsWith('data:image')) {
+        final base64Str = dataUri.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(bytes, fit: BoxFit.cover));
+      }
+    } catch (_) {}
+    return const Icon(Icons.image, color: Colors.grey);
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget child;
@@ -976,7 +1902,6 @@ class _ShadesScreenState extends State<ShadesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Stage header with back control when needed
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -1007,8 +1932,6 @@ class _ShadesScreenState extends State<ShadesScreen> {
               ],
             ),
           ),
-
-          // AnimatedSwitcher keeps everything on same row and transitions smoothly
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             transitionBuilder: (child, anim) {
@@ -1023,9 +1946,353 @@ class _ShadesScreenState extends State<ShadesScreen> {
   }
 }
 
-/// CompareScreen unchanged except can accept MemoryImage too
+// Update your Brand model to support productColors as hex strings
+class Brand {
+  final int id;
+  final String name;
+  List<Color> shades;
+  final List<String>? productColors; // hex strings from API
+  final String? productImageDataUri;
+
+  Brand({required this.name, required this.id, this.shades = const [], this.productColors, this.productImageDataUri});
+}
+
+enum BarStage { categories, brands, shades }
+
+// class ShadesScreen extends StatefulWidget {
+//   final int selectedCategory;
+//   final void Function(int) onCategorySelected;
+//   final void Function(int) onBrandSelected;
+//   final void Function(int) onShadeSelected;
+//   final int? selectedBrandIndex;
+//   final int? selectedShadeIndex;
+//
+//   final List<List<Brand>>? brandsByCategory;
+//   final List<String>? categories;
+//   final Future<void> Function(int)? fetchBrandsForCategory;
+//   final Future<List<Color>> Function(int)? fetchShadesForBrand;
+//
+//   const ShadesScreen({
+//     Key? key,
+//     required this.selectedCategory,
+//     required this.onCategorySelected,
+//     required this.onBrandSelected,
+//     required this.onShadeSelected,
+//     this.selectedBrandIndex,
+//     this.selectedShadeIndex,
+//     this.brandsByCategory,
+//     this.categories,
+//     this.fetchBrandsForCategory,
+//     this.fetchShadesForBrand,
+//   }) : super(key: key);
+//
+//   @override
+//   State<ShadesScreen> createState() => _ShadesScreenState();
+// }
+//
+// class _ShadesScreenState extends State<ShadesScreen> {
+//   BarStage _stage = BarStage.categories;
+//   int _categoryIndex = 0;
+//   int _brandIndex = 0;
+//   int _shadeIndex = 0;
+//
+//   List<String> categoriesLocal = ['Foundation', 'Lipstick', 'Blush', 'Eyeshadow'];
+//   late List<List<Brand>> brandsByCategoryLocal;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _categoryIndex = widget.selectedCategory;
+//     brandsByCategoryLocal = [
+//       [Brand(name: "L'Oreal Paris", id: 1, shades: [Color(0xFFDDB79B), Color(0xFFC89C74)])],
+//       [Brand(name: "MAC Retro", id: 4, shades: [Color(0xFFD32F2F), Color(0xFFB71C1C)])],
+//       [Brand(name: "NARS Orgasm", id: 6, shades: [Color(0xFFF8BBD0)])],
+//       [Brand(name: "Urban Decay", id: 7, shades: [Color(0xFF8D6E63)])],
+//     ];
+//     _brandIndex = widget.selectedBrandIndex ?? 0;
+//     _shadeIndex = widget.selectedShadeIndex ?? 0;
+//     _stage = BarStage.categories;
+//   }
+//
+//   List<String> get effectiveCategories => widget.categories ?? categoriesLocal;
+//   List<List<Brand>> get effectiveBrandsByCategory => widget.brandsByCategory ?? brandsByCategoryLocal;
+//
+//   void _goToBrands(int categoryIdx) async {
+//     setState(() {
+//       _categoryIndex = categoryIdx;
+//       _stage = BarStage.brands;
+//       _brandIndex = 0;
+//       _shadeIndex = 0;
+//       widget.onCategorySelected(categoryIdx);
+//     });
+//
+//     if (widget.fetchBrandsForCategory != null) {
+//       await widget.fetchBrandsForCategory!(categoryIdx);
+//       setState(() {});
+//     }
+//   }
+//
+//   void _goToShades(int brandIdx) async {
+//     setState(() {
+//       _brandIndex = brandIdx;
+//       _stage = BarStage.shades;
+//       _shadeIndex = 0;
+//       widget.onBrandSelected(brandIdx);
+//     });
+//
+//     if (widget.fetchShadesForBrand != null) {
+//       final brand = _safeGetBrand(_categoryIndex, _brandIndex);
+//       if (brand != null && brand.id != 0) {
+//         final colors = await widget.fetchShadesForBrand!(brand.id);
+//         if (colors.isNotEmpty) {
+//           setState(() {
+//             brand.shades.clear();
+//             brand.shades.addAll(colors);
+//           });
+//         }
+//       }
+//     }
+//   }
+//
+//   void _selectShade(int shadeIdx) {
+//     setState(() {
+//       _shadeIndex = shadeIdx;
+//       widget.onShadeSelected(shadeIdx);
+//     });
+//   }
+//
+//   Brand? _safeGetBrand(int catIdx, int brandIdx) {
+//     final list = effectiveBrandsByCategory;
+//     if (catIdx < list.length) {
+//       final brands = list[catIdx];
+//       if (brandIdx < brands.length) return brands[brandIdx];
+//     }
+//     return null;
+//   }
+//
+//   Widget _buildCategoriesBar() {
+//     return SizedBox(
+//       height: 100,
+//       child: ListView.separated(
+//         padding: const EdgeInsets.symmetric(horizontal: 12),
+//         scrollDirection: Axis.horizontal,
+//         itemBuilder: (context, i) {
+//           final selected = i == _categoryIndex && _stage == BarStage.categories;
+//           final label = i < effectiveCategories.length ? effectiveCategories[i] : 'Category $i';
+//           return GestureDetector(
+//             onTap: () => _goToBrands(i),
+//             child: AnimatedContainer(
+//               duration: const Duration(milliseconds: 250),
+//               width: 130,
+//               margin: const EdgeInsets.symmetric(vertical: 10),
+//               decoration: BoxDecoration(
+//                 color: selected ? const Color(0xFFFDE8EF) : Colors.white,
+//                 borderRadius: BorderRadius.circular(12),
+//                 border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
+//                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//               ),
+//               child: Column(
+//                 mainAxisAlignment: MainAxisAlignment.center,
+//                 children: [
+//                   Icon(i == 0 ? Icons.blur_on : i == 1 ? Icons.brightness_4 : i == 2 ? Icons.circle : Icons.remove_red_eye,
+//                       size: 36, color: selected ? Colors.pink : Colors.grey[700]),
+//                   const SizedBox(height: 6),
+//                   Text(label, style: TextStyle(color: selected ? Colors.pink : Colors.black87)),
+//                 ],
+//               ),
+//             ),
+//           );
+//         },
+//         separatorBuilder: (_, __) => const SizedBox(width: 12),
+//         itemCount: effectiveCategories.length,
+//       ),
+//     );
+//   }
+//
+//   Widget _buildBrandsBar() {
+//     final brands = (effectiveBrandsByCategory.length > _categoryIndex) ? effectiveBrandsByCategory[_categoryIndex] : <Brand>[];
+//     return SizedBox(
+//       height: 100,
+//       child: Row(
+//         children: [
+//           IconButton(
+//               icon: const Icon(Icons.chevron_left),
+//               onPressed: () {
+//                 setState(() => _stage = BarStage.categories);
+//               }),
+//           Expanded(
+//             child: ListView.separated(
+//               padding: const EdgeInsets.symmetric(horizontal: 6),
+//               scrollDirection: Axis.horizontal,
+//               itemBuilder: (context, i) {
+//                 final isSel = i == _brandIndex && _stage == BarStage.brands;
+//                 final brand = i < brands.length ? brands[i] : Brand(name: 'Brand $i', id: 0);
+//                 return GestureDetector(
+//                   onTap: () => _goToShades(i),
+//                   child: AnimatedContainer(
+//                     duration: const Duration(milliseconds: 250),
+//                     width: 160,
+//                     margin: const EdgeInsets.symmetric(vertical: 10),
+//                     decoration: BoxDecoration(
+//                       color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
+//                       borderRadius: BorderRadius.circular(12),
+//                       border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
+//                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//                     ),
+//                     child: Row(
+//                       children: [
+//                         const SizedBox(width: 8),
+//                         Container(
+//                           width: 58,
+//                           height: 58,
+//                           decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(10)),
+//                           child: brand.productImageDataUri != null
+//                               ? _maybeShowBase64(brand.productImageDataUri!)
+//                               : const Icon(Icons.image, color: Colors.grey),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         Expanded(child: Text(brand.name, style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.normal))),
+//                       ],
+//                     ),
+//                   ),
+//                 );
+//               },
+//               separatorBuilder: (_, __) => const SizedBox(width: 12),
+//               itemCount: brands.length,
+//             ),
+//           ),
+//           IconButton(icon: const Icon(Icons.chevron_right), onPressed: () {}),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildShadesBar() {
+//     final brands = (effectiveBrandsByCategory.length > _categoryIndex) ? effectiveBrandsByCategory[_categoryIndex] : <Brand>[];
+//     final selectedBrand = brands.isNotEmpty && _brandIndex < brands.length ? brands[_brandIndex] : Brand(name: 'Brand', id: 0, shades: []);
+//     return SizedBox(
+//       height: 120,
+//       child: Row(
+//         children: [
+//           IconButton(
+//             icon: const Icon(Icons.chevron_left),
+//             onPressed: () {
+//               setState(() => _stage = BarStage.brands);
+//             },
+//           ),
+//           Expanded(
+//             child: ListView.separated(
+//               padding: const EdgeInsets.symmetric(horizontal: 12),
+//               scrollDirection: Axis.horizontal,
+//               itemCount: selectedBrand.shades.length,
+//               separatorBuilder: (_, __) => const SizedBox(width: 18),
+//               itemBuilder: (context, i) {
+//                 final isSel = i == _shadeIndex && _stage == BarStage.shades;
+//                 return GestureDetector(
+//                   onTap: () => _selectShade(i),
+//                   child: Column(
+//                     mainAxisAlignment: MainAxisAlignment.center,
+//                     children: [
+//                       AnimatedContainer(
+//                         duration: const Duration(milliseconds: 200),
+//                         width: isSel ? 72 : 56,
+//                         height: isSel ? 72 : 56,
+//                         decoration: BoxDecoration(
+//                           color: selectedBrand.shades[i],
+//                           shape: BoxShape.circle,
+//                           border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
+//                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+//                         ),
+//                       ),
+//                       const SizedBox(height: 8),
+//                       if (isSel)
+//                         Container(width: 44, height: 6, decoration: BoxDecoration(color: Colors.pink, borderRadius: BorderRadius.circular(3))),
+//                     ],
+//                   ),
+//                 );
+//               },
+//             ),
+//           ),
+//           IconButton(icon: const Icon(Icons.chevron_right), onPressed: () {}),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   static Widget _maybeShowBase64(String dataUri) {
+//     try {
+//       if (dataUri.startsWith('data:image')) {
+//         final base64Str = dataUri.split(',').last;
+//         final bytes = base64Decode(base64Str);
+//         return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(bytes, fit: BoxFit.cover));
+//       }
+//     } catch (_) {}
+//     return const Icon(Icons.image, color: Colors.grey);
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     Widget child;
+//     switch (_stage) {
+//       case BarStage.categories:
+//         child = _buildCategoriesBar();
+//         break;
+//       case BarStage.brands:
+//         child = _buildBrandsBar();
+//         break;
+//       case BarStage.shades:
+//       default:
+//         child = _buildShadesBar();
+//         break;
+//     }
+//
+//     return SingleChildScrollView(
+//       child: Column(
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           Padding(
+//             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+//             child: Row(
+//               children: [
+//                 if (_stage != BarStage.categories)
+//                   GestureDetector(
+//                     onTap: () {
+//                       setState(() {
+//                         if (_stage == BarStage.shades) _stage = BarStage.brands;
+//                         else _stage = BarStage.categories;
+//                       });
+//                     },
+//                     child: Container(
+//                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+//                       padding: const EdgeInsets.all(8),
+//                       child: const Icon(Icons.arrow_back, color: Colors.pink),
+//                     ),
+//                   ),
+//                 const SizedBox(width: 12),
+//                 Text(
+//                   _stage == BarStage.categories ? 'Products' : _stage == BarStage.brands ? 'Brands' : 'Shades',
+//                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+//                 ),
+//               ],
+//             ),
+//           ),
+//           AnimatedSwitcher(
+//             duration: const Duration(milliseconds: 300),
+//             transitionBuilder: (child, anim) {
+//               final offsetAnim = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(anim);
+//               return SlideTransition(position: offsetAnim, child: FadeTransition(opacity: anim, child: child));
+//             },
+//             child: SizedBox(key: ValueKey(_stage), child: child),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+/// ---------------- CompareScreen ----------------
 class CompareScreen extends StatefulWidget {
-  final ImageProvider image; // just the user photo
+  final ImageProvider image;
   const CompareScreen({Key? key, required this.image}) : super(key: key);
 
   @override
@@ -1033,12 +2300,12 @@ class CompareScreen extends StatefulWidget {
 }
 
 class _CompareScreenState extends State<CompareScreen> {
-  double _dividerPosition = 0.5; // slider position
+  double _dividerPosition = 0.5;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 700, // same as Shades photo height
+      height: 700,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: GestureDetector(
         onHorizontalDragUpdate: (details) {
@@ -1055,49 +2322,23 @@ class _CompareScreenState extends State<CompareScreen> {
 
           return Stack(
             children: [
-              // Full user photo
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image(image: widget.image, width: w, height: h, fit: BoxFit.cover),
-              ),
-
-              // Left part clipped by slider (transparent, same photo)
+              ClipRRect(borderRadius: BorderRadius.circular(16), child: Image(image: widget.image, width: w, height: h, fit: BoxFit.cover)),
               Positioned(
                 left: 0,
                 top: 0,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: clipWidth,
-                    height: h,
-                    child: Image(image: widget.image, fit: BoxFit.cover),
-                  ),
+                  child: Container(width: clipWidth, height: h, child: Image(image: widget.image, fit: BoxFit.cover)),
                 ),
               ),
-
-              // Slider divider line
-              Positioned(
-                left: clipWidth - 1,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 2,
-                  color: Colors.white,
-                ),
-              ),
-
-              // Round draggable handle
+              Positioned(left: clipWidth - 1, top: 0, bottom: 0, child: Container(width: 2, color: Colors.white)),
               Positioned(
                 left: clipWidth - 18,
                 top: (h / 2) - 18,
                 child: Container(
                   width: 36,
                   height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
-                  ),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)]),
                   child: const Icon(Icons.drag_handle, color: Colors.black, size: 20),
                 ),
               ),
@@ -1109,13 +2350,12 @@ class _CompareScreenState extends State<CompareScreen> {
   }
 }
 
-/// CompleteLooksScreen unchanged except it will display processed image if available
+/// ---------------- CompleteLooksScreen ----------------
 class CompleteLooksScreen extends StatelessWidget {
   final ImageProvider userImageProvider;
   final Map<int, Map<String, dynamic>> selections;
   const CompleteLooksScreen({Key? key, required this.userImageProvider, required this.selections}) : super(key: key);
 
-  // Mock readable names for categories & brands (should mirror ShadesScreen's mock)
   static const List<String> categories = ['Foundation', 'Lipstick', 'Blush', 'Eyeshadow'];
   static const List<List<String>> brands = [
     ["L'Oreal Paris", "Maybelline Fit Me", "NARS Natural"],
@@ -1123,8 +2363,6 @@ class CompleteLooksScreen extends StatelessWidget {
     ["NARS Orgasm"],
     ["Urban Decay"],
   ];
-
-  // Mock shade colors (should match ShadesScreen's list) - keep it simple for display
   static final List<List<List<Color>>> shades = [
     [
       [Color(0xFFDDB79B), Color(0xFFC89C74)],
@@ -1152,14 +2390,12 @@ class CompleteLooksScreen extends StatelessWidget {
       child: SingleChildScrollView(
         child: Column(
           children: [
-            // Final output image
             Container(
               height: 525,
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
               child: ClipRRect(borderRadius: BorderRadius.circular(12), child: Image(image: userImageProvider, fit: BoxFit.cover)),
             ),
             const SizedBox(height: 12),
-            // Selected product list
             SizedBox(
               height: 120,
               child: selectedEntries.isEmpty

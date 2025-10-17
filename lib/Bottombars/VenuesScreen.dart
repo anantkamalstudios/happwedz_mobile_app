@@ -554,29 +554,147 @@ import '../venuedetails.dart';
 
 
 
-class VenuesScreen extends StatelessWidget {
+
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+
+
+class VenuesScreen extends StatefulWidget {
   const VenuesScreen({Key? key}) : super(key: key);
 
-  // Example list of venues — can be replaced with API fetched data
-  final List<Venue> venues = const [
-    Venue(
-      name: 'Fort Jadhavgadh, Pune',
-      image:
-      'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400&h=300&fit=crop',
-      price: '₹ 2,999 per plate',
-      pax: '400 - 500 pax',
-      type: 'Banquet Halls, Wedding Resorts',
-    ),
-    Venue(
-      name: 'Seawood Palace, Mumbai',
-      image:
-      'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=300&fit=crop',
-      price: '₹ 3,500 per plate',
-      pax: '300 - 400 pax',
-      type: 'Luxury Halls',
-    ),
-    // Add more venues here or fetch dynamically
-  ];
+  @override
+  State<VenuesScreen> createState() => _VenuesScreenState();
+}
+
+class _VenuesScreenState extends State<VenuesScreen> {
+  List<Venue> venues = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchVenues();
+  }
+  Future<void> fetchVenues() async {
+    try {
+      final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=venue");
+      print("Fetching venues from: $url");
+
+      final response = await http.get(url, headers: {"Accept": "application/json"});
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final List<Venue> loadedVenues = [];
+
+        for (var service in data) {
+          final attributes = service['attributes'] ?? {};
+          final vendor = service['vendor'] ?? {};
+          final subcategory = service['subcategory'] ?? {};
+          final media = service['media'] ?? {};
+
+          String imageUrl = '';
+
+          // ✅ Follow your same logic here
+          if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+            final cover = media['coverImage'].toString();
+            imageUrl = cover.startsWith('/uploads/')
+                ? "https://happywedzbackend.happywedz.com$cover"
+                : cover;
+            print("🖼️ Cover image URL: $imageUrl");
+          } else if (media['gallery'] != null && media['gallery'].isNotEmpty) {
+            // Check if gallery has string URLs
+            final gallery = media['gallery'];
+            final firstImage = gallery.firstWhere(
+                  (g) => g is String && g.toString().startsWith('/uploads/'),
+              orElse: () => null,
+            );
+            if (firstImage != null) {
+              imageUrl = "https://happywedzbackend.happywedz.com$firstImage";
+              print("🖼️ Gallery image URL: $imageUrl");
+            }
+          } else {
+            print("⚠️ No coverImage for this service (${vendor['businessName']})");
+          }
+
+          loadedVenues.add(Venue(
+            name: vendor['businessName'] ?? 'Unknown Venue',
+            image: imageUrl.isNotEmpty
+                ? imageUrl
+                : 'https://via.placeholder.com/400x300.png?text=No+Image',
+            price: "₹ ${attributes['veg_price'] ?? '—'} per plate",
+            pax: attributes['area'] ?? 'Capacity info not available',
+            type: subcategory['name'] ?? 'Venue',
+          ));
+        }
+
+        setState(() {
+          venues = loadedVenues;
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+        print("❌ Error fetching venues: ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+      print("💥 API Error: $e");
+    }
+  }
+
+  // Future<void> fetchVenues() async {
+  //   try {
+  //     final url = Uri.parse("https://www.happywedz.com/api/vendor-services?subCategory=venue");
+  //     final response = await http.get(url, headers: {"Accept": "application/json"});
+  //
+  //     if (response.statusCode == 200) {
+  //       final List<dynamic> data = json.decode(response.body);
+  //       final List<Venue> loadedVenues = [];
+  //
+  //       for (var item in data) {
+  //         final attributes = item['attributes'] ?? {};
+  //         final vendor = item['vendor'] ?? {};
+  //         final subcategory = item['subcategory'] ?? {};
+  //         final media = item['media'] ?? {};
+  //
+  //         String imageUrl = '';
+  //         if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+  //           final cover = media['coverImage'].toString();
+  //           imageUrl = cover.startsWith('/uploads/')
+  //               ? "https://happywedzbackend.happywedz.com$cover"
+  //               : cover;
+  //         } else if (media['gallery'] != null && media['gallery'].isNotEmpty) {
+  //           final galleryItem = media['gallery'].first;
+  //           if (galleryItem is String && galleryItem.startsWith('/uploads/')) {
+  //             imageUrl = "https://happywedzbackend.happywedz.com$galleryItem";
+  //           }
+  //         }
+  //
+  //         loadedVenues.add(Venue(
+  //           name: vendor['businessName'] ?? 'Unknown Venue',
+  //           image: imageUrl.isNotEmpty
+  //               ? imageUrl
+  //               : 'https://via.placeholder.com/400x300.png?text=No+Image',
+  //           price: "₹ ${attributes['veg_price'] ?? '—'} per plate",
+  //           pax: attributes['area'] ?? 'Capacity info not available',
+  //           type: subcategory['name'] ?? 'Venue',
+  //         ));
+  //       }
+  //
+  //       setState(() {
+  //         venues = loadedVenues;
+  //         isLoading = false;
+  //       });
+  //     } else {
+  //       setState(() => isLoading = false);
+  //       print("❌ Error fetching venues: ${response.statusCode}");
+  //     }
+  //   } catch (e) {
+  //     setState(() => isLoading = false);
+  //     print("💥 API Error: $e");
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -596,12 +714,14 @@ class VenuesScreen extends StatelessWidget {
               _buildAppBar(context),
               _buildSearchBar(),
               Expanded(
-                child: ListView.builder(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Colors.pink))
+                    : ListView.builder(
                   padding: const EdgeInsets.all(16.0),
                   itemCount: venues.length,
                   itemBuilder: (context, index) {
                     final venue = venues[index];
-                    return _buildDestinationRatesSection(context, venue);
+                    return _buildVenueCard(context, venue);
                   },
                 ),
               ),
@@ -612,7 +732,6 @@ class VenuesScreen extends StatelessWidget {
     );
   }
 
-  // AppBar
   Widget _buildAppBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -639,7 +758,6 @@ class VenuesScreen extends StatelessWidget {
     );
   }
 
-  // Search Bar
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -661,8 +779,7 @@ class VenuesScreen extends StatelessWidget {
     );
   }
 
-  // Dynamic Venue Card
-  Widget _buildDestinationRatesSection(BuildContext context, Venue venue) {
+  Widget _buildVenueCard(BuildContext context, Venue venue) {
     return Consumer<FavouritesProvider>(
       builder: (context, favouritesProvider, child) {
         final isFav = favouritesProvider.isFavourite(venue.name);
@@ -741,9 +858,11 @@ class VenuesScreen extends StatelessWidget {
                       children: [
                         const Icon(Icons.location_on, size: 16, color: Colors.grey),
                         const SizedBox(width: 4),
-                        Text(
-                          venue.pax,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        Expanded(
+                          child: Text(
+                            venue.pax,
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ),
                       ],
                     ),
@@ -767,10 +886,9 @@ class VenuesScreen extends StatelessWidget {
       },
     );
   }
-
 }
 
-// Venue model
+// Venue Model
 class Venue {
   final String name;
   final String image;
@@ -778,7 +896,7 @@ class Venue {
   final String pax;
   final String type;
 
-  const Venue({
+  Venue({
     required this.name,
     required this.image,
     required this.price,

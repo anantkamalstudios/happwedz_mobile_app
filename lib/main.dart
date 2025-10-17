@@ -82,9 +82,7 @@ import 'guestlist/guestlist.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
-  );
+
 
   // ✅ Initialize Firebase
   await Firebase.initializeApp(
