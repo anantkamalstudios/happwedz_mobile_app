@@ -1,5 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'main.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -12,6 +20,57 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   TextEditingController mobileController = TextEditingController();
   TextEditingController whatsappController = TextEditingController();
   bool updatesOnWhatsapp = false;
+
+  String userName = '';
+  String userEmail = '';
+  String userPhoto = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // ✅ Load saved user info from SharedPreferences
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userName = prefs.getString('user_name') ?? '';
+      userEmail = prefs.getString('user_email') ?? '';
+      userPhoto = prefs.getString('user_photo') ?? '';
+      mobileController.text = prefs.getString('user_mobile') ?? '';
+    });
+  }
+
+  // ✅ Logout function (clears Firebase + Google + SharedPreferences)
+  Future<void> _logout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      await FirebaseAuth.instance.signOut();
+      await GoogleSignIn().signOut();
+
+      _showSnackBar('Logged out successfully');
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
+            (route) => false,
+      );
+    } catch (e) {
+      _showSnackBar('Logout failed: $e');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFE91E63),
+      ),
+    );
+  }
 
   void _showChangePasswordDialog() {
     TextEditingController oldPassController = TextEditingController();
@@ -51,7 +110,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              // TODO: Handle password change
               Navigator.pop(context);
             },
             child: Text('Save', style: GoogleFonts.poppins()),
@@ -81,72 +139,48 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              SizedBox(height:50),
-              // Header
+              const SizedBox(height: 50),
+
+              // ✅ Profile Header
               Row(
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundImage: NetworkImage(
-                      'https://www.wedmegood.com/images/placeholder-profile.png',
-                    ),
+                    backgroundImage: userPhoto.isNotEmpty
+                        ? NetworkImage(userPhoto)
+                        : const NetworkImage('https://www.wedmegood.com/images/placeholder-profile.png'),
                   ),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Harshada',
+                        userName.isNotEmpty ? userName : 'User',
                         style: GoogleFonts.poppins(
-                            fontSize: 18, fontWeight: FontWeight.w600),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          ChoiceChip(
-                            label: Text('Male'),
-                            selected: false,
-                            onSelected: (val) {},
-                          ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: Text('Female'),
-                            selected: true,
-                            onSelected: (val) {},
-                          ),
-                        ],
+                      Text(
+                        userEmail.isNotEmpty ? userEmail : 'example@mail.com',
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
 
-              // Email Section
-              ListTile(
-                title: Text(
-                  'Email Address',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  'harshada.anantkamalstudios@gmail.com',
-                  style: GoogleFonts.poppins(color: Colors.grey.shade700),
-                ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text('Verified', style: GoogleFonts.poppins(fontSize: 12)),
-                ),
-              ),
+              const SizedBox(height: 30),
               const Divider(),
 
-              // Set Mobile Number
+              // Mobile Number
               ListTile(
                 title: Text(
-                  'Set Mobile Number',
+                  'Mobile Number',
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                 ),
                 subtitle: TextField(
@@ -160,13 +194,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
               const Divider(),
 
-              // Set Password
+              // Password
               ListTile(
                 title: Text(
-                  'Set Password',
+                  'Password',
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                 ),
-                subtitle: const Text('XXXXXXXXXX'),
+                subtitle: const Text('••••••••••'),
                 trailing: TextButton(
                   onPressed: _showChangePasswordDialog,
                   child: Text('Change', style: GoogleFonts.poppins(color: Colors.pink)),
@@ -190,7 +224,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   controller: whatsappController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    hintText: 'Enter your mobile number',
+                    hintText: 'Enter WhatsApp number',
                     border: InputBorder.none,
                   ),
                   enabled: updatesOnWhatsapp,
@@ -202,18 +236,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ListTile(
                 leading: const Icon(Icons.logout_outlined, color: Colors.red),
                 title: Text('Logout', style: GoogleFonts.poppins(color: Colors.red)),
-                onTap: () {
-                  // TODO: Logout action
-                },
+                onTap: _logout,
               ),
               const Divider(),
 
-              // Delete Account
+              // Delete Account (future API)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
                 title: Text('Delete my account', style: GoogleFonts.poppins(color: Colors.red)),
                 onTap: () {
-                  // TODO: Delete account action
+                  _showSnackBar('Delete account feature coming soon');
                 },
               ),
             ],

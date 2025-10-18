@@ -2506,6 +2506,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   String? _selectedCity;
   bool _showSearch = false;
 
+
+  bool _isLoadingCities = false;
+
   List<String> _countries = [];
   List<String> _states = [];
   List<String> _cities = [];
@@ -2523,34 +2526,34 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   @override
   void initState() {
     super.initState();
-    _loadCountries();
+    // _loadCountries();
     // _loadWeddingChecklistData();
     fetchHorizontalCategories();
     fetchVenues();
     fetchPhotographers();
   }
 
-  Future<void> _loadCountries() async {
-    try {
-      final response = await http.get(
-          Uri.parse('https://restcountries.com/v3.1/all?fields=name')
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        final List<String> countries = data
-            .map((country) => country['name']['common'] as String)
-            .toList();
-        countries.sort();
-        print('Countries API Response: $countries');
-        setState(() {
-          _countries = countries;
-        });
-      }
-    } catch (e) {
-      print('Error loading countries: $e');
-    }
-  }
+  // Future<void> _loadCountries() async {
+  //   try {
+  //     final response = await http.get(
+  //         Uri.parse('https://restcountries.com/v3.1/all?fields=name')
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final List<dynamic> data = json.decode(response.body);
+  //       final List<String> countries = data
+  //           .map((country) => country['name']['common'] as String)
+  //           .toList();
+  //       countries.sort();
+  //       print('Countries API Response: $countries');
+  //       setState(() {
+  //         _countries = countries;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     print('Error loading countries: $e');
+  //   }
+  // }
 
   // Future<void> _loadStates(String country) async {
   //   try {
@@ -2596,83 +2599,174 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //   }
   // }
 
-  Future<void> _loadCities(String country, String state) async {
+
+
+
+
+
+
+  ///00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  // Future<voiFuture<void> _loadCities({String country = 'India', String state = 'Maharashtra'}) async {
+  //   try {
+  //     final response = await http.post(
+  //       Uri.parse('https://countriesnow.space/api/v0.1/countries/state/cities'),
+  //       headers: {'Content-Type': 'application/json'},
+  //       body: json.encode({
+  //         'country': country,
+  //         'state': state,
+  //       }),
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body);
+  //       print('Cities API Response: $data'); // Debug log
+  //
+  //       if (data['error'] == false && data['data'] != null) {
+  //         final List<dynamic> citiesData = data['data'];
+  //         final List<String> cities =
+  //             citiesData.map((city) => city.toString()).toList();
+  //         cities.sort();
+  //
+  //         setState(() {
+  //           _cities = cities;
+  //           _selectedCity ??= _cities.first;
+  //         });
+  //       } else {
+  //         setState(() {
+  //           _cities = ['No cities available'];
+  //           _selectedCity = null;
+  //         });
+  //       }
+  //     } else {
+  //       print('Failed to load cities: ${response.statusCode}');
+  //     }
+  //   } catch (e) {
+  //     print('Error loading cities: $e');
+  //     setState(() {
+  //       _cities = ['Error loading cities'];
+  //     });
+  //   }
+  // }
+  Future<void> _loadCities() async {
+    setState(() => _isLoadingCities = true);
+
     try {
-      final response = await http.post(
-        Uri.parse('https://countriesnow.space/api/v0.1/countries/state/cities'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'country': country,
-          'state': state,
-        }),
+      final response = await http.get(
+        Uri.parse(
+          'https://countriesnow.space/api/v0.1/countries/state/cities/q?country=India&state=Maharashtra',
+        ),
       );
+
+      print('🔹 Status Code: ${response.statusCode}');
+      print('🔹 Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Cities API Response: $data'); // Debug log
 
         if (data['error'] == false && data['data'] != null) {
-          final List<dynamic> citiesData = data['data'];
-          final List<String> cities = citiesData
-              .map((city) => city.toString())
-              .toList();
-          cities.sort();
-
           setState(() {
-            _cities = cities;
-            _selectedCity = null;
+            _cities = List<String>.from(data['data']);
+            _cities.sort();
+            _isLoadingCities = false;
           });
+          print('✅ Loaded ${_cities.length} cities');
         } else {
           setState(() {
             _cities = ['No cities available'];
-            _selectedCity = null;
+            _isLoadingCities = false;
           });
         }
+      } else {
+        print('❌ Failed to fetch cities. Status: ${response.statusCode}');
+        setState(() {
+          _cities = ['Error loading cities'];
+          _isLoadingCities = false;
+        });
       }
     } catch (e) {
-      print('Error loading cities: $e');
+      print('🚨 Error loading cities: $e');
       setState(() {
         _cities = ['Error loading cities'];
+        _isLoadingCities = false;
       });
     }
   }
 
-  void _showLocationSelection(BuildContext context) {
-    showModalBottomSheet(
+  void _showLocationSelection(BuildContext context) async {
+    if (_cities.isEmpty && !_isLoadingCities) {
+      await _loadCities();
+    }
+
+    if (_cities.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No cities available.")),
+      );
+      return;
+    }
+
+    final selected = await showSearch<String>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => LocationSelectionBottomSheet(
-        selectedCountry: _selectedCountry,
-        selectedState: _selectedState,
-        selectedCity: _selectedCity,
-        countries: _countries,
-        states: _states,
-        cities: _cities,
-        onCountrySelected: (country) {
-          setState(() {
-            _selectedCountry = country;
-          });
-          _loadCities(country, '');
-        },
-        onStateSelected: (state) {
-          setState(() {
-            _selectedState = state;
-          });
-          if (_selectedCountry != null) {
-            _loadCities(_selectedCountry!, state);
-          }
-        },
-        onCitySelected: (city) {
-          setState(() {
-            _selectedCity = city;
-          });
-          Navigator.pop(context);
-        },
-      ),
+      delegate: _CitySearchDelegate(_cities),
     );
+
+    if (selected != null && selected.isNotEmpty) {
+      setState(() {
+        _selectedCity = selected;
+      });
+
+      // Fetch filtered venues and photographers
+      fetchVenues(city: _selectedCity);
+      fetchPhotographers(city: _selectedCity);
+    }
+
+    // if (selected != null && selected.isNotEmpty) {
+    //   setState(() {
+    //     _selectedCity = selected;
+    //   });
+    // }
   }
 
+
+
+
+
+
+  // void _showLocationSelection(BuildContext context) {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     backgroundColor: Colors.transparent,
+  //     builder: (context) => LocationSelectionBottomSheet(
+  //       selectedCountry: _selectedCountry,
+  //       selectedState: _selectedState,
+  //       selectedCity: _selectedCity,
+  //       countries: _countries,
+  //       states: _states,
+  //       cities: _cities,
+  //       onCountrySelected: (country) {
+  //         setState(() {
+  //           _selectedCountry = country;
+  //         });
+  //         _loadCities(country, '');
+  //       },
+  //       onStateSelected: (state) {
+  //         setState(() {
+  //           _selectedState = state;
+  //         });
+  //         if (_selectedCountry != null) {
+  //           _loadCities(_selectedCountry!, state);
+  //         }
+  //       },
+  //       onCitySelected: (city) {
+  //         setState(() {
+  //           _selectedCity = city;
+  //         });
+  //         Navigator.pop(context);
+  //       },
+  //     ),
+  //   );
+  // }
+  // 00000000000000000000000000000000000000000000000000000000000000000000000000000000000
   // ------------------------ Checklist Methods ------------------------
 
   // Future<void> _loadWeddingChecklistData() async {
@@ -2753,15 +2847,28 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   bool isLoadingVenues = true;
   bool isLoadingPhotographers = true;
 
-  Future<void> fetchVenues() async {
+  Future<void> fetchVenues({String? city}) async {
     setState(() => isLoadingVenues = true);
     try {
       final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=venue");
       final response = await http.get(url, headers: {"Accept": "application/json"});
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List<dynamic>;
+
+        // ✅ Filter by city if provided
+        final filtered = city != null && city.isNotEmpty
+            ? data.where((venue) {
+          final attributes = (venue['attributes'] is Map)
+              ? venue['attributes'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          final location = (attributes['location'] ?? '').toString().toLowerCase();
+          return location.contains(city.toLowerCase());
+        }).toList()
+            : data;
+
         setState(() {
-          venues = data;
+          venues = filtered;
           isLoadingVenues = false;
         });
       } else {
@@ -2774,15 +2881,28 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-  Future<void> fetchPhotographers() async {
+  Future<void> fetchPhotographers({String? city}) async {
     setState(() => isLoadingPhotographers = true);
     try {
       final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=photographer");
       final response = await http.get(url, headers: {"Accept": "application/json"});
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List<dynamic>;
+
+        // ✅ Filter by city if provided
+        final filtered = city != null && city.isNotEmpty
+            ? data.where((photo) {
+          final attributes = (photo['attributes'] is Map)
+              ? photo['attributes'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          final location = (attributes['location'] ?? '').toString().toLowerCase();
+          return location.contains(city.toLowerCase());
+        }).toList()
+            : data;
+
         setState(() {
-          photographers = data;
+          photographers = filtered;
           isLoadingPhotographers = false;
         });
       } else {
@@ -2795,28 +2915,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-  // Future<void> fetchCategories() async {
-  //   try {
-  //     final response = await http.get(
-  //       Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
-  //       headers: {"Accept": "application/json"},
-  //     );
-  //
-  //     if (response.statusCode == 200) {
-  //       final List<dynamic> data = json.decode(response.body);
-  //       setState(() {
-  //         categories = data.map((e) => VendorCategory.fromJson(e)).toList();
-  //         _isLoading = false;
-  //       });
-  //     } else {
-  //       print("Error: ${response.statusCode}");
-  //       setState(() => _isLoading = false);
-  //     }
-  //   } catch (e) {
-  //     print("API Error: $e");
-  //     setState(() => _isLoading = false);
-  //   }
-  // }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3029,91 +3128,79 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   }
 
 
+  Future<void> _fetchVenuesByCity(String city) async {
+    setState(() => isLoadingVenues = true);
+
+    try {
+      final url = Uri.parse(
+        "https://happywedz.com/api/vendor-services?subCategory=venue&city=$city",
+      );
+      final response = await http.get(url, headers: {"Accept": "application/json"});
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List<dynamic>;
+        setState(() {
+          venues = data;
+          isLoadingVenues = false;
+        });
+      } else {
+        setState(() {
+          venues = [];
+          isLoadingVenues = false;
+        });
+        print("Error fetching venues for $city: ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() {
+        venues = [];
+        isLoadingVenues = false;
+      });
+      print("Error fetching venues for $city: $e");
+    }
+  }
+
+  Future<void> _fetchPhotographersByCity(String city) async {
+    setState(() => isLoadingPhotographers = true);
+
+    try {
+      final url = Uri.parse(
+        "https://happywedz.com/api/vendor-services?subCategory=photographer",
+      );
+      final response = await http.get(url, headers: {"Accept": "application/json"});
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List<dynamic>;
+
+        // Filter by city
+        final filtered = data.where((photo) {
+          final attributes = (photo is Map && photo['attributes'] is Map)
+              ? photo['attributes'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          final location = (attributes['location'] ?? '').toString().toLowerCase();
+          return location.contains(city.toLowerCase());
+        }).toList();
+
+        setState(() {
+          photographers = filtered;
+          isLoadingPhotographers = false;
+        });
+      } else {
+        setState(() {
+          photographers = [];
+          isLoadingPhotographers = false;
+        });
+        print("Error fetching photographers: ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() {
+        photographers = [];
+        isLoadingPhotographers = false;
+      });
+      print("Error fetching photographers: $e");
+    }
+  }
 
 
-  // Widget _buildHeader() {
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         Column(
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             const SizedBox(height: 20),
-  //             Row(
-  //               children: [
-  //                 const Text(
-  //                   'Nashik',
-  //                   style: TextStyle(
-  //                     color: Colors.white,
-  //                     fontSize: 22,
-  //                     fontWeight: FontWeight.bold,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(width: 5),
-  //                 const Icon(
-  //                   Icons.keyboard_arrow_down,
-  //                   color: Colors.white,
-  //                 ),
-  //               ],
-  //             ),
-  //           ],
-  //         ),
-  //         Row(
-  //           children: [
-  //             Container(
-  //               padding: const EdgeInsets.all(8),
-  //               decoration: BoxDecoration(
-  //                 color: Colors.white.withOpacity(0.2),
-  //                 shape: BoxShape.circle,
-  //               ),
-  //               child: const Icon(
-  //                 Icons.search,
-  //                 color: Colors.white,
-  //                 size: 20,
-  //               ),
-  //             ),
-  //             // const SizedBox(width: 10),
-  //             // Container(
-  //             //   padding: const EdgeInsets.all(8),
-  //             //   decoration: BoxDecoration(
-  //             //     color: Colors.white.withOpacity(0.2),
-  //             //     shape: BoxShape.circle,
-  //             //   ),
-  //             //   child: const Icon(
-  //             //     Icons.chat_bubble_outline,
-  //             //     color: Colors.white,
-  //             //     size: 20,
-  //             //   ),
-  //             // ),
-  //             const SizedBox(width: 10),
-  //             InkWell(
-  //               onTap: (){
-  //                 Navigator.push(
-  //                   context,
-  //                   MaterialPageRoute(builder: (_) =>  LoginScreen()),
-  //                 );
-  //               },
-  //               child: Container(
-  //                 padding: const EdgeInsets.all(8),
-  //                 decoration: BoxDecoration(
-  //                   color: Colors.white.withOpacity(0.2),
-  //                   shape: BoxShape.circle,
-  //                 ),
-  //                 child: const Icon(
-  //                   Icons.person,
-  //                   color: Colors.white,
-  //                   size: 20,
-  //                 ),
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   List<VendorCategory> horizontalCategories = [];
   bool isLoadingCategories = true;
@@ -3476,14 +3563,22 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Venues in your city',
-          style: TextStyle(
+        Text(
+          _selectedCity != null ? 'Venues in $_selectedCity' : 'Venues in your city',
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
+        // const Text(
+        //   'Venues in your city',
+        //   style: TextStyle(
+        //     fontSize: 18,
+        //     fontWeight: FontWeight.bold,
+        //     color: Colors.black87,
+        //   ),
+        // ),
         const SizedBox(height: 15),
         isLoadingVenues
             ? const Center(child: CircularProgressIndicator())
@@ -3785,14 +3880,22 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Photographers for you',
-          style: TextStyle(
+        Text(
+          _selectedCity != null ? 'Photographers in $_selectedCity' : 'Photographers for you',
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
+        // const Text(
+        //   'Photographers for you',
+        //   style: TextStyle(
+        //     fontSize: 18,
+        //     fontWeight: FontWeight.bold,
+        //     color: Colors.black87,
+        //   ),
+        // ),
         const SizedBox(height: 15),
         isLoadingPhotographers
             ? const Center(child: CircularProgressIndicator())
@@ -3801,9 +3904,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             : SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: photographers.map<Widget>((photo) {
-              final vendor =
-              (photo is Map && photo['vendor'] is Map)
+            // 🔥 Show only first 9 photographers
+            children: photographers.take(9).map<Widget>((photo) {
+              final vendor = (photo is Map && photo['vendor'] is Map)
                   ? photo['vendor'] as Map<String, dynamic>
                   : <String, dynamic>{};
 
@@ -3812,15 +3915,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   ? photo['attributes'] as Map<String, dynamic>
                   : <String, dynamic>{};
 
-              final media =
-              (photo is Map && photo['media'] is Map)
+              final media = (photo is Map && photo['media'] is Map)
                   ? photo['media'] as Map<String, dynamic>
                   : <String, dynamic>{};
 
-              // ✅ Robust Image Logic
               String imageUrl = 'https://via.placeholder.com/200x120';
 
-              // 1️⃣ Try coverImage
               if (media['coverImage'] != null &&
                   media['coverImage'].toString().isNotEmpty) {
                 final cover = media['coverImage'];
@@ -3846,9 +3946,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                         : first;
                   }
                 }
-              }
-              // 2️⃣ Fallback to gallery
-              else if (media['gallery'] != null && media['gallery'] is List) {
+              } else if (media['gallery'] != null &&
+                  media['gallery'] is List) {
                 for (var item in media['gallery']) {
                   if (item is String && item.isNotEmpty) {
                     imageUrl = item.startsWith('/uploads/')
@@ -3865,14 +3964,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 }
               }
 
-              // Debug log
-              print("🖼️ Photographer image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
-
-              final String name =
-              (vendor['businessName'] ?? attributes['name'] ?? "No Name").toString();
+              final String name = (vendor['businessName'] ??
+                  attributes['name'] ??
+                  "No Name")
+                  .toString();
 
               final String location =
-              (attributes['location'] ?? 'Unknown Location').toString();
+              (attributes['location'] ?? 'Unknown Location')
+                  .toString();
 
               final String price = attributes['starting_price'] != null
                   ? "₹${attributes['starting_price']}"
@@ -3909,11 +4008,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                               width: 200,
                               color: Colors.grey[200],
                               child: const Center(
-                                  child: CircularProgressIndicator()),
+                                  child:
+                                  CircularProgressIndicator()),
                             );
                           },
                           errorBuilder: (context, error, stackTrace) {
-                            print("Image load error: $error");
                             return Container(
                               height: 120,
                               width: 200,
@@ -3962,6 +4061,188 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       ],
     );
   }
+
+  // Widget _buildPhotographerSection() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       const Text(
+  //         'Photographers for you',
+  //         style: TextStyle(
+  //           fontSize: 18,
+  //           fontWeight: FontWeight.bold,
+  //           color: Colors.black87,
+  //         ),
+  //       ),
+  //       const SizedBox(height: 15),
+  //       isLoadingPhotographers
+  //           ? const Center(child: CircularProgressIndicator())
+  //           : photographers.isEmpty
+  //           ? const Text("No photographers found")
+  //           : SingleChildScrollView(
+  //         scrollDirection: Axis.horizontal,
+  //         child: Row(
+  //           children: photographers.map<Widget>((photo) {
+  //             final vendor =
+  //             (photo is Map && photo['vendor'] is Map)
+  //                 ? photo['vendor'] as Map<String, dynamic>
+  //                 : <String, dynamic>{};
+  //
+  //             final attributes =
+  //             (photo is Map && photo['attributes'] is Map)
+  //                 ? photo['attributes'] as Map<String, dynamic>
+  //                 : <String, dynamic>{};
+  //
+  //             final media =
+  //             (photo is Map && photo['media'] is Map)
+  //                 ? photo['media'] as Map<String, dynamic>
+  //                 : <String, dynamic>{};
+  //
+  //             // ✅ Robust Image Logic
+  //             String imageUrl = 'https://via.placeholder.com/200x120';
+  //
+  //             // 1️⃣ Try coverImage
+  //             if (media['coverImage'] != null &&
+  //                 media['coverImage'].toString().isNotEmpty) {
+  //               final cover = media['coverImage'];
+  //               if (cover is String) {
+  //                 imageUrl = cover.startsWith('/uploads/')
+  //                     ? "https://happywedzbackend.happywedz.com$cover"
+  //                     : cover;
+  //               } else if (cover is Map && cover['url'] != null) {
+  //                 final url = cover['url'].toString();
+  //                 imageUrl = url.startsWith('/uploads/')
+  //                     ? "https://happywedzbackend.happywedz.com$url"
+  //                     : url;
+  //               } else if (cover is List && cover.isNotEmpty) {
+  //                 final first = cover.first;
+  //                 if (first is Map && first['url'] != null) {
+  //                   final url = first['url'].toString();
+  //                   imageUrl = url.startsWith('/uploads/')
+  //                       ? "https://happywedzbackend.happywedz.com$url"
+  //                       : url;
+  //                 } else if (first is String) {
+  //                   imageUrl = first.startsWith('/uploads/')
+  //                       ? "https://happywedzbackend.happywedz.com$first"
+  //                       : first;
+  //                 }
+  //               }
+  //             }
+  //             // 2️⃣ Fallback to gallery
+  //             else if (media['gallery'] != null && media['gallery'] is List) {
+  //               for (var item in media['gallery']) {
+  //                 if (item is String && item.isNotEmpty) {
+  //                   imageUrl = item.startsWith('/uploads/')
+  //                       ? "https://happywedzbackend.happywedz.com$item"
+  //                       : item;
+  //                   break;
+  //                 } else if (item is Map && item['url'] != null) {
+  //                   final url = item['url'].toString();
+  //                   imageUrl = url.startsWith('/uploads/')
+  //                       ? "https://happywedzbackend.happywedz.com$url"
+  //                       : url;
+  //                   break;
+  //                 }
+  //               }
+  //             }
+  //
+  //             // Debug log
+  //             print("🖼️ Photographer image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
+  //
+  //             final String name =
+  //             (vendor['businessName'] ?? attributes['name'] ?? "No Name").toString();
+  //
+  //             final String location =
+  //             (attributes['location'] ?? 'Unknown Location').toString();
+  //
+  //             final String price = attributes['starting_price'] != null
+  //                 ? "₹${attributes['starting_price']}"
+  //                 : "--";
+  //
+  //             return Container(
+  //               width: 200,
+  //               margin: const EdgeInsets.only(right: 12),
+  //               child: InkWell(
+  //                 onTap: () {
+  //                   Navigator.push(
+  //                     context,
+  //                     MaterialPageRoute(
+  //                       builder: (_) =>
+  //                           VendorDetailsScreen(service: photo),
+  //                     ),
+  //                   );
+  //                 },
+  //                 child: Column(
+  //                   crossAxisAlignment: CrossAxisAlignment.start,
+  //                   children: [
+  //                     ClipRRect(
+  //                       borderRadius: BorderRadius.circular(12),
+  //                       child: Image.network(
+  //                         imageUrl,
+  //                         height: 120,
+  //                         width: 200,
+  //                         fit: BoxFit.cover,
+  //                         loadingBuilder:
+  //                             (context, child, loadingProgress) {
+  //                           if (loadingProgress == null) return child;
+  //                           return Container(
+  //                             height: 120,
+  //                             width: 200,
+  //                             color: Colors.grey[200],
+  //                             child: const Center(
+  //                                 child: CircularProgressIndicator()),
+  //                           );
+  //                         },
+  //                         errorBuilder: (context, error, stackTrace) {
+  //                           print("Image load error: $error");
+  //                           return Container(
+  //                             height: 120,
+  //                             width: 200,
+  //                             color: Colors.grey[300],
+  //                             child: const Icon(
+  //                               Icons.image,
+  //                               size: 40,
+  //                               color: Colors.white,
+  //                             ),
+  //                           );
+  //                         },
+  //                       ),
+  //                     ),
+  //                     const SizedBox(height: 8),
+  //                     Text(
+  //                       name,
+  //                       style: const TextStyle(
+  //                         fontWeight: FontWeight.bold,
+  //                         fontSize: 14,
+  //                       ),
+  //                       maxLines: 1,
+  //                       overflow: TextOverflow.ellipsis,
+  //                     ),
+  //                     const SizedBox(height: 4),
+  //                     Text(
+  //                       location,
+  //                       style: const TextStyle(
+  //                           fontSize: 12, color: Colors.grey),
+  //                       maxLines: 1,
+  //                       overflow: TextOverflow.ellipsis,
+  //                     ),
+  //                     const SizedBox(height: 2),
+  //                     Text(
+  //                       price,
+  //                       style: const TextStyle(
+  //                           fontSize: 12,
+  //                           fontWeight: FontWeight.w600),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ),
+  //             );
+  //           }).toList(),
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   // Widget _buildPhotographerSection() {
   //   return Column(
@@ -5180,6 +5461,62 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //   );
   // }
 }
+
+class _CitySearchDelegate extends SearchDelegate<String> {
+  final List<String> cities;
+
+  _CitySearchDelegate(this.cities) : super(searchFieldLabel: "Search City");
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      if (query.isNotEmpty)
+        IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () => query = '',
+        ),
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, ''),
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    final results = cities
+        .where((city) => city.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+
+    return ListView.builder(
+      itemCount: results.length,
+      itemBuilder: (_, i) => ListTile(
+        title: Text(results[i]),
+        onTap: () => close(context, results[i]),
+      ),
+    );
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    final suggestions = cities
+        .where((city) => city.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+
+    return ListView.builder(
+      itemCount: suggestions.length,
+      itemBuilder: (_, i) => ListTile(
+        title: Text(suggestions[i]),
+        onTap: () => close(context, suggestions[i]),
+      ),
+    );
+  }
+}
+
 
 
 

@@ -561,6 +561,280 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 
+// class VenuesScreen extends StatefulWidget {
+//   const VenuesScreen({Key? key}) : super(key: key);
+//
+//   @override
+//   State<VenuesScreen> createState() => _VenuesScreenState();
+// }
+//
+// class _VenuesScreenState extends State<VenuesScreen> {
+//   List<Venue> venues = [];
+//   bool isLoading = true;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     fetchVenues();
+//   }
+//   Future<void> fetchVenues() async {
+//     try {
+//       final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=venue");
+//       print("Fetching venues from: $url");
+//
+//       final response = await http.get(url, headers: {"Accept": "application/json"});
+//
+//       if (response.statusCode == 200) {
+//         final List<dynamic> data = json.decode(response.body);
+//         final List<Venue> loadedVenues = [];
+//
+//         for (var service in data) {
+//           final attributes = service['attributes'] ?? {};
+//           final vendor = service['vendor'] ?? {};
+//           final subcategory = service['subcategory'] ?? {};
+//           final media = service['media'] ?? {};
+//
+//           String imageUrl = '';
+//
+//           // ✅ Follow your same logic here
+//           if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+//             final cover = media['coverImage'].toString();
+//             imageUrl = cover.startsWith('/uploads/')
+//                 ? "https://happywedzbackend.happywedz.com$cover"
+//                 : cover;
+//             print("🖼️ Cover image URL: $imageUrl");
+//           } else if (media['gallery'] != null && media['gallery'].isNotEmpty) {
+//             // Check if gallery has string URLs
+//             final gallery = media['gallery'];
+//             final firstImage = gallery.firstWhere(
+//                   (g) => g is String && g.toString().startsWith('/uploads/'),
+//               orElse: () => null,
+//             );
+//             if (firstImage != null) {
+//               imageUrl = "https://happywedzbackend.happywedz.com$firstImage";
+//               print("🖼️ Gallery image URL: $imageUrl");
+//             }
+//           } else {
+//             print("⚠️ No coverImage for this service (${vendor['businessName']})");
+//           }
+//
+//           loadedVenues.add(Venue(
+//             name: vendor['businessName'] ?? 'Unknown Venue',
+//             image: imageUrl.isNotEmpty
+//                 ? imageUrl
+//                 : 'https://via.placeholder.com/400x300.png?text=No+Image',
+//             price: "₹ ${attributes['veg_price'] ?? '—'} per plate",
+//             pax: attributes['area'] ?? 'Capacity info not available',
+//             type: subcategory['name'] ?? 'Venue',
+//           ));
+//         }
+//
+//         setState(() {
+//           venues = loadedVenues;
+//           isLoading = false;
+//         });
+//       } else {
+//         setState(() => isLoading = false);
+//         print("❌ Error fetching venues: ${response.statusCode}");
+//       }
+//     } catch (e) {
+//       setState(() => isLoading = false);
+//       print("💥 API Error: $e");
+//     }
+//   }
+//
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       body: Container(
+//         decoration: const BoxDecoration(
+//           gradient: LinearGradient(
+//             begin: Alignment.topCenter,
+//             end: Alignment.bottomCenter,
+//             colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
+//             stops: [0.0, 0.3, 0.6],
+//           ),
+//         ),
+//         child: SafeArea(
+//           child: Column(
+//             children: [
+//               _buildAppBar(context),
+//               _buildSearchBar(),
+//               Expanded(
+//                 child: isLoading
+//                     ? const Center(child: CircularProgressIndicator(color: Colors.pink))
+//                     : ListView.builder(
+//                   padding: const EdgeInsets.all(16.0),
+//                   itemCount: venues.length,
+//                   itemBuilder: (context, index) {
+//                     final venue = venues[index];
+//                     return _buildVenueCard(context, venue);
+//                   },
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildAppBar(BuildContext context) {
+//     return Padding(
+//       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+//       child: Row(
+//         children: [
+//           IconButton(
+//             icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+//             onPressed: () => Navigator.pop(context),
+//           ),
+//           const Expanded(
+//             child: Text(
+//               'Venues',
+//               textAlign: TextAlign.center,
+//               style: TextStyle(
+//                 color: Colors.white,
+//                 fontSize: 18,
+//                 fontWeight: FontWeight.w600,
+//               ),
+//             ),
+//           ),
+//           const SizedBox(width: 48),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildSearchBar() {
+//     return Padding(
+//       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+//       child: Container(
+//         padding: const EdgeInsets.symmetric(horizontal: 16.0),
+//         decoration: BoxDecoration(
+//           color: Colors.white.withOpacity(0.9),
+//           borderRadius: BorderRadius.circular(25),
+//         ),
+//         child: const TextField(
+//           decoration: InputDecoration(
+//             hintText: 'Search wedding venues...',
+//             hintStyle: TextStyle(color: Colors.grey),
+//             border: InputBorder.none,
+//             prefixIcon: Icon(Icons.search, color: Colors.grey),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildVenueCard(BuildContext context, Venue venue) {
+//     return Consumer<FavouritesProvider>(
+//       builder: (context, favouritesProvider, child) {
+//         final isFav = favouritesProvider.isFavourite(venue.name);
+//
+//         return Container(
+//           margin: const EdgeInsets.only(bottom: 24),
+//           decoration: BoxDecoration(
+//             color: Colors.white,
+//             borderRadius: BorderRadius.circular(12),
+//             boxShadow: [
+//               BoxShadow(
+//                 color: Colors.black.withOpacity(0.1),
+//                 blurRadius: 8,
+//                 offset: const Offset(0, 2),
+//               ),
+//             ],
+//           ),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               Stack(
+//                 children: [
+//                   Container(
+//                     height: 200,
+//                     decoration: BoxDecoration(
+//                       borderRadius: const BorderRadius.only(
+//                         topLeft: Radius.circular(12),
+//                         topRight: Radius.circular(12),
+//                       ),
+//                       image: DecorationImage(
+//                         image: NetworkImage(venue.image),
+//                         fit: BoxFit.cover,
+//                       ),
+//                     ),
+//                   ),
+//                   Positioned(
+//                     top: 8,
+//                     right: 8,
+//                     child: GestureDetector(
+//                       onTap: () => favouritesProvider.toggleFavourite(venue.name),
+//                       child: CircleAvatar(
+//                         backgroundColor: Colors.white.withOpacity(0.8),
+//                         child: Icon(
+//                           isFav ? Icons.favorite : Icons.favorite_border,
+//                           color: Colors.pink,
+//                         ),
+//                       ),
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//               Padding(
+//                 padding: const EdgeInsets.all(16.0),
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       venue.name,
+//                       style: const TextStyle(
+//                         fontSize: 16,
+//                         fontWeight: FontWeight.bold,
+//                         color: Colors.black87,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 4),
+//                     Text(
+//                       venue.price,
+//                       style: const TextStyle(
+//                         fontSize: 16,
+//                         fontWeight: FontWeight.bold,
+//                         color: Colors.black87,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 8),
+//                     Row(
+//                       children: [
+//                         const Icon(Icons.location_on, size: 16, color: Colors.grey),
+//                         const SizedBox(width: 4),
+//                         Expanded(
+//                           child: Text(
+//                             venue.pax,
+//                             style: const TextStyle(fontSize: 12, color: Colors.grey),
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                     const SizedBox(height: 8),
+//                     Row(
+//                       children: [
+//                         const Icon(Icons.event, size: 16, color: Colors.grey),
+//                         const SizedBox(width: 4),
+//                         Text(
+//                           venue.type,
+//                           style: const TextStyle(fontSize: 12, color: Colors.grey),
+//                         ),
+//                       ],
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//         );
+//       },
+//     );
+//   }
+// }
 class VenuesScreen extends StatefulWidget {
   const VenuesScreen({Key? key}) : super(key: key);
 
@@ -571,40 +845,73 @@ class VenuesScreen extends StatefulWidget {
 class _VenuesScreenState extends State<VenuesScreen> {
   List<Venue> venues = [];
   bool isLoading = true;
+  bool isLoadingMore = false;
+  bool hasMore = true;
+  int page = 1;
+  final int limit = 20;
+  String searchQuery = "";
+
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    fetchVenues();
+    fetchVenues(page: page);
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200 &&
+          !isLoadingMore &&
+          hasMore) {
+        fetchMoreVenues();
+      }
+    });
+
+    // Search listener
+    _searchController.addListener(() {
+      final query = _searchController.text.trim();
+      if (query != searchQuery) {
+        searchQuery = query;
+        _onSearchChanged();
+      }
+    });
   }
-  Future<void> fetchVenues() async {
+
+  Future<void> _onSearchChanged() async {
+    setState(() {
+      isLoading = true;
+      page = 1;
+      hasMore = true;
+    });
+    await fetchVenues(page: page, query: searchQuery);
+  }
+
+  Future<void> fetchVenues({int page = 1, String query = ""}) async {
     try {
-      final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=venue");
+      // Include search query in API call
+      final url = Uri.parse(
+          "https://happywedz.com/api/vendor-services?subCategory=venue&page=$page&limit=$limit&search=$query");
       print("Fetching venues from: $url");
 
       final response = await http.get(url, headers: {"Accept": "application/json"});
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        final List<Venue> loadedVenues = [];
 
-        for (var service in data) {
+        final List<Venue> loadedVenues = data.map((service) {
           final attributes = service['attributes'] ?? {};
           final vendor = service['vendor'] ?? {};
           final subcategory = service['subcategory'] ?? {};
           final media = service['media'] ?? {};
 
           String imageUrl = '';
-
-          // ✅ Follow your same logic here
           if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
             final cover = media['coverImage'].toString();
             imageUrl = cover.startsWith('/uploads/')
                 ? "https://happywedzbackend.happywedz.com$cover"
                 : cover;
-            print("🖼️ Cover image URL: $imageUrl");
           } else if (media['gallery'] != null && media['gallery'].isNotEmpty) {
-            // Check if gallery has string URLs
             final gallery = media['gallery'];
             final firstImage = gallery.firstWhere(
                   (g) => g is String && g.toString().startsWith('/uploads/'),
@@ -612,13 +919,10 @@ class _VenuesScreenState extends State<VenuesScreen> {
             );
             if (firstImage != null) {
               imageUrl = "https://happywedzbackend.happywedz.com$firstImage";
-              print("🖼️ Gallery image URL: $imageUrl");
             }
-          } else {
-            print("⚠️ No coverImage for this service (${vendor['businessName']})");
           }
 
-          loadedVenues.add(Venue(
+          return Venue(
             name: vendor['businessName'] ?? 'Unknown Venue',
             image: imageUrl.isNotEmpty
                 ? imageUrl
@@ -626,75 +930,52 @@ class _VenuesScreenState extends State<VenuesScreen> {
             price: "₹ ${attributes['veg_price'] ?? '—'} per plate",
             pax: attributes['area'] ?? 'Capacity info not available',
             type: subcategory['name'] ?? 'Venue',
-          ));
-        }
+          );
+        }).toList();
 
         setState(() {
-          venues = loadedVenues;
+          if (page == 1) {
+            venues = loadedVenues;
+          } else {
+            venues.addAll(loadedVenues);
+          }
           isLoading = false;
+          isLoadingMore = false;
+
+          if (loadedVenues.length < limit) {
+            hasMore = false;
+          }
         });
       } else {
-        setState(() => isLoading = false);
+        setState(() {
+          isLoading = false;
+          isLoadingMore = false;
+        });
         print("❌ Error fetching venues: ${response.statusCode}");
       }
     } catch (e) {
-      setState(() => isLoading = false);
+      setState(() {
+        isLoading = false;
+        isLoadingMore = false;
+      });
       print("💥 API Error: $e");
     }
   }
 
-  // Future<void> fetchVenues() async {
-  //   try {
-  //     final url = Uri.parse("https://www.happywedz.com/api/vendor-services?subCategory=venue");
-  //     final response = await http.get(url, headers: {"Accept": "application/json"});
-  //
-  //     if (response.statusCode == 200) {
-  //       final List<dynamic> data = json.decode(response.body);
-  //       final List<Venue> loadedVenues = [];
-  //
-  //       for (var item in data) {
-  //         final attributes = item['attributes'] ?? {};
-  //         final vendor = item['vendor'] ?? {};
-  //         final subcategory = item['subcategory'] ?? {};
-  //         final media = item['media'] ?? {};
-  //
-  //         String imageUrl = '';
-  //         if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-  //           final cover = media['coverImage'].toString();
-  //           imageUrl = cover.startsWith('/uploads/')
-  //               ? "https://happywedzbackend.happywedz.com$cover"
-  //               : cover;
-  //         } else if (media['gallery'] != null && media['gallery'].isNotEmpty) {
-  //           final galleryItem = media['gallery'].first;
-  //           if (galleryItem is String && galleryItem.startsWith('/uploads/')) {
-  //             imageUrl = "https://happywedzbackend.happywedz.com$galleryItem";
-  //           }
-  //         }
-  //
-  //         loadedVenues.add(Venue(
-  //           name: vendor['businessName'] ?? 'Unknown Venue',
-  //           image: imageUrl.isNotEmpty
-  //               ? imageUrl
-  //               : 'https://via.placeholder.com/400x300.png?text=No+Image',
-  //           price: "₹ ${attributes['veg_price'] ?? '—'} per plate",
-  //           pax: attributes['area'] ?? 'Capacity info not available',
-  //           type: subcategory['name'] ?? 'Venue',
-  //         ));
-  //       }
-  //
-  //       setState(() {
-  //         venues = loadedVenues;
-  //         isLoading = false;
-  //       });
-  //     } else {
-  //       setState(() => isLoading = false);
-  //       print("❌ Error fetching venues: ${response.statusCode}");
-  //     }
-  //   } catch (e) {
-  //     setState(() => isLoading = false);
-  //     print("💥 API Error: $e");
-  //   }
-  // }
+  void fetchMoreVenues() {
+    if (hasMore && !isLoadingMore) {
+      setState(() => isLoadingMore = true);
+      page += 1;
+      fetchVenues(page: page, query: searchQuery);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -717,15 +998,48 @@ class _VenuesScreenState extends State<VenuesScreen> {
                 child: isLoading
                     ? const Center(child: CircularProgressIndicator(color: Colors.pink))
                     : ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(16.0),
-                  itemCount: venues.length,
+                  itemCount: venues.length + (hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final venue = venues[index];
-                    return _buildVenueCard(context, venue);
+                    if (index < venues.length) {
+                      final venue = venues[index];
+                      return _buildVenueCard(context, venue);
+                    } else {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.0),
+                        child: Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.pink,
+                            )),
+                      );
+                    }
                   },
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Search wedding venues...',
+            hintStyle: TextStyle(color: Colors.grey),
+            border: InputBorder.none,
+            prefixIcon: Icon(Icons.search, color: Colors.grey),
           ),
         ),
       ),
@@ -758,26 +1072,26 @@ class _VenuesScreenState extends State<VenuesScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: const TextField(
-          decoration: InputDecoration(
-            hintText: 'Search wedding venues...',
-            hintStyle: TextStyle(color: Colors.grey),
-            border: InputBorder.none,
-            prefixIcon: Icon(Icons.search, color: Colors.grey),
-          ),
-        ),
-      ),
-    );
-  }
+  // Widget _buildSearchBar() {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+  //     child: Container(
+  //       padding: const EdgeInsets.symmetric(horizontal: 16.0),
+  //       decoration: BoxDecoration(
+  //         color: Colors.white.withOpacity(0.9),
+  //         borderRadius: BorderRadius.circular(25),
+  //       ),
+  //       child: const TextField(
+  //         decoration: InputDecoration(
+  //           hintText: 'Search wedding venues...',
+  //           hintStyle: TextStyle(color: Colors.grey),
+  //           border: InputBorder.none,
+  //           prefixIcon: Icon(Icons.search, color: Colors.grey),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildVenueCard(BuildContext context, Venue venue) {
     return Consumer<FavouritesProvider>(
@@ -886,6 +1200,8 @@ class _VenuesScreenState extends State<VenuesScreen> {
       },
     );
   }
+
+// _buildAppBar and _buildVenueCard remain the same
 }
 
 // Venue Model

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,7 +12,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
 import 'package:happy_wedz/auths/registration.dart';
 import 'package:hive_flutter/adapters.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart' show MultiProvider, ChangeNotifierProvider;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'Wishlist/Wishlistscreen.dart';
 import 'auths/login.dart';
@@ -80,9 +83,69 @@ import 'guestlist/guestlist.dart';
 // }
 // ///////////////////////////////////////////
 
+// Future<void> main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//
+//
+//   // ✅ Initialize Firebase
+//   await Firebase.initializeApp(
+//     options: DefaultFirebaseOptions.currentPlatform,
+//   );
+//   FirebaseAuth.instance.setLanguageCode('en');
+//
+//   // ✅ Enable Firebase App Check
+//   await FirebaseAppCheck.instance.activate(
+//     androidProvider: AndroidProvider.playIntegrity,
+//     appleProvider: AppleProvider.deviceCheck,
+//   );
+//
+//   // ✅ Initialize Hive
+//   await Hive.initFlutter();
+//
+//
+//
+//   // ✅ Open all boxes safely
+//   await _openBoxSafe('weddingBox');
+//   await _openBoxSafe('guestBox');
+//
+//   // ✅ Run App with Providers
+//
+//   runApp(
+//     ChangeNotifierProvider(
+//       create: (_) => FavouritesProvider(),
+//       child: const MyApp(),
+//     ),
+//   );
+//   // runApp(
+//   //   const MyApp(),
+//   //
+//   // );
+// }
+//
+// /// Utility to safely open a Hive box (only if not already open)
+// Future<void> _openBoxSafe(String boxName) async {
+//   if (!Hive.isBoxOpen(boxName)) {
+//     await Hive.openBox(boxName);
+//   }
+// }
+//
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       debugShowCheckedModeBanner: false,
+//       theme: ThemeData(
+//         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+//       ),
+//       home: SignInScreen(),
+//       // home: const BottomBars(),
+//     );
+//   }
+// }
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
 
   // ✅ Initialize Firebase
   await Firebase.initializeApp(
@@ -99,27 +162,19 @@ Future<void> main() async {
   // ✅ Initialize Hive
   await Hive.initFlutter();
 
-
-
   // ✅ Open all boxes safely
   await _openBoxSafe('weddingBox');
   await _openBoxSafe('guestBox');
 
   // ✅ Run App with Providers
-
   runApp(
     ChangeNotifierProvider(
       create: (_) => FavouritesProvider(),
       child: const MyApp(),
     ),
   );
-  // runApp(
-  //   const MyApp(),
-  //
-  // );
 }
 
-/// Utility to safely open a Hive box (only if not already open)
 Future<void> _openBoxSafe(String boxName) async {
   if (!Hive.isBoxOpen(boxName)) {
     await Hive.openBox(boxName);
@@ -136,39 +191,80 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: SignInScreen(),
-      // home: const BottomBars(),
+      home: const AuthWrapper(),
     );
   }
 }
-
-class AuthWrapper extends StatelessWidget {
+// class AuthWrapper extends StatelessWidget {
+//   const AuthWrapper({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return StreamBuilder<User?>(
+//       stream: FirebaseAuth.instance.authStateChanges(),
+//       builder: (context, snapshot) {
+//         // 1️⃣ Loading state
+//         if (snapshot.connectionState == ConnectionState.waiting) {
+//           return const Scaffold(
+//             body: Center(child: CircularProgressIndicator()),
+//           );
+//         }
+//
+//         // 2️⃣ User logged in
+//         if (snapshot.hasData) {
+//           return const BottomBars();
+//         }
+//
+//         // 3️⃣ Not logged in
+//         return const LoginScreen();
+//       },
+//     );
+//   }
+// }
+/// ✅ AuthWrapper checks if user is already logged in
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // 1️⃣ Loading state
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        // 2️⃣ User logged in
-        if (snapshot.hasData) {
-          return const BottomBars();
-        }
-
-        // 3️⃣ Not logged in
-        return const LoginScreen();
-      },
-    );
-  }
+  State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isLoading = true;
+  User? _user;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  void _checkLoginStatus() async {
+    await Future.delayed(const Duration(milliseconds: 500)); // optional smooth splash
+    final user = FirebaseAuth.instance.currentUser;
+    setState(() {
+      _user = user;
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFFE91E63)),
+        ),
+      );
+    }
+
+    if (_user != null) {
+      return const BottomBars(); // Already logged in
+    } else {
+      return const SignInScreen(); // Not logged in
+    }
+  }
+}
 class Country {
   final String name;
   final String code;
@@ -241,10 +337,14 @@ class _SignInScreenState extends State<SignInScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Google Auth
+// Google Auth
   Future<void> _signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return; // User canceled
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        _showSnackBar('Google Sign-In cancelled');
+        return;
+      }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
@@ -253,17 +353,39 @@ class _SignInScreenState extends State<SignInScreen> {
         idToken: googleAuth.idToken,
       );
 
-      final userCredential = await _auth.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user;
 
       if (user != null) {
-        _showSnackBar('Signed in as ${user.displayName}');
-        print(credential);
-        // Navigate to your home screen
+        // ✅ Save user data locally for Profile page
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_name', user.displayName ?? '');
+        await prefs.setString('user_email', user.email ?? '');
+        await prefs.setString('user_photo', user.photoURL ?? '');
+
+        // ✅ Optional: call your backend login API
+        final response = await http.post(
+          Uri.parse('https://happywedz.com/api/user/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'email': user.email,
+            'name': user.displayName,
+            'google_token': googleAuth.idToken,
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          _showSnackBar('Logged in successfully as ${user.displayName}');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => BottomBars()),
+          );
+        } else {
+          _showSnackBar('API login failed: ${response.body}');
+        }
       }
     } catch (e) {
       _showSnackBar('Google Sign-In failed: $e');
-      print(e);
     }
   }
 // 1️⃣ Initialize
@@ -549,152 +671,152 @@ class _SignInScreenState extends State<SignInScreen> {
                           color: const Color(0xFF424242),
                         ),
                       ),
-                      const SizedBox(height: 50),
-                      // Input Field (Phone/Email)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 30),
-                        child: Container(
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 15),
-                              if (!isEmailMode)
-                                GestureDetector(
-                                  onTap: _showCountryPicker,
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        selectedCountry.flag,
-                                        style: const TextStyle(fontSize: 24),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      const Icon(
-                                        Icons.arrow_drop_down,
-                                        color: Colors.grey,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        selectedCountry.dialCode,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              if (!isEmailMode) const SizedBox(width: 15),
-                              Expanded(
-                                child: TextField(
-                                  controller: isEmailMode ? emailController : phoneController,
-                                  decoration: InputDecoration(
-                                    hintText: isEmailMode
-                                        ? 'Enter your email'
-                                        : 'Enter your mobile number',
-                                    hintStyle: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                    border: InputBorder.none,
-                                  ),
-                                  keyboardType: isEmailMode ? TextInputType.emailAddress : TextInputType.phone,
-                                  onChanged: isEmailMode ? _onEmailChanged : _onPhoneChanged,
-                                  onSubmitted: (value) =>
-                                  isEmailMode ? _authenticateWithEmail() : _authenticateWithPhone(),
-                                ),
-                              ),
-                              if ((isEmailMode && isValidEmail) || (!isEmailMode && isValidNumber))
-                                IconButton(
-                                  icon: const Icon(Icons.arrow_forward, color: Color(0xFFE91E63)),
-                                  onPressed: isEmailMode ? _authenticateWithEmail : _authenticateWithPhone,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      Text(
-                        'OR',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Toggle Button (Email <-> Phone)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 30),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              isEmailMode = !isEmailMode; // toggle mode
-                              if (isEmailMode) {
-                                emailController.clear();
-                              } else {
-                                phoneController.clear();
-                              }
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE91E63),
-                            minimumSize: const Size(double.infinity, 60),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            isEmailMode ? 'Continue with Mobile Number' : 'Continue with Email',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      // Facebook button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 30),
-                        child: OutlinedButton.icon(
-                          onPressed: _signInWithFacebook,
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 60),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            side: BorderSide(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                            backgroundColor: Colors.white,
-                          ),
-                          icon: const Icon(
-                            Icons.facebook,
-                            color: Color(0xFF1877F2),
-                            size: 28,
-                          ),
-                          label: Text(
-                            'Continue with Facebook',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF424242),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
+                       const SizedBox(height: 50),
+                      // // Input Field (Phone/Email)
+                      // Padding(
+                      //   padding: const EdgeInsets.symmetric(horizontal: 30),
+                      //   child: Container(
+                      //     height: 60,
+                      //     decoration: BoxDecoration(
+                      //       color: Colors.white,
+                      //       borderRadius: BorderRadius.circular(15),
+                      //       border: Border.all(
+                      //         color: Colors.grey.shade300,
+                      //         width: 1,
+                      //       ),
+                      //     ),
+                      //     child: Row(
+                      //       children: [
+                      //         const SizedBox(width: 15),
+                      //         if (!isEmailMode)
+                      //           GestureDetector(
+                      //             onTap: _showCountryPicker,
+                      //             child: Row(
+                      //               children: [
+                      //                 Text(
+                      //                   selectedCountry.flag,
+                      //                   style: const TextStyle(fontSize: 24),
+                      //                 ),
+                      //                 const SizedBox(width: 5),
+                      //                 const Icon(
+                      //                   Icons.arrow_drop_down,
+                      //                   color: Colors.grey,
+                      //                 ),
+                      //                 const SizedBox(width: 10),
+                      //                 Text(
+                      //                   selectedCountry.dialCode,
+                      //                   style: GoogleFonts.poppins(
+                      //                     fontSize: 16,
+                      //                     color: Colors.grey.shade600,
+                      //                   ),
+                      //                 ),
+                      //               ],
+                      //             ),
+                      //           ),
+                      //         if (!isEmailMode) const SizedBox(width: 15),
+                      //         Expanded(
+                      //           child: TextField(
+                      //             controller: isEmailMode ? emailController : phoneController,
+                      //             decoration: InputDecoration(
+                      //               hintText: isEmailMode
+                      //                   ? 'Enter your email'
+                      //                   : 'Enter your mobile number',
+                      //               hintStyle: GoogleFonts.poppins(
+                      //                 fontSize: 16,
+                      //                 color: Colors.grey.shade400,
+                      //               ),
+                      //               border: InputBorder.none,
+                      //             ),
+                      //             keyboardType: isEmailMode ? TextInputType.emailAddress : TextInputType.phone,
+                      //             onChanged: isEmailMode ? _onEmailChanged : _onPhoneChanged,
+                      //             onSubmitted: (value) =>
+                      //             isEmailMode ? _authenticateWithEmail() : _authenticateWithPhone(),
+                      //           ),
+                      //         ),
+                      //         if ((isEmailMode && isValidEmail) || (!isEmailMode && isValidNumber))
+                      //           IconButton(
+                      //             icon: const Icon(Icons.arrow_forward, color: Color(0xFFE91E63)),
+                      //             onPressed: isEmailMode ? _authenticateWithEmail : _authenticateWithPhone,
+                      //           ),
+                      //       ],
+                      //     ),
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 30),
+                      // Text(
+                      //   'OR',
+                      //   style: GoogleFonts.poppins(
+                      //     fontSize: 16,
+                      //     color: Colors.grey.shade600,
+                      //     fontWeight: FontWeight.w500,
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 20),
+                      // // Toggle Button (Email <-> Phone)
+                      // Padding(
+                      //   padding: const EdgeInsets.symmetric(horizontal: 30),
+                      //   child: ElevatedButton(
+                      //     onPressed: () {
+                      //       setState(() {
+                      //         isEmailMode = !isEmailMode; // toggle mode
+                      //         if (isEmailMode) {
+                      //           emailController.clear();
+                      //         } else {
+                      //           phoneController.clear();
+                      //         }
+                      //       });
+                      //     },
+                      //     style: ElevatedButton.styleFrom(
+                      //       backgroundColor: const Color(0xFFE91E63),
+                      //       minimumSize: const Size(double.infinity, 60),
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(15),
+                      //       ),
+                      //       elevation: 0,
+                      //     ),
+                      //     child: Text(
+                      //       isEmailMode ? 'Continue with Mobile Number' : 'Continue with Email',
+                      //       style: GoogleFonts.poppins(
+                      //         fontSize: 18,
+                      //         fontWeight: FontWeight.w500,
+                      //         color: Colors.white,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 15),
+                      // // Facebook button
+                      // Padding(
+                      //   padding: const EdgeInsets.symmetric(horizontal: 30),
+                      //   child: OutlinedButton.icon(
+                      //     onPressed: _signInWithFacebook,
+                      //     style: OutlinedButton.styleFrom(
+                      //       minimumSize: const Size(double.infinity, 60),
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(15),
+                      //       ),
+                      //       side: BorderSide(
+                      //         color: Colors.grey.shade300,
+                      //         width: 1,
+                      //       ),
+                      //       backgroundColor: Colors.white,
+                      //     ),
+                      //     icon: const Icon(
+                      //       Icons.facebook,
+                      //       color: Color(0xFF1877F2),
+                      //       size: 28,
+                      //     ),
+                      //     label: Text(
+                      //       'Continue with Facebook',
+                      //       style: GoogleFonts.poppins(
+                      //         fontSize: 18,
+                      //         fontWeight: FontWeight.w500,
+                      //         color: const Color(0xFF424242),
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 15),
                       // Google button
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 30),

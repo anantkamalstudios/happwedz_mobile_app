@@ -49,6 +49,50 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:27907630225:android:853807bfeb95b83d8f4b30",
+        "android_client_info": {
+          "package_name": "com.happy.happy_wedz"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "27907630225-5lrd2ds3vm93971en62lpocn8n8gu7po.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.happy.happy_wedz",
+            "certificate_hash": "1cc34f4f66fbb885b5137c67ef1f0b843319f66a"
+          }
+        },
+        {
+          "client_id": "27907630225-6bgema2fjbf4tjtb36b2grv8umle6ud4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbnw_dz8ah5AEwr_dsF1wLIAX4tnAYjDE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "27907630225-6bgema2fjbf4tjtb36b2grv8umle6ud4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "27907630225-4tspogup0v65vdj6k0arbrv5gdh5hi7f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.happyWedz"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"
