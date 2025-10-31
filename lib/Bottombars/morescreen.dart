@@ -5,6 +5,7 @@ import '../InboxScreen.dart';
 import '../RealWedding/share_ur_story.dart';
 import '../Wishlist/Wishlistscreen.dart';
 import '../auths/login.dart';
+import '../budget/budget.dart';
 import '../einvite/einvite.dart';
 import '../einvite1/einvite.dart';
 import '../ideas.dart';
@@ -49,8 +50,8 @@ class MoreOptionsScreen extends StatelessWidget {
                     children: [
                       _buildMenuItem(
                         icon: Icons.shopping_bag,
-                        title: 'Shop',
-                        onTap: () => _handleMenuTap(context, 'Shop'),
+                        title: 'Budget',
+                        onTap: () => _handleMenuTap(context, 'Budget'),
                       ),
                       _buildMenuItem(
                         icon: Icons.mail_outline,
@@ -268,8 +269,8 @@ class MoreOptionsScreen extends StatelessWidget {
       case 'E-Invites':
         Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingInvitesScreen1()));
         break;
-        case 'Shop':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen()));
+        case 'Budget':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetPage(userId: 15,)));
         break;
         case 'Ideas':
         Navigator.push(context, MaterialPageRoute(builder: (_) => Ideas()));

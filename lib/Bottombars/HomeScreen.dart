@@ -2566,6 +2566,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //     if (response.statusCode == 200) {
   //       final data = json.decode(response.body);
   //       print('States API Response: $data'); // Debug log
+  //       print('States API Response: $data'); // Debug log
   //
   //       if (data['error'] == false && data['data'] != null && data['data']['states'] != null) {
   //         final List<dynamic> statesData = data['data']['states'];
@@ -2846,6 +2847,43 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   List<dynamic> photographers = [];
   bool isLoadingVenues = true;
   bool isLoadingPhotographers = true;
+  Future<void> fetchPhotographers({String? city}) async {
+    setState(() => isLoadingPhotographers = true);
+    try {
+      final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=photographer");
+      final response = await http.get(url, headers: {"Accept": "application/json"});
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+
+        // Extract list safely from either `data` or root
+        final data = (decoded is Map && decoded['data'] is List)
+            ? decoded['data'] as List<dynamic>
+            : (decoded is List ? decoded : []);
+
+        final filtered = city != null && city.isNotEmpty
+            ? data.where((photo) {
+          final attributes = (photo['attributes'] is Map)
+              ? photo['attributes'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          final location = (attributes['location'] ?? '').toString().toLowerCase();
+          return location.contains(city.toLowerCase());
+        }).toList()
+            : data;
+
+        setState(() {
+          photographers = filtered;
+          isLoadingPhotographers = false;
+        });
+      } else {
+        setState(() => isLoadingPhotographers = false);
+        print("Error fetching photographers: ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() => isLoadingPhotographers = false);
+      print("Error fetching photographers: $e");
+    }
+  }
 
   Future<void> fetchVenues({String? city}) async {
     setState(() => isLoadingVenues = true);
@@ -2854,9 +2892,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       final response = await http.get(url, headers: {"Accept": "application/json"});
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List<dynamic>;
+        final decoded = json.decode(response.body);
 
-        // ✅ Filter by city if provided
+        // Extract list safely
+        final data = (decoded is Map && decoded['data'] is List)
+            ? decoded['data'] as List<dynamic>
+            : (decoded is List ? decoded : []);
+
         final filtered = city != null && city.isNotEmpty
             ? data.where((venue) {
           final attributes = (venue['attributes'] is Map)
@@ -2881,39 +2923,73 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-  Future<void> fetchPhotographers({String? city}) async {
-    setState(() => isLoadingPhotographers = true);
-    try {
-      final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=photographer");
-      final response = await http.get(url, headers: {"Accept": "application/json"});
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List<dynamic>;
-
-        // ✅ Filter by city if provided
-        final filtered = city != null && city.isNotEmpty
-            ? data.where((photo) {
-          final attributes = (photo['attributes'] is Map)
-              ? photo['attributes'] as Map<String, dynamic>
-              : <String, dynamic>{};
-          final location = (attributes['location'] ?? '').toString().toLowerCase();
-          return location.contains(city.toLowerCase());
-        }).toList()
-            : data;
-
-        setState(() {
-          photographers = filtered;
-          isLoadingPhotographers = false;
-        });
-      } else {
-        setState(() => isLoadingPhotographers = false);
-        print("Error fetching photographers: ${response.statusCode}");
-      }
-    } catch (e) {
-      setState(() => isLoadingPhotographers = false);
-      print("Error fetching photographers: $e");
-    }
-  }
+  // Future<void> fetchVenues({String? city}) async {
+  //   setState(() => isLoadingVenues = true);
+  //   try {
+  //     final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=venue");
+  //     final response = await http.get(url, headers: {"Accept": "application/json"});
+  //
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body) as List<dynamic>;
+  //
+  //       // ✅ Filter by city if provided
+  //       final filtered = city != null && city.isNotEmpty
+  //           ? data.where((venue) {
+  //         final attributes = (venue['attributes'] is Map)
+  //             ? venue['attributes'] as Map<String, dynamic>
+  //             : <String, dynamic>{};
+  //         final location = (attributes['location'] ?? '').toString().toLowerCase();
+  //         return location.contains(city.toLowerCase());
+  //       }).toList()
+  //           : data;
+  //
+  //       setState(() {
+  //         venues = filtered;
+  //         isLoadingVenues = false;
+  //       });
+  //     } else {
+  //       setState(() => isLoadingVenues = false);
+  //       print("Error fetching venues: ${response.statusCode}");
+  //     }
+  //   } catch (e) {
+  //     setState(() => isLoadingVenues = false);
+  //     print("Error fetching venues: $e");
+  //   }
+  // }
+  //
+  // Future<void> fetchPhotographers({String? city}) async {
+  //   setState(() => isLoadingPhotographers = true);
+  //   try {
+  //     final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=photographer");
+  //     final response = await http.get(url, headers: {"Accept": "application/json"});
+  //
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body) as List<dynamic>;
+  //
+  //       // ✅ Filter by city if provided
+  //       final filtered = city != null && city.isNotEmpty
+  //           ? data.where((photo) {
+  //         final attributes = (photo['attributes'] is Map)
+  //             ? photo['attributes'] as Map<String, dynamic>
+  //             : <String, dynamic>{};
+  //         final location = (attributes['location'] ?? '').toString().toLowerCase();
+  //         return location.contains(city.toLowerCase());
+  //       }).toList()
+  //           : data;
+  //
+  //       setState(() {
+  //         photographers = filtered;
+  //         isLoadingPhotographers = false;
+  //       });
+  //     } else {
+  //       setState(() => isLoadingPhotographers = false);
+  //       print("Error fetching photographers: ${response.statusCode}");
+  //     }
+  //   } catch (e) {
+  //     setState(() => isLoadingPhotographers = false);
+  //     print("Error fetching photographers: $e");
+  //   }
+  // }
 
 
   @override
@@ -3564,21 +3640,16 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _selectedCity != null ? 'Venues in $_selectedCity' : 'Venues in your city',
+          _selectedCity != null
+              ? 'Venues in $_selectedCity'
+              : 'Venues in your city',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
-        // const Text(
-        //   'Venues in your city',
-        //   style: TextStyle(
-        //     fontSize: 18,
-        //     fontWeight: FontWeight.bold,
-        //     color: Colors.black87,
-        //   ),
-        // ),
+
         const SizedBox(height: 15),
         isLoadingVenues
             ? const Center(child: CircularProgressIndicator())
@@ -3588,8 +3659,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: venues.map<Widget>((venue) {
-              final vendor =
-              (venue is Map && venue['vendor'] is Map)
+              final vendor = (venue is Map && venue['vendor'] is Map)
                   ? venue['vendor'] as Map<String, dynamic>
                   : <String, dynamic>{};
 
@@ -3598,23 +3668,21 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   ? venue['attributes'] as Map<String, dynamic>
                   : <String, dynamic>{};
 
-              final media =
-              (venue is Map && venue['media'] is Map)
+              final media = (venue is Map && venue['media'] is Map)
                   ? venue['media'] as Map<String, dynamic>
                   : <String, dynamic>{};
 
               // ✅ Robust image logic
               String imageUrl = 'https://via.placeholder.com/200x120';
 
-              // 1️⃣ Try coverImage
-              if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+              if (media['coverImage'] != null &&
+                  media['coverImage'].toString().isNotEmpty) {
                 final cover = media['coverImage'].toString();
                 imageUrl = cover.startsWith('/uploads/')
                     ? "https://happywedzbackend.happywedz.com$cover"
                     : cover;
-              }
-              // 2️⃣ Fallback to gallery
-              else if (media['gallery'] != null && media['gallery'] is List) {
+              } else if (media['gallery'] != null &&
+                  media['gallery'] is List) {
                 for (var item in media['gallery']) {
                   if (item is String && item.isNotEmpty) {
                     imageUrl = item.startsWith('/uploads/')
@@ -3630,19 +3698,42 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   }
                 }
               }
+              // 🪄 Fallback: use thumbnail from attributes['url']
+              else if (attributes['url'] != null &&
+                  attributes['url'].toString().isNotEmpty) {
+                imageUrl =
+                'https://api.thumbnail.ws/api/ab4aeb5c79a2a6e95bfa5e17cc8d4d1a48e66a7e8c34/generate/thumbnail?url=${Uri.encodeComponent(attributes['url'])}&width=400';
+              }
 
               // Debug log
-              print("🖼️ Venue image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
+              print(
+                  "🖼️ Venue image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
 
-              final String name =
-              (vendor['businessName'] ?? attributes['name'] ?? "No Name").toString();
+              final String name = (vendor['businessName'] ??
+                  attributes['vendor_name'] ??
+                  attributes['name'] ??
+                  "No Name")
+                  .toString();
 
-              final String location =
-              (attributes['location'] ?? 'Unknown Location').toString();
+              final String location = (attributes['city'] ??
+                  attributes['address'] ??
+                  vendor['city'] ??
+                  'Unknown Location')
+                  .toString();
 
-              final String price = attributes['starting_price'] != null
-                  ? "₹${attributes['starting_price']}"
-                  : "--";
+              // 💰 Price logic
+              String price = "--";
+              final veg = attributes['veg_price']?.toString() ?? "";
+              final nonVeg =
+                  attributes['non_veg_price']?.toString() ?? "";
+              if (veg.isNotEmpty || nonVeg.isNotEmpty) {
+                if (veg.isNotEmpty && nonVeg.isNotEmpty) {
+                  price = "₹$veg - ₹$nonVeg";
+                } else {
+                  price = "₹${veg.isNotEmpty ? veg : nonVeg}";
+                }
+                price = "Starting from $price";
+              }
 
               return Container(
                 width: 200,
@@ -3708,7 +3799,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       Text(
                         location,
                         style: const TextStyle(
-                            fontSize: 12, color: Colors.grey),
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -3716,7 +3809,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       Text(
                         price,
                         style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -3881,21 +3976,16 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _selectedCity != null ? 'Photographers in $_selectedCity' : 'Photographers for you',
+          _selectedCity != null
+              ? 'Photographers in $_selectedCity'
+              : 'Photographers for you',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
-        // const Text(
-        //   'Photographers for you',
-        //   style: TextStyle(
-        //     fontSize: 18,
-        //     fontWeight: FontWeight.bold,
-        //     color: Colors.black87,
-        //   ),
-        // ),
+
         const SizedBox(height: 15),
         isLoadingPhotographers
             ? const Center(child: CircularProgressIndicator())
@@ -3904,8 +3994,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             : SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            // 🔥 Show only first 9 photographers
-            children: photographers.take(9).map<Widget>((photo) {
+            children: photographers.map<Widget>((photo) {
               final vendor = (photo is Map && photo['vendor'] is Map)
                   ? photo['vendor'] as Map<String, dynamic>
                   : <String, dynamic>{};
@@ -3919,33 +4008,15 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   ? photo['media'] as Map<String, dynamic>
                   : <String, dynamic>{};
 
+              // ✅ Robust image logic
               String imageUrl = 'https://via.placeholder.com/200x120';
 
               if (media['coverImage'] != null &&
                   media['coverImage'].toString().isNotEmpty) {
-                final cover = media['coverImage'];
-                if (cover is String) {
-                  imageUrl = cover.startsWith('/uploads/')
-                      ? "https://happywedzbackend.happywedz.com$cover"
-                      : cover;
-                } else if (cover is Map && cover['url'] != null) {
-                  final url = cover['url'].toString();
-                  imageUrl = url.startsWith('/uploads/')
-                      ? "https://happywedzbackend.happywedz.com$url"
-                      : url;
-                } else if (cover is List && cover.isNotEmpty) {
-                  final first = cover.first;
-                  if (first is Map && first['url'] != null) {
-                    final url = first['url'].toString();
-                    imageUrl = url.startsWith('/uploads/')
-                        ? "https://happywedzbackend.happywedz.com$url"
-                        : url;
-                  } else if (first is String) {
-                    imageUrl = first.startsWith('/uploads/')
-                        ? "https://happywedzbackend.happywedz.com$first"
-                        : first;
-                  }
-                }
+                final cover = media['coverImage'].toString();
+                imageUrl = cover.startsWith('/uploads/')
+                    ? "https://happywedzbackend.happywedz.com$cover"
+                    : cover;
               } else if (media['gallery'] != null &&
                   media['gallery'] is List) {
                 for (var item in media['gallery']) {
@@ -3963,19 +4034,36 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   }
                 }
               }
+              // 🪄 Fallback: use thumbnail from attributes['url']
+              else if (attributes['url'] != null &&
+                  attributes['url'].toString().isNotEmpty) {
+                imageUrl =
+                'https://api.thumbnail.ws/api/ab4aeb5c79a2a6e95bfa5e17cc8d4d1a48e66a7e8c34/generate/thumbnail?url=${Uri.encodeComponent(attributes['url'])}&width=400';
+              }
+
+              // Debug log
+              print(
+                  "📸 Photographer image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
 
               final String name = (vendor['businessName'] ??
+                  attributes['vendor_name'] ??
                   attributes['name'] ??
                   "No Name")
                   .toString();
 
-              final String location =
-              (attributes['location'] ?? 'Unknown Location')
+              final String location = (attributes['city'] ??
+                  attributes['address'] ??
+                  vendor['city'] ??
+                  'Unknown Location')
                   .toString();
 
-              final String price = attributes['starting_price'] != null
-                  ? "₹${attributes['starting_price']}"
-                  : "--";
+              // 💰 Price logic
+              String price = "--";
+              final startPrice =
+                  attributes['starting_price']?.toString() ?? "";
+              if (startPrice.isNotEmpty) {
+                price = "Starting from ₹$startPrice";
+              }
 
               return Container(
                 width: 200,
@@ -3985,11 +4073,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            VendorDetailsScreen(service: photo),
+                        builder: (_) => VendorDetailsScreen(
+                          service: {
+                            'vendor': vendor,
+                            'attributes': attributes,
+                            'media': media,
+                          },
+                        ),
                       ),
                     );
                   },
+
+
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4008,11 +4103,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                               width: 200,
                               color: Colors.grey[200],
                               child: const Center(
-                                  child:
-                                  CircularProgressIndicator()),
+                                child: CircularProgressIndicator(),
+                              ),
                             );
                           },
-                          errorBuilder: (context, error, stackTrace) {
+                          errorBuilder:
+                              (context, error, stackTrace) {
+                            print("Image load error: $error");
                             return Container(
                               height: 120,
                               width: 200,
@@ -4040,7 +4137,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       Text(
                         location,
                         style: const TextStyle(
-                            fontSize: 12, color: Colors.grey),
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -4048,8 +4147,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       Text(
                         price,
                         style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),

@@ -22,6 +22,10 @@
               android:resource="@style/NormalTheme"
               />
             <meta-data
+                android:name="com.google.android.gms.client_id"
+                android:value="27907630225-5lrd2ds3vm93971en62lpocn8n8gu7po.apps.googleusercontent.com" />
+
+            <meta-data
                 android:name="com.truecaller.android.sdk.ClientId"
                 android:value="gt7crz05tgi0o3mk10wimjig0irao0fr7xgsljqdfh8" />
             <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>

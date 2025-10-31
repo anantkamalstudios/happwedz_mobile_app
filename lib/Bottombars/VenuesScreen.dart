@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../Wishlist/Wishlistscreen.dart';
+import '../vendor/vendordetailsscreen.dart';
 import '../venuedetails.dart';
 
 // class VenuesScreen extends StatelessWidget {
@@ -888,16 +889,28 @@ class _VenuesScreenState extends State<VenuesScreen> {
   }
 
   Future<void> fetchVenues({int page = 1, String query = ""}) async {
+    setState(() {
+      if (page == 1) {
+        isLoading = true; // show loader only on first load
+      } else {
+        isLoadingMore = true; // show bottom loader when paginating
+      }
+    });
+
     try {
-      // Include search query in API call
       final url = Uri.parse(
-          "https://happywedz.com/api/vendor-services?subCategory=venue&page=$page&limit=$limit&search=$query");
+        "https://happywedz.com/api/vendor-services?subCategory=venue&page=$page&limit=$limit&search=$query",
+      );
+
       print("Fetching venues from: $url");
 
       final response = await http.get(url, headers: {"Accept": "application/json"});
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+
+        // Safely extract list
+        final List<dynamic> data = decoded['data'] ?? [];
 
         final List<Venue> loadedVenues = data.map((service) {
           final attributes = service['attributes'] ?? {};
@@ -941,24 +954,21 @@ class _VenuesScreenState extends State<VenuesScreen> {
           }
           isLoading = false;
           isLoadingMore = false;
-
-          if (loadedVenues.length < limit) {
-            hasMore = false;
-          }
+          hasMore = loadedVenues.length >= limit;
         });
       } else {
+        print("❌ Error fetching venues: ${response.statusCode}");
         setState(() {
           isLoading = false;
           isLoadingMore = false;
         });
-        print("❌ Error fetching venues: ${response.statusCode}");
       }
     } catch (e) {
+      print("💥 API Error: $e");
       setState(() {
         isLoading = false;
         isLoadingMore = false;
       });
-      print("💥 API Error: $e");
     }
   }
 
@@ -976,7 +986,6 @@ class _VenuesScreenState extends State<VenuesScreen> {
     _searchController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -994,27 +1003,49 @@ class _VenuesScreenState extends State<VenuesScreen> {
             children: [
               _buildAppBar(context),
               _buildSearchBar(),
+
+              // ✅ Main content
               Expanded(
                 child: isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Colors.pink))
-                    : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: venues.length + (hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < venues.length) {
-                      final venue = venues[index];
-                      return _buildVenueCard(context, venue);
-                    } else {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16.0),
-                        child: Center(
+                    ? const Center(
+                  child: CircularProgressIndicator(color: Colors.pink),
+                )
+                    : venues.isEmpty
+                    ? const Center(
+                  child: Text(
+                    "No venues found 😔",
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey),
+                  ),
+                )
+                    : RefreshIndicator(
+                  color: Colors.pink,
+                  onRefresh: () async {
+                    await fetchVenues(page: 1);
+                  },
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: venues.length + (hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index < venues.length) {
+                        final venue = venues[index];
+                        return _buildVenueCard(context, venue);
+                      } else {
+                        // ✅ Pagination loader (bottom)
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24.0),
+                          child: Center(
                             child: CircularProgressIndicator(
                               color: Colors.pink,
-                            )),
-                      );
-                    }
-                  },
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ),
               ),
             ],
@@ -1072,129 +1103,120 @@ class _VenuesScreenState extends State<VenuesScreen> {
     );
   }
 
-  // Widget _buildSearchBar() {
-  //   return Padding(
-  //     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-  //     child: Container(
-  //       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-  //       decoration: BoxDecoration(
-  //         color: Colors.white.withOpacity(0.9),
-  //         borderRadius: BorderRadius.circular(25),
-  //       ),
-  //       child: const TextField(
-  //         decoration: InputDecoration(
-  //           hintText: 'Search wedding venues...',
-  //           hintStyle: TextStyle(color: Colors.grey),
-  //           border: InputBorder.none,
-  //           prefixIcon: Icon(Icons.search, color: Colors.grey),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
+
 
   Widget _buildVenueCard(BuildContext context, Venue venue) {
     return Consumer<FavouritesProvider>(
       builder: (context, favouritesProvider, child) {
         final isFav = favouritesProvider.isFavourite(venue.name);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+        return GestureDetector(
+          onTap: (){
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VendorDetailsScreen(service: venue),
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                      image: DecorationImage(
-                        image: NetworkImage(venue.image),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: () => favouritesProvider.toggleFavourite(venue.name),
-                      child: CircleAvatar(
-                        backgroundColor: Colors.white.withOpacity(0.8),
-                        child: Icon(
-                          isFav ? Icons.favorite : Icons.favorite_border,
-                          color: Colors.pink,
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(venue.image),
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      venue.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      venue.price,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            venue.pax,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => favouritesProvider.toggleFavourite(venue.name),
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white.withOpacity(0.8),
+                          child: Icon(
+                            isFav ? Icons.favorite : Icons.favorite_border,
+                            color: Colors.pink,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.event, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          venue.type,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        venue.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        venue.price,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              venue.pax,
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.event, size: 16, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            venue.type,
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

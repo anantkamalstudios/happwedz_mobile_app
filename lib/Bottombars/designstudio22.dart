@@ -4721,18 +4721,32 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
 
   // Category intensity max map (UI slider 0..1 => API value = slider * max)
   final Map<String, double> categoryIntensityMax = {
-    'lip': 2.0, // lipstick
-    'blush': 0.4,
+    'lip': 0.8, // lipstick
+    'blush': 0.2,
     'foundation': 0.6,
     'contour': 0.3  ,
     'concealer': 0.9,
-    'eye': 0.4, // eyeshadow
-    'kajal': 1.0,
-    'mascara': 1.0,
+    'eye': 1.0, // eyeshadow
+    'kajal': 0.7,
+    'mascara': 0.8,
     'lens': 0.2,
     // default fallback = 1.0
   };
 
+  // DEFAULT_INTENSITIES = {
+  // foundation: 0.6,
+  // concealer: 0.9,
+  // blush: 0.2,
+  // contour: 0.3,
+  // kajal: 0.7,
+  // eyeshadow: 1.0,
+  // lipstick: 0.8,
+  // bindi: 6,
+  // mascara: 0.8,
+  // eyeliner: 0.5,
+  // // mangtika: 0.6,
+  // contactlenses: 0.2,
+  // };
   // Default extras
   final double defaultBlushRadius = 60.0;
   final double defaultEyeshadowThickness = 25.0;
@@ -4796,12 +4810,12 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
 
   // Determine intensity max from category name heuristically
   double _intensityMaxForCategory(String catNameLower) {
-    if (catNameLower.contains('lip')) return categoryIntensityMax['lip'] ?? 2.0;
-    if (catNameLower.contains('blush')) return categoryIntensityMax['blush'] ?? 0.4;
-    if (catNameLower.contains('contactlenses') || catNameLower.contains('contactlenses')) return categoryIntensityMax['contactlenses'] ?? 1.0;
+    if (catNameLower.contains('lip')) return categoryIntensityMax['lip'] ?? 0.8;
+    if (catNameLower.contains('blush')) return categoryIntensityMax['blush'] ?? 0.2;
+    if (catNameLower.contains('contactlenses') || catNameLower.contains('contactlenses')) return categoryIntensityMax['contactlenses'] ?? 0.2;
     if (catNameLower.contains('eye') || catNameLower.contains('eyeshadow')) return categoryIntensityMax['eye'] ?? 1.0;
-    if (catNameLower.contains('kajal')) return categoryIntensityMax['kajal'] ?? 1.0;
-    if (catNameLower.contains('mascara')) return categoryIntensityMax['mascara'] ?? 1.0;
+    if (catNameLower.contains('kajal')) return categoryIntensityMax['kajal'] ?? 0.7;
+    if (catNameLower.contains('mascara')) return categoryIntensityMax['mascara'] ?? 0.8;
     // default
     return 1.0;
   }

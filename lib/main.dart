@@ -226,6 +226,7 @@ class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
+
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
@@ -261,7 +262,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_user != null) {
       return const BottomBars(); // Already logged in
     } else {
-      return const SignInScreen(); // Not logged in
+      return const BottomBars(); // Not logged in
     }
   }
 }
@@ -316,7 +317,6 @@ class CountryData {
   ];
 }
 
-
 class SignInScreen extends StatefulWidget {
   const SignInScreen({Key? key}) : super(key: key);
 
@@ -325,202 +325,52 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  Country selectedCountry = CountryData.countries[0]; // Default to India
-  final TextEditingController phoneController = TextEditingController();
-  bool isEmailMode = false;
-  final TextEditingController emailController = TextEditingController();
-  bool isValidEmail = false;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+    clientId:
+    '27907630225-5lrd2ds3vm93971en62lpocn8n8gu7po.apps.googleusercontent.com',
+  );
 
-  bool isValidNumber = false;
-  // // Google Sign-In
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // Google Auth
-// Google Auth
   Future<void> _signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
       if (googleUser == null) {
         _showSnackBar('Google Sign-In cancelled');
         return;
       }
+print(googleUser);
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      // Send to your backend
+      final response = await http.post(
+        Uri.parse('https://happywedz.com/api/user/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': googleUser.email,
+          'name': googleUser.displayName,
+          'google_token': googleAuth.idToken,
+        }),
       );
 
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-      final user = userCredential.user;
-
-      if (user != null) {
-        // ✅ Save user data locally for Profile page
+      if (response.statusCode == 200) {
+        // Save locally
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_name', user.displayName ?? '');
-        await prefs.setString('user_email', user.email ?? '');
-        await prefs.setString('user_photo', user.photoURL ?? '');
-
-        // ✅ Optional: call your backend login API
-        final response = await http.post(
-          Uri.parse('https://happywedz.com/api/user/login'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': user.email,
-            'name': user.displayName,
-            'google_token': googleAuth.idToken,
-          }),
+        await prefs.setString('user_name', googleUser.displayName ?? '');
+        await prefs.setString('user_email', googleUser.email);
+        await prefs.setString('user_photo', googleUser.photoUrl ?? '');
+      print(response);
+        _showSnackBar('Welcome ${googleUser.displayName}');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => BottomBars()),
         );
-
-        if (response.statusCode == 200) {
-          _showSnackBar('Logged in successfully as ${user.displayName}');
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => BottomBars()),
-          );
-        } else {
-          _showSnackBar('API login failed: ${response.body}');
-        }
+      } else {
+        _showSnackBar('API error: ${response.body}');
       }
     } catch (e) {
       _showSnackBar('Google Sign-In failed: $e');
-    }
-  }
-// 1️⃣ Initialize
-// 1️⃣ Initialize
-
-  // Facebook Auth
-  Future<void> _signInWithFacebook() async {
-    try {
-      final LoginResult result = await FacebookAuth.instance.login();
-
-      if (result.status == LoginStatus.success) {
-        final OAuthCredential facebookCredential =
-        FacebookAuthProvider.credential(result.accessToken!.token);
-
-        final userCredential = await _auth.signInWithCredential(facebookCredential);
-        final user = userCredential.user;
-
-        if (user != null) {
-          _showSnackBar('Signed in as ${user.displayName}');
-          // Navigate to your home screen
-        }
-      } else {
-        _showSnackBar('Facebook Sign-In canceled');
-      }
-    } catch (e) {
-      _showSnackBar('Facebook Sign-In failed: $e');
-    }
-  }
-
-  // void _showSnackBar(String message) {
-  //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  // }
-
-
-
-  void _authenticateWithEmail() {
-    if (!isValidEmail) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid email')),
-      );
-      return;
-    }
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BottomBars()
-      ),
-    );
-  }
-
-
-
-
-
-
-
-
-
-
-
-
-  void _onPhoneChanged(String value) {
-    setState(() {
-      isValidNumber = value.length == selectedCountry.phoneLength;
-    });
-  }
-  void _onEmailChanged(String value) {
-    setState(() {
-      // Simple email regex validation
-      isValidEmail = RegExp(
-          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$'
-      ).hasMatch(value);
-    });
-  }
-
-  // void _authenticateWithEmail() {
-  //   if (!isValidEmail) {
-  //     _showSnackBar('Enter a valid email address');
-  //     return;
-  //   }
-  //
-  //   final mockUserData = {
-  //     'name': 'Harshada Shinde', // Can keep dynamic if needed
-  //     'email': emailController.text,
-  //     'method': 'Email',
-  //   };
-  //
-  //   _navigateToTruecaller(mockUserData);
-  // }
-
-  // Mock fetch user name by phone
-  String _fetchUserName(String phoneNumber) {
-    // For mock, just return name based on last digit
-    int lastDigit = int.tryParse(phoneNumber.characters.last) ?? 0;
-    List<String> names = [
-      'Harshada Shinde',
-      'Rahul Sharma',
-      'Ananya Mehta',
-      'Rohan Kapoor',
-      'Priya Singh'
-    ];
-    return names[lastDigit % names.length];
-  }
-
-  void _authenticateWithPhone() {
-    if (!isValidNumber) {
-      _showSnackBar('Enter valid phone number for ${selectedCountry.name}');
-      return;
-    }
-
-    String fullNumber = '${selectedCountry.dialCode}${phoneController.text}';
-    String userName = _fetchUserName(phoneController.text);
-
-    final mockUserData = {
-      'name': userName,
-      'phone': fullNumber,
-      'method': 'Phone',
-    };
-
-    _navigateToTruecaller(mockUserData);
-  }
-
-  void _navigateToTruecaller(Map<String, String> userData) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (context) =>BottomBars()),
-    );
-
-    if (result == false) {
-      // Navigate to signup screen (dummy for now)
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const SignInScreen())); // Mock signup
     }
   }
 
@@ -530,100 +380,6 @@ class _SignInScreenState extends State<SignInScreen> {
       backgroundColor: const Color(0xFFE91E63),
     ));
   }
-  void _showCountryPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          children: [
-            Text(
-              'Select Country',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF424242),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: CountryData.countries.length,
-                itemBuilder: (context, index) {
-                  final country = CountryData.countries[index];
-                  return ListTile(
-                    leading: Text(
-                      country.flag,
-                      style: const TextStyle(fontSize: 28),
-                    ),
-                    title: Text(
-                      country.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    trailing: Text(
-                      country.dialCode,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    onTap: () {
-                      setState(() {
-                        selectedCountry = country;
-                      });
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  void _showLoadingDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Center(
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                color: Color(0xFFE91E63),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                'Authenticating...',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -642,232 +398,63 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         ),
         child: SafeArea(
-          child: Stack(
-            children: [
-              // Decorative bunting at top
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Image.network(
-                  'https://cdn-icons-png.flaticon.com/512/2917/2917995.png',
-                  width: MediaQuery.of(context).size.width * 0.4,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox(),
-                ),
-              ),
-              SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Sign In / Sign Up',
+                    style: GoogleFonts.poppins(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF424242),
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 220),
-                      Text(
-                        'Sign In/ Sign Up',
-                        style: GoogleFonts.poppins(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF424242),
-                        ),
+                  const SizedBox(height: 50),
+                  OutlinedButton.icon(
+                    onPressed: _signInWithGoogle,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 60),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
                       ),
-                       const SizedBox(height: 50),
-                      // // Input Field (Phone/Email)
-                      // Padding(
-                      //   padding: const EdgeInsets.symmetric(horizontal: 30),
-                      //   child: Container(
-                      //     height: 60,
-                      //     decoration: BoxDecoration(
-                      //       color: Colors.white,
-                      //       borderRadius: BorderRadius.circular(15),
-                      //       border: Border.all(
-                      //         color: Colors.grey.shade300,
-                      //         width: 1,
-                      //       ),
-                      //     ),
-                      //     child: Row(
-                      //       children: [
-                      //         const SizedBox(width: 15),
-                      //         if (!isEmailMode)
-                      //           GestureDetector(
-                      //             onTap: _showCountryPicker,
-                      //             child: Row(
-                      //               children: [
-                      //                 Text(
-                      //                   selectedCountry.flag,
-                      //                   style: const TextStyle(fontSize: 24),
-                      //                 ),
-                      //                 const SizedBox(width: 5),
-                      //                 const Icon(
-                      //                   Icons.arrow_drop_down,
-                      //                   color: Colors.grey,
-                      //                 ),
-                      //                 const SizedBox(width: 10),
-                      //                 Text(
-                      //                   selectedCountry.dialCode,
-                      //                   style: GoogleFonts.poppins(
-                      //                     fontSize: 16,
-                      //                     color: Colors.grey.shade600,
-                      //                   ),
-                      //                 ),
-                      //               ],
-                      //             ),
-                      //           ),
-                      //         if (!isEmailMode) const SizedBox(width: 15),
-                      //         Expanded(
-                      //           child: TextField(
-                      //             controller: isEmailMode ? emailController : phoneController,
-                      //             decoration: InputDecoration(
-                      //               hintText: isEmailMode
-                      //                   ? 'Enter your email'
-                      //                   : 'Enter your mobile number',
-                      //               hintStyle: GoogleFonts.poppins(
-                      //                 fontSize: 16,
-                      //                 color: Colors.grey.shade400,
-                      //               ),
-                      //               border: InputBorder.none,
-                      //             ),
-                      //             keyboardType: isEmailMode ? TextInputType.emailAddress : TextInputType.phone,
-                      //             onChanged: isEmailMode ? _onEmailChanged : _onPhoneChanged,
-                      //             onSubmitted: (value) =>
-                      //             isEmailMode ? _authenticateWithEmail() : _authenticateWithPhone(),
-                      //           ),
-                      //         ),
-                      //         if ((isEmailMode && isValidEmail) || (!isEmailMode && isValidNumber))
-                      //           IconButton(
-                      //             icon: const Icon(Icons.arrow_forward, color: Color(0xFFE91E63)),
-                      //             onPressed: isEmailMode ? _authenticateWithEmail : _authenticateWithPhone,
-                      //           ),
-                      //       ],
-                      //     ),
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 30),
-                      // Text(
-                      //   'OR',
-                      //   style: GoogleFonts.poppins(
-                      //     fontSize: 16,
-                      //     color: Colors.grey.shade600,
-                      //     fontWeight: FontWeight.w500,
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 20),
-                      // // Toggle Button (Email <-> Phone)
-                      // Padding(
-                      //   padding: const EdgeInsets.symmetric(horizontal: 30),
-                      //   child: ElevatedButton(
-                      //     onPressed: () {
-                      //       setState(() {
-                      //         isEmailMode = !isEmailMode; // toggle mode
-                      //         if (isEmailMode) {
-                      //           emailController.clear();
-                      //         } else {
-                      //           phoneController.clear();
-                      //         }
-                      //       });
-                      //     },
-                      //     style: ElevatedButton.styleFrom(
-                      //       backgroundColor: const Color(0xFFE91E63),
-                      //       minimumSize: const Size(double.infinity, 60),
-                      //       shape: RoundedRectangleBorder(
-                      //         borderRadius: BorderRadius.circular(15),
-                      //       ),
-                      //       elevation: 0,
-                      //     ),
-                      //     child: Text(
-                      //       isEmailMode ? 'Continue with Mobile Number' : 'Continue with Email',
-                      //       style: GoogleFonts.poppins(
-                      //         fontSize: 18,
-                      //         fontWeight: FontWeight.w500,
-                      //         color: Colors.white,
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 15),
-                      // // Facebook button
-                      // Padding(
-                      //   padding: const EdgeInsets.symmetric(horizontal: 30),
-                      //   child: OutlinedButton.icon(
-                      //     onPressed: _signInWithFacebook,
-                      //     style: OutlinedButton.styleFrom(
-                      //       minimumSize: const Size(double.infinity, 60),
-                      //       shape: RoundedRectangleBorder(
-                      //         borderRadius: BorderRadius.circular(15),
-                      //       ),
-                      //       side: BorderSide(
-                      //         color: Colors.grey.shade300,
-                      //         width: 1,
-                      //       ),
-                      //       backgroundColor: Colors.white,
-                      //     ),
-                      //     icon: const Icon(
-                      //       Icons.facebook,
-                      //       color: Color(0xFF1877F2),
-                      //       size: 28,
-                      //     ),
-                      //     label: Text(
-                      //       'Continue with Facebook',
-                      //       style: GoogleFonts.poppins(
-                      //         fontSize: 18,
-                      //         fontWeight: FontWeight.w500,
-                      //         color: const Color(0xFF424242),
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 15),
-                      // Google button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 30),
-                        child: OutlinedButton.icon(
-                          onPressed: _signInWithGoogle,
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 60),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            side: BorderSide(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                            backgroundColor: Colors.white,
-                          ),
-                          icon: Image.network(
-                            'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
-                            width: 24,
-                            height: 24,
-                            errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.g_mobiledata, size: 24),
-                          ),
-                          label: Text(
-                            'Continue with Google',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF424242),
-                            ),
-                          ),
-                        ),
+                      side: BorderSide(
+                        color: Colors.grey.shade300,
+                        width: 1,
                       ),
-                      const SizedBox(height: 40),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'Looking for a Business Account?',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            color: const Color(0xFF00ACC1),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                      backgroundColor: Colors.white,
+                    ),
+                    icon: Image.network(
+                      'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    label: Text(
+                      'Continue with Google',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF424242),
                       ),
-                      const SizedBox(height: 20),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 30),
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      'Looking for a Business Account?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        color: const Color(0xFF00ACC1),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

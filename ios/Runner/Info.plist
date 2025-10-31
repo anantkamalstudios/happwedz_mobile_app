@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>GIDClientID</key>
+    <string>27907630225-5lrd2ds3vm93971en62lpocn8n8gu7po.apps.googleusercontent.com</string>
 	<key>CFBundleDisplayName</key>
 	<string>Happy Wedz</string>
 	<key>CFBundleExecutable</key>

@@ -685,9 +685,6 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
 
 }
 
-
-
-
 class VendorCategory {
   final int id;
   final String name;
