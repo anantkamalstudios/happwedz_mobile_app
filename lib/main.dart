@@ -262,7 +262,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_user != null) {
       return const BottomBars(); // Already logged in
     } else {
-      return const BottomBars(); // Not logged in
+      return const SignInScreen(); // Not logged in
     }
   }
 }
@@ -328,53 +328,105 @@ class _SignInScreenState extends State<SignInScreen> {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
     clientId:
-    '27907630225-5lrd2ds3vm93971en62lpocn8n8gu7po.apps.googleusercontent.com',
+    '83829632051-pgn25ipst5lf3bv7pcihooha5o91pe9o.apps.googleusercontent.com',
   );
 
   Future<void> _signInWithGoogle() async {
+    print('🟡 Starting Google Sign-In process...');
     try {
+      // Step 1: Trigger Google Sign-In
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      print('🟢 Google User result: $googleUser');
 
       if (googleUser == null) {
+        print('🔴 User cancelled Google Sign-In');
         _showSnackBar('Google Sign-In cancelled');
         return;
       }
-print(googleUser);
-      final GoogleSignInAuthentication googleAuth =
-      await googleUser.authentication;
 
-      // Send to your backend
+      // Step 2: Display user info
+      print('✅ Google User Info:');
+      print('   👤 Name: ${googleUser.displayName}');
+      print('   📧 Email: ${googleUser.email}');
+      print('   🖼️ Photo: ${googleUser.photoUrl}');
+      print('   🆔 ID: ${googleUser.id}');
+
+      // Step 3: Retrieve Google auth tokens
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      print('🔑 Google Auth Tokens received:');
+      print('   🔹 Access Token: ${googleAuth.accessToken}');
+      print('   🔹 ID Token: ${googleAuth.idToken}');
+
+      // Step 4: Send data to backend
+      print('🌐 Sending POST request to API...');
       final response = await http.post(
-        Uri.parse('https://happywedz.com/api/user/login'),
+        Uri.parse('https://happywedz.com/api/user/google-auth'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': googleUser.email,
-          'name': googleUser.displayName,
-          'google_token': googleAuth.idToken,
+          'name': googleUser.displayName ?? 'Guest User',
+          'tokenId': googleAuth.idToken ?? '',
         }),
       );
 
+      print('🟢 API Response Status Code: ${response.statusCode}');
+      print('🔹 Raw Body: ${response.body}');
+
+      // Step 5: Process backend response
       if (response.statusCode == 200) {
-        // Save locally
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_name', googleUser.displayName ?? '');
-        await prefs.setString('user_email', googleUser.email);
-        await prefs.setString('user_photo', googleUser.photoUrl ?? '');
-      print(response);
-        _showSnackBar('Welcome ${googleUser.displayName}');
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => BottomBars()),
-        );
+        final data = jsonDecode(response.body);
+        print('📩 Decoded Response: $data');
+
+        if (data['success'] == true) {
+          print('✅ Login Successful!');
+
+          final user = data['user'];
+          final token = data['token'];
+          print('👤 User Info from Backend:');
+          print('   🆔 ID: ${user['id']}');
+          print('   👤 Name: ${user['name']}');
+          print('   📧 Email: ${user['email']}');
+          print('   📱 Phone: ${user['phone']}');
+          print('   🔐 Token: $token');
+
+          // Step 6: Save data locally
+          print('💾 Saving data to SharedPreferences...');
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('user_id', user['id']);
+          await prefs.setString('user_name', user['name']);
+          await prefs.setString('user_email', user['email']);
+          await prefs.setString('user_phone', user['phone']);
+          await prefs.setString('auth_token', token);
+          await prefs.setString('user_photo', googleUser.photoUrl ?? '');
+          print('📦 Data successfully saved locally!');
+
+          // Step 7: Navigate to next screen
+          _showSnackBar('Welcome ${user['name']}');
+          print('➡️ Navigating to BottomBars...');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => BottomBars()),
+          );
+        } else {
+          print('⚠️ Backend returned error: ${data['message']}');
+          _showSnackBar('Login failed: ${data['message']}');
+        }
       } else {
-        _showSnackBar('API error: ${response.body}');
+        print('❌ Server Error: ${response.statusCode}');
+        print('   🧾 Response Body: ${response.body}');
+        _showSnackBar('Server Error: ${response.statusCode}');
       }
-    } catch (e) {
+    } catch (e, stack) {
+      print('🚨 Google Sign-In failed!');
+      print('   🔸 Error: $e');
+      print('   🔹 Stacktrace: $stack');
       _showSnackBar('Google Sign-In failed: $e');
     }
   }
 
+
   void _showSnackBar(String message) {
+    print('📣 SnackBar: $message');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
       backgroundColor: const Color(0xFFE91E63),
@@ -461,6 +513,8 @@ print(googleUser);
     );
   }
 }
+
+
 
 // class TruecallerScreen extends StatelessWidget {
 //   final Map<String, String> userData;
