@@ -395,7 +395,8 @@ class _SignInScreenState extends State<SignInScreen> {
           await prefs.setInt('user_id', user['id']);
           await prefs.setString('user_name', user['name']);
           await prefs.setString('user_email', user['email']);
-          await prefs.setString('user_phone', user['phone']);
+          await prefs.setString('user_phone', user['phone'] ?? '');
+
           await prefs.setString('auth_token', token);
           await prefs.setString('user_photo', googleUser.photoUrl ?? '');
           print('📦 Data successfully saved locally!');
@@ -513,6 +514,8 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 }
+
+
 
 
 

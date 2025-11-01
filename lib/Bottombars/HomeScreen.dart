@@ -3053,14 +3053,27 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                         completedCount: completedCount,
                         totalTasks: totalTasks,
                         upcomingTasks: upcomingTasks,
-                        onTap: () async {
-                          // await Navigator.push(
-                          //   context,
-                          //   MaterialPageRoute(builder: (_) => WeddingTimelinePage()),
-                          // );
-                          // _updateChecklistFromTimeline(); // refresh after returning
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingTimelinePage()));
+                        onTap: () {
+                          print("✅ Wedding Checklist tapped!");
+                          Navigator.of(context).push(PageRouteBuilder(
+                            transitionDuration: const Duration(milliseconds: 600),
+                            pageBuilder: (_, __, ___) => const WeddingTimelinePage(),
+                            transitionsBuilder: (_, animation, __, child) {
+                              final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+                              return FadeTransition(
+                                opacity: curved,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 0.1),
+                                    end: Offset.zero,
+                                  ).animate(curved),
+                                  child: child,
+                                ),
+                              );
+                            },
+                          ));
                         },
+
                       ),
 
 

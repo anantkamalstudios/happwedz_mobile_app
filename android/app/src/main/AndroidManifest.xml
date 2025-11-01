@@ -21,7 +21,7 @@
 
             <meta-data
                 android:name="com.google.android.gms.client_id"
-                android:value="83829632051-cta301ertum4mjlbkuih7dp27pncm50m.apps.googleusercontent.com" />
+                android:value="83829632051-89oet44jqrggh315k99q9h0ruff4vkuh.apps.googleusercontent.com" />
 
             <meta-data
                 android:name="com.truecaller.android.sdk.ClientId"
