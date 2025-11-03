@@ -1,23 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
+import 'package:google_api_availability/google_api_availability.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
-import 'package:happy_wedz/auths/registration.dart';
+
 import 'package:hive_flutter/adapters.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart' show MultiProvider, ChangeNotifierProvider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'Wishlist/Wishlistscreen.dart';
-import 'auths/login.dart';
+
 import 'firebase_options.dart';
 import 'guestlist/guestlist.dart';
 
@@ -146,11 +148,26 @@ import 'guestlist/guestlist.dart';
 // }
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // ✅ Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  final status = await GoogleApiAvailability.instance.checkGooglePlayServicesAvailability();
+  print('Google Play Services Status: $status');
+  try {
+    // Test Firestore
+    await FirebaseFirestore.instance.collection('test').add({'timestamp': DateTime.now()});
+    print('✅ Firestore write success');
+
+    // Test Auth (anonymous sign in)
+    await FirebaseAuth.instance.signInAnonymously();
+    print('✅ Firebase Auth success');
+  } catch (e) {
+    print('❌ Firebase error: $e');
+  }
+  // // ✅ Initialize Firebase
+  // await Firebase.initializeApp(
+  //   options: DefaultFirebaseOptions.currentPlatform,
+  // );
   FirebaseAuth.instance.setLanguageCode('en');
 
   // ✅ Enable Firebase App Check
@@ -222,17 +239,17 @@ class MyApp extends StatelessWidget {
 //   }
 // }
 /// ✅ AuthWrapper checks if user is already logged in
+// ✅ AuthWrapper (decides if logged in or not)
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
-  User? _user;
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
@@ -240,11 +257,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
     _checkLoginStatus();
   }
 
-  void _checkLoginStatus() async {
-    await Future.delayed(const Duration(milliseconds: 500)); // optional smooth splash
-    final user = FirebaseAuth.instance.currentUser;
+  Future<void> _checkLoginStatus() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
     setState(() {
-      _user = user;
+      _isLoggedIn = token != null && token.isNotEmpty;
       _isLoading = false;
     });
   }
@@ -259,13 +279,54 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    if (_user != null) {
-      return const BottomBars(); // Already logged in
-    } else {
-      return const SignInScreen(); // Not logged in
-    }
+    return _isLoggedIn ? const BottomBars() : const SignInScreen();
   }
 }
+
+// class AuthWrapper extends StatefulWidget {
+//   const AuthWrapper({super.key});
+//
+//   @override
+//
+//   State<AuthWrapper> createState() => _AuthWrapperState();
+// }
+//
+// class _AuthWrapperState extends State<AuthWrapper> {
+//   bool _isLoading = true;
+//   User? _user;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _checkLoginStatus();
+//   }
+//
+//   void _checkLoginStatus() async {
+//     await Future.delayed(const Duration(milliseconds: 500)); // optional smooth splash
+//     final user = FirebaseAuth.instance.currentUser;
+//     setState(() {
+//       _user = user;
+//       _isLoading = false;
+//     });
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (_isLoading) {
+//       return const Scaffold(
+//         body: Center(
+//           child: CircularProgressIndicator(color: Color(0xFFE91E63)),
+//         ),
+//       );
+//     }
+//
+//     if (_user != null) {
+//       return const BottomBars(); // Already logged in
+//     } else {
+//       return const SignInScreen(); // Not logged in
+//     }
+//   }
+// }
 class Country {
   final String name;
   final String code;
@@ -334,30 +395,17 @@ class _SignInScreenState extends State<SignInScreen> {
   Future<void> _signInWithGoogle() async {
     print('🟡 Starting Google Sign-In process...');
     try {
-      // Step 1: Trigger Google Sign-In
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       print('🟢 Google User result: $googleUser');
 
       if (googleUser == null) {
-        print('🔴 User cancelled Google Sign-In');
         _showSnackBar('Google Sign-In cancelled');
         return;
       }
 
-      // Step 2: Display user info
-      print('✅ Google User Info:');
-      print('   👤 Name: ${googleUser.displayName}');
-      print('   📧 Email: ${googleUser.email}');
-      print('   🖼️ Photo: ${googleUser.photoUrl}');
-      print('   🆔 ID: ${googleUser.id}');
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
 
-      // Step 3: Retrieve Google auth tokens
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      print('🔑 Google Auth Tokens received:');
-      print('   🔹 Access Token: ${googleAuth.accessToken}');
-      print('   🔹 ID Token: ${googleAuth.idToken}');
-
-      // Step 4: Send data to backend
       print('🌐 Sending POST request to API...');
       final response = await http.post(
         Uri.parse('https://happywedz.com/api/user/google-auth'),
@@ -369,28 +417,14 @@ class _SignInScreenState extends State<SignInScreen> {
         }),
       );
 
-      print('🟢 API Response Status Code: ${response.statusCode}');
-      print('🔹 Raw Body: ${response.body}');
-
-      // Step 5: Process backend response
+      print('🟢 API Response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('📩 Decoded Response: $data');
-
         if (data['success'] == true) {
-          print('✅ Login Successful!');
-
           final user = data['user'];
           final token = data['token'];
-          print('👤 User Info from Backend:');
-          print('   🆔 ID: ${user['id']}');
-          print('   👤 Name: ${user['name']}');
-          print('   📧 Email: ${user['email']}');
-          print('   📱 Phone: ${user['phone']}');
-          print('   🔐 Token: $token');
 
-          // Step 6: Save data locally
-          print('💾 Saving data to SharedPreferences...');
+          // ✅ Save data locally
           final prefs = await SharedPreferences.getInstance();
           await prefs.setInt('user_id', user['id']);
           await prefs.setString('user_name', user['name']);
@@ -398,35 +432,27 @@ class _SignInScreenState extends State<SignInScreen> {
           await prefs.setString('user_phone', user['phone']);
           await prefs.setString('auth_token', token);
           await prefs.setString('user_photo', googleUser.photoUrl ?? '');
-          print('📦 Data successfully saved locally!');
 
-          // Step 7: Navigate to next screen
           _showSnackBar('Welcome ${user['name']}');
-          print('➡️ Navigating to BottomBars...');
+
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => BottomBars()),
+            MaterialPageRoute(builder: (context) => const BottomBars()),
           );
         } else {
-          print('⚠️ Backend returned error: ${data['message']}');
           _showSnackBar('Login failed: ${data['message']}');
         }
       } else {
-        print('❌ Server Error: ${response.statusCode}');
-        print('   🧾 Response Body: ${response.body}');
         _showSnackBar('Server Error: ${response.statusCode}');
       }
     } catch (e, stack) {
-      print('🚨 Google Sign-In failed!');
-      print('   🔸 Error: $e');
-      print('   🔹 Stacktrace: $stack');
+      print('🚨 Google Sign-In failed: $e');
+      print(stack);
       _showSnackBar('Google Sign-In failed: $e');
     }
   }
 
-
   void _showSnackBar(String message) {
-    print('📣 SnackBar: $message');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
       backgroundColor: const Color(0xFFE91E63),

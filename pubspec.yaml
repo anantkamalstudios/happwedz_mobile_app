@@ -47,6 +47,8 @@ dependencies:
   flutter_gcaptcha_v3:
   shared_preferences:
   image_picker: ^1.1.2
+  firebase_storage:
+  google_api_availability:
 #  firebase_core:
 #  firebase_auth:
 #  google_sign_in: ^6.1.1
@@ -77,6 +79,7 @@ dependencies:
   dotted_border: ^2.1.0
   sliding_up_panel:
   fl_chart:
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
