@@ -2533,121 +2533,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     fetchPhotographers();
   }
 
-  // Future<void> _loadCountries() async {
-  //   try {
-  //     final response = await http.get(
-  //         Uri.parse('https://restcountries.com/v3.1/all?fields=name')
-  //     );
-  //
-  //     if (response.statusCode == 200) {
-  //       final List<dynamic> data = json.decode(response.body);
-  //       final List<String> countries = data
-  //           .map((country) => country['name']['common'] as String)
-  //           .toList();
-  //       countries.sort();
-  //       print('Countries API Response: $countries');
-  //       setState(() {
-  //         _countries = countries;
-  //       });
-  //     }
-  //   } catch (e) {
-  //     print('Error loading countries: $e');
-  //   }
-  // }
-
-  // Future<void> _loadStates(String country) async {
-  //   try {
-  //     final response = await http.post(
-  //       Uri.parse('https://countriesnow.space/api/v0.1/countries/states'),
-  //       headers: {'Content-Type': 'application/json'},
-  //       body: json.encode({'country': country}),
-  //     );
-  //
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body);
-  //       print('States API Response: $data'); // Debug log
-  //       print('States API Response: $data'); // Debug log
-  //
-  //       if (data['error'] == false && data['data'] != null && data['data']['states'] != null) {
-  //         final List<dynamic> statesData = data['data']['states'];
-  //         final List<String> states = statesData
-  //             .map((state) => state['name'] as String)
-  //             .toList();
-  //         states.sort();
-  //
-  //         setState(() {
-  //           _states = states;
-  //           _selectedState = null;
-  //           _selectedCity = null;
-  //           _cities = [];
-  //         });
-  //       } else {
-  //         // If no states found, add some fallback or show message
-  //         setState(() {
-  //           _states = ['No states available'];
-  //           _selectedState = null;
-  //           _selectedCity = null;
-  //           _cities = [];
-  //         });
-  //       }
-  //     }
-  //   } catch (e) {
-  //     print('Error loading states: $e');
-  //     // Add fallback states
-  //     setState(() {
-  //       _states = ['Error loading states'];
-  //     });
-  //   }
-  // }
-
-
-
-
-
-
-
   ///00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-  // Future<voiFuture<void> _loadCities({String country = 'India', String state = 'Maharashtra'}) async {
-  //   try {
-  //     final response = await http.post(
-  //       Uri.parse('https://countriesnow.space/api/v0.1/countries/state/cities'),
-  //       headers: {'Content-Type': 'application/json'},
-  //       body: json.encode({
-  //         'country': country,
-  //         'state': state,
-  //       }),
-  //     );
-  //
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body);
-  //       print('Cities API Response: $data'); // Debug log
-  //
-  //       if (data['error'] == false && data['data'] != null) {
-  //         final List<dynamic> citiesData = data['data'];
-  //         final List<String> cities =
-  //             citiesData.map((city) => city.toString()).toList();
-  //         cities.sort();
-  //
-  //         setState(() {
-  //           _cities = cities;
-  //           _selectedCity ??= _cities.first;
-  //         });
-  //       } else {
-  //         setState(() {
-  //           _cities = ['No cities available'];
-  //           _selectedCity = null;
-  //         });
-  //       }
-  //     } else {
-  //       print('Failed to load cities: ${response.statusCode}');
-  //     }
-  //   } catch (e) {
-  //     print('Error loading cities: $e');
-  //     setState(() {
-  //       _cities = ['Error loading cities'];
-  //     });
-  //   }
-  // }
+
   Future<void> _loadCities() async {
     setState(() => _isLoadingCities = true);
 
@@ -2720,95 +2607,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       fetchPhotographers(city: _selectedCity);
     }
 
-    // if (selected != null && selected.isNotEmpty) {
-    //   setState(() {
-    //     _selectedCity = selected;
-    //   });
-    // }
   }
-
-
-
-
-
-
-  // void _showLocationSelection(BuildContext context) {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     isScrollControlled: true,
-  //     backgroundColor: Colors.transparent,
-  //     builder: (context) => LocationSelectionBottomSheet(
-  //       selectedCountry: _selectedCountry,
-  //       selectedState: _selectedState,
-  //       selectedCity: _selectedCity,
-  //       countries: _countries,
-  //       states: _states,
-  //       cities: _cities,
-  //       onCountrySelected: (country) {
-  //         setState(() {
-  //           _selectedCountry = country;
-  //         });
-  //         _loadCities(country, '');
-  //       },
-  //       onStateSelected: (state) {
-  //         setState(() {
-  //           _selectedState = state;
-  //         });
-  //         if (_selectedCountry != null) {
-  //           _loadCities(_selectedCountry!, state);
-  //         }
-  //       },
-  //       onCitySelected: (city) {
-  //         setState(() {
-  //           _selectedCity = city;
-  //         });
-  //         Navigator.pop(context);
-  //       },
-  //     ),
-  //   );
-  // }
-  // 00000000000000000000000000000000000000000000000000000000000000000000000000000000000
-  // ------------------------ Checklist Methods ------------------------
-
-  // Future<void> _loadWeddingChecklistData() async {
-  //   SharedPreferences prefs = await SharedPreferences.getInstance();
-  //
-  //   String? lastDate = prefs.getString('last_wedding_date');
-  //   if (lastDate != null) {
-  //     weddingDate = DateTime.parse(lastDate);
-  //
-  //     String key = 'wedding_${weddingDate!.toIso8601String()}_tasks';
-  //     List<String>? completedTasks = prefs.getStringList(key);
-  //
-  //     // Get all tasks dynamically from timeline data
-  //     List<String> allTasks = WeddingTimelineData.timelineData
-  //         .expand((item) => item.tasks)
-  //         .toList();
-  //
-  //     setState(() {
-  //       completedCount = completedTasks?.length ?? 0;
-  //       totalTasks = allTasks.length;
-  //
-  //       upcomingTasks = allTasks
-  //           .where((task) => !(completedTasks?.contains(task) ?? false))
-  //           .take(3)
-  //           .toList();
-  //
-  //       checkedItems = {
-  //         for (var task in allTasks)
-  //           task: completedTasks?.contains(task) ?? false,
-  //       };
-  //     });
-  //   }
-  // }
-
-  // Future<void> _updateChecklistFromTimeline() async {
-  //   // Reload progress when returning from timeline page
-  //   await _loadWeddingChecklistData();
-  // }
-
-
-
 
   void _onItemTapped(int index) {
     setState(() {
@@ -2855,8 +2654,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-
-        // Extract list safely from either `data` or root
         final data = (decoded is Map && decoded['data'] is List)
             ? decoded['data'] as List<dynamic>
             : (decoded is List ? decoded : []);
@@ -2866,7 +2663,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           final attributes = (photo['attributes'] is Map)
               ? photo['attributes'] as Map<String, dynamic>
               : <String, dynamic>{};
-          final location = (attributes['location'] ?? '').toString().toLowerCase();
+
+          final location = (attributes['city'] ??
+              attributes['address'] ??
+              attributes['location'] ??
+              '')
+              .toString()
+              .toLowerCase();
+
           return location.contains(city.toLowerCase());
         }).toList()
             : data;
@@ -2875,6 +2679,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           photographers = filtered;
           isLoadingPhotographers = false;
         });
+        print("=== Raw Venue Response ===");
+        print(response.body);
+
       } else {
         setState(() => isLoadingPhotographers = false);
         print("Error fetching photographers: ${response.statusCode}");
@@ -2893,8 +2700,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-
-        // Extract list safely
         final data = (decoded is Map && decoded['data'] is List)
             ? decoded['data'] as List<dynamic>
             : (decoded is List ? decoded : []);
@@ -2904,15 +2709,30 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           final attributes = (venue['attributes'] is Map)
               ? venue['attributes'] as Map<String, dynamic>
               : <String, dynamic>{};
-          final location = (attributes['location'] ?? '').toString().toLowerCase();
+          print("Available city: ${attributes['city']}");
+          final location = (attributes['city'] ??
+              attributes['address'] ??
+              attributes['location'] ??
+              '')
+              .toString()
+              .toLowerCase();
+          print("Available city: ${attributes['city']}");
+
           return location.contains(city.toLowerCase());
+
         }).toList()
             : data;
+        print("Fetching for city: $city");
+
+
 
         setState(() {
           venues = filtered;
           isLoadingVenues = false;
         });
+        print("=== Raw Photography Response ===");
+        print(response.body);
+
       } else {
         setState(() => isLoadingVenues = false);
         print("Error fetching venues: ${response.statusCode}");
@@ -2923,73 +2743,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-  // Future<void> fetchVenues({String? city}) async {
-  //   setState(() => isLoadingVenues = true);
-  //   try {
-  //     final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=venue");
-  //     final response = await http.get(url, headers: {"Accept": "application/json"});
-  //
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body) as List<dynamic>;
-  //
-  //       // ✅ Filter by city if provided
-  //       final filtered = city != null && city.isNotEmpty
-  //           ? data.where((venue) {
-  //         final attributes = (venue['attributes'] is Map)
-  //             ? venue['attributes'] as Map<String, dynamic>
-  //             : <String, dynamic>{};
-  //         final location = (attributes['location'] ?? '').toString().toLowerCase();
-  //         return location.contains(city.toLowerCase());
-  //       }).toList()
-  //           : data;
-  //
-  //       setState(() {
-  //         venues = filtered;
-  //         isLoadingVenues = false;
-  //       });
-  //     } else {
-  //       setState(() => isLoadingVenues = false);
-  //       print("Error fetching venues: ${response.statusCode}");
-  //     }
-  //   } catch (e) {
-  //     setState(() => isLoadingVenues = false);
-  //     print("Error fetching venues: $e");
-  //   }
-  // }
-  //
-  // Future<void> fetchPhotographers({String? city}) async {
-  //   setState(() => isLoadingPhotographers = true);
-  //   try {
-  //     final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=photographer");
-  //     final response = await http.get(url, headers: {"Accept": "application/json"});
-  //
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body) as List<dynamic>;
-  //
-  //       // ✅ Filter by city if provided
-  //       final filtered = city != null && city.isNotEmpty
-  //           ? data.where((photo) {
-  //         final attributes = (photo['attributes'] is Map)
-  //             ? photo['attributes'] as Map<String, dynamic>
-  //             : <String, dynamic>{};
-  //         final location = (attributes['location'] ?? '').toString().toLowerCase();
-  //         return location.contains(city.toLowerCase());
-  //       }).toList()
-  //           : data;
-  //
-  //       setState(() {
-  //         photographers = filtered;
-  //         isLoadingPhotographers = false;
-  //       });
-  //     } else {
-  //       setState(() => isLoadingPhotographers = false);
-  //       print("Error fetching photographers: ${response.statusCode}");
-  //     }
-  //   } catch (e) {
-  //     setState(() => isLoadingPhotographers = false);
-  //     print("Error fetching photographers: $e");
-  //   }
-  // }
+
 
 
   @override
@@ -3209,14 +2963,31 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
     try {
       final url = Uri.parse(
-        "https://happywedz.com/api/vendor-services?subCategory=venue&city=$city",
+        "https://happywedz.com/api/vendor-services?subCategory=venue",
       );
       final response = await http.get(url, headers: {"Accept": "application/json"});
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List<dynamic>;
+
+        // 🔍 Filter manually by city
+        final filtered = data.where((venue) {
+          final attributes = (venue is Map && venue['attributes'] is Map)
+              ? venue['attributes'] as Map<String, dynamic>
+              : <String, dynamic>{};
+
+          final location = (attributes['city'] ??
+              attributes['address'] ??
+              attributes['location'] ??
+              '')
+              .toString()
+              .toLowerCase();
+
+          return location.contains(city.toLowerCase());
+        }).toList();
+
         setState(() {
-          venues = data;
+          venues = filtered;
           isLoadingVenues = false;
         });
       } else {
@@ -3414,13 +3185,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  category.name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                SizedBox(
+                  width: 70, // same as the image width
+                  child: Text(
+                    category.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
                   ),
                 ),
               ],
