@@ -48,7 +48,8 @@ dependencies:
   shared_preferences:
   image_picker: ^1.1.2
   firebase_storage:
-  google_api_availability:
+
+  google_api_availability: ^5.0.0
 #  firebase_core:
 #  firebase_auth:
 #  google_sign_in: ^6.1.1
