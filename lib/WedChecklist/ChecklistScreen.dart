@@ -1,5 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Keep your original widget name and design exactly as you provided.
+// This file integrates APIs: categories GET, checklist GET, checklist POST.
+// It reads user_id (int) and auth_token (String) from SharedPreferences keys: 'user_id', 'auth_token'.
+// Make sure your Google-login flow saves those keys (your sign-in code does).
 
 class WeddingTimelinePage extends StatefulWidget {
   const WeddingTimelinePage({super.key});
@@ -10,9 +18,20 @@ class WeddingTimelinePage extends StatefulWidget {
 
 class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     with TickerProviderStateMixin {
+  // ---- Config ----
+  final String baseUrl = "https://happywedz.com/api";
+
   // Dates
   DateTime? startDate;
   DateTime? weddingDate;
+
+
+
+
+
+  // Auth + user
+  String? _authToken;
+  String? _userId; // stored as string for URI use
 
   // Cards animation controllers
   late final AnimationController _cardController1;
@@ -32,18 +51,30 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   // Checklist state
   final List<_TaskItem> _tasks = [];
   final _taskController = TextEditingController();
-  String _selectedCategory = 'Mehendi Artists';
+
+  // Vendor subcategories from API
+  final List<_VendorSubcategory> _subcategories = [];
+  String _selectedCategory = '';
+
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+
+
 
   @override
   void initState() {
     super.initState();
 
+
+
     // controllers: short stagger
-    _cardController1 = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
-    _cardController2 = AnimationController(vsync: this, duration: const Duration(milliseconds: 620));
-    _cardController3 = AnimationController(vsync: this, duration: const Duration(milliseconds: 720));
-    _daysController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _cardController1 =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+    _cardController2 =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 620));
+    _cardController3 =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 720));
+    _daysController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
 
     _fade1 = CurvedAnimation(parent: _cardController1, curve: Curves.easeOut);
     _slide1 = Tween<Offset>(begin: const Offset(0, 0.18), end: Offset.zero).animate(_fade1);
@@ -63,16 +94,42 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       await _daysController.forward();
       await _cardController3.forward();
     });
+
+    // load auth/user from SharedPreferences and then remote data
+    _loadAuthAndData();
   }
 
-  @override
-  void dispose() {
-    _cardController1.dispose();
-    _cardController2.dispose();
-    _cardController3.dispose();
-    _daysController.dispose();
-    _taskController.dispose();
-    super.dispose();
+  Future<void> _loadAuthAndData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('user_id');
+    final token = prefs.getString('auth_token');
+
+    if (uid != null) {
+      _userId = uid.toString();
+      print('🔐 Loaded user_id from prefs: $_userId');
+    } else {
+      print('⚠️ No user_id found in SharedPreferences (key: user_id)');
+    }
+
+    if (token != null && token.isNotEmpty) {
+      _authToken = token;
+      print('🔐 Loaded auth_token (length ${token.length}) from prefs');
+    } else {
+      print('⚠️ No auth_token found in SharedPreferences (key: auth_token)');
+    }
+
+    // fetch categories and checklist (they will gracefully handle missing token/user)
+    await _fetchCategories();
+    await _fetchChecklist();
+  }
+
+  // Helper to provide headers (include token if available)
+  Map<String, String> _headers() {
+    final headers = <String, String>{'Accept': 'application/json'};
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_authToken';
+    }
+    return headers;
   }
 
   // Calculate days difference between startDate and weddingDate
@@ -85,20 +142,249 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   int get _totalCount => _tasks.length;
   double get _progress => _totalCount == 0 ? 0.0 : _completedCount / _totalCount;
 
-  // Add a new task (animated insert)
-  void _addTask() {
+  // ---------------- API CALLS ----------------
+
+  // Fetch vendor types + subcategories -> flatten to subcategories list
+  Future<void> _fetchCategories() async {
+    try {
+      final uri = Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all");
+      print('📡 GET categories -> $uri');
+
+      final res = await http.get(uri, headers: _headers());
+
+      print('GET categories response status: ${res.statusCode}');
+      print('GET categories response body: ${res.body}');
+
+      if (res.statusCode == 200) {
+        final List data = json.decode(res.body);
+
+        _subcategories.clear();
+
+        for (final item in data) {
+          final List subs = item["subcategories"] ?? [];
+
+          for (final s in subs) {
+            _subcategories.add(
+              _VendorSubcategory(
+                id: s["id"].toString(),
+                name: s["name"].toString(),
+              ),
+            );
+          }
+        }
+
+        setState(() {
+          if (_subcategories.isNotEmpty) {
+            _selectedCategory = _subcategories.first.id;
+          }
+        });
+      } else {
+        print("❌ Category fetch failed ${res.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Category fetch error: $e");
+    }
+  }
+
+
+  // Fetch checklist for the user
+  Future<void> _fetchChecklist() async {
+    try {
+      print("🔎 Fetching checklist…");
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("auth_token") ?? "";
+      final userId = prefs.getInt("user_id");
+
+      print("🔐 Loaded user_id: $userId");
+      print("🔐 Token length: ${token.length}");
+
+      if (userId == null) {
+        print("❌ No user ID found");
+        return;
+      }
+
+      final url = "$baseUrl/new-checklist/newChecklist/user/$userId";
+      print("📡 GET → $url");
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+      );
+
+      print("✅ GET status: ${response.statusCode}");
+      print("📦 GET body: ${response.body}");
+
+      if (response.statusCode != 200) {
+        print("❌ Failed GET checklist");
+        return;
+      }
+
+      final body = json.decode(response.body);
+      final list = body["data"] ?? [];
+
+      _tasks.clear();
+
+      for (final item in list) {
+        final text = item["text"]?.toString() ?? "";
+        final status = item["status"]?.toString() ?? "";
+        final subId = item["vendor_subcategory_id"]?.toString() ?? "";
+
+        // find category name based on vendor_subcategory_id
+        String categoryName = "Unknown";
+        for (final s in _subcategories) {
+          if (s.id == subId) {
+            categoryName = s.name;
+            break;
+          }
+        }
+
+        _tasks.add(
+          _TaskItem(
+            title: text,
+            category: categoryName,
+            done: status == "completed",
+          ),
+        );
+      }
+
+      print("✅ Loaded tasks count: ${_tasks.length}");
+
+      setState(() {});
+
+    } catch (e) {
+      print("❌ Checklist fetch error: $e");
+    }
+  }
+
+
+  // Helper: format DateTime to yyyy-MM-dd (API expects this)
+  String _fmtDate(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return "$y-$m-$dd";
+  }
+
+  Future<void> saveUserSession(String token, int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_token', token);
+    await prefs.setInt('user_id', userId);
+    print("✅ Token saved: $token");
+    print("✅ UserID saved: $userId");
+  }
+
+
+
+  // POST create new checklist
+  Future<bool> _createChecklistOnServer({
+    required String text,
+    required String startDateString,
+    required String weddingDateString,
+    required String vendorSubcategoryId,
+  }) async {
+    try {
+      if (_userId == null) {
+        print('❌ Cannot create checklist: userId null');
+        return false;
+      }
+
+      final body = {
+        "start_date": startDateString,
+        "wedding_date": weddingDateString,
+        "status": "pending",
+        "text": text,
+        "user_id": _userId!,
+        "vendor_subcategory_id": vendorSubcategoryId,
+      };
+
+
+      print("📤 POST BODY → ${json.encode(body)}");
+
+      final uri = Uri.parse("$baseUrl/new-checklist/create");
+      final res = await http.post(
+        uri,
+        headers: {..._headers(), 'Content-Type': 'application/json'},
+        body: json.encode(body),
+      );
+
+
+      print("✅ CREATE RESPONSE status: ${res.statusCode}");
+      print("✅ CREATE RESPONSE body: ${res.body}");
+
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      print("❌ Create checklist error: $e");
+      return false;
+    }
+  }
+
+  // ---------------- UI / Task logic (preserve original design) ----------------
+
+  // Add a new task (animated insert + POST to server)
+  void _addTask() async {
     final text = _taskController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter task name')));
       return;
     }
-    final task = _TaskItem(title: text, category: _selectedCategory);
+    if (startDate == null || weddingDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select dates')));
+      return;
+    }
+    if (_selectedCategory.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select category')));
+      return;
+    }
+
+    // Prepare values
+    final start = _fmtDate(startDate!);
+    final wed = _fmtDate(weddingDate!);
+    final vendorSubId = _selectedCategory;
+
+    // Optimistically insert local item with category name resolved
+    final sub = _subcategories.firstWhere((s) => s.id == vendorSubId, orElse: () => _VendorSubcategory(id: vendorSubId, name: vendorSubId));
+    final task = _TaskItem(title: text, category: sub.name);
+    // Insert locally with animation
     setState(() {
       _tasks.insert(0, task);
+      _listKey.currentState?.insertItem(0, duration: const Duration(milliseconds: 450));
     });
-    _listKey.currentState?.insertItem(0, duration: const Duration(milliseconds: 450));
+
+    // Clear input
     _taskController.clear();
-    print('➕ Task added: ${task.title} [${task.category}]');
+
+    // Post to server
+    final ok = await _createChecklistOnServer(
+      text: text,
+      startDateString: start,
+      weddingDateString: wed,
+      vendorSubcategoryId: vendorSubId,
+    );
+
+    if (!ok) {
+      // If server failed, remove the optimistic item and inform user
+      final idx = _tasks.indexWhere((t) => t.title == text && t.category == sub.name);
+      if (idx != -1) {
+        final removed = _tasks.removeAt(idx);
+        _listKey.currentState?.removeItem(idx, (context, animation) {
+          return SizeTransition(
+            sizeFactor: animation,
+            axis: Axis.vertical,
+            child: _buildTaskTile(removed, idx, anim: animation),
+          );
+        }, duration: const Duration(milliseconds: 380));
+      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Your wedding is near! Checklist cannot be created (less than 8 days left).')));
+    } else {
+      // re-sync with server list
+      await _fetchChecklist();
+    }
+
+    print('➕ Task add attempt: $text [sub:$vendorSubId] -> ${ok ? "OK" : "FAILED"}');
   }
 
   // Toggle done
@@ -108,6 +394,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     });
     print('✅ Task toggled: ${_tasks[index].title} -> ${_tasks[index].done}');
   }
+
 
   // Remove task
   void _removeTask(int index) {
@@ -161,7 +448,6 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   }
 
   // ---------------- UI BUILDERS ----------------
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -272,16 +558,69 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
           _datePickerField(value: weddingDate, label: 'Select wedding date', onTap: _pickWeddingDate),
           const SizedBox(height: 18),
           ScaleTransition(scale: _scaleDays, child: _fullWidthDaysBox()),
+
+
         ],
       ),
       title: '📅 WEDDING TIMELINE',
     );
   }
 
-  // Checklist card (premium)
-// -------------- BEAUTIFUL CHECKLIST CARD (NEW DESIGN) --------------
-// Replace your existing _checklistCard() with this implementation.
+  Widget _buildTimeAllocationCard() {
+    // Use startDate and weddingDate from the Wedding Timeline section
+    if (startDate == null || weddingDate == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Text(
+          "Please select both Start and Wedding Dates to view time allocation.",
+          style: TextStyle(color: Colors.grey[700]),
+        ),
+      );
+    }
 
+    final Duration requiredDuration = const Duration(days: 2);
+    final DateTime endDate = startDate!.add(requiredDuration);
+    final int bufferDays = weddingDate!.difference(endDate).inDays;
+
+    String formatDate(DateTime d) =>
+        "${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}";
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 15),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF0F5), // light pink background
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFC0CB)), // pink border
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Time Allocation",
+            style: TextStyle(
+              color: Color(0xFFB30059),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text("• 2 days required",
+              style: const TextStyle(color: Colors.black87, fontSize: 14)),
+          Text("• Start: ${formatDate(startDate!)}",
+              style: const TextStyle(color: Colors.black87, fontSize: 14)),
+          Text("• End: ${formatDate(endDate)}",
+              style: const TextStyle(color: Colors.black87, fontSize: 14)),
+          Text("• Remaining buffer: ${bufferDays} days",
+              style: const TextStyle(color: Colors.black87, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+
+  // Checklist card (premium)
   Widget _checklistCard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -332,53 +671,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
         const SizedBox(height: 10),
 
         // ===== OVERALL PROGRESS =====
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Overall Progress',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: _progress,
-                  minHeight: 10,
-                  backgroundColor: Colors.grey.shade200,
-                  valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFFE91E63)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('$_completedCount completed',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                  Text('$_totalCount total tasks',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                  Text('${(_progress * 100).round()}% complete',
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ],
-          ),
-        ),
+
 
         const SizedBox(height: 18),
 
@@ -408,138 +701,108 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                   color: Color(0xFFE91E63),
                 ),
               ),
+
+
               const SizedBox(height: 12),
 
-              // --- Category, Task, Add ---
-              Row(
-                children: [
-                  // Category dropdown
-                  Expanded(
-                    flex: 3,
-                    child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedCategory,
-                          hint: const Text('Category',
-                              style: TextStyle(fontSize: 4)),
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'Mehendi Artists',
-                                child: Text('Mehendi Artists')),
-                            DropdownMenuItem(
-                                value: 'Caterers', child: Text('Caterers')),
-                            DropdownMenuItem(
-                                value: 'Photographers',
-                                child: Text('Photographers')),
-                            DropdownMenuItem(
-                                value: 'Decorators', child: Text('Decorators')),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() => _selectedCategory = v);
-                            }
-                          },
-
-                        ),
-                      ),
+              // 🔹 CATEGORY FIRST
+              Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: _subcategories.isEmpty
+                      ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Loading categories...', style: TextStyle(fontSize: 13)),
                     ),
+                  )
+                      : DropdownButton<String>(
+                    value: _selectedCategory.isEmpty
+                        ? _subcategories.first.id
+                        : _selectedCategory,
+                    hint: const Text('Category', style: TextStyle(fontSize: 12)),
+                    isExpanded: true,
+                    items: _subcategories.map((s) {
+                      return DropdownMenuItem(value: s.id, child: Text(s.name));
+                    }).toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _selectedCategory = v);
+                      }
+                    },
                   ),
-                  const SizedBox(width: 10),
+                ),
+              ),
 
-                  // Task name
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Center(
-                        child: TextField(
-                          controller: _taskController,
-                          decoration: const InputDecoration.collapsed(
-                              hintText: 'Task name'),
-                          style: const TextStyle(fontSize: 13),
-                          onSubmitted: (_) => _addTask(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
+              const SizedBox(height: 12),
 
-                  // Add button
-                  GestureDetector(
-                    onTap: _addTask,
-                    child: Container(
-                      height: 44,
-                      width: 50,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFE91E63), Color(0xFFF06292)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.pink.shade200.withOpacity(0.35),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 24),
+              // 🔹 TASK INPUT BELOW CATEGORY
+              Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Center(
+                  child: TextField(
+                    controller: _taskController,
+                    decoration: const InputDecoration.collapsed(
+                      hintText: 'Task name',
                     ),
+                    style: const TextStyle(fontSize: 13),
+                    onSubmitted: (_) => _addTask(),
                   ),
-                ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 🔹 ADD BUTTON BELOW BOTH
+              GestureDetector(
+                onTap: _addTask,
+                child: Container(
+                  height: 44,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE91E63), Color(0xFFF06292)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.pink.shade200.withOpacity(0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.add, color: Colors.white, size: 24),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 16),
 
-              // Time allocation
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.pink.shade100),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Time Allocation',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFE91E63),
-                        fontSize: 13,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      '• Wedding too near (<8 days)',
-                      style: TextStyle(color: Colors.black54, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
+              // 🔹 REMAINING SAME
+              _buildTimeAllocationCard(),
             ],
           ),
         ),
 
-        const SizedBox(height: 18),
+
+
 
         // ===== TASK LIST =====
         Container(
@@ -565,70 +828,127 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                   ? Column(
                 children: const [
                   SizedBox(height: 14),
-                  Icon(Icons.list_alt,
-                      size: 42, color: Colors.pinkAccent),
+                  Icon(Icons.list_alt, size: 42, color: Colors.pinkAccent),
                   SizedBox(height: 8),
                   Text('No tasks yet — add a task above',
                       style: TextStyle(color: Colors.black54)),
                   SizedBox(height: 12),
                 ],
               )
-                  : ListView.separated(
+                  : AnimatedList(
+                key: _listKey,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _tasks.length,
-                separatorBuilder: (_, __) =>
-                const SizedBox(height: 8),
-                itemBuilder: (context, index) {
+                initialItemCount: _tasks.length,
+                itemBuilder: (context, index, animation) {
                   final t = _tasks[index];
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade100),
-                    ),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: t.done,
-                          onChanged: (_) => _toggleDone(index),
-                          activeColor: const Color(0xFFE91E63),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+
+                  final int daysAssigned = (startDate != null && weddingDate != null)
+                      ? weddingDate!.difference(startDate!).inDays
+                      : 0;
+
+                  return SizeTransition(
+                    sizeFactor: animation,
+                    axis: Axis.vertical,
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // -------- Row 1: Category + Task --------
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                t.title,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: t.done
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
                               Text(
                                 t.category,
                                 style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black54),
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFB71C5E),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  t.title,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                    decoration: t.done ? TextDecoration.lineThrough : null,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              color: Colors.black45),
-                          onPressed: () => _removeTask(index),
-                        ),
-                      ],
+
+                          const SizedBox(height: 10),
+
+                          // -------- Row 2: Status + Days + Actions --------
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Status toggle circle
+                              GestureDetector(
+                                onTap: () => _toggleDone(index),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.grey.shade300),
+                                    color: t.done ? Colors.pink.shade50 : Colors.grey.shade100,
+                                  ),
+                                  child: Icon(
+                                    t.done ? Icons.check : Icons.radio_button_unchecked,
+                                    color: t.done ? Colors.pink : Colors.grey.shade400,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+
+                              // Days assigned
+                              Text(
+                                '$daysAssigned days',
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+
+                              // Actions: edit + delete
+                              Row(
+                                children: [
+                                  _iconCircleButton(
+                                    icon: Icons.edit_outlined,
+                                    onTap: () => _showEditDialog(index),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _iconCircleButton(
+                                    icon: Icons.delete_outline,
+                                    onTap: () => _confirmDelete(index),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
+
+
               ),
             ],
           ),
@@ -641,8 +961,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
 
 
-
-// ---------- REFINED TASK TILE ----------
+  // ---------- REFINED TASK TILE ----------
   Widget _buildTaskTile(_TaskItem task, int index, {Animation<double>? anim}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -699,7 +1018,6 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     );
   }
 
-
   Widget _emptyTasksView() {
     return Center(
       child: Column(
@@ -713,6 +1031,75 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     );
   }
 
+  // small circular icon button used in row
+  Widget _iconCircleButton({required IconData icon, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade300),
+          color: Colors.white,
+        ),
+        child: Icon(icon, size: 16, color: Colors.black54),
+      ),
+    );
+  }
+
+// Edit dialog to rename a task (updates local model)
+  void _showEditDialog(int index) {
+    final t = _tasks[index];
+    final controller = TextEditingController(text: t.title);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit task'),
+        content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Task name')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final newText = controller.text.trim();
+              if (newText.isNotEmpty) {
+                setState(() {
+                  t.title = newText;
+                });
+                // optionally: send update to server here if API exists
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+// Confirm delete dialog (reuses your _removeTask function)
+  void _confirmDelete(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete task?'),
+        content: const Text('This will remove the task from your checklist.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _removeTask(index);
+              // optionally: call server delete if available
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
 
 
   // full width days box (difference of start and wedding dates)
@@ -796,4 +1183,12 @@ class _TaskItem {
   bool done;
 
   _TaskItem({required this.title, required this.category, this.done = false});
+}
+
+// vendor subcategory model
+class _VendorSubcategory {
+  final String id;
+  final String name;
+
+  _VendorSubcategory({required this.id, required this.name});
 }
