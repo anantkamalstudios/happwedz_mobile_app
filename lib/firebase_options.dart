@@ -41,50 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC_BPG8ujwTFK6bKsq__WcMzT8Y6IPgd3I',
-    appId: '1:27907630225:web:54c106376e74a06e8f4b30',
-    messagingSenderId: '27907630225',
-    projectId: 'happy-wedz-1ebe2',
-    authDomain: 'happy-wedz-1ebe2.firebaseapp.com',
-    storageBucket: 'happy-wedz-1ebe2.firebasestorage.app',
-    measurementId: 'G-R95Q6XVGC9',
+    apiKey: 'AIzaSyBz6K4hpvQlGCp4sO6vl2CIw6jl1lWe0TU',
+    appId: '1:283560472557:web:6448fed104d6eb7865c1e4',
+    messagingSenderId: '283560472557',
+    projectId: 'happychat-f8f34',
+    authDomain: 'happychat-f8f34.firebaseapp.com',
+    storageBucket: 'happychat-f8f34.firebasestorage.app',
+    measurementId: 'G-FXW5MKE292',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBbnw_dz8ah5AEwr_dsF1wLIAX4tnAYjDE',
-    appId: '1:27907630225:android:e89c6b97aa932afb8f4b30',
-    messagingSenderId: '27907630225',
-    projectId: 'happy-wedz-1ebe2',
-    storageBucket: 'happy-wedz-1ebe2.firebasestorage.app',
+    apiKey: 'AIzaSyAUT8WHNQWKult0JXfJLmxbN4r07m2-NE4',
+    appId: '1:283560472557:android:7fbb176e167409d465c1e4',
+    messagingSenderId: '283560472557',
+    projectId: 'happychat-f8f34',
+    storageBucket: 'happychat-f8f34.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAQO-ycCHpvnFhffaRkHN1tAH4O842cSaA',
-    appId: '1:27907630225:ios:8e1cc80b6c941e208f4b30',
-    messagingSenderId: '27907630225',
-    projectId: 'happy-wedz-1ebe2',
-    storageBucket: 'happy-wedz-1ebe2.firebasestorage.app',
-    androidClientId: '27907630225-u6mct1p7kt2uvv8b3gcsqdhf4dmts8ef.apps.googleusercontent.com',
+    apiKey: 'AIzaSyAa-uzFCivmjJt4LnMyBCgX5lPw-LkgMRo',
+    appId: '1:283560472557:ios:58604cae73ee1a8365c1e4',
+    messagingSenderId: '283560472557',
+    projectId: 'happychat-f8f34',
+    storageBucket: 'happychat-f8f34.firebasestorage.app',
     iosBundleId: 'com.example.happyWedz',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAQO-ycCHpvnFhffaRkHN1tAH4O842cSaA',
-    appId: '1:27907630225:ios:8e1cc80b6c941e208f4b30',
-    messagingSenderId: '27907630225',
-    projectId: 'happy-wedz-1ebe2',
-    storageBucket: 'happy-wedz-1ebe2.firebasestorage.app',
-    androidClientId: '27907630225-u6mct1p7kt2uvv8b3gcsqdhf4dmts8ef.apps.googleusercontent.com',
+    apiKey: 'AIzaSyAa-uzFCivmjJt4LnMyBCgX5lPw-LkgMRo',
+    appId: '1:283560472557:ios:58604cae73ee1a8365c1e4',
+    messagingSenderId: '283560472557',
+    projectId: 'happychat-f8f34',
+    storageBucket: 'happychat-f8f34.firebasestorage.app',
     iosBundleId: 'com.example.happyWedz',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyC_BPG8ujwTFK6bKsq__WcMzT8Y6IPgd3I',
-    appId: '1:27907630225:web:e3dbe562cfea8c518f4b30',
-    messagingSenderId: '27907630225',
-    projectId: 'happy-wedz-1ebe2',
-    authDomain: 'happy-wedz-1ebe2.firebaseapp.com',
-    storageBucket: 'happy-wedz-1ebe2.firebasestorage.app',
-    measurementId: 'G-QNB9L0CERH',
+    apiKey: 'AIzaSyBz6K4hpvQlGCp4sO6vl2CIw6jl1lWe0TU',
+    appId: '1:283560472557:web:17d27e614e9c5d4d65c1e4',
+    messagingSenderId: '283560472557',
+    projectId: 'happychat-f8f34',
+    authDomain: 'happychat-f8f34.firebaseapp.com',
+    storageBucket: 'happychat-f8f34.firebasestorage.app',
+    measurementId: 'G-HZPB85981K',
   );
+
 }

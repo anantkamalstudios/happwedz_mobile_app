@@ -4,7 +4,7 @@ import 'package:happy_wedz/guestlist/guestlist.dart';
 import '../InboxScreen.dart';
 import '../RealWedding/share_ur_story.dart';
 import '../Wishlist/Wishlistscreen.dart';
-import '../auths/login.dart';
+
 import '../budget/budget.dart';
 import '../einvite/einvite.dart';
 import '../einvite1/einvite.dart';
@@ -335,7 +335,7 @@ class MoreOptionsScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context); // Close dialog
-                Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SignInScreen()));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Logged out successfully'),

@@ -2,12 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:carousel_slider/carousel_slider.dart';
 
 import '../chat/chat_screen.dart';
 import '../chat/chat_service.dart';
+import '../chat_page_new.dart';
+import '../main.dart';
 //
 // class VendorServicesScreen extends StatefulWidget {
 //   final String subcategoryName;
@@ -136,14 +139,21 @@ class VendorServicesScreen extends StatefulWidget {
 class _VendorServicesScreenState extends State<VendorServicesScreen> {
   List<dynamic> services = [];
   bool isLoading = true;
+  String? currentUserId; // ✅ store logged-in user id
 
   @override
   void initState() {
     super.initState();
     fetchServices();
+    _loadCurrentUser();
   }
 // Replace the entire fetchServices method in VendorServicesScreen:
-
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      currentUserId = prefs.getInt('user_id')?.toString();
+    });
+  }
   Future<void> fetchServices() async {
     try {
       final encodedSubcategory = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
@@ -193,47 +203,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       print("Stack trace: $stackTrace");
     }
   }
-  // Future<void> fetchServices() async {
-  //   try {
-  //     final encodedSubcategory =
-  //     Uri.encodeComponent(widget.subcategoryName.toLowerCase());
-  //     final url = Uri.parse(
-  //         "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory");
-  //     print("Fetching services from: $url");
-  //
-  //     final response =
-  //     await http.get(url, headers: {"Accept": "application/json"});
-  //
-  //     if (response.statusCode == 200) {
-  //       final List<dynamic> data = json.decode(response.body);
-  //
-  //       for (var service in data) {
-  //         final media = service['media'] ?? {};
-  //         print("📦 Service media: $media");
-  //         if (media['coverImage'] != null) {
-  //           final cover = media['coverImage'].toString();
-  //           final fullUrl = cover.startsWith('/uploads/')
-  //               ? "https://happywedzbackend.happywedz.com$cover"
-  //               : cover;
-  //           print("🖼️ Cover image URL: $fullUrl");
-  //         } else {
-  //           print("⚠️ No coverImage for this service");
-  //         }
-  //       }
-  //
-  //       setState(() {
-  //         services = data;
-  //         isLoading = false;
-  //       });
-  //     } else {
-  //       setState(() => isLoading = false);
-  //       print("❌ Error fetching services: ${response.statusCode}");
-  //     }
-  //   } catch (e) {
-  //     setState(() => isLoading = false);
-  //     print("💥 API Error: $e");
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -328,18 +297,14 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     final vendor = service['vendor'] ?? {};
     final media = service['media'] ?? {};
 
-    // Extract image - media is a Map, not a List
     String imageUrl = 'https://via.placeholder.com/400x300';
 
-    // Try coverImage first
     if (media is Map && media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
       final cover = media['coverImage'].toString();
       imageUrl = cover.startsWith('/uploads/')
           ? "https://happywedzbackend.happywedz.com$cover"
           : cover;
-    }
-    // Try gallery if coverImage not found
-    else if (media is Map && media['gallery'] != null) {
+    } else if (media is Map && media['gallery'] != null) {
       final gallery = media['gallery'];
       if (gallery is List && gallery.isNotEmpty) {
         for (var item in gallery) {
@@ -356,19 +321,18 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         }
       }
     }
+    final vendorId = service['vendor_id'].toString();
 
-    // Extract data
     final String businessName = vendor['businessName'] ?? attributes['name'] ?? 'Unnamed Venue';
-    final String city = attributes['city'] ?? vendor['city'] ?? 'Nashik';
-    final String address = attributes['address'] ?? attributes['Address'] ?? '';
+    final String city = attributes['city'] ?? vendor['city'] ?? 'Unknown Location';
     final double rating = double.tryParse((vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ?? 0.0;
-    final int reviewCount = int.tryParse((attributes['review_count'] ?? '0').toString()) ?? 0;
 
-    // Pricing - handle different vendor types
     String priceText = '';
     final vegPrice = attributes['veg_price']?.toString() ?? '';
     final startingPrice = attributes['starting_price']?.toString() ?? '';
-    final photoPackagePrice = attributes['photo_package_price']?.toString() ?? attributes['PhotoPackage_Price']?.toString() ?? '';
+    final photoPackagePrice = attributes['photo_package_price']?.toString() ??
+        attributes['PhotoPackage_Price']?.toString() ??
+        '';
 
     if (vegPrice.isNotEmpty) {
       priceText = '₹$vegPrice per plate';
@@ -378,7 +342,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       priceText = photoPackagePrice;
     }
 
-    // Phone
     final phone = vendor['phone']?.toString() ?? attributes['Phone']?.toString() ?? '';
 
     return InkWell(
@@ -406,7 +369,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image with location overlay
             Stack(
               children: [
                 ClipRRect(
@@ -426,7 +388,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     ),
                   ),
                 ),
-                // Location overlay at bottom left
+
+                // 📍 Location overlay (bottom left)
                 Positioned(
                   bottom: 8,
                   left: 8,
@@ -453,11 +416,12 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     ),
                   ),
                 ),
-                // Rating badge at top right
+
+                // ⭐ Rating badge (top right, shifted left slightly)
                 if (rating > 0)
                   Positioned(
                     top: 8,
-                    right: 8,
+                    right: 48,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -481,16 +445,39 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                       ),
                     ),
                   ),
+
+                // ❤️ Favourite icon (top right)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: InkWell(
+                    onTap: () {
+                      // TODO: Handle favourite toggle logic
+                      // e.g. setState(() { isFav = !isFav; });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.85),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.favorite_border,
+                        color: Colors.pinkAccent,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
 
-            // Details section
+            // 📝 Details section (same as before)
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Venue name
                   Text(
                     businessName,
                     style: const TextStyle(
@@ -501,10 +488,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-
                   const SizedBox(height: 6),
-
-                  // Price
                   if (priceText.isNotEmpty)
                     Text(
                       priceText,
@@ -514,18 +498,38 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                         color: Color(0xFFE91E63),
                       ),
                     ),
-
                   const SizedBox(height: 12),
-
-                  // Action buttons
                   Row(
                     children: [
-                      // Message button
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            // Handle message
+                            if (currentUserId == null || currentUserId!.isEmpty) {
+                              // 🚀 Redirect user to SignInScreen
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const SignInScreen()),
+                              );
+                              return;
+                            }
+
+                            final vendorId = service['vendor_id']?.toString() ??
+                                vendor['id']?.toString() ??
+                                attributes['vendor_id']?.toString() ??
+                                '';
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatPage(
+                                  currentUid: currentUserId!,   // ✅ logged-in user
+                                  otherUid: vendorId,           // ✅ vendor id
+                                  otherName: businessName,      // ✅ vendor name
+                                ),
+                              ),
+                            );
                           },
+
                           icon: const Icon(Icons.message, size: 16),
                           label: const Text('Message'),
                           style: OutlinedButton.styleFrom(
@@ -538,10 +542,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(width: 8),
-
-                      // WhatsApp button
                       Container(
                         height: 40,
                         width: 40,
@@ -552,18 +553,12 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                         child: IconButton(
                           icon: const Icon(Icons.chat, color: Colors.white, size: 18),
                           onPressed: () {
-                            // Handle WhatsApp
-                            if (phone.isNotEmpty) {
-                              // Launch WhatsApp with phone
-                            }
+                            if (phone.isNotEmpty) {}
                           },
                           padding: EdgeInsets.zero,
                         ),
                       ),
-
                       const SizedBox(width: 8),
-
-                      // Call button
                       Container(
                         height: 40,
                         width: 40,
@@ -574,7 +569,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                         child: IconButton(
                           icon: const Icon(Icons.phone, color: Colors.white, size: 18),
                           onPressed: () {
-                            // Handle call
                             if (phone.isNotEmpty) {
                               final uri = Uri(scheme: 'tel', path: phone);
                               launchUrl(uri);
@@ -593,6 +587,277 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       ),
     );
   }
+
+// Widget _buildServiceCard(dynamic service) {
+  //   final attributes = service['attributes'] ?? {};
+  //   final vendor = service['vendor'] ?? {};
+  //   final media = service['media'] ?? {};
+  //
+  //   // Extract image - media is a Map, not a List
+  //   String imageUrl = 'https://via.placeholder.com/400x300';
+  //
+  //   // Try coverImage first
+  //   if (media is Map && media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+  //     final cover = media['coverImage'].toString();
+  //     imageUrl = cover.startsWith('/uploads/')
+  //         ? "https://happywedzbackend.happywedz.com$cover"
+  //         : cover;
+  //   }
+  //   // Try gallery if coverImage not found
+  //   else if (media is Map && media['gallery'] != null) {
+  //     final gallery = media['gallery'];
+  //     if (gallery is List && gallery.isNotEmpty) {
+  //       for (var item in gallery) {
+  //         if (item is String && item.startsWith('/uploads/')) {
+  //           imageUrl = "https://happywedzbackend.happywedz.com$item";
+  //           break;
+  //         } else if (item is Map && item['url'] != null) {
+  //           final url = item['url'].toString();
+  //           imageUrl = url.startsWith('/uploads/')
+  //               ? "https://happywedzbackend.happywedz.com$url"
+  //               : url;
+  //           break;
+  //         }
+  //       }
+  //     }
+  //   }
+  //
+  //   // Extract data
+  //   final String businessName = vendor['businessName'] ?? attributes['name'] ?? 'Unnamed Venue';
+  //   final String city = attributes['city'] ?? vendor['city'] ?? 'Nashik';
+  //   final String address = attributes['address'] ?? attributes['Address'] ?? '';
+  //   final double rating = double.tryParse((vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ?? 0.0;
+  //   final int reviewCount = int.tryParse((attributes['review_count'] ?? '0').toString()) ?? 0;
+  //
+  //   // Pricing - handle different vendor types
+  //   String priceText = '';
+  //   final vegPrice = attributes['veg_price']?.toString() ?? '';
+  //   final startingPrice = attributes['starting_price']?.toString() ?? '';
+  //   final photoPackagePrice = attributes['photo_package_price']?.toString() ?? attributes['PhotoPackage_Price']?.toString() ?? '';
+  //
+  //   if (vegPrice.isNotEmpty) {
+  //     priceText = '₹$vegPrice per plate';
+  //   } else if (startingPrice.isNotEmpty) {
+  //     priceText = '₹$startingPrice onwards';
+  //   } else if (photoPackagePrice.isNotEmpty) {
+  //     priceText = photoPackagePrice;
+  //   }
+  //
+  //   // Phone
+  //   final phone = vendor['phone']?.toString() ?? attributes['Phone']?.toString() ?? '';
+  //
+  //   return InkWell(
+  //     onTap: () {
+  //       Navigator.push(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (context) => VendorDetailsScreen(service: service),
+  //         ),
+  //       );
+  //     },
+  //     child: Container(
+  //       margin: const EdgeInsets.only(bottom: 16),
+  //       decoration: BoxDecoration(
+  //         color: Colors.white,
+  //         borderRadius: BorderRadius.circular(8),
+  //         boxShadow: [
+  //           BoxShadow(
+  //             color: Colors.black.withOpacity(0.08),
+  //             blurRadius: 8,
+  //             offset: const Offset(0, 2),
+  //           ),
+  //         ],
+  //       ),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           // Image with location overlay
+  //           Stack(
+  //             children: [
+  //               ClipRRect(
+  //                 borderRadius: const BorderRadius.only(
+  //                   topLeft: Radius.circular(8),
+  //                   topRight: Radius.circular(8),
+  //                 ),
+  //                 child: Image.network(
+  //                   imageUrl,
+  //                   height: 200,
+  //                   width: double.infinity,
+  //                   fit: BoxFit.cover,
+  //                   errorBuilder: (context, error, stackTrace) => Container(
+  //                     height: 200,
+  //                     color: Colors.grey[300],
+  //                     child: const Icon(Icons.image, size: 50, color: Colors.white),
+  //                   ),
+  //                 ),
+  //               ),
+  //               // Location overlay at bottom left
+  //               Positioned(
+  //                 bottom: 8,
+  //                 left: 8,
+  //                 child: Container(
+  //                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  //                   decoration: BoxDecoration(
+  //                     color: Colors.black.withOpacity(0.6),
+  //                     borderRadius: BorderRadius.circular(4),
+  //                   ),
+  //                   child: Row(
+  //                     mainAxisSize: MainAxisSize.min,
+  //                     children: [
+  //                       const Icon(Icons.location_on, color: Colors.white, size: 12),
+  //                       const SizedBox(width: 4),
+  //                       Text(
+  //                         city,
+  //                         style: const TextStyle(
+  //                           color: Colors.white,
+  //                           fontSize: 11,
+  //                           fontWeight: FontWeight.w500,
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                 ),
+  //               ),
+  //               // Rating badge at top right
+  //               if (rating > 0)
+  //                 Positioned(
+  //                   top: 8,
+  //                   right: 8,
+  //                   child: Container(
+  //                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.green,
+  //                       borderRadius: BorderRadius.circular(4),
+  //                     ),
+  //                     child: Row(
+  //                       mainAxisSize: MainAxisSize.min,
+  //                       children: [
+  //                         Text(
+  //                           rating.toStringAsFixed(1),
+  //                           style: const TextStyle(
+  //                             color: Colors.white,
+  //                             fontSize: 12,
+  //                             fontWeight: FontWeight.bold,
+  //                           ),
+  //                         ),
+  //                         const SizedBox(width: 2),
+  //                         const Icon(Icons.star, color: Colors.white, size: 12),
+  //                       ],
+  //                     ),
+  //                   ),
+  //                 ),
+  //             ],
+  //           ),
+  //
+  //           // Details section
+  //           Padding(
+  //             padding: const EdgeInsets.all(12),
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 // Venue name
+  //                 Text(
+  //                   businessName,
+  //                   style: const TextStyle(
+  //                     fontSize: 16,
+  //                     fontWeight: FontWeight.w700,
+  //                     color: Colors.black87,
+  //                   ),
+  //                   maxLines: 1,
+  //                   overflow: TextOverflow.ellipsis,
+  //                 ),
+  //
+  //                 const SizedBox(height: 6),
+  //
+  //                 // Price
+  //                 if (priceText.isNotEmpty)
+  //                   Text(
+  //                     priceText,
+  //                     style: const TextStyle(
+  //                       fontSize: 14,
+  //                       fontWeight: FontWeight.w600,
+  //                       color: Color(0xFFE91E63),
+  //                     ),
+  //                   ),
+  //
+  //                 const SizedBox(height: 12),
+  //
+  //                 // Action buttons
+  //                 Row(
+  //                   children: [
+  //                     // Message button
+  //                     Expanded(
+  //                       child: OutlinedButton.icon(
+  //                         onPressed: () {
+  //                           // Handle message
+  //                         },
+  //                         icon: const Icon(Icons.message, size: 16),
+  //                         label: const Text('Message'),
+  //                         style: OutlinedButton.styleFrom(
+  //                           foregroundColor: const Color(0xFFE91E63),
+  //                           side: const BorderSide(color: Color(0xFFE91E63)),
+  //                           padding: const EdgeInsets.symmetric(vertical: 10),
+  //                           shape: RoundedRectangleBorder(
+  //                             borderRadius: BorderRadius.circular(6),
+  //                           ),
+  //                         ),
+  //                       ),
+  //                     ),
+  //
+  //                     const SizedBox(width: 8),
+  //
+  //                     // WhatsApp button
+  //                     Container(
+  //                       height: 40,
+  //                       width: 40,
+  //                       decoration: BoxDecoration(
+  //                         color: const Color(0xFF25D366),
+  //                         borderRadius: BorderRadius.circular(6),
+  //                       ),
+  //                       child: IconButton(
+  //                         icon: const Icon(Icons.chat, color: Colors.white, size: 18),
+  //                         onPressed: () {
+  //                           // Handle WhatsApp
+  //                           if (phone.isNotEmpty) {
+  //                             // Launch WhatsApp with phone
+  //                           }
+  //                         },
+  //                         padding: EdgeInsets.zero,
+  //                       ),
+  //                     ),
+  //
+  //                     const SizedBox(width: 8),
+  //
+  //                     // Call button
+  //                     Container(
+  //                       height: 40,
+  //                       width: 40,
+  //                       decoration: BoxDecoration(
+  //                         color: Colors.green,
+  //                         borderRadius: BorderRadius.circular(6),
+  //                       ),
+  //                       child: IconButton(
+  //                         icon: const Icon(Icons.phone, color: Colors.white, size: 18),
+  //                         onPressed: () {
+  //                           // Handle call
+  //                           if (phone.isNotEmpty) {
+  //                             final uri = Uri(scheme: 'tel', path: phone);
+  //                             launchUrl(uri);
+  //                           }
+  //                         },
+  //                         padding: EdgeInsets.zero,
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
   //   Widget _buildServiceCard(dynamic service) {
 
 //     final attributes = service['attributes'] ?? {};
@@ -1606,6 +1871,20 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
   bool _aboutExpanded = false;
   DateTime? _selectedDate;
   bool _isShortlisted = false;
+  String? currentUserId; // ✅ store logged-in user id
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser(); // ✅ load logged-in user id
+
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      currentUserId = prefs.getInt('user_id')?.toString();
+    });
+  }
 
   String normalizeUrl(String url) {
     if (url.startsWith('/uploads/')) {
@@ -1670,6 +1949,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
     if (images.isEmpty) {
       images.add('https://via.placeholder.com/1200x700?text=No+Image');
     }
+    final String vendorId = (vendor['id'] ?? attributes['vendor_id'] ?? '').toString();
 
     // Common fields
     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
@@ -2127,8 +2407,27 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Message (demo)')));
+                  if (currentUserId == null || currentUserId!.isEmpty) {
+                    // 🚀 Redirect user to SignInScreen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SignInScreen()),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatPage(
+                        currentUid: currentUserId!,   // <-- logged in user
+                        otherUid: vendorId,          // <-- vendor’s unique id
+                        otherName: vendorName,       // <-- vendor’s display name
+                      ),
+                    ),
+                  );
+
                 },
+
                 icon: const Icon(Icons.message, color: Colors.pink),
                 label: const Text('Message', style: TextStyle(color: Colors.pink)),
                 style: OutlinedButton.styleFrom(
