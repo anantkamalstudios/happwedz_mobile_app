@@ -1,130 +1,30 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:html/parser.dart' show parse;
 
+
+import '../ClaimBusiness.dart';
+import '../Review.dart';
 import '../chat/chat_screen.dart';
 import '../chat/chat_service.dart';
 import '../chat_page_new.dart';
 import '../main.dart';
-//
-// class VendorServicesScreen extends StatefulWidget {
-//   final String subcategoryName;
-//
-//   const VendorServicesScreen({Key? key, required this.subcategoryName}) : super(key: key);
-//
-//   @override
-//   State<VendorServicesScreen> createState() => _VendorServicesScreenState();
-// }
-//
-// class _VendorServicesScreenState extends State<VendorServicesScreen> {
-//   List<dynamic> services = [];
-//   bool isLoading = true;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     fetchServices();
-//   }
-//
-//   Future<void> fetchServices() async {
-//     try {
-//       final encodedSubcategory = Uri.encodeComponent(widget.subcategoryName.toLowerCase()); // Use exact casing
-//
-//       final url = Uri.parse(
-//         "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory",
-//       );
-//
-//       print("Fetching services from: $url"); // debug
-//
-//       final response = await http.get(
-//         url,
-//         headers: {"Accept": "application/json"},
-//       );
-//
-//       if (response.statusCode == 200) {
-//         final List<dynamic> data = json.decode(response.body);
-//         setState(() {
-//           services = data;
-//           isLoading = false;
-//         });
-//       } else {
-//         setState(() => isLoading = false);
-//         print("Error fetching ${widget.subcategoryName} services: ${response.statusCode}");
-//       }
-//     } catch (e) {
-//       setState(() => isLoading = false);
-//       print("API Error: $e");
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text(widget.subcategoryName),
-//         backgroundColor: Colors.pink,
-//       ),
-//       body: isLoading
-//           ? const Center(child: CircularProgressIndicator())
-//           : services.isEmpty
-//           ? const Center(child: Text("No services found"))
-//           : ListView.builder(
-//         itemCount: services.length,
-//         itemBuilder: (context, index) {
-//           final service = services[index];
-//           final attributes = service['attributes'] ?? {};
-//           final vendor = service['vendor'] ?? {};
-//           final media = service['media'] ?? {};
-//
-//           return Card(
-//             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-//             child: ListTile(
-//               leading: (media['coverImage'] != null && media['coverImage'] != "")
-//                   ? Image.network(
-//                 "https://happywedz.com/api/${media['coverImage']}",
-//                 width: 60,
-//                 height: 60,
-//                 fit: BoxFit.cover,
-//               )
-//                   : const Icon(Icons.image, size: 40, color: Colors.grey),
-//               title: Text(vendor['businessName'] ?? attributes['name'] ?? "No Name"),
-//               subtitle: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   if (attributes['description'] != null &&
-//                       attributes['description'].toString().isNotEmpty)
-//                     Text(attributes['description']),
-//                   if (attributes['starting_price'] != null)
-//                     Text("Starting Price: ₹${attributes['starting_price']}"),
-//                   if (attributes['location'] != null &&
-//                       attributes['location']['city'] != null)
-//                     Text("City: ${attributes['location']['city']}"),
-//                 ],
-//               ),
-//               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-//               onTap: () {
-//                 // You can navigate to a detailed vendor screen here
-//                 print("Tapped on vendor: ${vendor['businessName']}");
-//               },
-//             ),
-//           );
-//         },
-//       ),
-//     );
-//   }
-// }
 
 
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-// import 'dart:convert';
-// import 'package:flutter/material.dart';
-// import 'package:http/http.dart' as http;
-// import 'vendor_details_screen.dart';
+
 
 class VendorServicesScreen extends StatefulWidget {
   final String subcategoryName;
@@ -139,25 +39,28 @@ class VendorServicesScreen extends StatefulWidget {
 class _VendorServicesScreenState extends State<VendorServicesScreen> {
   List<dynamic> services = [];
   bool isLoading = true;
-  String? currentUserId; // ✅ store logged-in user id
+  String? currentUserId;
+  Set<String> favouriteVendors = {};
 
   @override
   void initState() {
     super.initState();
-    fetchServices();
     _loadCurrentUser();
+    fetchServices();
   }
-// Replace the entire fetchServices method in VendorServicesScreen:
+
   Future<void> _loadCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       currentUserId = prefs.getInt('user_id')?.toString();
     });
   }
+
   Future<void> fetchServices() async {
     try {
       final encodedSubcategory = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
-      final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory");
+      final url = Uri.parse(
+          "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory");
       print("🔍 Fetching services from: $url");
 
       final response = await http.get(url, headers: {"Accept": "application/json"});
@@ -166,25 +69,19 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         final dynamic data = json.decode(response.body);
 
         List<dynamic> servicesList = [];
-
-        // Handle both List and Map responses
         if (data is List) {
           servicesList = data;
         } else if (data is Map) {
-          // Try to extract data from common API response structures
           if (data['data'] != null && data['data'] is List) {
             servicesList = data['data'];
           } else if (data['services'] != null && data['services'] is List) {
             servicesList = data['services'];
           } else {
-            // If it's a single object, wrap it in a list
             servicesList = [data];
           }
         }
 
         print("✅ Found ${servicesList.length} services");
-
-        // Debug first service structure
         if (servicesList.isNotEmpty) {
           print("📦 First service structure: ${json.encode(servicesList[0])}");
         }
@@ -212,11 +109,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
+            colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
             stops: [0.0, 0.3, 0.6],
           ),
         ),
@@ -233,9 +126,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     : SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    children: services
-                        .map((service) => _buildServiceCard(service))
-                        .toList(),
+                    children:
+                    services.map((service) => _buildServiceCard(service)).toList(),
                   ),
                 ),
               ),
@@ -260,10 +152,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
               widget.subcategoryName,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+                  color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(width: 48),
@@ -292,47 +181,36 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       ),
     );
   }
+
   Widget _buildServiceCard(dynamic service) {
     final attributes = service['attributes'] ?? {};
     final vendor = service['vendor'] ?? {};
-    final media = service['media'] ?? {};
 
-    String imageUrl = 'https://via.placeholder.com/400x300';
+    // 🔹 Vendor Name
+    final String businessName = vendor['businessName'] ??
+        vendor['vendor_name'] ??
+        attributes['name'] ??
+        attributes['vendor_name'] ??
+        'Unnamed Venue';
 
-    if (media is Map && media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-      final cover = media['coverImage'].toString();
-      imageUrl = cover.startsWith('/uploads/')
-          ? "https://happywedzbackend.happywedz.com$cover"
-          : cover;
-    } else if (media is Map && media['gallery'] != null) {
-      final gallery = media['gallery'];
-      if (gallery is List && gallery.isNotEmpty) {
-        for (var item in gallery) {
-          if (item is String && item.startsWith('/uploads/')) {
-            imageUrl = "https://happywedzbackend.happywedz.com$item";
-            break;
-          } else if (item is Map && item['url'] != null) {
-            final url = item['url'].toString();
-            imageUrl = url.startsWith('/uploads/')
-                ? "https://happywedzbackend.happywedz.com$url"
-                : url;
-            break;
-          }
-        }
-      }
-    }
-    final vendorId = service['vendor_id'].toString();
+    // 🔹 City
+    final String city = vendor['city'] ?? attributes['city'] ?? 'Unknown Location';
 
-    final String businessName = vendor['businessName'] ?? attributes['name'] ?? 'Unnamed Venue';
-    final String city = attributes['city'] ?? vendor['city'] ?? 'Unknown Location';
-    final double rating = double.tryParse((vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ?? 0.0;
+    // 🔹 Rating
+    final double rating = double.tryParse(
+        (vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ??
+        0.0;
 
+    // 🔹 Phone
+    final String phone =
+        vendor['phone']?.toString() ?? attributes['Phone']?.toString() ?? '';
+
+    // 🔹 Price
     String priceText = '';
     final vegPrice = attributes['veg_price']?.toString() ?? '';
     final startingPrice = attributes['starting_price']?.toString() ?? '';
-    final photoPackagePrice = attributes['photo_package_price']?.toString() ??
-        attributes['PhotoPackage_Price']?.toString() ??
-        '';
+    final photoPackagePrice =
+        attributes['photo_package_price']?.toString() ?? attributes['PhotoPackage_Price']?.toString() ?? '';
 
     if (vegPrice.isNotEmpty) {
       priceText = '₹$vegPrice per plate';
@@ -342,7 +220,26 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       priceText = photoPackagePrice;
     }
 
-    final phone = vendor['phone']?.toString() ?? attributes['Phone']?.toString() ?? '';
+    // 🔹 Media Image
+    String imageUrl = 'https://via.placeholder.com/400x300';
+    final media = service['media'];
+    if (media != null) {
+      if (media is Map && media['coverImage'] != null) {
+        imageUrl = media['coverImage'].toString();
+      } else if (media is List && media.isNotEmpty) {
+        final first = media[0];
+        if (first is Map && first['url'] != null) {
+          imageUrl = first['url'];
+        } else if (first is String) {
+          imageUrl = first;
+        }
+      }
+      if (imageUrl.startsWith('/uploads/')) {
+        imageUrl = "https://happywedzbackend.happywedz.com$imageUrl";
+      }
+    }
+
+    final vendorServiceId = service['id']?.toString() ?? '';
 
     return InkWell(
       onTap: () {
@@ -369,13 +266,12 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 🖼 Image + Overlays
             Stack(
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(8),
-                    topRight: Radius.circular(8),
-                  ),
+                      topLeft: Radius.circular(8), topRight: Radius.circular(8)),
                   child: Image.network(
                     imageUrl,
                     height: 200,
@@ -384,17 +280,18 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     errorBuilder: (context, error, stackTrace) => Container(
                       height: 200,
                       color: Colors.grey[300],
-                      child: const Icon(Icons.image, size: 50, color: Colors.white),
+                      child:
+                      const Icon(Icons.image, size: 50, color: Colors.white),
                     ),
                   ),
                 ),
-
-                // 📍 Location overlay (bottom left)
+                // Location
                 Positioned(
                   bottom: 8,
                   left: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(4),
@@ -402,28 +299,28 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.location_on, color: Colors.white, size: 12),
+                        const Icon(Icons.location_on,
+                            color: Colors.white, size: 12),
                         const SizedBox(width: 4),
                         Text(
                           city,
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
                   ),
                 ),
-
-                // ⭐ Rating badge (top right, shifted left slightly)
+                // Rating
                 if (rating > 0)
                   Positioned(
                     top: 8,
                     right: 48,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.green,
                         borderRadius: BorderRadius.circular(4),
@@ -434,10 +331,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                           Text(
                             rating.toStringAsFixed(1),
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 2),
                           const Icon(Icons.star, color: Colors.white, size: 12),
@@ -445,15 +341,68 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                       ),
                     ),
                   ),
-
-                // ❤️ Favourite icon (top right)
+                // Favourite
                 Positioned(
                   top: 8,
                   right: 8,
                   child: InkWell(
-                    onTap: () {
-                      // TODO: Handle favourite toggle logic
-                      // e.g. setState(() { isFav = !isFav; });
+                    onTap: () async {
+                      if (currentUserId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Please sign in first")));
+                        return;
+                      }
+
+                      final isFav =
+                      favouriteVendors.contains(vendorServiceId);
+                      setState(() {
+                        if (isFav) {
+                          favouriteVendors.remove(vendorServiceId);
+                        } else {
+                          favouriteVendors.add(vendorServiceId);
+                        }
+                      });
+
+                      final prefs = await SharedPreferences.getInstance();
+                      final token = prefs.getString('auth_token');
+
+                      if (token == null || token.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please login again')));
+                        return;
+                      }
+
+                      final url =
+                      Uri.parse('https://happywedz.com/api/wishlist/toggle');
+                      final body = {
+                        'user_id': currentUserId,
+                        'vendor_services_id': vendorServiceId,
+                      };
+
+                      try {
+                        final response = await http.post(url,
+                            headers: {
+                              'Accept': 'application/json',
+                              'Authorization': 'Bearer $token',
+                            },
+                            body: body);
+
+                        if (response.statusCode == 200) {
+                          final res = jsonDecode(response.body);
+                          final msg = res['message'] ?? 'Wishlist updated';
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(msg)));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      'Error: ${response.statusCode}')));
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Something went wrong')));
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(6),
@@ -461,8 +410,10 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                         color: Colors.white.withOpacity(0.85),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.favorite_border,
+                      child: Icon(
+                        favouriteVendors.contains(vendorServiceId)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
                         color: Colors.pinkAccent,
                         size: 20,
                       ),
@@ -471,8 +422,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                 ),
               ],
             ),
-
-            // 📝 Details section (same as before)
+            // Details
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -481,10 +431,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                   Text(
                     businessName,
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -493,25 +442,18 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     Text(
                       priceText,
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFE91E63),
-                      ),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFE91E63)),
                     ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () {
-                            if (currentUserId == null || currentUserId!.isEmpty) {
-                              // 🚀 Redirect user to SignInScreen
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const SignInScreen()),
-                              );
-                              return;
-                            }
+                          onPressed: () async {
+                            final loggedIn = await ensureLoggedIn(context);
+                            if (!loggedIn) return;
 
                             final vendorId = service['vendor_id']?.toString() ??
                                 vendor['id']?.toString() ??
@@ -521,15 +463,13 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => ChatPage(
-                                  currentUid: currentUserId!,   // ✅ logged-in user
-                                  otherUid: vendorId,           // ✅ vendor id
-                                  otherName: businessName,      // ✅ vendor name
-                                ),
-                              ),
+                                  builder: (_) => ChatPage(
+                                    currentUid: currentUserId ?? '',
+                                    otherUid: vendorId,
+                                    otherName: businessName,
+                                  )),
                             );
                           },
-
                           icon: const Icon(Icons.message, size: 16),
                           label: const Text('Message'),
                           style: OutlinedButton.styleFrom(
@@ -552,8 +492,14 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                         ),
                         child: IconButton(
                           icon: const Icon(Icons.chat, color: Colors.white, size: 18),
-                          onPressed: () {
-                            if (phone.isNotEmpty) {}
+                          onPressed: () async {
+                            final loggedIn = await ensureLoggedIn(context);
+                            if (!loggedIn) return;
+
+                            if (phone.isNotEmpty) {
+                              final uri = Uri.parse("https://wa.me/$phone");
+                              launchUrl(uri);
+                            }
                           },
                           padding: EdgeInsets.zero,
                         ),
@@ -588,1268 +534,18 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     );
   }
 
-// Widget _buildServiceCard(dynamic service) {
-  //   final attributes = service['attributes'] ?? {};
-  //   final vendor = service['vendor'] ?? {};
-  //   final media = service['media'] ?? {};
-  //
-  //   // Extract image - media is a Map, not a List
-  //   String imageUrl = 'https://via.placeholder.com/400x300';
-  //
-  //   // Try coverImage first
-  //   if (media is Map && media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-  //     final cover = media['coverImage'].toString();
-  //     imageUrl = cover.startsWith('/uploads/')
-  //         ? "https://happywedzbackend.happywedz.com$cover"
-  //         : cover;
-  //   }
-  //   // Try gallery if coverImage not found
-  //   else if (media is Map && media['gallery'] != null) {
-  //     final gallery = media['gallery'];
-  //     if (gallery is List && gallery.isNotEmpty) {
-  //       for (var item in gallery) {
-  //         if (item is String && item.startsWith('/uploads/')) {
-  //           imageUrl = "https://happywedzbackend.happywedz.com$item";
-  //           break;
-  //         } else if (item is Map && item['url'] != null) {
-  //           final url = item['url'].toString();
-  //           imageUrl = url.startsWith('/uploads/')
-  //               ? "https://happywedzbackend.happywedz.com$url"
-  //               : url;
-  //           break;
-  //         }
-  //       }
-  //     }
-  //   }
-  //
-  //   // Extract data
-  //   final String businessName = vendor['businessName'] ?? attributes['name'] ?? 'Unnamed Venue';
-  //   final String city = attributes['city'] ?? vendor['city'] ?? 'Nashik';
-  //   final String address = attributes['address'] ?? attributes['Address'] ?? '';
-  //   final double rating = double.tryParse((vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ?? 0.0;
-  //   final int reviewCount = int.tryParse((attributes['review_count'] ?? '0').toString()) ?? 0;
-  //
-  //   // Pricing - handle different vendor types
-  //   String priceText = '';
-  //   final vegPrice = attributes['veg_price']?.toString() ?? '';
-  //   final startingPrice = attributes['starting_price']?.toString() ?? '';
-  //   final photoPackagePrice = attributes['photo_package_price']?.toString() ?? attributes['PhotoPackage_Price']?.toString() ?? '';
-  //
-  //   if (vegPrice.isNotEmpty) {
-  //     priceText = '₹$vegPrice per plate';
-  //   } else if (startingPrice.isNotEmpty) {
-  //     priceText = '₹$startingPrice onwards';
-  //   } else if (photoPackagePrice.isNotEmpty) {
-  //     priceText = photoPackagePrice;
-  //   }
-  //
-  //   // Phone
-  //   final phone = vendor['phone']?.toString() ?? attributes['Phone']?.toString() ?? '';
-  //
-  //   return InkWell(
-  //     onTap: () {
-  //       Navigator.push(
-  //         context,
-  //         MaterialPageRoute(
-  //           builder: (context) => VendorDetailsScreen(service: service),
-  //         ),
-  //       );
-  //     },
-  //     child: Container(
-  //       margin: const EdgeInsets.only(bottom: 16),
-  //       decoration: BoxDecoration(
-  //         color: Colors.white,
-  //         borderRadius: BorderRadius.circular(8),
-  //         boxShadow: [
-  //           BoxShadow(
-  //             color: Colors.black.withOpacity(0.08),
-  //             blurRadius: 8,
-  //             offset: const Offset(0, 2),
-  //           ),
-  //         ],
-  //       ),
-  //       child: Column(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           // Image with location overlay
-  //           Stack(
-  //             children: [
-  //               ClipRRect(
-  //                 borderRadius: const BorderRadius.only(
-  //                   topLeft: Radius.circular(8),
-  //                   topRight: Radius.circular(8),
-  //                 ),
-  //                 child: Image.network(
-  //                   imageUrl,
-  //                   height: 200,
-  //                   width: double.infinity,
-  //                   fit: BoxFit.cover,
-  //                   errorBuilder: (context, error, stackTrace) => Container(
-  //                     height: 200,
-  //                     color: Colors.grey[300],
-  //                     child: const Icon(Icons.image, size: 50, color: Colors.white),
-  //                   ),
-  //                 ),
-  //               ),
-  //               // Location overlay at bottom left
-  //               Positioned(
-  //                 bottom: 8,
-  //                 left: 8,
-  //                 child: Container(
-  //                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-  //                   decoration: BoxDecoration(
-  //                     color: Colors.black.withOpacity(0.6),
-  //                     borderRadius: BorderRadius.circular(4),
-  //                   ),
-  //                   child: Row(
-  //                     mainAxisSize: MainAxisSize.min,
-  //                     children: [
-  //                       const Icon(Icons.location_on, color: Colors.white, size: 12),
-  //                       const SizedBox(width: 4),
-  //                       Text(
-  //                         city,
-  //                         style: const TextStyle(
-  //                           color: Colors.white,
-  //                           fontSize: 11,
-  //                           fontWeight: FontWeight.w500,
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ),
-  //               // Rating badge at top right
-  //               if (rating > 0)
-  //                 Positioned(
-  //                   top: 8,
-  //                   right: 8,
-  //                   child: Container(
-  //                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-  //                     decoration: BoxDecoration(
-  //                       color: Colors.green,
-  //                       borderRadius: BorderRadius.circular(4),
-  //                     ),
-  //                     child: Row(
-  //                       mainAxisSize: MainAxisSize.min,
-  //                       children: [
-  //                         Text(
-  //                           rating.toStringAsFixed(1),
-  //                           style: const TextStyle(
-  //                             color: Colors.white,
-  //                             fontSize: 12,
-  //                             fontWeight: FontWeight.bold,
-  //                           ),
-  //                         ),
-  //                         const SizedBox(width: 2),
-  //                         const Icon(Icons.star, color: Colors.white, size: 12),
-  //                       ],
-  //                     ),
-  //                   ),
-  //                 ),
-  //             ],
-  //           ),
-  //
-  //           // Details section
-  //           Padding(
-  //             padding: const EdgeInsets.all(12),
-  //             child: Column(
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 // Venue name
-  //                 Text(
-  //                   businessName,
-  //                   style: const TextStyle(
-  //                     fontSize: 16,
-  //                     fontWeight: FontWeight.w700,
-  //                     color: Colors.black87,
-  //                   ),
-  //                   maxLines: 1,
-  //                   overflow: TextOverflow.ellipsis,
-  //                 ),
-  //
-  //                 const SizedBox(height: 6),
-  //
-  //                 // Price
-  //                 if (priceText.isNotEmpty)
-  //                   Text(
-  //                     priceText,
-  //                     style: const TextStyle(
-  //                       fontSize: 14,
-  //                       fontWeight: FontWeight.w600,
-  //                       color: Color(0xFFE91E63),
-  //                     ),
-  //                   ),
-  //
-  //                 const SizedBox(height: 12),
-  //
-  //                 // Action buttons
-  //                 Row(
-  //                   children: [
-  //                     // Message button
-  //                     Expanded(
-  //                       child: OutlinedButton.icon(
-  //                         onPressed: () {
-  //                           // Handle message
-  //                         },
-  //                         icon: const Icon(Icons.message, size: 16),
-  //                         label: const Text('Message'),
-  //                         style: OutlinedButton.styleFrom(
-  //                           foregroundColor: const Color(0xFFE91E63),
-  //                           side: const BorderSide(color: Color(0xFFE91E63)),
-  //                           padding: const EdgeInsets.symmetric(vertical: 10),
-  //                           shape: RoundedRectangleBorder(
-  //                             borderRadius: BorderRadius.circular(6),
-  //                           ),
-  //                         ),
-  //                       ),
-  //                     ),
-  //
-  //                     const SizedBox(width: 8),
-  //
-  //                     // WhatsApp button
-  //                     Container(
-  //                       height: 40,
-  //                       width: 40,
-  //                       decoration: BoxDecoration(
-  //                         color: const Color(0xFF25D366),
-  //                         borderRadius: BorderRadius.circular(6),
-  //                       ),
-  //                       child: IconButton(
-  //                         icon: const Icon(Icons.chat, color: Colors.white, size: 18),
-  //                         onPressed: () {
-  //                           // Handle WhatsApp
-  //                           if (phone.isNotEmpty) {
-  //                             // Launch WhatsApp with phone
-  //                           }
-  //                         },
-  //                         padding: EdgeInsets.zero,
-  //                       ),
-  //                     ),
-  //
-  //                     const SizedBox(width: 8),
-  //
-  //                     // Call button
-  //                     Container(
-  //                       height: 40,
-  //                       width: 40,
-  //                       decoration: BoxDecoration(
-  //                         color: Colors.green,
-  //                         borderRadius: BorderRadius.circular(6),
-  //                       ),
-  //                       child: IconButton(
-  //                         icon: const Icon(Icons.phone, color: Colors.white, size: 18),
-  //                         onPressed: () {
-  //                           // Handle call
-  //                           if (phone.isNotEmpty) {
-  //                             final uri = Uri(scheme: 'tel', path: phone);
-  //                             launchUrl(uri);
-  //                           }
-  //                         },
-  //                         padding: EdgeInsets.zero,
-  //                       ),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
-  //   Widget _buildServiceCard(dynamic service) {
-
-//     final attributes = service['attributes'] ?? {};
-//     final vendor = service['vendor'] ?? {};
-//     final media = service['media'] ?? {};
-//
-//     // ✅ Determine proper image URL
-//     String imageUrl = 'https://via.placeholder.com/400x300';
-//
-// // 1️⃣ Try cover image if exists
-//     if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-//       final cover = media['coverImage'].toString();
-//       imageUrl = cover.startsWith('/uploads/')
-//           ? "https://happywedzbackend.happywedz.com$cover"
-//           : cover;
-//     }
-//
-// // 2️⃣ If no coverImage, try gallery images
-//     else if (media['gallery'] != null && media['gallery'] is List) {
-//       for (var item in media['gallery']) {
-//         if (item is String && item.startsWith('/uploads/')) {
-//           imageUrl = "https://happywedzbackend.happywedz.com$item";
-//           break;
-//         } else if (item is Map && item['url'] != null) {
-//           final url = item['url'].toString();
-//           imageUrl = url.startsWith('/uploads/')
-//               ? "https://happywedzbackend.happywedz.com$url"
-//               : url;
-//           break;
-//         }
-//       }
-//     }
-//
-// // 3️⃣ Log what we’re using
-//     print("🧩 Final image used for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
-//
-//
-//
-//     return InkWell(
-//       onTap: () {
-//         Navigator.push(
-//           context,
-//           MaterialPageRoute(
-//             builder: (context) => VendorDetailsScreen(service: service),
-//           ),
-//         );
-//       },
-//       child: Container(
-//         margin: const EdgeInsets.only(bottom: 24),
-//         decoration: BoxDecoration(
-//           color: Colors.white,
-//           borderRadius: BorderRadius.circular(12),
-//           boxShadow: [
-//             BoxShadow(
-//               color: Colors.black.withOpacity(0.1),
-//               blurRadius: 8,
-//               offset: const Offset(0, 2),
-//             ),
-//           ],
-//         ),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             // ✅ Updated cover image logic
-//             ClipRRect(
-//               borderRadius: const BorderRadius.only(
-//                 topLeft: Radius.circular(12),
-//                 topRight: Radius.circular(12),
-//               ),
-//               child: Image.network(
-//                 imageUrl,
-//                 height: 200,
-//                 width: double.infinity,
-//                 fit: BoxFit.cover,
-//                 errorBuilder: (context, error, stackTrace) => Container(
-//                   height: 200,
-//                   color: Colors.grey[300],
-//                   child: const Icon(Icons.image, size: 50, color: Colors.white),
-//                 ),
-//               ),
-//             ),
-//             Padding(
-//               padding: const EdgeInsets.all(16.0),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     vendor['businessName'] ?? attributes['name'] ?? "No Name",
-//                     style: const TextStyle(
-//                       fontSize: 16,
-//                       fontWeight: FontWeight.bold,
-//                       color: Colors.black87,
-//                     ),
-//                   ),
-//                   if (attributes['description'] != null &&
-//                       attributes['description'].toString().isNotEmpty)
-//                     Padding(
-//                       padding: const EdgeInsets.only(top: 4),
-//                       child: Text(
-//                         attributes['description'],
-//                         style: const TextStyle(color: Colors.grey),
-//                       ),
-//                     ),
-//                   if (attributes['starting_price'] != null)
-//                     Padding(
-//                       padding: const EdgeInsets.only(top: 8),
-//                       child: Text(
-//                         "Starting Price: ₹${attributes['starting_price']}",
-//                         style: const TextStyle(
-//                           fontSize: 14,
-//                           fontWeight: FontWeight.bold,
-//                           color: Colors.black87,
-//                         ),
-//                       ),
-//                     ),
-//                   const SizedBox(height: 12),
-//                   Row(
-//                     children: [
-//                       Expanded(
-//                         child: Container(
-//                           padding: const EdgeInsets.symmetric(vertical: 12),
-//                           decoration: BoxDecoration(
-//                             border: Border.all(color: Color(0xFFE91E63)),
-//                             borderRadius: BorderRadius.circular(6),
-//                           ),
-//                           child: const Row(
-//                             mainAxisAlignment: MainAxisAlignment.center,
-//                             children: [
-//                               Icon(Icons.message,
-//                                   color: Color(0xFFE91E63), size: 18),
-//                               SizedBox(width: 8),
-//                               Text(
-//                                 'Message',
-//                                 style: TextStyle(
-//                                   color: Color(0xFFE91E63),
-//                                   fontWeight: FontWeight.w600,
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//                       ),
-//                       const SizedBox(width: 8),
-//                       Container(
-//                         padding: const EdgeInsets.all(12),
-//                         decoration: BoxDecoration(
-//                           color: Colors.green,
-//                           borderRadius: BorderRadius.circular(6),
-//                         ),
-//                         child:
-//                         const Icon(Icons.phone, color: Colors.white, size: 18),
-//                       ),
-//                     ],
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
+  Future<bool> ensureLoggedIn(BuildContext context) async {
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please login first')));
+      return false;
+    }
+    return true;
+  }
 }
 
 
 
-//
-// class VendorServicesScreen extends StatefulWidget {
-//   final String subcategoryName;
-//
-//   const VendorServicesScreen({Key? key, required this.subcategoryName}) : super(key: key);
-//
-//   @override
-//   State<VendorServicesScreen> createState() => _VendorServicesScreenState();
-// }
-//
-// class _VendorServicesScreenState extends State<VendorServicesScreen> {
-//   List<dynamic> services = [];
-//   bool isLoading = true;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     fetchServices();
-//   }
-//
-//   Future<void> fetchServices() async {
-//     try {
-//       final encodedSubcategory = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
-//       final url = Uri.parse("https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory");
-//       print("Fetching services from: $url");
-//
-//       final response = await http.get(url, headers: {"Accept": "application/json"});
-//
-//       if (response.statusCode == 200) {
-//         final List<dynamic> data = json.decode(response.body);
-//         setState(() {
-//           services = data;
-//           isLoading = false;
-//         });
-//       } else {
-//         setState(() => isLoading = false);
-//         print("Error fetching services: ${response.statusCode}");
-//       }
-//     } catch (e) {
-//       setState(() => isLoading = false);
-//       print("API Error: $e");
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: Container(
-//         decoration: const BoxDecoration(
-//           gradient: LinearGradient(
-//             begin: Alignment.topCenter,
-//             end: Alignment.bottomCenter,
-//             colors: [
-//               Color(0xFFFF69B4),
-//               Color(0xFFFFB6C1),
-//               Colors.white,
-//             ],
-//             stops: [0.0, 0.3, 0.6],
-//           ),
-//         ),
-//         child: SafeArea(
-//           child: Column(
-//             children: [
-//               _buildAppBar(),
-//               _buildSearchBar(),
-//               Expanded(
-//                 child: isLoading
-//                     ? const Center(child: CircularProgressIndicator())
-//                     : services.isEmpty
-//                     ? const Center(child: Text("No services found"))
-//                     : SingleChildScrollView(
-//                   padding: const EdgeInsets.all(16.0),
-//                   child: Column(
-//                     children: services.map((service) => _buildServiceCard(service)).toList(),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildAppBar() {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-//       child: Row(
-//         children: [
-//           IconButton(
-//             icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-//             onPressed: () => Navigator.pop(context),
-//           ),
-//           Expanded(
-//             child: Text(
-//               widget.subcategoryName,
-//               textAlign: TextAlign.center,
-//               style: const TextStyle(
-//                 color: Colors.white,
-//                 fontSize: 18,
-//                 fontWeight: FontWeight.w600,
-//               ),
-//             ),
-//           ),
-//           const SizedBox(width: 48), // balance
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildSearchBar() {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-//       child: Container(
-//         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-//         decoration: BoxDecoration(
-//           color: Colors.white.withOpacity(0.9),
-//           borderRadius: BorderRadius.circular(25),
-//         ),
-//         child: const TextField(
-//           decoration: InputDecoration(
-//             hintText: 'Search services...',
-//             hintStyle: TextStyle(color: Colors.grey),
-//             border: InputBorder.none,
-//             prefixIcon: Icon(Icons.search, color: Colors.grey),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildServiceCard(dynamic service) {
-//     final attributes = service['attributes'] ?? {};
-//     final vendor = service['vendor'] ?? {};
-//     final media = service['media'] ?? {};
-//
-//     return InkWell(
-//       onTap: () {
-//         Navigator.push(
-//           context,
-//           MaterialPageRoute(
-//             builder: (context) => VendorDetailsScreen(service: service),
-//           ),
-//         );
-//       },
-//
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Container(
-//             margin: const EdgeInsets.only(bottom: 24),
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               borderRadius: BorderRadius.circular(12),
-//               boxShadow: [
-//                 BoxShadow(
-//                   color: Colors.black.withOpacity(0.1),
-//                   blurRadius: 8,
-//                   offset: const Offset(0, 2),
-//                 ),
-//               ],
-//             ),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Container(
-//                   height: 200,
-//                   decoration: BoxDecoration(
-//                     borderRadius: const BorderRadius.only(
-//                       topLeft: Radius.circular(12),
-//                       topRight: Radius.circular(12),
-//                     ),
-//                     image: DecorationImage(
-//                       image: media['coverImage'] != null && media['coverImage'] != ""
-//                           ? NetworkImage(
-//                         media['coverImage'].toString().startsWith('/uploads/')
-//                             ? "https://happywedzbackend.happywedz.com${media['coverImage']}"
-//                             : media['coverImage'].toString(),
-//                       )
-//                           : const NetworkImage("https://via.placeholder.com/400x300"),
-//                       fit: BoxFit.cover,
-//                     ),
-//                   ),
-//                 ),
-//
-//                 // Container(
-//                 //   height: 200,
-//                 //   decoration: BoxDecoration(
-//                 //     borderRadius: const BorderRadius.only(
-//                 //       topLeft: Radius.circular(12),
-//                 //       topRight: Radius.circular(12),
-//                 //     ),
-//                 //     image: DecorationImage(
-//                 //       image: media['coverImage'] != null && media['coverImage'] != ""
-//                 //           ? NetworkImage("https://happywedz.com/api/${media['coverImage']}")
-//                 //           : const NetworkImage("https://via.placeholder.com/400x300"),
-//                 //       fit: BoxFit.cover,
-//                 //     ),
-//                 //   ),
-//                 // ),
-//                 Padding(
-//                   padding: const EdgeInsets.all(16.0),
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Text(
-//                         vendor['businessName'] ?? attributes['name'] ?? "No Name",
-//                         style: const TextStyle(
-//                           fontSize: 16,
-//                           fontWeight: FontWeight.bold,
-//                           color: Colors.black87,
-//                         ),
-//                       ),
-//                       if (attributes['description'] != null && attributes['description'].toString().isNotEmpty)
-//                         Padding(
-//                           padding: const EdgeInsets.only(top: 4),
-//                           child: Text(
-//                             attributes['description'],
-//                             style: const TextStyle(color: Colors.grey),
-//                           ),
-//                         ),
-//                       if (attributes['starting_price'] != null)
-//                         Padding(
-//                           padding: const EdgeInsets.only(top: 8),
-//                           child: Text(
-//                             "Starting Price: ₹${attributes['starting_price']}",
-//                             style: const TextStyle(
-//                                 fontSize: 14,
-//                                 fontWeight: FontWeight.bold,
-//                                 color: Colors.black87),
-//                           ),
-//                         ),
-//                       const SizedBox(height: 12),
-//                       Row(
-//                         children: [
-//                           Expanded(
-//                             child: Container(
-//                               padding: const EdgeInsets.symmetric(vertical: 12),
-//                               decoration: BoxDecoration(
-//                                 border: Border.all(color: const Color(0xFFE91E63)),
-//                                 borderRadius: BorderRadius.circular(6),
-//                               ),
-//                               child: const Row(
-//                                 mainAxisAlignment: MainAxisAlignment.center,
-//                                 children: [
-//                                   Icon(Icons.message, color: Color(0xFFE91E63), size: 18),
-//                                   SizedBox(width: 8),
-//                                   Text(
-//                                     'Message',
-//                                     style: TextStyle(
-//                                       color: Color(0xFFE91E63),
-//                                       fontWeight: FontWeight.w600,
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                             ),
-//                           ),
-//                           const SizedBox(width: 8),
-//                           Container(
-//                             padding: const EdgeInsets.all(12),
-//                             decoration: BoxDecoration(
-//                               color: Colors.green,
-//                               borderRadius: BorderRadius.circular(6),
-//                             ),
-//                             child: const Icon(Icons.phone, color: Colors.white, size: 18),
-//                           ),
-//                         ],
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import 'package:flutter/material.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:url_launcher/url_launcher.dart';
-// import 'chat_service.dart';
-// import 'chat_screen.dart';
-/////////////////////////////////////////////////////////////////////////////////////
-// class VendorDetailsScreen extends StatefulWidget {
-//   final dynamic service;
-//
-//   const VendorDetailsScreen({Key? key, required this.service}) : super(key: key);
-//
-//   @override
-//   _VendorDetailsScreenState createState() => _VendorDetailsScreenState();
-// }
-//
-// class _VendorDetailsScreenState extends State<VendorDetailsScreen>
-//     with SingleTickerProviderStateMixin {
-//   final PageController _pageController = PageController();
-//   int _currentImageIndex = 0;
-//   late AnimationController _animationController;
-//
-//   DateTime? selectedDate;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _animationController = AnimationController(
-//       duration: const Duration(milliseconds: 1500),
-//       vsync: this,
-//     )..forward();
-//   }
-//
-//   @override
-//   void dispose() {
-//     _animationController.dispose();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final service = widget.service;
-//     final vendor = service['vendor'] ?? {};
-//     final attributes = service['attributes'] ?? {};
-//     final media = service['media'] ?? {};
-//     final String vendorId = vendor['id']?.toString() ?? '';
-//     final String vendorName = vendor['businessName']?.toString() ?? 'Vendor';
-//     final String vendorPhone = vendor['phone']?.toString() ?? '';
-//
-//     // ✅ Build image list (coverImage + gallery)
-//     final List<String> images = [];
-//
-//     // 1️⃣ Add cover image (if exists)
-//     if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-//       final coverImage = media['coverImage'].toString();
-//       final coverUrl = coverImage.startsWith('/uploads/')
-//           ? "https://happywedzbackend.happywedz.com$coverImage"
-//           : coverImage;
-//       images.add(coverUrl);
-//     }
-//
-//     // 2️⃣ Add gallery images
-//     if (media['gallery'] != null && media['gallery'] is List) {
-//       for (var item in media['gallery']) {
-//         if (item is String && item.startsWith('/uploads/')) {
-//           images.add("https://happywedzbackend.happywedz.com$item");
-//         } else if (item is Map && item['url'] != null) {
-//           final url = item['url'].toString();
-//           images.add(url.startsWith('/uploads/')
-//               ? "https://happywedzbackend.happywedz.com$url"
-//               : url);
-//         }
-//       }
-//     }
-//
-//     // 3️⃣ Fallback image
-//     if (images.isEmpty) {
-//       images.add('https://via.placeholder.com/400x300');
-//     }
-//
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       body: CustomScrollView(
-//         slivers: [
-//           // Sliver AppBar with image carousel
-//           SliverAppBar(
-//             expandedHeight: 300,
-//             pinned: true,
-//             backgroundColor: Colors.pink,
-//             leading: Container(
-//               margin: const EdgeInsets.all(8),
-//               decoration: BoxDecoration(
-//                 color: Colors.black26,
-//                 borderRadius: BorderRadius.circular(20),
-//               ),
-//               child: IconButton(
-//                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-//                 onPressed: () => Navigator.pop(context),
-//               ),
-//             ),
-//             actions: [
-//               Container(
-//                 margin: const EdgeInsets.all(8),
-//                 decoration: BoxDecoration(
-//                   color: Colors.black26,
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//                 child: IconButton(
-//                   icon: const Icon(Icons.share, color: Colors.white),
-//                   onPressed: () {},
-//                 ),
-//               ),
-//             ],
-//             flexibleSpace: FlexibleSpaceBar(
-//               background: Stack(
-//                 fit: StackFit.expand,
-//                 children: [
-//                   PageView.builder(
-//                     controller: _pageController,
-//                     onPageChanged: (index) {
-//                       setState(() => _currentImageIndex = index);
-//                     },
-//                     itemCount: images.length,
-//                     itemBuilder: (context, index) {
-//                       return Image.network(
-//                         images[index],
-//                         fit: BoxFit.cover,
-//                         errorBuilder: (context, error, stackTrace) {
-//                           return Container(
-//                             color: Colors.grey[300],
-//                             child: const Icon(Icons.image, size: 50, color: Colors.white),
-//                           );
-//                         },
-//                       );
-//                     },
-//                   ),
-//                   // Page indicators
-//                   Positioned(
-//                     bottom: 20,
-//                     left: 0,
-//                     right: 0,
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.center,
-//                       children: List.generate(images.length, (index) {
-//                         return AnimatedContainer(
-//                           duration: const Duration(milliseconds: 300),
-//                           margin: const EdgeInsets.symmetric(horizontal: 4),
-//                           height: 8,
-//                           width: _currentImageIndex == index ? 24 : 8,
-//                           decoration: BoxDecoration(
-//                             color: _currentImageIndex == index
-//                                 ? Colors.white
-//                                 : Colors.white54,
-//                             borderRadius: BorderRadius.circular(4),
-//                           ),
-//                         );
-//                       }),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           // Content Section
-//           SliverToBoxAdapter(
-//             child: Padding(
-//               padding: const EdgeInsets.all(20),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   // Vendor Name and Rating
-//                   Row(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Expanded(
-//                         child: Column(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           children: [
-//                             Text(
-//                               vendor['businessName'] ?? "No Name",
-//                               style: const TextStyle(
-//                                 fontSize: 24,
-//                                 fontWeight: FontWeight.bold,
-//                                 color: Colors.black87,
-//                               ),
-//                             ),
-//                             const SizedBox(height: 8),
-//                             Row(
-//                               children: [
-//                                 const Icon(Icons.star, color: Colors.orange, size: 20),
-//                                 const SizedBox(width: 4),
-//                                 Text(
-//                                   vendor['rating']?.toString() ?? '5.0 Review Score',
-//                                   style: TextStyle(
-//                                     fontSize: 14,
-//                                     color: Colors.grey[600],
-//                                   ),
-//                                 ),
-//                               ],
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                       IconButton(
-//                         onPressed: () {},
-//                         icon: Icon(Icons.favorite_border, color: Colors.grey[400], size: 28),
-//                       ),
-//                     ],
-//                   ),
-//
-//                   const SizedBox(height: 16),
-//
-//                   // Location
-//                   if (attributes['location'] != null &&
-//                       attributes['location']['city'] != null)
-//                     Row(
-//                       children: [
-//                         const Icon(Icons.location_on, color: Colors.green, size: 20),
-//                         const SizedBox(width: 8),
-//                         Text(
-//                           '${attributes['location']['city']}, ${attributes['location']['state'] ?? ""}',
-//                           style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-//                         ),
-//                       ],
-//                     ),
-//
-//                   const SizedBox(height: 24),
-//
-//                   // About
-//                   if (attributes['description'] != null)
-//                     Column(
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         const Text(
-//                           'About',
-//                           style: TextStyle(
-//                             fontSize: 18,
-//                             fontWeight: FontWeight.w600,
-//                             color: Colors.black87,
-//                           ),
-//                         ),
-//                         const SizedBox(height: 12),
-//                         Text(
-//                           attributes['description'],
-//                           style: TextStyle(
-//                             fontSize: 14,
-//                             color: Colors.grey[700],
-//                             height: 1.5,
-//                           ),
-//                         ),
-//                         const SizedBox(height: 24),
-//                       ],
-//                     ),
-//
-//                   // Starting Price
-//                   if (attributes['starting_price'] != null)
-//                     Text(
-//                       'Starting Price: ₹${attributes['starting_price']}',
-//                       style: const TextStyle(
-//                         fontSize: 16,
-//                         fontWeight: FontWeight.bold,
-//                         color: Colors.black87,
-//                       ),
-//                     ),
-//
-//                   const SizedBox(height: 24),
-//
-//                   // Albums
-//                   const Text(
-//                     'Albums',
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.w600,
-//                       color: Colors.black87,
-//                     ),
-//                   ),
-//                   const SizedBox(height: 12),
-//
-//                   SizedBox(
-//                     height: 100,
-//                     child: ListView.builder(
-//                       scrollDirection: Axis.horizontal,
-//                       itemCount: media['gallery'] != null ? media['gallery'].length : 0,
-//                       itemBuilder: (context, index) {
-//                         final item = media['gallery'][index];
-//                         String? imageUrl;
-//
-//                         if (item is String && item.startsWith('/uploads/')) {
-//                           imageUrl = "https://happywedzbackend.happywedz.com$item";
-//                         } else if (item is Map && item['url'] != null) {
-//                           final url = item['url'].toString();
-//                           imageUrl = url.startsWith('/uploads/')
-//                               ? "https://happywedzbackend.happywedz.com$url"
-//                               : url;
-//                         }
-//
-//                         return Container(
-//                           width: 100,
-//                           margin: const EdgeInsets.only(right: 12),
-//                           decoration: BoxDecoration(
-//                             borderRadius: BorderRadius.circular(12),
-//                             color: Colors.grey[300],
-//                             image: imageUrl != null
-//                                 ? DecorationImage(
-//                               image: NetworkImage(imageUrl),
-//                               fit: BoxFit.cover,
-//                             )
-//                                 : null,
-//                           ),
-//                           child: imageUrl == null
-//                               ? const Icon(Icons.image, color: Colors.white, size: 30)
-//                               : null,
-//                         );
-//                       },
-//                     ),
-//                   ),
-//
-//                   const SizedBox(height: 32),
-//
-//                   _buildCheckAvailability(),
-//
-//                   const SizedBox(height: 32),
-//
-//                   // ✅ Message and Call buttons
-//                   Row(
-//                     children: [
-//                       Expanded(
-//                         child: GestureDetector(
-//                           onTap: () async {
-//                             // ✅ Ensure user is logged in
-//                             User? currentUser = FirebaseAuth.instance.currentUser;
-//                             if (currentUser == null) {
-//                               try {
-//                                 final userCredential = await FirebaseAuth.instance.signInAnonymously();
-//                                 currentUser = userCredential.user;
-//                                 print("✅ Signed in anonymously: ${currentUser?.uid}");
-//                               } catch (e) {
-//                                 ScaffoldMessenger.of(context).showSnackBar(
-//                                   SnackBar(content: Text('Failed to sign in anonymously: $e')),
-//                                 );
-//                                 return;
-//                               }
-//                             }
-//
-//                             // ✅ Get or create chat
-//                             final chatService = ChatService();
-//                             final chatId = await chatService.createOrGetChat(vendorId);
-//
-//                             if (chatId.isEmpty) {
-//                               ScaffoldMessenger.of(context).showSnackBar(
-//                                 const SnackBar(content: Text('Failed to open chat. Please try again.')),
-//                               );
-//                               return;
-//                             }
-//
-//                             // ✅ Mark all unseen messages as seen before opening chat
-//                             await chatService.markMessagesSeen(chatId);
-//
-//                             // ✅ Navigate to ChatScreen
-//                             Navigator.push(
-//                               context,
-//                               MaterialPageRoute(
-//                                 builder: (_) => ChatScreen(
-//                                   chatId: chatId,
-//                                   otherUserName: vendorName,
-//                                 ),
-//                               ),
-//                             );
-//                           },
-//                           child: Container(
-//                             padding: const EdgeInsets.symmetric(vertical: 16),
-//                             decoration: BoxDecoration(
-//                               color: Colors.pink,
-//                               borderRadius: BorderRadius.circular(12),
-//                             ),
-//                             child: const Row(
-//                               mainAxisAlignment: MainAxisAlignment.center,
-//                               children: [
-//                                 Icon(Icons.message, color: Colors.white, size: 20),
-//                                 SizedBox(width: 8),
-//                                 Text(
-//                                   'Message',
-//                                   style: TextStyle(
-//                                     color: Colors.white,
-//                                     fontWeight: FontWeight.w600,
-//                                     fontSize: 16,
-//                                   ),
-//                                 ),
-//                               ],
-//                             ),
-//                           ),
-//                         ),
-//                       ),
-//                       const SizedBox(width: 16),
-//                       GestureDetector(
-//                         onTap: () async {
-//                           final Uri url = Uri(scheme: 'tel', path: vendorPhone);
-//                           if (await canLaunchUrl(url)) {
-//                             await launchUrl(url);
-//                           } else {
-//                             ScaffoldMessenger.of(context).showSnackBar(
-//                               const SnackBar(content: Text('Cannot make a call')),
-//                             );
-//                           }
-//                         },
-//                         child: Container(
-//                           padding: const EdgeInsets.all(16),
-//                           decoration: BoxDecoration(
-//                             color: Colors.green,
-//                             borderRadius: BorderRadius.circular(12),
-//                           ),
-//                           child: const Icon(Icons.phone, color: Colors.white, size: 24),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // 📅 Date Picker Section
-//   Widget _buildCheckAvailability() {
-//     return Container(
-//       padding: const EdgeInsets.all(20),
-//       decoration: BoxDecoration(
-//         color: Colors.grey[50],
-//         borderRadius: BorderRadius.circular(16),
-//         border: Border.all(color: Colors.grey[200]!),
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           const Text(
-//             'Check Availability',
-//             style: TextStyle(
-//               fontSize: 18,
-//               fontWeight: FontWeight.w600,
-//               color: Colors.black87,
-//             ),
-//           ),
-//           const SizedBox(height: 16),
-//           Row(
-//             children: [
-//               Expanded(
-//                 child: GestureDetector(
-//                   onTap: _selectDate,
-//                   child: Container(
-//                     padding:
-//                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-//                     decoration: BoxDecoration(
-//                       color: Colors.white,
-//                       borderRadius: BorderRadius.circular(8),
-//                       border: Border.all(color: Colors.grey[300]!),
-//                     ),
-//                     child: Row(
-//                       children: [
-//                         Icon(Icons.calendar_today,
-//                             color: Colors.grey[500], size: 18),
-//                         const SizedBox(width: 8),
-//                         Text(
-//                           selectedDate != null
-//                               ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
-//                               : 'Select Date',
-//                           style: TextStyle(
-//                             color: selectedDate != null
-//                                 ? Colors.black87
-//                                 : Colors.grey[500],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//               const SizedBox(width: 12),
-//               Container(
-//                 padding:
-//                 const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-//                 decoration: BoxDecoration(
-//                   color: Colors.pink,
-//                   borderRadius: BorderRadius.circular(8),
-//                 ),
-//                 child: const Text(
-//                   'Check Dates',
-//                   style: TextStyle(
-//                     color: Colors.white,
-//                     fontWeight: FontWeight.w600,
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // 📆 Date Picker Logic
-//   Future<void> _selectDate() async {
-//     final DateTime? picked = await showDatePicker(
-//       context: context,
-//       initialDate: DateTime.now(),
-//       firstDate: DateTime.now(),
-//       lastDate: DateTime(2030),
-//       builder: (context, child) {
-//         return Theme(
-//           data: Theme.of(context).copyWith(
-//             colorScheme: const ColorScheme.light(
-//               primary: Colors.pink,
-//               onPrimary: Colors.white,
-//               surface: Colors.white,
-//               onSurface: Colors.black87,
-//             ),
-//           ),
-//           child: child!,
-//         );
-//       },
-//     );
-//     if (picked != null && picked != selectedDate) {
-//       setState(() => selectedDate = picked);
-//     }
-//   }
-// }
-
-// ///////////////////////////////////////////////////////////////////
 
 
 
@@ -1872,6 +568,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
   DateTime? _selectedDate;
   bool _isShortlisted = false;
   String? currentUserId; // ✅ store logged-in user id
+
   @override
   void initState() {
     super.initState();
@@ -1955,7 +652,13 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
     final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
     final String address = (attributes['address'] ?? attributes['Address'] ?? '').toString();
-    final String about = (attributes['about_us'] ?? attributes['Aboutus'] ?? '').toString();
+    final String aboutRaw = (attributes['about_us'] ?? attributes['Aboutus'] ?? '').toString();
+    final String about = aboutRaw
+        .replaceAll(r'\n', '')
+        .replaceAll(r'\"', '"')
+        .replaceAll(r'\\', '')
+        .trim();
+
     final String phone = (vendor['phone'] ?? attributes['Phone'] ?? '').toString();
     final double rating = double.tryParse((vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ?? 0.0;
     final int reviewCount = int.tryParse((vendor['review_count'] ?? attributes['review'] ?? '0').toString()) ?? 0;
@@ -2147,6 +850,9 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
                     Expanded(child: Text(city + (address.isNotEmpty ? ' · $address' : ''), style: const TextStyle(color: Colors.grey))),
                   ]),
 
+
+
+
                   const SizedBox(height: 8),
 
                   // Rating and Reviews
@@ -2165,6 +871,10 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
 
                   const SizedBox(height: 12),
 
+
+
+                  const SizedBox(height: 8),
+
                   // Quick info chips - dynamic based on vendor type
                   Wrap(spacing: 8, runSpacing: 8, children: [
                     _infoChip(vendorType, Icons.business),
@@ -2181,6 +891,33 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
                     if (isDJ && _hasValue(priceRange))
                       _infoChip(priceRange, Icons.music_note),
                   ]),
+                  const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Claim Your Business clicked (demo)')),
+              );
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BusinessClaimForm(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pink,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Claim Your Business',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+
+          const SizedBox(height: 12),
 
                   const SizedBox(height: 16),
 
@@ -2359,23 +1096,84 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
 
                   // About
                   if (_hasValue(about)) ...[
-                    const Text('About', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'About',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 8),
+
                     AnimatedCrossFade(
-                      firstChild: Text(about, maxLines: 4, overflow: TextOverflow.ellipsis, style: const TextStyle(height: 1.4)),
-                      secondChild: Text(about, style: const TextStyle(height: 1.4)),
-                      crossFadeState: _aboutExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                      firstChild: SizedBox(
+                        height: 180,
+                        child: SingleChildScrollView(
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Html(
+                            data: about,
+                            style: {
+                              "body": Style(
+                                margin: Margins.zero,
+                                padding: HtmlPaddings.zero,
+                                fontSize: FontSize(15),
+                                lineHeight: LineHeight(1.6),
+                                color: Colors.black87,
+                              ),
+                              "h5": Style(
+                                fontSize: FontSize(18),
+                                fontWeight: FontWeight.bold,
+                                margin: Margins.only(top: 12, bottom: 6),
+                                color: Colors.black,
+                              ),
+                              "ul": Style(
+                                padding: HtmlPaddings.only(left: 20),
+                              ),
+                              "li": Style(
+                                margin: Margins.only(bottom: 6),
+                              ),
+                            },
+                          ),
+                        ),
+                      ),
+                      secondChild: Html(
+                        data: about,
+                        style: {
+                          "body": Style(
+                            margin: Margins.zero,
+                            padding: HtmlPaddings.zero,
+                            fontSize: FontSize(15),
+                            lineHeight: LineHeight(1.6),
+                            color: Colors.black87,
+                          ),
+                          "h5": Style(
+                            fontSize: FontSize(18),
+                            fontWeight: FontWeight.bold,
+                            margin: Margins.only(top: 12, bottom: 6),
+                            color: Colors.black,
+                          ),
+                          "ul": Style(
+                            padding: HtmlPaddings.only(left: 20),
+                          ),
+                          "li": Style(
+                            margin: Margins.only(bottom: 6),
+                          ),
+                        },
+                      ),
+                      crossFadeState:
+                      _aboutExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
                       duration: const Duration(milliseconds: 300),
                     ),
-                    if (about.length > 200)
+
+                    if ((parse(about).body?.text.length ?? 0) > 250)
                       TextButton(
                         onPressed: () => setState(() => _aboutExpanded = !_aboutExpanded),
                         child: Text(_aboutExpanded ? 'Read less' : 'Read more'),
                       ),
-                  ],
+                  ]
+
+
+
 
                   // Policies (only for venues)
-                  if (isVenue && (_hasValue(decorPolicy) || _hasValue(cateringPolicy))) ...[
+                  ,if (isVenue && (_hasValue(decorPolicy) || _hasValue(cateringPolicy))) ...[
                     const SizedBox(height: 12),
                     const Text('Policies', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
@@ -2403,58 +1201,99 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: Colors.white,
         child: SafeArea(
-          child: Row(children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  if (currentUserId == null || currentUserId!.isEmpty) {
-                    // 🚀 Redirect user to SignInScreen
+          child: Row(
+            children: [
+              // Write a Review button
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    if (currentUserId == null || currentUserId!.isEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignInScreen()),
+                      );
+                      return;
+                    }
+
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const SignInScreen()),
-                    );
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatPage(
-                        currentUid: currentUserId!,   // <-- logged in user
-                        otherUid: vendorId,          // <-- vendor’s unique id
-                        otherName: vendorName,       // <-- vendor’s display name
+                      MaterialPageRoute(
+                        builder: (_) => RecommendVendorScreen(
+                          vendorId: vendorId,                 // dynamic from vendor details
+                          vendorName: vendorName,             // dynamic vendor name
+                          vendorImage: images.isNotEmpty ? images[0] : null, // first image if exists
+                          currentUserId: currentUserId,       // optional (pass user id if your API needs)
+                        ),
                       ),
-                    ),
-                  );
+                    );
 
-                },
+                  },
+                  icon: const Icon(Icons.rate_review, color: Colors.pink),
+                  label: const Text('Write a\nReview', style: TextStyle(color: Colors.pink)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.pink),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
 
-                icon: const Icon(Icons.message, color: Colors.pink),
-                label: const Text('Message', style: TextStyle(color: Colors.pink)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.pink),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              const SizedBox(width: 12),
+
+              // Message button
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    if (currentUserId == null || currentUserId!.isEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignInScreen()),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatPage(
+                          currentUid: currentUserId!,
+                          otherUid: vendorId,
+                          otherName: vendorName,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.message, color: Colors.pink),
+                  label: const Text('Message', style: TextStyle(color: Colors.pink)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.pink),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              width: 56,
-              height: 48,
-              decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(8)),
-              child: IconButton(
-                icon: const Icon(Icons.phone, color: Colors.white),
-                onPressed: () {
-                  if (phone.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone not available')));
-                    return;
-                  }
-                  _call(phone);
-                },
+              const SizedBox(width: 12),
+
+              // Call button
+              Container(
+                width: 56,
+                height: 48,
+                decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(8)),
+                child: IconButton(
+                  icon: const Icon(Icons.phone, color: Colors.white),
+                  onPressed: () {
+                    if (phone.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Phone not available')),
+                      );
+                      return;
+                    }
+                    _call(phone);
+                  },
+                ),
               ),
-            )
-          ]),
+            ],
+          ),
         ),
       ),
+
     );
   }
 
@@ -2661,532 +1500,3 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// class VendorDetailsScreen extends StatefulWidget {
-//   final dynamic service; // Pass the selected service/vendor
-//
-//   const VendorDetailsScreen({Key? key, required this.service}) : super(key: key);
-//
-//   @override
-//   _VendorDetailsScreenState createState() => _VendorDetailsScreenState();
-// }
-//
-// class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTickerProviderStateMixin {
-//   PageController _pageController = PageController();
-//   int _currentImageIndex = 0;
-//   late AnimationController _animationController;
-//
-//   DateTime? selectedDate;
-//   List<String> selectedImages = [];
-//   int selectedRating = 0;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _animationController = AnimationController(
-//       duration: const Duration(milliseconds: 1500),
-//       vsync: this,
-//     );
-//     _animationController.forward();
-//   }
-//
-//   @override
-//   void dispose() {
-//     _animationController.dispose();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final service = widget.service;
-//     final vendor = service['vendor'] ?? {};
-//     final attributes = service['attributes'] ?? {};
-//     final media = service['media'] ?? {};
-//
-//     // // Images list for carousel
-//     // final List<String> images = [
-//     //   if (media['coverImage'] != null && media['coverImage'] != "")
-//     //     "https://happywedz.com/api/${media['coverImage']}"
-//     //   else
-//     //     'https://via.placeholder.com/400x300',
-//     //   // You can add more images from media['images'] if available
-//     // ];
-//     // 👇 Add this block right here
-//     print("🔍 MEDIA OBJECT:");
-//     print(media);
-//
-//     // Debug cover image URL
-//     if (media['coverImage'] != null) {
-//       final coverImage = media['coverImage'].toString();
-//       final coverUrl = coverImage.startsWith('/uploads/')
-//           ? "https://happywedzbackend.happywedz.com$coverImage"
-//           : coverImage;
-//       print("🖼️ Cover Image URL => $coverUrl");
-//     } else {
-//       print("⚠️ No coverImage found in media");
-//     }
-//
-//     // Debug gallery images
-//     if (media['images'] != null && media['images'] is List) {
-//       print("🖼️ Gallery Images:");
-//       for (var img in media['images']) {
-//         if (img != null) {
-//           final imageUrl = img.toString().startsWith('/uploads/')
-//               ? "https://happywedzbackend.happywedz.com$img"
-//               : img.toString();
-//           print("   ➤ $imageUrl");
-//         }
-//       }
-//     } else {
-//       print("⚠️ No gallery images found or 'images' is not a List");
-//     }
-//
-//     // 👇 your existing code continues normally below this
-//     // Images list for carousel
-//     final List<String> images = [];
-//
-//     if (media['coverImage'] != null && media['coverImage'] != "") {
-//       final coverImage = media['coverImage'].toString();
-//       images.add(
-//         coverImage.startsWith('/uploads/')
-//             ? "https://happywedzbackend.happywedz.com$coverImage"
-//             : coverImage,
-//       );
-//     } else {
-//       images.add('https://via.placeholder.com/400x300');
-//     }
-//
-//     if (media['images'] != null && media['images'] is List) {
-//       for (var img in media['images']) {
-//         if (img is String && img.startsWith('/uploads/')) {
-//           images.add("https://happywedzbackend.happywedz.com$img");
-//         }
-//       }
-//     }
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       body: CustomScrollView(
-//         slivers: [
-//           // Sliver AppBar with image carousel
-//           SliverAppBar(
-//             expandedHeight: 300,
-//             pinned: true,
-//             backgroundColor: Colors.pink,
-//             leading: Container(
-//               margin: const EdgeInsets.all(8),
-//               decoration: BoxDecoration(
-//                 color: Colors.black26,
-//                 borderRadius: BorderRadius.circular(20),
-//               ),
-//               child: IconButton(
-//                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-//                 onPressed: () => Navigator.pop(context),
-//               ),
-//             ),
-//             actions: [
-//               Container(
-//                 margin: const EdgeInsets.all(8),
-//                 decoration: BoxDecoration(
-//                   color: Colors.black26,
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//                 child: IconButton(
-//                   icon: const Icon(Icons.share, color: Colors.white),
-//                   onPressed: () {},
-//                 ),
-//               ),
-//             ],
-//             flexibleSpace: FlexibleSpaceBar(
-//               background: Stack(
-//                 fit: StackFit.expand,
-//                 children: [
-//                   PageView.builder(
-//                     controller: _pageController,
-//                     onPageChanged: (index) {
-//                       setState(() {
-//                         _currentImageIndex = index;
-//                       });
-//                     },
-//                     itemCount: images.length,
-//                     itemBuilder: (context, index) {
-//                       return Image.network(
-//                         images[index],
-//                         fit: BoxFit.cover,
-//                         errorBuilder: (context, error, stackTrace) {
-//                           return Container(
-//                             color: Colors.grey[300],
-//                             child: const Icon(Icons.image, size: 50, color: Colors.white),
-//                           );
-//                         },
-//                       );
-//                     },
-//                   ),
-//                   // Page indicators
-//                   Positioned(
-//                     bottom: 20,
-//                     left: 0,
-//                     right: 0,
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.center,
-//                       children: List.generate(images.length, (index) {
-//                         return AnimatedContainer(
-//                           duration: const Duration(milliseconds: 300),
-//                           margin: const EdgeInsets.symmetric(horizontal: 4),
-//                           height: 8,
-//                           width: _currentImageIndex == index ? 24 : 8,
-//                           decoration: BoxDecoration(
-//                             color: _currentImageIndex == index
-//                                 ? Colors.white
-//                                 : Colors.white54,
-//                             borderRadius: BorderRadius.circular(4),
-//                           ),
-//                         );
-//                       }),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           // Content
-//           SliverToBoxAdapter(
-//             child: Padding(
-//               padding: const EdgeInsets.all(20),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   // Vendor Title and Rating
-//                   Row(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Expanded(
-//                         child: Column(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           children: [
-//                             Text(
-//                               vendor['businessName'] ?? "No Name",
-//                               style: const TextStyle(
-//                                 fontSize: 24,
-//                                 fontWeight: FontWeight.bold,
-//                                 color: Colors.black87,
-//                               ),
-//                             ),
-//                             const SizedBox(height: 8),
-//                             Row(
-//                               children: [
-//                                 const Icon(Icons.star, color: Colors.orange, size: 20),
-//                                 const SizedBox(width: 4),
-//                                 Text(
-//                                 vendor['rating'] ?? '5.0 Review Score',
-//                                   style: TextStyle(
-//                                     fontSize: 14,
-//                                     color: Colors.grey[600],
-//                                   ),
-//                                 ),
-//                               ],
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                       IconButton(
-//                         onPressed: () {},
-//                         icon: Icon(Icons.favorite_border, color: Colors.grey[400], size: 28),
-//                       ),
-//                     ],
-//                   ),
-//
-//                   const SizedBox(height: 16),
-//
-//                   // Location
-//                   if (attributes['location'] != null && attributes['location']['city'] != null)
-//                     Row(
-//                       children: [
-//                         const Icon(Icons.location_on, color: Colors.green, size: 20),
-//                         const SizedBox(width: 8),
-//                         Text(
-//                           '${attributes['location']['city']}, ${attributes['location']['state'] ?? ""}',
-//                           style: TextStyle(
-//                             fontSize: 14,
-//                             color: Colors.grey[700],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//
-//                   const SizedBox(height: 24),
-//
-//                   // About
-//                   if (attributes['description'] != null)
-//                     Column(
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         const Text(
-//                           'About',
-//                           style: TextStyle(
-//                             fontSize: 18,
-//                             fontWeight: FontWeight.w600,
-//                             color: Colors.black87,
-//                           ),
-//                         ),
-//                         const SizedBox(height: 12),
-//                         Text(
-//                           attributes['description'],
-//                           style: TextStyle(
-//                             fontSize: 14,
-//                             color: Colors.grey[700],
-//                             height: 1.5,
-//                           ),
-//                         ),
-//                         const SizedBox(height: 24),
-//                       ],
-//                     ),
-//
-//                   // Starting Price
-//                   if (attributes['starting_price'] != null)
-//                     Text(
-//                       'Starting Price: ₹${attributes['starting_price']}',
-//                       style: const TextStyle(
-//                         fontSize: 16,
-//                         fontWeight: FontWeight.bold,
-//                         color: Colors.black87,
-//                       ),
-//                     ),
-//
-//                   const SizedBox(height: 24),
-//
-//                   // Albums / Gallery
-//                   const Text(
-//                     'Albums',
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.w600,
-//                       color: Colors.black87,
-//                     ),
-//                   ),
-//                   const SizedBox(height: 12),
-//                   // SizedBox(
-//                   //   height: 100,
-//                   //   child: ListView.builder(
-//                   //     scrollDirection: Axis.horizontal,
-//                   //     itemCount: 4,
-//                   //     itemBuilder: (context, index) {
-//                   //       return Container(
-//                   //         width: 100,
-//                   //         margin: const EdgeInsets.only(right: 12),
-//                   //         decoration: BoxDecoration(
-//                   //           borderRadius: BorderRadius.circular(12),
-//                   //           color: Colors.grey[300],
-//                   //           image: media['images'] != null &&
-//                   //               index < media['images'].length
-//                   //               ? DecorationImage(
-//                   //             image: NetworkImage(
-//                   //               "https://happywedz.com/api/${media['images'][index]}",
-//                   //             ),
-//                   //             fit: BoxFit.cover,
-//                   //           )
-//                   //               : null,
-//                   //         ),
-//                   //         child: media['images'] == null ||
-//                   //             index >= media['images'].length
-//                   //             ? const Icon(Icons.image, color: Colors.white, size: 30)
-//                   //             : null,
-//                   //       );
-//                   //     },
-//                   //   ),
-//                   // ),
-//                   SizedBox(
-//                     height: 100,
-//                     child: ListView.builder(
-//                       scrollDirection: Axis.horizontal,
-//                       itemCount: media['images'] != null ? media['images'].length : 0,
-//                       itemBuilder: (context, index) {
-//                         final img = media['images'][index];
-//                         final imageUrl = img != null && img.toString().startsWith('/uploads/')
-//                             ? "https://happywedzbackend.happywedz.com$img"
-//                             : img ?? 'https://via.placeholder.com/400x300';
-//
-//                         return Container(
-//                           width: 100,
-//                           margin: const EdgeInsets.only(right: 12),
-//                           decoration: BoxDecoration(
-//                             borderRadius: BorderRadius.circular(12),
-//                             color: Colors.grey[300],
-//                             image: DecorationImage(
-//                               image: NetworkImage(imageUrl),
-//                               fit: BoxFit.cover,
-//                             ),
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                   ),
-//
-//                   const SizedBox(height: 32),
-//
-//                   // Check Availability
-//                   _buildCheckAvailability(),
-//
-//                   const SizedBox(height: 32),
-//
-//                   // Action Buttons (Message / Call)
-//                   Row(
-//                     children: [
-//                       Expanded(
-//                         child: Container(
-//                           padding: const EdgeInsets.symmetric(vertical: 16),
-//                           decoration: BoxDecoration(
-//                             color: Colors.pink,
-//                             borderRadius: BorderRadius.circular(12),
-//                           ),
-//                           child: Row(
-//                             mainAxisAlignment: MainAxisAlignment.center,
-//                             children: const [
-//                               Icon(Icons.message, color: Colors.white, size: 20),
-//                               SizedBox(width: 8),
-//                               Text(
-//                                 'Message',
-//                                 style: TextStyle(
-//                                   color: Colors.white,
-//                                   fontWeight: FontWeight.w600,
-//                                   fontSize: 16,
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//                       ),
-//                       const SizedBox(width: 16),
-//                       Container(
-//                         padding: const EdgeInsets.all(16),
-//                         decoration: BoxDecoration(
-//                           color: Colors.green,
-//                           borderRadius: BorderRadius.circular(12),
-//                         ),
-//                         child: const Icon(Icons.phone, color: Colors.white, size: 24),
-//                       ),
-//                     ],
-//                   ),
-//
-//                   const SizedBox(height: 32),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // Check Availability Widget
-//   Widget _buildCheckAvailability() {
-//     return Container(
-//       padding: const EdgeInsets.all(20),
-//       decoration: BoxDecoration(
-//         color: Colors.grey[50],
-//         borderRadius: BorderRadius.circular(16),
-//         border: Border.all(color: Colors.grey[200]!),
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           const Text(
-//             'Check Availability',
-//             style: TextStyle(
-//               fontSize: 18,
-//               fontWeight: FontWeight.w600,
-//               color: Colors.black87,
-//             ),
-//           ),
-//           const SizedBox(height: 16),
-//           Row(
-//             children: [
-//               Expanded(
-//                 child: GestureDetector(
-//                   onTap: _selectDate,
-//                   child: Container(
-//                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-//                     decoration: BoxDecoration(
-//                       color: Colors.white,
-//                       borderRadius: BorderRadius.circular(8),
-//                       border: Border.all(color: Colors.grey[300]!),
-//                     ),
-//                     child: Row(
-//                       children: [
-//                         Icon(Icons.calendar_today, color: Colors.grey[500], size: 18),
-//                         const SizedBox(width: 8),
-//                         Text(
-//                           selectedDate != null
-//                               ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
-//                               : 'Select Date',
-//                           style: TextStyle(
-//                             color: selectedDate != null ? Colors.black87 : Colors.grey[500],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//               const SizedBox(width: 12),
-//               Container(
-//                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-//                 decoration: BoxDecoration(
-//                   color: Colors.pink,
-//                   borderRadius: BorderRadius.circular(8),
-//                 ),
-//                 child: const Text(
-//                   'Check Dates',
-//                   style: TextStyle(
-//                     color: Colors.white,
-//                     fontWeight: FontWeight.w600,
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Future<void> _selectDate() async {
-//     final DateTime? picked = await showDatePicker(
-//       context: context,
-//       initialDate: DateTime.now(),
-//       firstDate: DateTime.now(),
-//       lastDate: DateTime(2030),
-//       builder: (context, child) {
-//         return Theme(
-//           data: Theme.of(context).copyWith(
-//             colorScheme: ColorScheme.light(
-//               primary: Colors.pink,
-//               onPrimary: Colors.white,
-//               surface: Colors.white,
-//               onSurface: Colors.black87,
-//             ),
-//           ),
-//           child: child!,
-//         );
-//       },
-//     );
-//     if (picked != null && picked != selectedDate) {
-//       setState(() {
-//         selectedDate = picked;
-//       });
-//     }
-//   }
-// }

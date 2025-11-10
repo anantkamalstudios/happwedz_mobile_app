@@ -1458,9 +1458,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../DecorationScreen.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../designstudio.dart';
+import '../einvite1/einvite.dart';
 import '../favscreen.dart';
 import '../fetch_location.dart';
 import '../ideas.dart';
+import '../main.dart';
 import '../mkp.dart';
 import '../profile.dart';
 import '../vendor/makeup.dart';
@@ -2505,7 +2507,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   String? _selectedState;
   String? _selectedCity;
   bool _showSearch = false;
-
+  List<Venue> allVenues = []; // full list from API
+  List<Venue> filteredVenues = []; // filtered & displayed
+  final TextEditingController _venueSearchController = TextEditingController();
 
   bool _isLoadingCities = false;
 
@@ -2932,14 +2936,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
+                    // color: Colors.white.withOpacity(0.2),
+                    // shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    _showSearch ? Icons.close : Icons.search,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  // child: Icon(
+                  //   _showSearch ? Icons.close : Icons.search,
+                  //   color: Colors.white,
+                  //   size: 20,
+                  // ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -3328,14 +3332,25 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         Row(
           children: [
             Expanded(
-              child: _buildPlanningToolCard(
-                'Build your\nDigital E-invites',
-                'on app launch',
-                Colors.purple[100]!,
-                Icons.card_giftcard,
-                Colors.purple,
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const WeddingInvitesScreen1(),
+                    ),
+                  );
+                },
+                child: _buildPlanningToolCard(
+                  'Build your\nDigital E-invites',
+                  'on app launch',
+                  Colors.purple[100]!,
+                  Icons.card_giftcard,
+                  Colors.purple,
+                ),
               ),
             ),
+
             const SizedBox(width: 12),
             Expanded(
               child: InkWell(
@@ -3613,43 +3628,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
-  // Widget _buildVenuesSection() {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       const Text(
-  //         'Venues in your city',
-  //         style: TextStyle(
-  //           fontSize: 18,
-  //           fontWeight: FontWeight.bold,
-  //           color: Colors.black87,
-  //         ),
-  //       ),
-  //       const SizedBox(height: 15),
-  //       Row(
-  //         children: [
-  //           Expanded(
-  //             child: _buildVenueCard(
-  //               'Fort Jadhavgadh, Pune',
-  //               '₹50/000',
-  //               '₹ 2,500 per plate',
-  //               'assets/15.webp',
-  //             ),
-  //           ),
-  //           const SizedBox(width: 12),
-  //           Expanded(
-  //             child: _buildVenueCard(
-  //               'Gharful Lawns',
-  //               'Lonekawne',
-  //               '₹ 699 per plate',
-  //               'assets/21.webp',
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ],
-  //   );
-  // }
+
 
   Widget _buildVenueCard(String name, String location, String price, String imagePath) {
     return Container(
@@ -3951,225 +3930,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
-  // Widget _buildPhotographerSection() {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       const Text(
-  //         'Photographers for you',
-  //         style: TextStyle(
-  //           fontSize: 18,
-  //           fontWeight: FontWeight.bold,
-  //           color: Colors.black87,
-  //         ),
-  //       ),
-  //       const SizedBox(height: 15),
-  //       isLoadingPhotographers
-  //           ? const Center(child: CircularProgressIndicator())
-  //           : photographers.isEmpty
-  //           ? const Text("No photographers found")
-  //           : SingleChildScrollView(
-  //         scrollDirection: Axis.horizontal,
-  //         child: Row(
-  //           children: photographers.map<Widget>((photo) {
-  //             final vendor =
-  //             (photo is Map && photo['vendor'] is Map)
-  //                 ? photo['vendor'] as Map<String, dynamic>
-  //                 : <String, dynamic>{};
-  //
-  //             final attributes =
-  //             (photo is Map && photo['attributes'] is Map)
-  //                 ? photo['attributes'] as Map<String, dynamic>
-  //                 : <String, dynamic>{};
-  //
-  //             final media =
-  //             (photo is Map && photo['media'] is Map)
-  //                 ? photo['media'] as Map<String, dynamic>
-  //                 : <String, dynamic>{};
-  //
-  //             // ✅ Robust Image Logic
-  //             String imageUrl = 'https://via.placeholder.com/200x120';
-  //
-  //             // 1️⃣ Try coverImage
-  //             if (media['coverImage'] != null &&
-  //                 media['coverImage'].toString().isNotEmpty) {
-  //               final cover = media['coverImage'];
-  //               if (cover is String) {
-  //                 imageUrl = cover.startsWith('/uploads/')
-  //                     ? "https://happywedzbackend.happywedz.com$cover"
-  //                     : cover;
-  //               } else if (cover is Map && cover['url'] != null) {
-  //                 final url = cover['url'].toString();
-  //                 imageUrl = url.startsWith('/uploads/')
-  //                     ? "https://happywedzbackend.happywedz.com$url"
-  //                     : url;
-  //               } else if (cover is List && cover.isNotEmpty) {
-  //                 final first = cover.first;
-  //                 if (first is Map && first['url'] != null) {
-  //                   final url = first['url'].toString();
-  //                   imageUrl = url.startsWith('/uploads/')
-  //                       ? "https://happywedzbackend.happywedz.com$url"
-  //                       : url;
-  //                 } else if (first is String) {
-  //                   imageUrl = first.startsWith('/uploads/')
-  //                       ? "https://happywedzbackend.happywedz.com$first"
-  //                       : first;
-  //                 }
-  //               }
-  //             }
-  //             // 2️⃣ Fallback to gallery
-  //             else if (media['gallery'] != null && media['gallery'] is List) {
-  //               for (var item in media['gallery']) {
-  //                 if (item is String && item.isNotEmpty) {
-  //                   imageUrl = item.startsWith('/uploads/')
-  //                       ? "https://happywedzbackend.happywedz.com$item"
-  //                       : item;
-  //                   break;
-  //                 } else if (item is Map && item['url'] != null) {
-  //                   final url = item['url'].toString();
-  //                   imageUrl = url.startsWith('/uploads/')
-  //                       ? "https://happywedzbackend.happywedz.com$url"
-  //                       : url;
-  //                   break;
-  //                 }
-  //               }
-  //             }
-  //
-  //             // Debug log
-  //             print("🖼️ Photographer image for ${vendor['businessName'] ?? 'Unknown'}: $imageUrl");
-  //
-  //             final String name =
-  //             (vendor['businessName'] ?? attributes['name'] ?? "No Name").toString();
-  //
-  //             final String location =
-  //             (attributes['location'] ?? 'Unknown Location').toString();
-  //
-  //             final String price = attributes['starting_price'] != null
-  //                 ? "₹${attributes['starting_price']}"
-  //                 : "--";
-  //
-  //             return Container(
-  //               width: 200,
-  //               margin: const EdgeInsets.only(right: 12),
-  //               child: InkWell(
-  //                 onTap: () {
-  //                   Navigator.push(
-  //                     context,
-  //                     MaterialPageRoute(
-  //                       builder: (_) =>
-  //                           VendorDetailsScreen(service: photo),
-  //                     ),
-  //                   );
-  //                 },
-  //                 child: Column(
-  //                   crossAxisAlignment: CrossAxisAlignment.start,
-  //                   children: [
-  //                     ClipRRect(
-  //                       borderRadius: BorderRadius.circular(12),
-  //                       child: Image.network(
-  //                         imageUrl,
-  //                         height: 120,
-  //                         width: 200,
-  //                         fit: BoxFit.cover,
-  //                         loadingBuilder:
-  //                             (context, child, loadingProgress) {
-  //                           if (loadingProgress == null) return child;
-  //                           return Container(
-  //                             height: 120,
-  //                             width: 200,
-  //                             color: Colors.grey[200],
-  //                             child: const Center(
-  //                                 child: CircularProgressIndicator()),
-  //                           );
-  //                         },
-  //                         errorBuilder: (context, error, stackTrace) {
-  //                           print("Image load error: $error");
-  //                           return Container(
-  //                             height: 120,
-  //                             width: 200,
-  //                             color: Colors.grey[300],
-  //                             child: const Icon(
-  //                               Icons.image,
-  //                               size: 40,
-  //                               color: Colors.white,
-  //                             ),
-  //                           );
-  //                         },
-  //                       ),
-  //                     ),
-  //                     const SizedBox(height: 8),
-  //                     Text(
-  //                       name,
-  //                       style: const TextStyle(
-  //                         fontWeight: FontWeight.bold,
-  //                         fontSize: 14,
-  //                       ),
-  //                       maxLines: 1,
-  //                       overflow: TextOverflow.ellipsis,
-  //                     ),
-  //                     const SizedBox(height: 4),
-  //                     Text(
-  //                       location,
-  //                       style: const TextStyle(
-  //                           fontSize: 12, color: Colors.grey),
-  //                       maxLines: 1,
-  //                       overflow: TextOverflow.ellipsis,
-  //                     ),
-  //                     const SizedBox(height: 2),
-  //                     Text(
-  //                       price,
-  //                       style: const TextStyle(
-  //                           fontSize: 12,
-  //                           fontWeight: FontWeight.w600),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-  //             );
-  //           }).toList(),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
 
-  // Widget _buildPhotographerSection() {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       const Text(
-  //         'Photographer for you',
-  //         style: TextStyle(
-  //           fontSize: 18,
-  //           fontWeight: FontWeight.bold,
-  //           color: Colors.black87,
-  //         ),
-  //       ),
-  //       const SizedBox(height: 15),
-  //       Row(
-  //         children: [
-  //           Expanded(
-  //             child: _buildPhotographerCard(
-  //               'Fearless Pheras',
-  //               'Pune',
-  //               '₹ 55,000 per Day',
-  //               'assets/13.webp',
-  //             ),
-  //           ),
-  //           const SizedBox(width: 12),
-  //           Expanded(
-  //             child: _buildPhotographerCard(
-  //               'Firefly Photography',
-  //               'Pune',
-  //               '₹ 55,000 per Day',
-  //               'assets/19.webp',
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ],
-  //   );
-  // }
 
   Widget _buildPhotographerCard(String name, String location, String price, String imagePath) {
     return Container(
@@ -5017,7 +4778,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => Ideas(initialSubTabIndex: 1 ), // 👈 open Stories tab
+                builder: (_) => Ideas(initialSubTabIndex: 1 ),
               ),
             );
           },
@@ -5207,148 +4968,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
     return "Select Location";
   }
-  // String _selectedCity = "Nashik"; // default city
-  // List<String> _allCities = [
-  //   "Mumbai",
-  //   "Delhi",
-  //   "Bengaluru",
-  //   "Hyderabad",
-  //   "Chennai",
-  //   "Kolkata",
-  //   "Pune",
-  //   "Ahmedabad",
-  // ];
-  // List<String> _filteredCities = [];
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _filteredCities = List.from(_allCities); // start with all
-  // }
-  //
-  //
-  // void _showCitySelection(BuildContext context) {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     isScrollControlled: true,
-  //     backgroundColor: Colors.white,
-  //     shape: const RoundedRectangleBorder(
-  //       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-  //     ),
-  //     builder: (context) {
-  //       return StatefulBuilder(
-  //         builder: (context, setModalState) {
-  //           return Padding(
-  //             padding: const EdgeInsets.all(16.0),
-  //             child: Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               children: [
-  //                 // 🔍 Search box
-  //                 TextField(
-  //                   decoration: InputDecoration(
-  //                     hintText: "Search city...",
-  //                     prefixIcon: const Icon(Icons.search),
-  //                     border: OutlineInputBorder(
-  //                       borderRadius: BorderRadius.circular(12),
-  //                     ),
-  //                   ),
-  //                   onChanged: (value) {
-  //                     setModalState(() {
-  //                       _filteredCities = _allCities
-  //                           .where((city) => city
-  //                           .toLowerCase()
-  //                           .contains(value.toLowerCase()))
-  //                           .toList();
-  //                     });
-  //                   },
-  //                 ),
-  //                 const SizedBox(height: 10),
-  //
-  //                 // 📍 List of cities
-  //                 Flexible(
-  //                   child: ListView.separated(
-  //                     shrinkWrap: true,
-  //                     itemCount: _filteredCities.length,
-  //                     separatorBuilder: (_, __) => const Divider(height: 1),
-  //                     itemBuilder: (context, index) {
-  //                       return ListTile(
-  //                         leading: const Icon(Icons.location_city,
-  //                             color: Colors.pink),
-  //                         title: Text(_filteredCities[index]),
-  //                         onTap: () {
-  //                           setState(() {
-  //                             _selectedCity = _filteredCities[index];
-  //                           });
-  //                           Navigator.pop(context); // close sheet
-  //                         },
-  //                       );
-  //                     },
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           );
-  //         },
-  //       );
-  //     },
-  //   );
-  // }
 
-  // Widget _buildBottomNavigationBar() {
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       gradient: const LinearGradient(
-  //         colors: [Color(0xFFFF69B4), Color(0xFFFF1493)],
-  //         begin: Alignment.topCenter,
-  //         end: Alignment.bottomCenter,
-  //       ),
-  //     ),
-  //     child: BottomNavigationBar(
-  //       type: BottomNavigationBarType.fixed,
-  //       backgroundColor: Colors.transparent,
-  //       elevation: 0,
-  //       selectedItemColor: Colors.white,
-  //       unselectedItemColor: Colors.white.withOpacity(0.6),
-  //       selectedFontSize: 12,
-  //       unselectedFontSize: 12,
-  //       // currentIndex: 0,
-  //       currentIndex: _selectedIndex,   // ✅ dynamic index
-  //       onTap: _onItemTapped,           // ✅ tap handler
-  //       items: [
-  //         const BottomNavigationBarItem(
-  //           icon: Icon(Icons.home_filled),
-  //           label: 'Home',
-  //         ),
-  //         const BottomNavigationBarItem(
-  //           icon: Icon(Icons.location_on_outlined),
-  //           label: 'Venues',
-  //         ),
-  //         BottomNavigationBarItem(
-  //           icon: Container(
-  //             padding: const EdgeInsets.all(8),
-  //             decoration: const BoxDecoration(
-  //               color: Colors.white,
-  //               shape: BoxShape.circle,
-  //             ),
-  //             child: const Icon(
-  //               Icons.add,
-  //               color: Colors.pink,
-  //               size: 20,
-  //             ),
-  //           ),
-  //           label: 'VirtualStudio',
-  //         ),
-  //         const BottomNavigationBarItem(
-  //           icon: Icon(Icons.people_outline),
-  //           label: 'Vendors',
-  //         ),
-  //         const BottomNavigationBarItem(
-  //           icon: Icon(Icons.menu),
-  //           label: 'More',
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 }
 
 class _CitySearchDelegate extends SearchDelegate<String> {
@@ -5455,11 +5075,20 @@ class _BottomBarsState extends State<BottomBars> {
     // const MoreScreen(),
   ];
 
-  void _onItemTapped(int index) {
+
+  Future<void> _onItemTapped(int index) async {
+    // ✅ If user taps on VirtualStudio (index = 2)
+    if (index == 2) {
+      final loggedIn = await ensureLoggedIn(context);
+      if (!loggedIn) return; // 🚫 not logged in → SignInScreen opened automatically
+    }
+
     setState(() {
       _selectedIndex = index;
     });
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -5532,130 +5161,7 @@ class _BottomBarsState extends State<BottomBars> {
   }
 
 
-// Gradient progress panel (Tasks)
-// Container(
-//   width: double.infinity,
-//   height: height * 0.20,
-//   decoration: BoxDecoration(
-//     borderRadius: BorderRadius.circular(20),
-//     gradient: const LinearGradient(
-//       colors: [Color(0xFFd8366f), Color(0xFFf97316)],
-//       begin: Alignment.centerLeft,
-//       end: Alignment.centerRight,
-//     ),
-//   ),
-//   child: Padding(
-//     padding: const EdgeInsets.all(20.0),
-//     child: Stack(
-//       children: [
-//         Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Text(
-//               "0/73",
-//               style: TextStyle(
-//                 color: Colors.white,
-//                 fontSize: width * 0.07,
-//                 fontWeight: FontWeight.bold,
-//               ),
-//             ),
-//             const SizedBox(height: 6),
-//             const Text(
-//               "Task done",
-//               style: TextStyle(
-//                 color: Colors.white,
-//                 fontSize: 18,
-//                 fontWeight: FontWeight.w500,
-//               ),
-//             ),
-//           ],
-//         ),
-//         Align(
-//           alignment: Alignment.centerRight,
-//           child: Container(
-//             width: 60,
-//             height: 60,
-//             decoration: BoxDecoration(
-//               shape: BoxShape.circle,
-//               border: Border.all(
-//                 color: Colors.white.withOpacity(0.8),
-//                 width: 3,
-//               ),
-//             ),
-//             child: const Center(
-//               child: Text(
-//                 "0%",
-//                 style: TextStyle(
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.w600,
-//                 ),
-//               ),
-//             ),
-//           ),
-//         ),
-//       ],
-//     ),
-//   ),
-// ),
-// const SizedBox(height: 20),
-//
-// // Upcoming tasks white card
-// Container(
-//   width: double.infinity,
-//   padding: const EdgeInsets.all(20),
-//   decoration: BoxDecoration(
-//     color: Colors.white,
-//     borderRadius: BorderRadius.circular(20),
-//     boxShadow: [
-//       BoxShadow(
-//         color: Colors.black.withOpacity(0.08),
-//         blurRadius: 12,
-//         offset: const Offset(0, 4),
-//       ),
-//     ],
-//   ),
-//   child: Column(
-//     crossAxisAlignment: CrossAxisAlignment.start,
-//     children: [
-//       const Text(
-//         "Upcoming tasks",
-//         style: TextStyle(
-//           fontSize: 18,
-//           fontWeight: FontWeight.w600,
-//           color: Colors.black87,
-//         ),
-//       ),
-//       const SizedBox(height: 16),
-//       Row(
-//         children: [
-//           const Icon(Icons.circle, size: 12, color: Colors.pink),
-//           const SizedBox(width: 10),
-//           Text(
-//             "Browse and save outfit photos",
-//             style: TextStyle(
-//               fontSize: 14,
-//               color: Colors.black87,
-//             ),
-//           ),
-//         ],
-//       ),
-//       const SizedBox(height: 12),
-//       Row(
-//         children: [
-//           Icon(Icons.circle, size: 12, color: Colors.grey[400]),
-//           const SizedBox(width: 10),
-//           const Text(
-//             "Research venue options",
-//             style: TextStyle(
-//               fontSize: 14,
-//               color: Colors.black54,
-//             ),
-//           ),
-//         ],
-//       ),
-//     ],
-//   ),
-// ),
+
 }
 
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../main.dart';
 import 'ViewAllScreen.dart';
 
 class CustomizeCardScreen extends StatefulWidget {
@@ -367,12 +368,19 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
-              onPressed: () => setState(() => isEditing = true),
+              onPressed: () async {
+                final loggedIn = await ensureLoggedIn(context);
+                if (!loggedIn) return; // 🚫 not logged in → go to SignInScreen
+
+                // ✅ continue if logged in
+                setState(() => isEditing = true);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.pink,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: const Text(
                 "Customise the card",
@@ -381,6 +389,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
             ),
           ),
         ),
+
       ],
     );
   }

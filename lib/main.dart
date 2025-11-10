@@ -23,129 +23,7 @@ import 'Wishlist/Wishlistscreen.dart';
 import 'firebase_options.dart';
 import 'guestlist/guestlist.dart';
 
-// void main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-//   await Firebase.initializeApp(
-//     options: DefaultFirebaseOptions.currentPlatform,
-//   );
-//   runApp(const MyApp());
-// }
 
-// ///////////////////////////////////
-// Future<void> main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-//
-//   // 1️⃣ Initialize Firebase
-//   await Firebase.initializeApp(
-//     options: DefaultFirebaseOptions.currentPlatform,
-//   );
-//
-//   // 2️⃣ Set language (removes “X-Firebase-Locale is null”)
-//   FirebaseAuth.instance.setLanguageCode('en');
-//
-//   // 3️⃣ Enable App Check (removes “No AppCheckProvider installed”)
-//   await FirebaseAppCheck.instance.activate(
-//     androidProvider: AndroidProvider.playIntegrity,
-//     appleProvider: AppleProvider.deviceCheck,
-//   );
-//   await Hive.initFlutter();
-//   await Hive.openBox('weddingBox');
-//   runApp(const MyApp());
-// }
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-//
-//   // This widget is the root of your application.
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(
-//   debugShowCheckedModeBanner: false,
-//       theme: ThemeData(
-//
-//         // This is the theme of your application.
-//         //
-//         // TRY THIS: Try running your application with "flutter run". You'll see
-//         // the application has a purple toolbar. Then, without quitting the app,
-//         // try changing the seedColor in the colorScheme below to Colors.green
-//         // and then invoke "hot reload" (save your changes or press the "hot
-//         // reload" button in a Flutter-supported IDE, or press "r" if you used
-//         // the command line to start the app).
-//         //
-//         // Notice that the counter didn't reset back to zero; the application
-//         // state is not lost during the reload. To reset the state, use hot
-//         // restart instead.
-//         //
-//         // This works for code too, not just values: Most code changes can be
-//         // tested with just a hot reload.
-//         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-//       ),
-//       home:  AuthWrapper(),
-//     );
-//   }
-// }
-// ///////////////////////////////////////////
-
-// Future<void> main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-//
-//
-//   // ✅ Initialize Firebase
-//   await Firebase.initializeApp(
-//     options: DefaultFirebaseOptions.currentPlatform,
-//   );
-//   FirebaseAuth.instance.setLanguageCode('en');
-//
-//   // ✅ Enable Firebase App Check
-//   await FirebaseAppCheck.instance.activate(
-//     androidProvider: AndroidProvider.playIntegrity,
-//     appleProvider: AppleProvider.deviceCheck,
-//   );
-//
-//   // ✅ Initialize Hive
-//   await Hive.initFlutter();
-//
-//
-//
-//   // ✅ Open all boxes safely
-//   await _openBoxSafe('weddingBox');
-//   await _openBoxSafe('guestBox');
-//
-//   // ✅ Run App with Providers
-//
-//   runApp(
-//     ChangeNotifierProvider(
-//       create: (_) => FavouritesProvider(),
-//       child: const MyApp(),
-//     ),
-//   );
-//   // runApp(
-//   //   const MyApp(),
-//   //
-//   // );
-// }
-//
-// /// Utility to safely open a Hive box (only if not already open)
-// Future<void> _openBoxSafe(String boxName) async {
-//   if (!Hive.isBoxOpen(boxName)) {
-//     await Hive.openBox(boxName);
-//   }
-// }
-//
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(
-//       debugShowCheckedModeBanner: false,
-//       theme: ThemeData(
-//         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-//       ),
-//       home: SignInScreen(),
-//       // home: const BottomBars(),
-//     );
-//   }
-// }
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -184,12 +62,8 @@ Future<void> main() async {
   await _openBoxSafe('guestBox');
 
   // ✅ Run App with Providers
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => FavouritesProvider(),
-      child: const MyApp(),
-    ),
-  );
+  runApp(const MyApp());
+
 }
 
 Future<void> _openBoxSafe(String boxName) async {
@@ -212,121 +86,21 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-// class AuthWrapper extends StatelessWidget {
-//   const AuthWrapper({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return StreamBuilder<User?>(
-//       stream: FirebaseAuth.instance.authStateChanges(),
-//       builder: (context, snapshot) {
-//         // 1️⃣ Loading state
-//         if (snapshot.connectionState == ConnectionState.waiting) {
-//           return const Scaffold(
-//             body: Center(child: CircularProgressIndicator()),
-//           );
-//         }
-//
-//         // 2️⃣ User logged in
-//         if (snapshot.hasData) {
-//           return const BottomBars();
-//         }
-//
-//         // 3️⃣ Not logged in
-//         return const LoginScreen();
-//       },
-//     );
-//   }
-// }
+
 /// ✅ AuthWrapper checks if user is already logged in
 // ✅ AuthWrapper (decides if logged in or not)
-class AuthWrapper extends StatefulWidget {
+class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isLoading = true;
-  bool _isLoggedIn = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkLoginStatus();
-  }
-
-  Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    setState(() {
-      _isLoggedIn = token != null && token.isNotEmpty;
-      _isLoading = false;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFE91E63)),
-        ),
-      );
-    }
-
-    return _isLoggedIn ? const BottomBars() : const SignInScreen();
+    // 🔥 Always start app for everyone (guest or logged in)
+    return const BottomBars();
   }
 }
 
-// class AuthWrapper extends StatefulWidget {
-//   const AuthWrapper({super.key});
-//
-//   @override
-//
-//   State<AuthWrapper> createState() => _AuthWrapperState();
-// }
-//
-// class _AuthWrapperState extends State<AuthWrapper> {
-//   bool _isLoading = true;
-//   User? _user;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _checkLoginStatus();
-//   }
-//
-//   void _checkLoginStatus() async {
-//     await Future.delayed(const Duration(milliseconds: 500)); // optional smooth splash
-//     final user = FirebaseAuth.instance.currentUser;
-//     setState(() {
-//       _user = user;
-//       _isLoading = false;
-//     });
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     if (_isLoading) {
-//       return const Scaffold(
-//         body: Center(
-//           child: CircularProgressIndicator(color: Color(0xFFE91E63)),
-//         ),
-//       );
-//     }
-//
-//     if (_user != null) {
-//       return const BottomBars(); // Already logged in
-//     } else {
-//       return const SignInScreen(); // Not logged in
-//     }
-//   }
-// }
+
+
 class Country {
   final String name;
   final String code;
@@ -1416,6 +1190,25 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
 
 
 
+
+// 👇 Don't import signin_screen.dart since it's already in main.dart
+
+Future<bool> ensureLoggedIn(BuildContext context) async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('auth_token');
+
+  if (token != null && token.isNotEmpty) {
+    return true; // ✅ already logged in
+  }
+
+  // 🚫 not logged in → go to SignInScreen (which is defined below in main.dart)
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const SignInScreen()),
+  );
+
+  return result == true; // ✅ if login succeeded
+}
 
 
 class SplashScreen extends StatefulWidget {

@@ -34,6 +34,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+
   }
 
   // 🧠 Load user data from SharedPreferences
@@ -94,6 +95,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     }
   }
 
+
+
   // 📅 Wedding date picker
   Future<void> _pickWeddingDate() async {
     DateTime now = DateTime.now();
@@ -106,11 +109,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
 
     if (picked != null) {
+      String formatted = picked.toIso8601String().split('T')[0];
+
       setState(() {
-        weddingDateController.text = picked.toIso8601String().split('T')[0];
+        weddingDateController.text = formatted;
       });
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('wedding_date', formatted);
+
+      print("✅ Saved wedding date → $formatted");
     }
   }
+
 
   // 🔁 Update profile
   Future<void> _updateUserProfile() async {

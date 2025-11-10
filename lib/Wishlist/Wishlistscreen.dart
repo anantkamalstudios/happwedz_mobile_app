@@ -1,144 +1,11 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
-
-import '../Bottombars/VenuesScreen.dart';
-//
-// class Wishlistscreen extends StatefulWidget {
-//   const Wishlistscreen({super.key});
-//
-//   @override
-//   State<Wishlistscreen> createState() => _WishlistscreenState();
-// }
-//
-// class _WishlistscreenState extends State<Wishlistscreen>
-//     with SingleTickerProviderStateMixin {
-//   late TabController _tabController;
-//
-//   // Sample wishlist items
-//   final List<Map<String, dynamic>> _wishlistItems = [
-//     {
-//       'title': 'Coffee Maker',
-//       'category': 'Kitchen',
-//       'price': 120,
-//       'quantity': 1,
-//       'imageUrl': 'https://via.placeholder.com/150',
-//       'isPurchased': false,
-//     },
-//     {
-//       'title': 'Travel Voucher',
-//       'category': 'Travel',
-//       'price': 500,
-//       'quantity': 1,
-//       'imageUrl': 'https://via.placeholder.com/150',
-//       'isPurchased': true,
-//     },
-//   ];
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _tabController = TabController(length: 3, vsync: this);
-//   }
-//
-//   @override
-//   void dispose() {
-//     _tabController.dispose();
-//     super.dispose();
-//   }
-//
-//   List<Map<String, dynamic>> _filterItems(String filter) {
-//     if (filter == 'All') return _wishlistItems;
-//     if (filter == 'Purchased') {
-//       return _wishlistItems.where((item) => item['isPurchased'] == true).toList();
-//     }
-//     if (filter == 'Pending') {
-//       return _wishlistItems.where((item) => item['isPurchased'] == false).toList();
-//     }
-//     return _wishlistItems;
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text('Wedding Wishlist'),
-//         bottom: TabBar(
-//           controller: _tabController,
-//           tabs: const [
-//             Tab(text: 'All'),
-//             Tab(text: 'Purchased'),
-//             Tab(text: 'Pending'),
-//           ],
-//         ),
-//       ),
-//       body: TabBarView(
-//         controller: _tabController,
-//         children: ['All', 'Purchased', 'Pending'].map((filter) {
-//           final items = _filterItems(filter);
-//           return ListView.builder(
-//             padding: const EdgeInsets.all(8),
-//             itemCount: items.length,
-//             itemBuilder: (context, index) {
-//               final item = items[index];
-//               return Card(
-//                 shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(12)),
-//                 margin: const EdgeInsets.symmetric(vertical: 6),
-//                 child: ListTile(
-//                   leading: ClipRRect(
-//                     borderRadius: BorderRadius.circular(8),
-//                     child: CachedNetworkImage(
-//                       imageUrl: item['imageUrl'],
-//                       width: 60,
-//                       height: 60,
-//                       fit: BoxFit.cover,
-//                       placeholder: (context, url) =>
-//                       const CircularProgressIndicator(),
-//                       errorWidget: (context, url, error) =>
-//                       const Icon(Icons.error),
-//                     ),
-//                   ),
-//                   title: Text(item['title']),
-//                   subtitle: Text(
-//                       '${item['category']} • \$${item['price']} x ${item['quantity']}'),
-//                   trailing: item['isPurchased']
-//                       ? const Icon(Icons.check_circle, color: Colors.green)
-//                       : null,
-//                   onTap: () {
-//                     // TODO: Open item details / edit
-//                   },
-//                 ),
-//               );
-//             },
-//           );
-//         }).toList(),
-//       ),
-//       floatingActionButton: FloatingActionButton(
-//         onPressed: () {
-//           // TODO: Navigate to Add Item Screen
-//         },
-//         child: const Icon(Icons.add),
-//       ),
-//     );
-//   }
-// }
-//
-//
-//
-
-
-// class FavouritesPage extends StatefulWidget {
-//   const FavouritesPage({Key? key}) : super(key: key);
-//
-//   @override
-//   State<FavouritesPage> createState() => _FavouritesPageState();
-// }
-// import 'dart:convert';
-// import 'package:flutter/material.dart';
-// import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../chat_page_new.dart';
+import '../main.dart';
+import '../vendor/vendordetailsscreen.dart';
 
 class FavouritesPage extends StatefulWidget {
   const FavouritesPage({Key? key}) : super(key: key);
@@ -150,51 +17,110 @@ class FavouritesPage extends StatefulWidget {
 class _FavouritesPageState extends State<FavouritesPage> {
   bool isLoading = false;
   List<dynamic> wishlistItems = [];
+  String? currentUserId;
+  Set<String> favouriteVendors = {};
 
   @override
   void initState() {
     super.initState();
+    _loadUserAndFetchWishlist();
+  }
+
+  Future<void> _loadUserAndFetchWishlist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedId = prefs.getInt('user_id')?.toString();
+    final token = prefs.getString('auth_token');
+
+    if (storedId == null || token == null || token.isEmpty) {
+      debugPrint('❌ User not signed in or token missing');
+      return;
+    }
+
+    setState(() {
+      currentUserId = storedId;
+    });
+
     fetchWishlist();
   }
 
-  /// 🟣 Fetch Wishlist (GET)
   Future<void> fetchWishlist() async {
     setState(() => isLoading = true);
+
     try {
-      final response =
-      await http.get(Uri.parse('https://happywedz.com/api/wishlist'));
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+
+      if (token.isEmpty) {
+        print("❌ No auth token found — please login");
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final url = Uri.parse('https://happywedz.com/api/wishlist');
+      final response = await http.get(url, headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+
+      print("Wishlist API Response Status: ${response.statusCode}");
+      print("Wishlist API Raw Body: ${response.body}");
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = jsonDecode(response.body);
+        final List<dynamic> items = data['data'] ?? [];
+
+        print("Decoded Wishlist Items: $items");
+
         setState(() {
-          wishlistItems = data['wishlist'] ?? data;
+          wishlistItems = items;
+          favouriteVendors = items
+              .map((e) => e['vendor_services_id'].toString())
+              .toSet();
         });
       } else {
-        debugPrint('Failed to fetch wishlist: ${response.statusCode}');
+        print("❌ Failed to fetch wishlist: ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint('Error fetching wishlist: $e');
+      print("💥 Error fetching wishlist: $e");
     } finally {
       setState(() => isLoading = false);
     }
   }
 
-  /// 💗 Toggle Wishlist (POST)
-  Future<void> toggleWishlist(int vendorServiceId) async {
+
+
+  Future<void> toggleWishlist(String vendorServiceId) async {
+    if (currentUserId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+
+    final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+    final body = {'user_id': currentUserId, 'vendor_services_id': vendorServiceId};
+
     try {
-      final response = await http.post(
-        Uri.parse('https://happywedz.com/api/wishlist/toggle'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'vendor_services_id': vendorServiceId}),
-      );
+      final response = await http.post(url, headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      }, body: body);
 
       if (response.statusCode == 200) {
-        fetchWishlist(); // refresh after toggle
+        setState(() {
+          if (favouriteVendors.contains(vendorServiceId)) {
+            favouriteVendors.remove(vendorServiceId);
+            wishlistItems.removeWhere(
+                    (element) => element['vendor_services_id'].toString() == vendorServiceId);
+          } else {
+            favouriteVendors.add(vendorServiceId);
+            // Optionally, refetch wishlist to get the new item fully
+            fetchWishlist();
+          }
+        });
       } else {
-        debugPrint('Failed to toggle wishlist: ${response.statusCode}');
+        print("❌ Toggle failed: ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint('Error toggling wishlist: $e');
+      print("💥 Error toggling wishlist: $e");
     }
   }
 
@@ -205,25 +131,14 @@ class _FavouritesPageState extends State<FavouritesPage> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFF69B4),
-            Color(0xFFFFB6C1),
-            Colors.white,
-          ],
+          colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
           stops: [0.0, 0.3, 0.6],
         ),
       ),
-
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text(
-            'Wishlist',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          title: const Text('Wishlist', style: TextStyle(color: Colors.white)),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -232,104 +147,21 @@ class _FavouritesPageState extends State<FavouritesPage> {
             onPressed: () => Navigator.pop(context),
           ),
         ),
-
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
+            : wishlistItems.isEmpty
+            ? const Center(
+          child: Text(
+            'No favourites yet. Tap ♥ on any vendor to save it here!',
+            textAlign: TextAlign.center,
+          ),
+        )
             : SafeArea(
           child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
             child: Column(
-              children: [
-                const SizedBox(height: 20),
-                const Text(
-                  'Favourites',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w300,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.grey[700],
-                        height: 1.5,
-                      ),
-                      children: const [
-                        TextSpan(
-                            text:
-                            'Keep all of your wedding favourites here! Click the '),
-                        TextSpan(
-                          text: '♥',
-                          style: TextStyle(
-                              color: Color(0xFFE91E63), fontSize: 18),
-                        ),
-                        TextSpan(
-                            text:
-                            '\nto save your favourite vendors, Real Weddings, and inspiration here.'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // 🌷 Favourite Vendors Section
-                _buildSectionHeader('Favourite Vendors'),
-                const SizedBox(height: 20),
-
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: wishlistItems.length,
-                    itemBuilder: (context, index) {
-                      final item = wishlistItems[index];
-                      final imageUrl = item['image'] ??
-                          'https://via.placeholder.com/200x150.png?text=Vendor';
-                      final name =
-                          item['vendor_name'] ?? 'Vendor ${index + 1}';
-                      final id = item['vendor_services_id'] ?? 0;
-
-                      return GestureDetector(
-                        onTap: () {
-                          // navigate to vendor details if needed
-                        },
-                        child: _buildVendorCardFromApi(
-                          imageUrl: imageUrl,
-                          label: name,
-                          onFavTap: () => toggleWishlist(id),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-
-                // 💡 My Inspiration Boards Section
-                _buildSectionHeader('My inspiration boards'),
-                const SizedBox(height: 20),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      _buildInspirationBoard('Real Weddings'),
-                      const SizedBox(width: 16),
-                      _buildInspirationBoard('Articles'),
-                      const SizedBox(width: 16),
-                      _buildInspirationBoard('Community'),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-              ],
+              children:
+              wishlistItems.map((service) => _buildServiceCard(service)).toList(),
             ),
           ),
         ),
@@ -337,101 +169,69 @@ class _FavouritesPageState extends State<FavouritesPage> {
     );
   }
 
-  // 🌺 Section Header Widget
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-          TextButton(
-            onPressed: fetchWishlist,
-            style: TextButton.styleFrom(
-              backgroundColor: const Color(0xFFFF69B4),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            child: const Text('Show all', style: TextStyle(fontSize: 13)),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildServiceCard(dynamic service) {
+    final attributes = service['attributes'] ?? {};
+    final vendor = service['vendor'] ?? {};
+    final media = service['media'] ?? {};
 
-  // 💗 Vendor Card Widget (for API Data)
-  Widget _buildVendorCardFromApi({
-    required String imageUrl,
-    required String label,
-    required VoidCallback onFavTap,
-  }) {
-    return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(8)),
-                image: DecorationImage(
-                  image: NetworkImage(imageUrl),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  icon: const Icon(Icons.favorite, color: Colors.pink),
-                  onPressed: onFavTap,
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    String imageUrl = 'https://via.placeholder.com/400x300';
 
-  // 🌸 Inspiration Board Widget (same as yours)
-  Widget _buildInspirationBoard(String title) {
-    return Expanded(
+    if (media is Map && media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+      final cover = media['coverImage'].toString();
+      imageUrl = cover.startsWith('/uploads/')
+          ? "https://happywedzbackend.happywedz.com$cover"
+          : cover;
+    } else if (media is Map && media['gallery'] != null) {
+      final gallery = media['gallery'];
+      if (gallery is List && gallery.isNotEmpty) {
+        for (var item in gallery) {
+          if (item is String && item.startsWith('/uploads/')) {
+            imageUrl = "https://happywedzbackend.happywedz.com$item";
+            break;
+          } else if (item is Map && item['url'] != null) {
+            final url = item['url'].toString();
+            imageUrl = url.startsWith('/uploads/')
+                ? "https://happywedzbackend.happywedz.com$url"
+                : url;
+            break;
+          }
+        }
+      }
+    }
+    final vendorId = service['vendor_id'].toString();
+
+    final String businessName = vendor['businessName'] ?? attributes['name'] ?? 'Unnamed Venue';
+    final String city = attributes['city'] ?? vendor['city'] ?? 'Unknown Location';
+    final double rating = double.tryParse((vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ?? 0.0;
+
+    String priceText = '';
+    final vegPrice = attributes['veg_price']?.toString() ?? '';
+    final startingPrice = attributes['starting_price']?.toString() ?? '';
+    final photoPackagePrice = attributes['photo_package_price']?.toString() ??
+        attributes['PhotoPackage_Price']?.toString() ??
+        '';
+
+    if (vegPrice.isNotEmpty) {
+      priceText = '₹$vegPrice per plate';
+    } else if (startingPrice.isNotEmpty) {
+      priceText = '₹$startingPrice onwards';
+    } else if (photoPackagePrice.isNotEmpty) {
+      priceText = photoPackagePrice;
+    }
+
+    final phone = vendor['phone']?.toString() ?? attributes['Phone']?.toString() ?? '';
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VendorDetailsScreen(service: service),
+          ),
+        );
+      },
       child: Container(
-        height: 200,
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
@@ -444,43 +244,296 @@ class _FavouritesPageState extends State<FavouritesPage> {
           ],
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.favorite_border,
-                    size: 48,
-                    color: Colors.grey[300],
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
+                  ),
+                  child: Image.network(
+                    imageUrl,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 200,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.image, size: 50, color: Colors.white),
+                    ),
                   ),
                 ),
-              ),
+
+                // 📍 Location overlay (bottom left)
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.white, size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          city,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ⭐ Rating badge (top right, shifted left slightly)
+                if (rating > 0)
+                  Positioned(
+                    top: 8,
+                    right: 48,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(Icons.star, color: Colors.white, size: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // ❤️ Favourite icon (top right)
+                // ❤️ Favourite icon (top right)
+                // ❤️ Favourite icon (top right)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: InkWell(
+                    onTap: () async {
+                      if (currentUserId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Please sign in first")),
+                        );
+                        print("❌ User not logged in — currentUserId is null");
+                        return;
+                      }
+
+                      final vendorServiceId = service['id']?.toString() ?? '';
+                      if (vendorServiceId.isEmpty) {
+                        print("❌ vendorServiceId missing in service data");
+                        return;
+                      }
+
+                      // Local toggle first
+                      final isFav = favouriteVendors.contains(vendorServiceId);
+                      setState(() {
+                        if (isFav) {
+                          favouriteVendors.remove(vendorServiceId);
+                        } else {
+                          favouriteVendors.add(vendorServiceId);
+                        }
+                      });
+
+                      // Get token from SharedPreferences
+                      final prefs = await SharedPreferences.getInstance();
+                      final token = prefs.getString('auth_token');
+
+                      if (token == null || token.isEmpty) {
+                        print("❌ No auth token found — please login again");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please login again')),
+                        );
+                        return;
+                      }
+
+                      final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+                      final body = {
+                        'user_id': currentUserId,
+                        'vendor_services_id': vendorServiceId,
+                      };
+
+                      print("🛰 Sending POST request to: $url");
+                      print("📦 Body: $body");
+                      print("🔑 Authorization: Bearer $token");
+
+                      try {
+                        final response = await http.post(
+                          url,
+                          headers: {
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer $token', // ✅ crucial
+                          },
+                          body: body,
+                        );
+
+                        print("📨 Response status: ${response.statusCode}");
+                        print("📨 Response body: ${response.body}");
+
+                        if (response.statusCode == 200) {
+                          final res = jsonDecode(response.body);
+                          final msg = res['message'] ?? 'Wishlist updated';
+                          print("✅ Success: $msg");
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(msg)),
+                          );
+                        } else if (response.statusCode == 401) {
+                          print("❌ Unauthorized (401) — invalid token or user_id");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Unauthorized — please log in again')),
+                          );
+                        } else {
+                          print("❌ Error ${response.statusCode}: ${response.body}");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: ${response.statusCode}')),
+                          );
+                        }
+                      } catch (e, stack) {
+                        print("💥 Exception while calling wishlist API: $e");
+                        print(stack);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Something went wrong')),
+                        );
+                      }
+                    },
+
+                  ),
+                ),
+
+
+
+              ],
             ),
+
+            // 📝 Details section (same as before)
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    businessName,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                       color: Colors.black87,
                     ),
-                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Get inspired!',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
+                  const SizedBox(height: 6),
+                  if (priceText.isNotEmpty)
+                    Text(
+                      priceText,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFE91E63),
+                      ),
                     ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final loggedIn = await ensureLoggedIn(context);
+                            if (!loggedIn) return; // 🚫 not logged in → stopped here
+
+                            final vendorId = service['vendor_id']?.toString() ??
+                                vendor['id']?.toString() ??
+                                attributes['vendor_id']?.toString() ??
+                                '';
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatPage(
+                                  currentUid: currentUserId ?? '',
+                                  otherUid: vendorId,
+                                  otherName: businessName,
+                                ),
+                              ),
+                            );
+                          },
+
+
+                          icon: const Icon(Icons.message, size: 16),
+                          label: const Text('Message'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFE91E63),
+                            side: const BorderSide(color: Color(0xFFE91E63)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF25D366),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.chat, color: Colors.white, size: 18),
+                          onPressed: () async {
+                            final loggedIn = await ensureLoggedIn(context);
+                            if (!loggedIn) return;
+
+                            if (phone.isNotEmpty) {
+                              final uri = Uri.parse("https://wa.me/$phone");
+                              launchUrl(uri);
+                            }
+                          },
+
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.phone, color: Colors.white, size: 18),
+                          onPressed: () {
+                            if (phone.isNotEmpty) {
+                              final uri = Uri(scheme: 'tel', path: phone);
+                              launchUrl(uri);
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -489,372 +542,5 @@ class _FavouritesPageState extends State<FavouritesPage> {
         ),
       ),
     );
-  }
-}
-
-//
-// class _FavouritesPageState extends State<FavouritesPage> {
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       // 🌸 Gradient starts from very top of the page
-//       decoration: const BoxDecoration(
-//         gradient: LinearGradient(
-//           begin: Alignment.topCenter,
-//           end: Alignment.bottomCenter,
-//           colors: [
-//             Color(0xFFFF69B4), // Hot pink
-//             Color(0xFFFFB6C1), // Light pink
-//             Colors.white,
-//           ],
-//           stops: [0.0, 0.3, 0.6],
-//         ),
-//       ),
-//
-//       child: Scaffold(
-//         backgroundColor: Colors.transparent, // important for gradient
-//         appBar: AppBar(
-//           title: const Text(
-//             'Wishlist',
-//             style: TextStyle(
-//               color: Colors.white,
-//               fontWeight: FontWeight.w500,
-//             ),
-//           ),
-//           centerTitle: true,
-//           backgroundColor: Colors.transparent, // make gradient visible behind AppBar
-//           elevation: 0,
-//           leading: IconButton(
-//             icon: const Icon(Icons.arrow_back, color: Colors.white),
-//             onPressed: () {
-//               Navigator.pop(context);
-//             },
-//           ),
-//         ),
-//
-//         body: SafeArea(
-//           child: SingleChildScrollView(
-//             child: Column(
-//               children: [
-//                 const SizedBox(height: 20),
-//
-//                 const Text(
-//                   'Favourites',
-//                   style: TextStyle(
-//                     fontSize: 32,
-//                     fontWeight: FontWeight.w300,
-//                     color: Colors.black87,
-//                   ),
-//                 ),
-//
-//                 const SizedBox(height: 16),
-//                 Padding(
-//                   padding: const EdgeInsets.symmetric(horizontal: 40),
-//                   child: RichText(
-//                     textAlign: TextAlign.center,
-//                     text: TextSpan(
-//                       style: TextStyle(
-//                         fontSize: 15,
-//                         color: Colors.grey[700],
-//                         height: 1.5,
-//                       ),
-//                       children: const [
-//                         TextSpan(
-//                             text:
-//                             'Keep all of your wedding favourites here! Click the '),
-//                         TextSpan(
-//                           text: '♥',
-//                           style: TextStyle(
-//                               color: Color(0xFFE91E63), fontSize: 18),
-//                         ),
-//                         TextSpan(
-//                             text:
-//                             '\nto save your favourite vendors, Real Weddings, and inspiration here.'),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-//
-//                 const SizedBox(height: 40),
-//
-//                 // 🌷 Favourite Vendors Section
-//                 _buildSectionHeader('Favourite Vendors'),
-//                 const SizedBox(height: 20),
-//
-//                 SizedBox(
-//                   height: 180,
-//                   child: ListView(
-//                     scrollDirection: Axis.horizontal,
-//                     padding: const EdgeInsets.symmetric(horizontal: 16),
-//                     children: [
-//                       GestureDetector(
-//                         onTap: () {
-//                           Navigator.push(
-//                             context,
-//                             MaterialPageRoute(
-//                               builder: (context) => const VenuesScreen(),
-//                             ),
-//                           );
-//                         },
-//                         child: _buildVendorCard(
-//                           icon: Icons.location_on,
-//                           label: 'Venues',
-//                           hasContent: true,
-//                         ),
-//                       ),
-//                       _buildVendorCard(
-//                         icon: Icons.camera_alt,
-//                         label: 'Photography and\nvideo',
-//                       ),
-//                       _buildVendorCard(
-//                         icon: Icons.restaurant,
-//                         label: 'Caterers',
-//                       ),
-//                       _buildVendorCard(
-//                         icon: Icons.card_giftcard,
-//                         label: 'Wedding planners',
-//                       ),
-//                       _buildVendorCard(
-//                         icon: Icons.diamond,
-//                         label: 'Jewellery',
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//
-//                 const SizedBox(height: 40),
-//
-//                 // 💡 My Inspiration Boards Section
-//                 _buildSectionHeader('My inspiration boards'),
-//                 const SizedBox(height: 20),
-//
-//                 Padding(
-//                   padding: const EdgeInsets.symmetric(horizontal: 16),
-//                   child: Row(
-//                     children: [
-//                       _buildInspirationBoard('Real Weddings'),
-//                       const SizedBox(width: 16),
-//                       _buildInspirationBoard('Articles'),
-//                       const SizedBox(width: 16),
-//                       _buildInspirationBoard('Community'),
-//                     ],
-//                   ),
-//                 ),
-//
-//                 const SizedBox(height: 40),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   // Section Header Widget
-//   Widget _buildSectionHeader(String title) {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(horizontal: 16),
-//       child: Row(
-//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//         children: [
-//           Text(
-//             title,
-//             style: const TextStyle(
-//               fontSize: 20,
-//               fontWeight: FontWeight.w500,
-//               color: Colors.black87,
-//             ),
-//           ),
-//           TextButton(
-//             onPressed: () {},
-//             style: TextButton.styleFrom(
-//               backgroundColor: const Color(0xFFFF69B4), // 💖 PINK button
-//               foregroundColor: Colors.white,
-//               padding:
-//               const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-//               shape: RoundedRectangleBorder(
-//                 borderRadius: BorderRadius.circular(4),
-//               ),
-//             ),
-//             child: const Text(
-//               'Show all',
-//               style: TextStyle(fontSize: 13),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // Vendor Card Widget
-//   Widget _buildVendorCard({
-//     required IconData icon,
-//     required String label,
-//     bool hasContent = false,
-//   }) {
-//     return Container(
-//       width: 160,
-//       margin: const EdgeInsets.only(right: 16),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(8),
-//         boxShadow: [
-//           BoxShadow(
-//             color: Colors.black.withOpacity(0.08),
-//             blurRadius: 8,
-//             offset: const Offset(0, 2),
-//           ),
-//         ],
-//       ),
-//       child: Column(
-//         children: [
-//           Expanded(
-//             child: Container(
-//               decoration: BoxDecoration(
-//                 color: hasContent ? null : Colors.grey[100],
-//                 borderRadius:
-//                 const BorderRadius.vertical(top: Radius.circular(8)),
-//                 image: hasContent
-//                     ? const DecorationImage(
-//                   image: NetworkImage(
-//                     'https://images.unsplash.com/photo-1519167758481-83f29da8c2b7?w=400',
-//                   ),
-//                   fit: BoxFit.cover,
-//                 )
-//                     : null,
-//               ),
-//               child: !hasContent
-//                   ? Center(
-//                 child: Icon(
-//                   icon,
-//                   size: 48,
-//                   color: Colors.grey[400],
-//                 ),
-//               )
-//                   : null,
-//             ),
-//           ),
-//           Padding(
-//             padding: const EdgeInsets.all(12),
-//             child: Column(
-//               children: [
-//                 Text(
-//                   label,
-//                   style: const TextStyle(
-//                     fontSize: 14,
-//                     fontWeight: FontWeight.w500,
-//                     color: Colors.black87,
-//                   ),
-//                   textAlign: TextAlign.center,
-//                 ),
-//                 const SizedBox(height: 8),
-//                 InkWell(
-//                   onTap: () {},
-//                   child: Row(
-//                     mainAxisAlignment: MainAxisAlignment.center,
-//                     children: [
-//                       Icon(Icons.search, size: 14, color: Colors.grey[600]),
-//                       const SizedBox(width: 4),
-//                       Text(
-//                         'Find',
-//                         style: TextStyle(
-//                           fontSize: 12,
-//                           color: Colors.grey[600],
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // Inspiration Board Widget
-//   Widget _buildInspirationBoard(String title) {
-//     return Expanded(
-//       child: Container(
-//         height: 200,
-//         decoration: BoxDecoration(
-//           color: Colors.white,
-//           borderRadius: BorderRadius.circular(8),
-//           boxShadow: [
-//             BoxShadow(
-//               color: Colors.black.withOpacity(0.08),
-//               blurRadius: 8,
-//               offset: const Offset(0, 2),
-//             ),
-//           ],
-//         ),
-//         child: Column(
-//           children: [
-//             Expanded(
-//               child: Container(
-//                 decoration: BoxDecoration(
-//                   color: Colors.grey[100],
-//                   borderRadius:
-//                   const BorderRadius.vertical(top: Radius.circular(8)),
-//                 ),
-//                 child: Center(
-//                   child: Icon(
-//                     Icons.favorite_border,
-//                     size: 48,
-//                     color: Colors.grey[300],
-//                   ),
-//                 ),
-//               ),
-//             ),
-//             Padding(
-//               padding: const EdgeInsets.all(12),
-//               child: Column(
-//                 children: [
-//                   Text(
-//                     title,
-//                     style: const TextStyle(
-//                       fontSize: 14,
-//                       fontWeight: FontWeight.w500,
-//                       color: Colors.black87,
-//                     ),
-//                     textAlign: TextAlign.center,
-//                   ),
-//                   const SizedBox(height: 4),
-//                   Text(
-//                     'Get inspired!',
-//                     style: TextStyle(
-//                       fontSize: 12,
-//                       color: Colors.grey[600],
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-
-
-class FavouritesProvider extends ChangeNotifier {
-  final List<String> _favouriteVenues = [];
-
-  List<String> get favouriteVenues => _favouriteVenues;
-
-  void toggleFavourite(String venueName) {
-    if (_favouriteVenues.contains(venueName)) {
-      _favouriteVenues.remove(venueName);
-    } else {
-      _favouriteVenues.add(venueName);
-    }
-    notifyListeners();
-  }
-
-  bool isFavourite(String venueName) {
-    return _favouriteVenues.contains(venueName);
   }
 }

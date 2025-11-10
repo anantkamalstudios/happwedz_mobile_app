@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:happy_wedz/guestlist/guestlist.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../InboxScreen.dart';
 import '../RealWedding/share_ur_story.dart';
+import '../Review.dart';
 import '../Wishlist/Wishlistscreen.dart';
 
 import '../budget/budget.dart';
@@ -88,16 +91,16 @@ class MoreOptionsScreen extends StatelessWidget {
                         title: 'My Bookings',
                         onTap: () => _handleMenuTap(context, 'My Bookings'),
                       ),
-                      _buildMenuItem(
-                        icon: Icons.rate_review_outlined,
-                        title: 'Planning',
-                        onTap: () => _handleMenuTap(context, 'Planning'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.rate_review_outlined,
-                        title: 'Packages',
-                        onTap: () => _handleMenuTap(context, 'Packages'),
-                      ),
+                      // _buildMenuItem(
+                      //   icon: Icons.rate_review_outlined,
+                      //   title: 'Planning',
+                      //   onTap: () => _handleMenuTap(context, 'Planning'),
+                      // ),
+                      // _buildMenuItem(
+                      //   icon: Icons.rate_review_outlined,
+                      //   title: 'Packages',
+                      //   onTap: () => _handleMenuTap(context, 'Packages'),
+                      // ),
                       _buildMenuItem(
                         icon: Icons.rate_review_outlined,
                         title: 'Rate on Play Store',
@@ -248,23 +251,7 @@ class MoreOptionsScreen extends StatelessWidget {
     );
   }
 
-  void _handleMenuTap(BuildContext context, String menuTitle) {
-    // Add haptic feedback
-    // HapticFeedback.lightImpact();
-
-    // Show a snackbar or navigate to respective screen
-    // ScaffoldMessenger.of(context).showSnackBar(
-    //   SnackBar(
-    //     content: Text(""),
-    //     backgroundColor: const Color(0xFFFF69B4),
-    //     behavior: SnackBarBehavior.floating,
-    //     shape: RoundedRectangleBorder(
-    //       borderRadius: BorderRadius.circular(10),
-    //     ),
-    //   ),
-    // );
-
-    // Example navigation logic:
+  void _handleMenuTap(BuildContext context, String menuTitle) async {
     switch (menuTitle) {
       case 'E-Invites':
         Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingInvitesScreen1()));
@@ -294,15 +281,83 @@ class MoreOptionsScreen extends StatelessWidget {
       case 'Wishlist':
         Navigator.push(context, MaterialPageRoute(builder: (_) => FavouritesPage()));
       break;
+      // case 'Write a Review':
+      //   Navigator.push(
+      //     context,
+      //     MaterialPageRoute(builder: (_) => RecommendVendorScreen(vendorId: 75077.toString())),
+      //   );
+      //   break;
+
+
+
       case 'Real Wedding':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ShareWeddingStory()));
-      break;
+        final loggedIn = await ensureLoggedIn(context);
+        if (!loggedIn) return; // 🚫 not logged in → go to SignInScreen
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ShareWeddingStory()),
+        );
+        break;
+
+      case 'Share App':
+        _shareApp();
+        break;
+
+
+      case 'Rate on Play Store':
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Rate App"),
+            content: const Text("Do you want to rate this app on the Play Store?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _openPlayStore();
+                },
+                child: const Text("Rate Now"),
+              ),
+            ],
+          ),
+        );
+        break;
+
+
 
     // case 'Matrimony':
       //   Navigator.push(context, MaterialPageRoute(builder: (_) => MatrimonyScreen()));
       //   break;
       // // Add more cases...
     }
+  }
+
+
+  void _openPlayStore() async {
+    const packageName = "com.yourcompany.yourapp"; // <-- Replace with your app's package name
+    final url = Uri.parse("https://play.google.com/store/apps/details?id=$packageName");
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      print("Could not launch Play Store URL");
+    }
+  }
+
+
+  void _shareApp() {
+    const packageName = "com.yourcompany.yourapp"; // <-- Replace with your app's package name
+    final appUrl = "https://play.google.com/store/apps/details?id=$packageName";
+
+    Share.share(
+      "Hey! Check out this amazing app: $appUrl",
+      subject: "HappyWedz App",
+    );
   }
 
   void _handleLogout(BuildContext context) {

@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
+
+
+import '../main.dart';
 
 class BudgetPage extends StatefulWidget {
   final int userId;
@@ -201,11 +205,17 @@ class _BudgetPageState extends State<BudgetPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddExpenseDialog,
+        onPressed: () async {
+          final loggedIn = await ensureLoggedIn(context);
+          if (!loggedIn) return; // 🚫 stop if not logged in
+
+          _showAddExpenseDialog(); // ✅ continue if logged in
+        },
         backgroundColor: const Color(0xFFE91E63),
         icon: const Icon(Icons.add),
         label: const Text('Add'),
       ),
+
     );
   }
 

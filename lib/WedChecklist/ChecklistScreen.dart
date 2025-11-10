@@ -4,10 +4,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Keep your original widget name and design exactly as you provided.
-// This file integrates APIs: categories GET, checklist GET, checklist POST.
-// It reads user_id (int) and auth_token (String) from SharedPreferences keys: 'user_id', 'auth_token'.
-// Make sure your Google-login flow saves those keys (your sign-in code does).
 
 class WeddingTimelinePage extends StatefulWidget {
   const WeddingTimelinePage({super.key});
@@ -24,6 +20,8 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   // Dates
   DateTime? startDate;
   DateTime? weddingDate;
+
+
 
 
 
@@ -63,6 +61,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   @override
   void initState() {
     super.initState();
+    loadWeddingDate();
 
 
 
@@ -122,6 +121,17 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     await _fetchCategories();
     await _fetchChecklist();
   }
+
+  Future<void> loadWeddingDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dateStr = prefs.getString('wedding_date');
+
+    setState(() {
+      weddingDate = dateStr != null ? DateTime.parse(dateStr) : null;
+    });
+  }
+
+
 
   // Helper to provide headers (include token if available)
   Map<String, String> _headers() {
@@ -1102,7 +1112,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   }
 
 
-  // full width days box (difference of start and wedding dates)
+  // full width days box (difference of start and weddinwedding dates)
   Widget _fullWidthDaysBox() {
     String message = 'Select both dates';
     int days = 0;

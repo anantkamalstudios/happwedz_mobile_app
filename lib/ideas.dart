@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
+import 'RealWedding/share_ur_story.dart';
+
 class Ideas extends StatefulWidget {
   final int initialSubTabIndex; // 👈 add this
 
@@ -18,6 +20,7 @@ class Ideas extends StatefulWidget {
 
 
 class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
+
 
   late int _selectedSubTabIndex;
   late TabController _tabController;
@@ -33,7 +36,12 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       length: _subTabs.length,
       vsync: this,
       initialIndex: widget.initialSubTabIndex, // 👈 set controller to same index
+      // _tabController = TabController(length: 3, vsync: this);
     );
+    _tabController.addListener(() {
+      setState(() {}); // 👈 rebuilds when switching tabs
+    });
+
     _storiesFuture = fetchStories();
   }
 // Fetch stories from API
@@ -69,22 +77,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     }
   }
 
-  // String getFullImageUrl(String? path) {
-  //   if (path == null || path.isEmpty) {
-  //     return 'https://via.placeholder.com/300x200.png'; // fallback
-  //   }
-  //
-  //   print('Path: $path');
-  //
-  //   // Already a full URL
-  //   if (path.startsWith('http')) {
-  //     return path;
-  //   }
-  //
-  //   // Attach domain only
-  //   return 'https://happywedz.com${path.startsWith('/') ? '' : '/'}$path';
-  //
-  // }
+
   Future<void> debugImageUrl(String url) async {
     try {
       final response = await http.head(Uri.parse(url));
@@ -122,12 +115,6 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-  // void _onSubTabTapped(int index) {
-  //   setState(() {
-  //     _selectedSubTabIndex = index;
-  //     _tabController.animateTo(index);
-  //   });
-  // }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -191,12 +178,31 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
                     _buildRealWeddingsTab(),
                   ],
                 ),
+
+
               ),
             ],
           ),
         ),
       ),
       // bottomNavigationBar: _buildBottomNavigationBar(),
+
+      floatingActionButton: _tabController.index == 2
+          ? FloatingActionButton(
+        backgroundColor: Colors.pinkAccent,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ShareWeddingStory(),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+      )
+          : null,
+
+
     );
   }
 
@@ -456,61 +462,6 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-
-
-
-
-  // Widget _buildStoriesTab() {
-  //   return ListView(
-  //     padding: EdgeInsets.symmetric(horizontal: 16),
-  //     children: [
-  //       _buildStoryCard(
-  //         'Bridal busaj we\'re crushing on! outfits & Accessories That deserve a spot in your.',
-  //         '10 Sep 2025',
-  //         '2min read',
-  //         'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=180&fit=crop',
-  //             () => _navigateToBlogPage(
-  //           'Bridal busaj we\'re crushing on! outfits & Accessories That deserve a spot in your.',
-  //           '10 Sep 2025',
-  //           '2min read',
-  //           'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=180&fit=crop',
-  //           _getBridalBusajContent(),
-  //         ),
-  //       ),
-  //       SizedBox(height: 16),
-  //       _buildStoryCard(
-  //         'Top 10 Wedding Photography Poses Every Couple Should Try',
-  //         '8 Sep 2025',
-  //         '3min read',
-  //         'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=180&fit=crop',
-  //             () => _navigateToBlogPage(
-  //           'Top 10 Wedding Photography Poses Every Couple Should Try',
-  //           '8 Sep 2025',
-  //           '3min read',
-  //           'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=180&fit=crop',
-  //           _getPhotographyContent(),
-  //         ),
-  //       ),
-  //       SizedBox(height: 16),
-  //       _buildStoryCard(
-  //         'Modern Mehendi Designs That Are Trending This Season',
-  //         '5 Sep 2025',
-  //         '4min read',
-  //         'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=180&fit=crop',
-  //             () => _navigateToBlogPage(
-  //           'Modern Mehendi Designs That Are Trending This Season',
-  //           '5 Sep 2025',
-  //           '4min read',
-  //           'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=180&fit=crop',
-  //           _getMehendiContent(),
-  //         ),
-  //       ),
-  //       SizedBox(height: 16),
-  //       _buildPartialStoryCard(),
-  //     ],
-  //   );
-  // }
-  // Real Weddings Tab Content
   Widget _buildRealWeddingsTab() {
     return FutureBuilder<List<RealWedding>>(
       future: fetchRealWeddings(),
@@ -596,9 +547,6 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       ),
     );
   }
-
-
-
 
   Widget _buildRealWeddingCardPreview(RealWedding wedding) {
     return Container(
@@ -723,8 +671,6 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       ),
     );
   }
-
-
 
   Widget _buildPartialStoryCard() {
     return Container(
@@ -1187,8 +1133,9 @@ class BlogDetailPage extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
+      ));
+
+
   }
 
   Widget _buildEngagementButton(IconData icon, String label, int count) {
@@ -1606,3 +1553,5 @@ class RealWedding {
   }
 
 }
+
+
