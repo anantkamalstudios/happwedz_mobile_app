@@ -52,19 +52,60 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          Expanded(
-            child: _buildEmptyState(),
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4), // Hot Pink
+              Color(0xFFFFB6C1), // Light Pink
+              Colors.white,      // White
+            ],
+            stops: [0.0, 0.3, 0.6],
           ),
-        ],
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // 🌸 Custom AppBar like Budget
+              Container(
+                color: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Text(
+                      "Messages",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 48), // right-space to balance
+                  ],
+                ),
+              ),
+
+              _buildSearchBar(),
+
+              Expanded(
+                child: _buildEmptyState(),
+              ),
+            ],
+          ),
+        ),
       ),
-      // floatingActionButton: _buildFloatingActionButton(),
     );
   }
+
+
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(

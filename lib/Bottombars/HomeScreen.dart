@@ -1,1452 +1,9 @@
-// import 'package:flutter/material.dart';
-// import 'package:google_fonts/google_fonts.dart';
-//
-// class Homescreen extends StatefulWidget {
-//   const Homescreen({super.key});
-//
-//   @override
-//   State<Homescreen> createState() => _HomescreenState();
-// }
-//
-// class _HomescreenState extends State<Homescreen> {
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//     body:SingleChildScrollView(
-//       child: Column(
-//         children: [
-//           Container(
-//             width: 430,
-//             height: 112,
-//             clipBehavior: Clip.hardEdge,
-//             decoration: const BoxDecoration(
-//               color: Color(0xFFE83580),
-//               boxShadow: [
-//                 BoxShadow(
-//                   color: Color(0x3FB8B8B8),
-//                   spreadRadius: 0,
-//                   offset: Offset(0, 4),
-//                   blurRadius: 4,
-//                 )
-//               ],
-//             ),
-//           ),
-//           Container(
-//             width: 430,
-//             height: 142,
-//             clipBehavior: Clip.hardEdge,
-//             decoration: const BoxDecoration(
-//               color: Color(0x0CE83580),
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//
-//           Align(
-//             alignment: Alignment.topLeft,
-//             child: Text(
-//               'Wedding Planning tools',
-//               textAlign: TextAlign.center,
-//               style: GoogleFonts.getFont(
-//                 'Poltawski Nowy',
-//                 color: Colors.black,
-//                 fontSize: 15,
-//               ),
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//           Row(
-//             children: [
-//               Container(
-//                 width: 122,
-//                 height: 106,
-//                 clipBehavior: Clip.hardEdge,
-//                 decoration: const BoxDecoration(
-//                   color: Color(0x117732FF),
-//                 ),
-//               ),
-//               SizedBox(width: 10,),
-//               Container(
-//                 width: 122,
-//                 height: 106,
-//                 clipBehavior: Clip.hardEdge,
-//                 decoration: const BoxDecoration(
-//                   color: Color(0x38FBAA47),
-//                 ),
-//               ),
-//               SizedBox(width: 10,),
-//               Container(
-//                 width: 122,
-//                 height: 106,
-//                 clipBehavior: Clip.hardEdge,
-//                 decoration: const BoxDecoration(
-//                   color: Color(0x38FBAA47),
-//                 ),
-//               )
-//             ],
-//           ),
-//           SizedBox(height: 10,),
-//
-//           Align(
-//             alignment: Alignment.topLeft,
-//             child: Text(
-//               'Venues in your city',
-//               textAlign: TextAlign.center,
-//               style: GoogleFonts.getFont(
-//                 'Poltawski Nowy',
-//                 color: Colors.black,
-//                 fontSize: 15,
-//               ),
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//           Row(
-//             children: [
-//               Container(
-//                 width: 202,
-//                 height: 238,
-//                 clipBehavior: Clip.hardEdge,
-//                 decoration: BoxDecoration(
-//                   color: Colors.white,
-//                   border: Border.all(
-//                     color: const Color(0x11E83580),
-//                   ),
-//                   boxShadow: const [
-//                     BoxShadow(
-//                       color: Color(0x3F000000),
-//                       spreadRadius: 0,
-//                       offset: Offset(0, 4),
-//                       blurRadius: 4,
-//                     )
-//                   ],
-//                 ),
-//               ),
-//               SizedBox(width: 10,),
-//               Container(
-//                 width: 202,
-//                 height: 238,
-//                 clipBehavior: Clip.hardEdge,
-//                 decoration: BoxDecoration(
-//                   color: Colors.white,
-//                   border: Border.all(
-//                     color: const Color(0x11E83580),
-//                   ),
-//                   boxShadow: const [
-//                     BoxShadow(
-//                       color: Color(0x3F000000),
-//                       spreadRadius: 0,
-//                       offset: Offset(0, 4),
-//                       blurRadius: 4,
-//                     )
-//                   ],
-//                 ),
-//               )
-//             ],
-//           ),
-//           SizedBox(height: 10,),
-//           Container(
-//             width: 382,
-//             height: 48,
-//             clipBehavior: Clip.hardEdge,
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               border: Border.all(
-//                 color: const Color(0xFFE83580),
-//               ),
-//               borderRadius: BorderRadius.circular(10),
-//               boxShadow: const [
-//                 BoxShadow(
-//                   color: Colors.white,
-//                   spreadRadius: 0,
-//                   offset: Offset(0, 4),
-//                   blurRadius: 4,
-//                 )
-//               ],
-//             ),
-//             child: Stack(
-//               clipBehavior: Clip.none,
-//               children: [
-//                 Container(
-//                   decoration: BoxDecoration(
-//                     borderRadius: BorderRadius.circular(10),
-//                     gradient: const LinearGradient(
-//                       colors: [Color(0x1EFFFFFF), Color(0x00FFFFFF)],
-//                     ),
-//                   ),
-//                 ),
-//                 Positioned(
-//                   left: 139,
-//                   top: 13,
-//                   child: Text(
-//                     'View all venues ',
-//                     textAlign: TextAlign.center,
-//                     style: GoogleFonts.getFont(
-//                       'Inter',
-//                       color: const Color(0xFFA60F93),
-//                       fontSize: 14,
-//                       fontWeight: FontWeight.w500,
-//                       letterSpacing: -0.1,
-//                       height: 1.4,
-//                     ),
-//                   ),
-//                 ),
-//
-//               ],
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//           Align(
-//             alignment: Alignment.topLeft,
-//             child: Text(
-//               'Photographer for you',
-//               textAlign: TextAlign.center,
-//               style: GoogleFonts.getFont(
-//                 'Poltawski Nowy',
-//                 color: Colors.black,
-//                 fontSize: 15,
-//               ),
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//             Row(
-//               children: [
-//                 Container(
-//                   width: 202,
-//                   height: 238,
-//                   clipBehavior: Clip.hardEdge,
-//                   decoration: BoxDecoration(
-//                     color: Colors.white,
-//                     border: Border.all(
-//                       color: const Color(0x11E83580),
-//                     ),
-//                     boxShadow: const [
-//                       BoxShadow(
-//                         color: Color(0x3F000000),
-//                         spreadRadius: 0,
-//                         offset: Offset(0, 4),
-//                         blurRadius: 4,
-//                       )
-//                     ],
-//                   ),
-//                 ),
-//                 SizedBox(width: 10,),
-//                 Container(
-//                   width: 202,
-//                   height: 238,
-//                   clipBehavior: Clip.hardEdge,
-//                   decoration: BoxDecoration(
-//                     color: Colors.white,
-//                     border: Border.all(
-//                       color: const Color(0x11E83580),
-//                     ),
-//                     boxShadow: const [
-//                       BoxShadow(
-//                         color: Color(0x3F000000),
-//                         spreadRadius: 0,
-//                         offset: Offset(0, 4),
-//                         blurRadius: 4,
-//                       )
-//                     ],
-//                   ),
-//                 )
-//               ],
-//             ),
-//           SizedBox(height: 10,),
-//           Container(
-//             width: 382,
-//             height: 48,
-//             clipBehavior: Clip.hardEdge,
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               border: Border.all(
-//                 color: const Color(0xFFE83580),
-//               ),
-//               borderRadius: BorderRadius.circular(10),
-//               boxShadow: const [
-//                 BoxShadow(
-//                   color: Colors.white,
-//                   spreadRadius: 0,
-//                   offset: Offset(0, 4),
-//                   blurRadius: 4,
-//                 )
-//               ],
-//             ),
-//             child: Stack(
-//               clipBehavior: Clip.none,
-//               children: [
-//                 Container(
-//                   decoration: BoxDecoration(
-//                     borderRadius: BorderRadius.circular(10),
-//                     gradient: const LinearGradient(
-//                       colors: [Color(0x1EFFFFFF), Color(0x00FFFFFF)],
-//                     ),
-//                   ),
-//                 ),
-//                 Positioned(
-//                   left: 114,
-//                   top: 13,
-//                   child: Text(
-//                     'View all photographers ',
-//                     textAlign: TextAlign.center,
-//                     style: GoogleFonts.getFont(
-//                       'Inter',
-//                       color: const Color(0xFFA60F93),
-//                       fontSize: 14,
-//                       fontWeight: FontWeight.w500,
-//                       letterSpacing: -0.1,
-//                       height: 1.4,
-//                     ),
-//                   ),
-//                 )
-//               ],
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//           Align(
-//             alignment: Alignment.topLeft,
-//             child: Text(
-//               'Wedding checklist',
-//               textAlign: TextAlign.center,
-//               style: GoogleFonts.getFont(
-//                 'Poltawski Nowy',
-//                 color: Colors.black,
-//                 fontSize: 15,
-//               ),
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//          Column(
-//            children: [
-//              Container(
-//                width: 382,
-//                height: 135,
-//                clipBehavior: Clip.hardEdge,
-//                decoration: BoxDecoration(
-//                  borderRadius: BorderRadius.circular(10),
-//                  gradient: const LinearGradient(
-//                    colors: [Color(0xFFB52963), Color(0xFFE83580), Color(0xFFF96909)],
-//                    stops: [0, 0.50, 1],
-//                  ),
-//                ),
-//              ),
-//              Container(
-//                width: 347,
-//                height: 68,
-//                clipBehavior: Clip.hardEdge,
-//                decoration: BoxDecoration(
-//                  color: Colors.white,
-//                  borderRadius: BorderRadius.circular(10),
-//                  boxShadow: const [
-//                    BoxShadow(
-//                      color: Color(0x3F000000),
-//                      spreadRadius: 0,
-//                      offset: Offset(0, 4),
-//                      blurRadius: 4,
-//                    )
-//                  ],
-//                ),
-//              )
-//            ],
-//          ),
-// SizedBox(height: 10,),
-//           Align(
-//             alignment: Alignment.topLeft,
-//           child: Text(
-//             'Trending Today',
-//             textAlign: TextAlign.center,
-//             style: GoogleFonts.getFont(
-//               'Poltawski Nowy',
-//               color: Colors.black,
-//               fontSize: 15,
-//             ),
-//           )
-//           ),
-//
-//           SizedBox(height: 10,),
-//           Align(
-//             alignment: Alignment.topLeft,
-//             child: Text(
-//               '#ivory-lehenga',
-//               textAlign: TextAlign.center,
-//               style: GoogleFonts.getFont(
-//                 'Poltawski Nowy',
-//                 color: const Color(0xFFE83580),
-//                 fontSize: 12,
-//               ),
-//             ),
-//           ),
-//           Row(
-//             children: [
-//               ClipRRect(
-//                 borderRadius: BorderRadius.circular(10),
-//                 clipBehavior: Clip.hardEdge,
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda4c02d79fd1200f156daf70739c11a60188ce59Rectangle%20266.png?alt=media&token=f0bcb045-bd2c-4242-82b4-91c11fa4fe6d',
-//                   width: 202,
-//                   height: 302,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//               SizedBox(width: 10,),
-//               ClipRRect(
-//                 borderRadius: BorderRadius.circular(10),
-//                 clipBehavior: Clip.hardEdge,
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda4c02d79fd1200f156daf70739c11a60188ce59Rectangle%20266.png?alt=media&token=f0bcb045-bd2c-4242-82b4-91c11fa4fe6d',
-//                   width: 202,
-//                   height: 302,
-//                   fit: BoxFit.cover,
-//                 ),
-//               )
-//             ],
-//           ),
-//           SizedBox(height: 10,),
-//           Container(
-//             width: 382,
-//             height: 59,
-//             clipBehavior: Clip.hardEdge,
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               border: Border.all(
-//                 color: const Color(0xFFE83580),
-//               ),
-//               borderRadius: BorderRadius.circular(10),
-//               boxShadow: const [
-//                 BoxShadow(
-//                   color: Colors.white,
-//                   spreadRadius: 0,
-//                   offset: Offset(0, 4),
-//                   blurRadius: 4,
-//                 )
-//               ],
-//             ),
-//             child: Stack(
-//               clipBehavior: Clip.none,
-//               children: [
-//                 Container(
-//                   decoration: BoxDecoration(
-//                     borderRadius: BorderRadius.circular(10),
-//                     gradient: const LinearGradient(
-//                       colors: [Color(0x1EFFFFFF), Color(0x00FFFFFF)],
-//                     ),
-//                   ),
-//                 ),
-//                 Positioned(
-//                   left: 115,
-//                   top: 19,
-//                   child: Text(
-//                     'View all treading today ',
-//                     textAlign: TextAlign.center,
-//                     style: GoogleFonts.getFont(
-//                       'Inter',
-//                       color: const Color(0xFFA60F93),
-//                       fontSize: 14,
-//                       fontWeight: FontWeight.w500,
-//                       letterSpacing: -0.1,
-//                       height: 1.4,
-//                     ),
-//                   ),
-//                 )
-//               ],
-//             ),
-//           ),
-//           SizedBox(height: 10,),
-//
-//           Align(
-//             alignment: Alignment.topLeft,
-//             child: Text(
-//               'HappyWeds Services',
-//               textAlign: TextAlign.center,
-//               style: GoogleFonts.getFont(
-//                 'Poltawski Nowy',
-//                 color: Colors.black,
-//                 fontSize: 15,
-//               ),
-//             ),
-//           )
-//         ],
-//       ),
-//     )
-//
-//     );
-//   }
-// }
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-// class Rectangle267 extends StatelessWidget {
-//   const Rectangle267({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: 319,
-//       height: 238,
-//       clipBehavior: Clip.hardEdge,
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         border: Border.all(
-//           color: const Color(0x11E83580),
-//         ),
-//         boxShadow: const [
-//           BoxShadow(
-//             color: Color(0x3F000000),
-//             spreadRadius: 0,
-//             offset: Offset(0, 4),
-//             blurRadius: 4,
-//           )
-//         ],
-//       ),
-//     );
-//   }
-// }
-//
-//
-// class Vector extends StatelessWidget {
-//   const Vector({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Image.network(
-//       'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F8bf61fc9-24e3-4962-a04b-6cf4139fa10e.png',
-//       width: 8,
-//       height: 10,
-//       fit: BoxFit.contain,
-//     );
-//   }
-// }
-//
-//
-// class WaddingPlanners extends StatelessWidget {
-//   const WaddingPlanners({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return SizedBox(
-//       width: 84,
-//       child: Text(
-//         'Wadding Planners ',
-//         textAlign: TextAlign.center,
-//         style: GoogleFonts.getFont(
-//           'Inter',
-//           color: Colors.black,
-//           fontSize: 12,
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-//
-// class Rectangle265 extends StatelessWidget {
-//   const Rectangle265({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: 122,
-//       height: 106,
-//       clipBehavior: Clip.hardEdge,
-//       decoration: const BoxDecoration(
-//         color: Color(0x38FBAA47),
-//       ),
-//     );
-//   }
-// }
-//
-//
-// class Rectangle3 extends StatelessWidget {
-//   const Rectangle3({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: 66,
-//       height: 2,
-//       clipBehavior: Clip.hardEdge,
-//       decoration: const BoxDecoration(),
-//     );
-//   }
-// }
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-//
-// class HomeScreen extends StatefulWidget {
-//   const HomeScreen({super.key});
-//
-//   @override
-//   State<HomeScreen> createState() => _HomeScreenState();
-// }
-//
-// class _HomeScreenState extends State<HomeScreen> {
-//   int _selectedIndex = 0;
-//
-//   // ---- Data ----
-//   final List<Map<String, String>> categories = [
-//     {
-//       'label': 'Wedding Planners',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bEllipse%202.png?alt=media&token=126f43e7-fd80-4323-8f94-13f102b01688'
-//     },
-//     {
-//       'label': 'Photographer',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cEllipse%203.png?alt=media&token=50dae8bf-2c7d-4b69-a847-a88432b235b6'
-//     },
-//     {
-//       'label': 'Venues',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F138e7fc800113229c148bb8e1c42d934b661828bEllipse%204.png?alt=media&token=cdb01134-472d-448c-8530-ae7557a78233'
-//     },
-//     {
-//       'label': 'Bridal makeup',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Ellipse%205.png?alt=media&token=5c7554ea-e064-4a0e-9fac-9fe9a779da08'
-//     },
-//     {
-//       'label': 'All Categories',
-//       'image':
-//       'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F74d0bec9-682b-4ea0-8c61-f23d309a3de7.png'
-//     },
-//   ];
-//
-//   final List<Map<String, String>> venueCards = [
-//     {
-//       'title': 'Fort Jadhavgadh, Pune',
-//       'sub': 'Saswad',
-//       'price': '₹ 2,899 per plate',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=e95fe0b1-9f12-41d3-b034-384776687509'
-//     },
-//     {
-//       'title': 'Gharkul Lawns',
-//       'sub': 'Erandwane',
-//       'price': '₹ 899 per plate',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F0601b946dc3b99b0aa992f4edf934ffc69ee254cRectangle%20266.png?alt=media&token=489fdb30-84e0-4f11-9a27-629eb6f5c2cc'
-//     },
-//   ];
-//
-//   final List<Map<String, String>> photographerCards = [
-//     {
-//       'title': 'Fearless Pheras',
-//       'sub': 'Pune',
-//       'price': '₹ 55,000 per Day',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=b58eea4b-0ec1-4562-bdce-af7fd3a2dc96'
-//     },
-//     {
-//       'title': 'Firefly Photography',
-//       'sub': 'Pune',
-//       'price': '₹ 55,000 per Day',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F0601b946dc3b99b0aa992f4edf934ffc69ee254cRectangle%20266.png?alt=media&token=28367d39-ef9a-4d56-ada5-d49683b3d515'
-//     },
-//   ];
-//
-//   final List<Map<String, String>> trendingCards = [
-//     {
-//       'title': 'Bridal busy we’re crushing on! outfits',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F34ea5a1fe5bd5adb6c68ba2f0e1fa6bcc8470ba0Rectangle%20268.png?alt=media&token=847a1794-95a5-4fb4-961d-e2642efc2a63'
-//     },
-//     {
-//       'title': 'A Beachside Wedding Dipped In Pastels',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=bd975947-2c06-40c6-8c0b-11482c43b783'
-//     },
-//   ];
-//
-//   final List<Map<String, String>> readCards = [
-//     {
-//       'title': 'Bridal busy we’re crushing on! outfits & Accessories',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F34ea5a1fe5bd5adb6c68ba2f0e1fa6bcc8470ba0Rectangle%20266.png?alt=media&token=bd975947-2c06-40c6-8c0b-11482c43b783'
-//     },
-//     {
-//       'title':
-//       'A Beachside Wedding Dipped In Pastels, Sunshine & A Decade Of Love',
-//       'image':
-//       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=cb4544a5-d80b-4d6b-807f-20024e958026'
-//     },
-//   ];
-//
-//   // ---- Helpers ----
-//   double clampDouble(double value, double min, double max) =>
-//       value < min ? min : (value > max ? max : value);
-//
-//   Widget buildCategoryItem(double circleSize, Map<String, String> item) {
-//     return SizedBox(
-//       width: circleSize + 20,
-//       child: Column(
-//         children: [
-//           Container(
-//             width: circleSize,
-//             height: circleSize,
-//             decoration: BoxDecoration(
-//               shape: BoxShape.circle,
-//               border: Border.all(width: 2, color: const Color(0xFFFBAA47)),
-//               image: DecorationImage(
-//                 image: NetworkImage(item['image']!),
-//                 fit: BoxFit.cover,
-//               ),
-//             ),
-//           ),
-//           const SizedBox(height: 6),
-//           Flexible(
-//             child: Text(
-//               item['label'] ?? '',
-//               textAlign: TextAlign.center,
-//               style: GoogleFonts.inter(fontSize: 12),
-//               maxLines: 2,
-//               overflow: TextOverflow.ellipsis,
-//             ),
-//           )
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget buildCardItemHorizontal(
-//       Map<String, String> card,
-//       double cardWidth, {
-//         double? cardHeightOverride,
-//       }) {
-//     final double cardHeight = cardHeightOverride ?? 220;
-//
-//     return SizedBox(
-//       width: cardWidth,
-//       height: cardHeight,
-//       child: Container(
-//         margin: const EdgeInsets.only(right: 12),
-//         decoration: BoxDecoration(
-//           color: Colors.white,
-//           border: Border.all(color: const Color(0x11E83580)),
-//           boxShadow: const [
-//             BoxShadow(color: Color(0x3F000000), offset: Offset(0, 4), blurRadius: 4),
-//           ],
-//           borderRadius: BorderRadius.circular(10),
-//         ),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             SizedBox(
-//               height: 120,
-//               width: double.infinity,
-//               child: ClipRRect(
-//                 borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-//                 child: Image.network(
-//                   card['image'] ?? '',
-//                   fit: BoxFit.cover,
-//                   errorBuilder: (_, __, ___) => Container(color: Colors.grey[200]),
-//                 ),
-//               ),
-//             ),
-//
-//             Padding(
-//               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     card['title'] ?? '',
-//                     style: GoogleFonts.getFont(
-//                       'Poltawski Nowy',
-//                       fontSize: 15,
-//                       fontWeight: FontWeight.w600,
-//                       color: Colors.black,
-//                     ),
-//                     maxLines: 2,
-//                     overflow: TextOverflow.ellipsis,
-//                   ),
-//                   const SizedBox(height: 6),
-//                   Text(
-//                     card['sub'] ?? '',
-//                     style: GoogleFonts.poppins(
-//                       fontSize: 13,
-//                       color: Colors.grey[800],
-//                     ),
-//                     maxLines: 1,
-//                     overflow: TextOverflow.ellipsis,
-//                   ),
-//                   const SizedBox(height: 6),
-//                   Text(
-//                     card['price'] ?? '',
-//                     style: GoogleFonts.poppins(
-//                       fontSize: 14,
-//                       fontWeight: FontWeight.w600,
-//                       color: Colors.black,
-//                     ),
-//                     maxLines: 1,
-//                     overflow: TextOverflow.ellipsis,
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//
-//   Widget _smallToolCard({
-//     required String title,
-//     required String subtitle,
-//     required String image,
-//     required double width,
-//   }) {
-//     return Container(
-//       width: width,
-//       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         border: Border.all(color: const Color(0x11E83580)),
-//         borderRadius: BorderRadius.circular(10),
-//       ),
-//       child: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         mainAxisAlignment: MainAxisAlignment.center,
-//         children: [
-//           SizedBox(width: 56, height: 56, child: Image.network(image)),
-//           const SizedBox(height: 6),
-//           Flexible(
-//             fit: FlexFit.loose,
-//             child: Text(
-//               title,
-//               style: GoogleFonts.poppins(fontSize: 11),
-//               textAlign: TextAlign.center,
-//               maxLines: 2,
-//               overflow: TextOverflow.ellipsis,
-//             ),
-//           ),
-//           const SizedBox(height: 4),
-//           Text(
-//             subtitle,
-//             style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey),
-//             maxLines: 1,
-//             overflow: TextOverflow.ellipsis,
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _readCardHorizontal(
-//       {required String title, required String image, required double width}) {
-//     return Container(
-//       width: width,
-//       margin: const EdgeInsets.only(right: 12),
-//       decoration: BoxDecoration(
-//         borderRadius: BorderRadius.circular(10),
-//         boxShadow: const [
-//           BoxShadow(color: Color(0x3F000000), offset: Offset(0, 4), blurRadius: 4)
-//         ],
-//         color: Colors.white,
-//       ),
-//       child: Row(
-//         children: [
-//           ClipRRect(
-//             borderRadius:
-//             const BorderRadius.horizontal(left: Radius.circular(10)),
-//             child:
-//             Image.network(image, width: width * 0.36, height: 100, fit: BoxFit.cover),
-//           ),
-//           const SizedBox(width: 10),
-//           Expanded(
-//             child: Padding(
-//               padding: const EdgeInsets.symmetric(vertical: 8),
-//               child: Text(title,
-//                   style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 14),
-//                   maxLines: 3,
-//                   overflow: TextOverflow.ellipsis),
-//             ),
-//           )
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // ---- Build ----
-//   @override
-//   Widget build(BuildContext context) {
-//     final width = MediaQuery.of(context).size.width;
-//     final circleSize = clampDouble(width * 0.14, 50, 80);
-//     // final width = MediaQuery.of(context).size.width;
-//     final height = MediaQuery.of(context).size.height;
-//     // final smallCardW = clampDouble(width * 0.42, 140, 260);
-//     final trendingCardW = clampDouble(width * 0.72, 200, 380);
-//     final readCardW = clampDouble(width * 0.72, 220, 380);
-//     final double screenWidth = MediaQuery.of(context).size.width;
-//     final double smallCardW = (screenWidth * 0.62).clamp(180.0, 260.0);
-//     const double cardH = 220;
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text('HappyWeds', style: GoogleFonts.poppins()),
-//         backgroundColor: const Color(0xFFE83580),
-//         elevation: 0,
-//       ),
-//       body: SafeArea(
-//         child: SingleChildScrollView(
-//           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               SizedBox(
-//                 height: circleSize + 46,
-//                 child: ListView.separated(
-//                   scrollDirection: Axis.horizontal,
-//                   itemCount: categories.length,
-//                   separatorBuilder: (_, __) => const SizedBox(width: 12),
-//                   itemBuilder: (context, index) =>
-//                       buildCategoryItem(circleSize, categories[index]),
-//                 ),
-//               ),
-//               const SizedBox(height: 16),
-//               Text('Wedding Planning tools',
-//                   style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
-//               const SizedBox(height: 8),
-//               SizedBox(
-//                 height: 120,
-//                 child: ListView(
-//                   scrollDirection: Axis.horizontal,
-//                   children: [
-//                     _smallToolCard(
-//                       title: 'Build your Digital E-invites',
-//                       subtitle: 'Let’s get started',
-//                       image:
-//                       'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F0a9710d1-dcde-45a6-8b5e-35c944279b1f.png',
-//                       width: 140,
-//                     ),
-//                     const SizedBox(width: 12),
-//                     _smallToolCard(
-//                       title: 'Your shortlisted vendor',
-//                       subtitle: 'Browse vendors',
-//                       image:
-//                       'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2Fa10c8360-0438-45ee-914b-52837cb3d480.png',
-//                       width: 140,
-//                     ),
-//                     const SizedBox(width: 12),
-//                     _smallToolCard(
-//                       title: 'Your Favourite ideas',
-//                       subtitle: 'Add a favourite',
-//                       image:
-//                       'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F57c23620-f845-42ed-9092-416ab6f7859d.png',
-//                       width: 140,
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//               const SizedBox(height: 18),
-//               Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Text('Venues in your city',
-//                         style: GoogleFonts.getFont('Poltawski Nowy',
-//                             fontSize: 16)),
-//                     TextButton(
-//                       onPressed: () {
-//
-//                       },
-//                       child: Text('View all',
-//                           style: GoogleFonts.inter(
-//                               color: const Color(0xFFA60F93))),
-//                     )
-//                   ]),
-//               const SizedBox(height: 8),
-//             SizedBox(
-//               height: cardH,
-//               child: ListView.builder(
-//                 scrollDirection: Axis.horizontal,
-//                 itemCount: venueCards.length,
-//                 itemBuilder: (context, i) => buildCardItemHorizontal(
-//                   venueCards[i],
-//                   smallCardW,
-//                   cardHeightOverride: cardH,
-//                 ),
-//               ),
-//             ),
-//               const SizedBox(height: 18),
-//               Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Text('Photographer for you',
-//                         style: GoogleFonts.getFont('Poltawski Nowy',
-//                             fontSize: 16)),
-//                     TextButton(
-//                       onPressed: () {},
-//                       child: Text('View all',
-//                           style: GoogleFonts.inter(
-//                               color: const Color(0xFFA60F93))),
-//                     )
-//                   ]),
-//               const SizedBox(height: 8),
-//               SizedBox(
-//                 height: smallCardW * 0.9,
-//                 child: ListView.builder(
-//                   scrollDirection: Axis.horizontal,
-//                   itemCount: photographerCards.length,
-//                   itemBuilder: (context, i) =>
-//                       buildCardItemHorizontal(photographerCards[i], smallCardW),
-//                 ),
-//               ),
-//                const SizedBox(height: 18),
-//               // Container(
-//               //   height: 120,
-//               //   decoration: BoxDecoration(
-//               //     gradient: const LinearGradient(
-//               //       colors: [Color(0xFFB52963), Color(0xFFE83580), Color(0xFFF96909)],
-//               //       stops: [0, 0.5, 1],
-//               //     ),
-//               //     borderRadius: BorderRadius.circular(10),
-//               //   ),
-//               //   padding: const EdgeInsets.all(12),
-//               //   child: Column(
-//               //       crossAxisAlignment: CrossAxisAlignment.start,
-//               //       children: [
-//               //         Text('0/73',
-//               //             style: GoogleFonts.getFont('Poltawski Nowy',
-//               //                 color: Colors.white, fontSize: 18)),
-//               //         Text('Task done',
-//               //             style: GoogleFonts.getFont('Poltawski Nowy',
-//               //                 color: Colors.white, fontSize: 12)),
-//               //         const Spacer(),
-//               //         Text('Upcoming tasks',
-//               //             style: GoogleFonts.getFont('Poltawski Nowy',
-//               //                 color: Colors.white, fontSize: 10)),
-//               //         const SizedBox(height: 6),
-//               //         Text('Browse and save outfit photos',
-//               //             style: GoogleFonts.poppins(
-//               //                 color: Colors.white, fontSize: 10)),
-//               //       ]),
-//               // ),
-//
-//                   Container(
-//                       width: double.infinity,
-//                       height: height * 0.20,
-//                       decoration: BoxDecoration(
-//                         borderRadius: BorderRadius.circular(20),
-//                         gradient: const LinearGradient(
-//                           colors: [Color(0xFFd8366f), Color(0xFFf97316)], // Pink → Orange
-//                           begin: Alignment.centerLeft,
-//                           end: Alignment.centerRight,
-//                         ),
-//                       ),
-//                       child:Padding(
-//                           padding: const EdgeInsets.all(20.0),
-//                           child: Stack(
-//                             children: [
-//                               Column(
-//                                 crossAxisAlignment: CrossAxisAlignment.start,
-//                                 children: [
-//                                   Text(
-//                                     "0/73",
-//                                     style: TextStyle(
-//                                       color: Colors.white,
-//                                       fontSize: width * 0.07,
-//                                       fontWeight: FontWeight.bold,
-//                                     ),
-//                                   ),
-//                                   const SizedBox(height: 6),
-//                                   const Text(
-//                                     "Task done",
-//                                     style: TextStyle(
-//                                       color: Colors.white,
-//                                       fontSize: 18,
-//                                       fontWeight: FontWeight.w500,
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                         Align(
-//                           alignment: Alignment.centerRight,
-//                           child: Container(
-//                             width: 60,
-//                             height: 60,
-//                             decoration: BoxDecoration(
-//                               shape: BoxShape.circle,
-//                               border: Border.all(
-//                                 color: Colors.white.withOpacity(0.8),
-//                                 width: 3,
-//                               ),
-//                             ),
-//                             child: const Center(
-//                               child: Text(
-//                                 "0%",
-//                                 style: TextStyle(
-//                                   color: Colors.white,
-//                                   fontWeight: FontWeight.w600,
-//                                 ),
-//                               ),
-//                             ),
-//                           ),
-//                         ),
-//                             ],
-//                           ),
-//                       )
-//                   ),
-//               SizedBox(height: 20),
-//               Container(
-//                   width: double.infinity,
-//                   padding: const EdgeInsets.all(20),
-//                   decoration: BoxDecoration(
-//                     color: Colors.white,
-//                     borderRadius: BorderRadius.circular(20),
-//                     boxShadow: [
-//                       BoxShadow(
-//                         color: Colors.black.withOpacity(0.08),
-//                         blurRadius: 12,
-//                         offset: const Offset(0, 4),
-//                       ),
-//                     ],
-//                   ),
-//                   child:Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       const Text(
-//                         "Upcoming tasks",
-//                         style: TextStyle(
-//                           fontSize: 18,
-//                           fontWeight: FontWeight.w600,
-//                           color: Colors.black87,
-//                         ),
-//                       ),
-//                       const SizedBox(height: 16),
-//                       Row(
-//                         children: const [
-//                           Icon(Icons.circle, size: 12, color: Colors.pink),
-//                           SizedBox(width: 10),
-//                           Text(
-//                             "Browse and save outfit photos",
-//                             style: TextStyle(
-//                               fontSize: 14,
-//                               color: Colors.black87,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                       const SizedBox(height: 12),
-//                       Row(
-//                         children: [
-//                           Icon(Icons.circle, size: 12, color: Colors.grey[400]),
-//                           const SizedBox(width: 10),
-//                           const Text(
-//                             "Research venue options",
-//                             style: TextStyle(
-//                               fontSize: 14,
-//                               color: Colors.black54,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ],
-//                   )
-//
-//
-//
-//
-//
-//
-//
-//
-//               ),
-//
-//
-//               const SizedBox(height: 18),
-//               Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Text('Trending Today',
-//                         style: GoogleFonts.getFont('Poltawski Nowy',
-//                             fontSize: 16)),
-//                     Text('#ivory-lehenga',
-//                         style: GoogleFonts.getFont('Poltawski Nowy',
-//                             color: const Color(0xFFE83580))),
-//                   ]),
-//               const SizedBox(height: 8),
-//               SizedBox(
-//                 height: trendingCardW * 0.9,
-//                 child: ListView.builder(
-//                   scrollDirection: Axis.horizontal,
-//                   itemCount: trendingCards.length,
-//                   itemBuilder: (context, i) =>
-//                       buildCardItemHorizontal(trendingCards[i], trendingCardW),
-//                 ),
-//               ),
-//               const SizedBox(height: 18),
-//               Container(
-//                 width: double.infinity,
-//                 height: 140,
-//                 decoration: BoxDecoration(
-//                   borderRadius: BorderRadius.circular(10),
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                         'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Rectangle%20269.png?alt=media&token=ab82efe7-34cd-404b-9da2-01515f372f47'),
-//                     fit: BoxFit.cover,
-//                   ),
-//                 ),
-//                 child: Container(
-//                   padding: const EdgeInsets.all(12),
-//                   alignment: Alignment.bottomLeft,
-//                   decoration: BoxDecoration(
-//                       borderRadius: BorderRadius.circular(10),
-//                       gradient: LinearGradient(
-//                           colors: [Colors.black.withOpacity(0.35), Colors.transparent])),
-//                   child: Column(
-//                       mainAxisAlignment: MainAxisAlignment.end,
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         Text('HappyWeds Services',
-//                             style: GoogleFonts.getFont('Poltawski Nowy',
-//                                 color: Colors.white, fontSize: 16)),
-//                         Text('plan your dream wedding in your budget',
-//                             style: GoogleFonts.poppins(
-//                                 color: Colors.white, fontSize: 12)),
-//                       ]),
-//                 ),
-//               ),
-//               const SizedBox(height: 18),
-//               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-//                 Expanded(
-//                   child: ClipRRect(
-//                     borderRadius: BorderRadius.circular(10),
-//                     child: Image.network(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F1056d056a37e91a97da6758a70e2dada5d0a4f38Rectangle%20266.png?alt=media&token=36044e03-5eab-492d-8ed5-0e1fbf35dfd0',
-//                       height: 140,
-//                       fit: BoxFit.cover,
-//                     ),
-//                   ),
-//                 ),
-//                 const SizedBox(width: 12),
-//                 Expanded(
-//                   child: Column(
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         Text('Wedding ideas',
-//                             style: GoogleFonts.getFont('Poltawski Nowy',
-//                                 fontSize: 16)),
-//                         const SizedBox(height: 6),
-//                         Text('Wedding day bridal portrait',
-//                             style: GoogleFonts.getFont('Poltawski Nowy',
-//                                 fontSize: 14)),
-//                         const SizedBox(height: 6),
-//                         Text('Romantic couple shot',
-//                             style: GoogleFonts.getFont('Poltawski Nowy',
-//                                 fontSize: 14)),
-//                       ]),
-//                 ),
-//               ]),
-//               const SizedBox(height: 18),
-//               Text('Interesting reads',
-//                   style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
-//               const SizedBox(height: 8),
-//               SizedBox(
-//                 height: 120,
-//                 child: ListView.builder(
-//                   scrollDirection: Axis.horizontal,
-//                   itemCount: readCards.length,
-//                   itemBuilder: (context, i) => _readCardHorizontal(
-//                       title: readCards[i]['title']!,
-//                       image: readCards[i]['image']!,
-//                       width: readCardW),
-//                 ),
-//               ),
-//               const SizedBox(height: 24),
-//             ],
-//           ),
-//         ),
-//       ),
-//
-//       bottomNavigationBar: Container(
-//       width: double.infinity,
-//       height: 83,
-//       decoration: const BoxDecoration(
-//         color: Color(0xFFE83580),
-//       ),
-//       child: Stack(
-//         clipBehavior: Clip.none,
-//         children: [
-//           Positioned(
-//             left: 10,
-//             top: 13,
-//             child: Column(
-//               children: [
-//                 Container(
-//                   width: 86,
-//                   height: 58,
-//                   child: Stack(
-//                     clipBehavior: Clip.none,
-//                     children: [
-//                       Positioned(
-//                         left: 8,
-//                         top: 0,
-//                         child: Container(
-//                           width: 66,
-//                           height: 2,
-//                           color: Colors.white,
-//                         ),
-//                       ),
-//                       Positioned(
-//                         left: 31,
-//                         top: 9,
-//                         child: Image.asset(
-//                           'assets/homeicon.png',
-//                           width: 20,
-//                           height: 22,
-//                           fit: BoxFit.contain,
-//                         ),
-//                       ),
-//                       Positioned(
-//                         left: 22,
-//                         top: 37,
-//                         child: Text(
-//                           'Home',
-//                           style: GoogleFonts.poppins(
-//                             color: Colors.white,
-//                             fontSize: 12,
-//                             fontWeight: FontWeight.w500,
-//                             height: 1.3,
-//                           ),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//
-//           Positioned(
-//             left: 122,
-//             top: 23,
-//             child: Column(
-//               children: [
-//                 Image.network(
-//                   'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F1dced8c6-3573-4028-b321-f23db1bbee87.png',
-//                   width: 24,
-//                   height: 24,
-//                   fit: BoxFit.contain,
-//                 ),
-//                 const SizedBox(height: 5),
-//                 Text(
-//                   'Venues',
-//                   style: GoogleFonts.poppins(
-//                     color: Colors.white,
-//                     fontSize: 12,
-//                     height: 1.3,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//
-//           Positioned(
-//             left: 187,
-//             top: -18,
-//             child: Container(
-//               width: 56,
-//               height: 56,
-//               decoration: BoxDecoration(
-//                 image: const DecorationImage(
-//                   image: NetworkImage(
-//                     'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fd1f329981dae4ed57bd4c1a647951bd314f60a5fEllipse%20198.png?alt=media&token=ce69c3a7-5d00-414e-b01e-0a2cc4e4b888',
-//                   ),
-//                   fit: BoxFit.cover,
-//                 ),
-//                 border: Border.all(width: 4, color: const Color(0xFFE83580)),
-//                 borderRadius: BorderRadius.circular(28),
-//                 boxShadow: const [
-//                   BoxShadow(
-//                     color: Color(0x3F000000),
-//                     spreadRadius: 0,
-//                     offset: Offset(0, 4),
-//                     blurRadius: 4,
-//                   )
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           Positioned(
-//             left: 255,
-//             top: 15,
-//             child: Column(
-//               children: [
-//                 Image.network(
-//                   'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F16930dff-c4ab-4c18-b9a6-f52c3bdb8430.png',
-//                   width: 24,
-//                   height: 24,
-//                   fit: BoxFit.contain,
-//                 ),
-//                 const SizedBox(height: 5),
-//                 Text(
-//                   'Vendors',
-//                   style: GoogleFonts.poppins(
-//                     color: Colors.white,
-//                     fontSize: 12,
-//                     height: 1.3,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//
-//           Positioned(
-//             left: 336,
-//             top: 15,
-//             child: Column(
-//               children: [
-//                 Image.network(
-//                   'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2Fd897a830-de2f-412b-901a-2c08c4fdde3d.png',
-//                   width: 24,
-//                   height: 24,
-//                   fit: BoxFit.contain,
-//                 ),
-//                 const SizedBox(height: 5),
-//                 Text(
-//                   'More',
-//                   style: GoogleFonts.poppins(
-//                     color: Colors.white,
-//                     fontSize: 12,
-//                     height: 1.3,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     ),
-//
-//     );
-//   }
-// }
 
-
-
-// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy_wedz/login.dart';
@@ -1469,6 +26,7 @@ import '../vendor/makeup.dart';
 import '../vendor/photographer.dart';
 import '../vendor/vendordetailsscreen.dart';
 import '../venuedetails.dart';
+import 'GenieScreen.dart';
 import 'Vendor.dart';
 import 'VenuesScreen.dart';
 import 'VirtualStudio.dart';
@@ -1769,50 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // // Small tool card (icon + title + subtitle)
-  // Widget _smallToolCard({
-  //   required String title,
-  //   required String subtitle,
-  //   required String image,
-  //   required double width,
-  // }) {
-  //   return Container(
-  //     width: width,
-  //     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       border: Border.all(color: const Color(0x11E83580)),
-  //       borderRadius: BorderRadius.circular(10),
-  //     ),
-  //     child: Column(
-  //       mainAxisSize: MainAxisSize.min,
-  //       mainAxisAlignment: MainAxisAlignment.center,
-  //       children: [
-  //         SizedBox(width: 56, height: 56, child: Image.network(image)),
-  //         const SizedBox(height: 6),
-  //         Flexible(
-  //           fit: FlexFit.loose,
-  //           child: Text(
-  //             title,
-  //             style: GoogleFonts.poppins(fontSize: 11),
-  //             textAlign: TextAlign.center,
-  //             maxLines: 2,
-  //             overflow: TextOverflow.ellipsis,
-  //           ),
-  //         ),
-  //         const SizedBox(height: 4),
-  //         Text(
-  //           subtitle,
-  //           style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey),
-  //           maxLines: 1,
-  //           overflow: TextOverflow.ellipsis,
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
-  // Read card used in 'Interesting reads'
   Widget _readCardHorizontal({
     required String title,
     required String image,
@@ -2406,40 +921,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
-
-      // bottomNavigationBar: BottomNavigationBar(
-      //   type: BottomNavigationBarType.fixed,
-      //   currentIndex: _selectedIndex,
-      //   onTap: _onItemTapped,
-      //   selectedItemColor: Colors.pink[400],
-      //   unselectedItemColor: Colors.grey,
-      //   showUnselectedLabels: true,
-      //   items: _navItems.map((item) {
-      //     return BottomNavigationBarItem(
-      //       icon: Image.asset(
-      //         item["icon"]!,
-      //         width: 24,
-      //         height: 24,
-      //         color: Colors.grey,
-      //       ),
-      //       activeIcon: Image.asset(
-      //         item["icon"]!,
-      //         width: 26,
-      //         height: 26,
-      //         color: Colors.pink[400],
-      //       ),
-      //       label: item["label"],
-      //     );
-      //   }).toList(),
-      // ),
-
-
-
-
-
-
-
     );
   }
 }
@@ -2537,7 +1018,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     fetchPhotographers();
   }
 
-  ///00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
 
   Future<void> _loadCities() async {
     setState(() => _isLoadingCities = true);
@@ -2753,114 +1234,201 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Status Bar and Header
-              _buildHeader(),
-
-              // Main Content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-
-                      // Category Circles
-                      _buildCategorySection(),
-
-                      const SizedBox(height: 30),
-
-                      // Wedding Planning Tools
-                      _buildPlanningToolsSection(),
-
-                      const SizedBox(height: 30),
-
-                      // Venues Section
-                      _buildVenuesSection(),
-
-                      const SizedBox(height: 20),
-
-                      // View All Venues Button
-                      _buildViewAllVenuesButton(context),
-
-                      const SizedBox(height: 30),
-
-                      // Photographer Section
-                      _buildPhotographerSection(),
-                      const SizedBox(height: 20),
-                      _buildViewAllPhotographersButton(),
-                      const SizedBox(height: 30),
-
-                      _buildWeddingChecklistSection(
-                        completedCount: completedCount,
-                        totalTasks: totalTasks,
-                        upcomingTasks: upcomingTasks,
-                        onTap: () {
-                          print("✅ Wedding Checklist tapped!");
-                          Navigator.of(context).push(PageRouteBuilder(
-                            transitionDuration: const Duration(milliseconds: 600),
-                            pageBuilder: (_, __, ___) => const WeddingTimelinePage(),
-                            transitionsBuilder: (_, animation, __, child) {
-                              final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
-                              return FadeTransition(
-                                opacity: curved,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0, 0.1),
-                                    end: Offset.zero,
-                                  ).animate(curved),
-                                  child: child,
-                                ),
-                              );
+      body: Stack(
+        children: [
+          // 🌸 Your existing background and content
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFF69B4),
+                  Color(0xFFFFB6C1),
+                  Colors.white,
+                ],
+                stops: [0.0, 0.3, 0.6],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          _buildCategorySection(),
+                          const SizedBox(height: 30),
+                          _buildPlanningToolsSection(),
+                          const SizedBox(height: 30),
+                          _buildVenuesSection(),
+                          const SizedBox(height: 20),
+                          _buildViewAllVenuesButton(context),
+                          const SizedBox(height: 30),
+                          _buildPhotographerSection(),
+                          const SizedBox(height: 20),
+                          _buildViewAllPhotographersButton(),
+                          const SizedBox(height: 30),
+                          _buildWeddingChecklistSection(
+                            completedCount: completedCount,
+                            totalTasks: totalTasks,
+                            upcomingTasks: upcomingTasks,
+                            onTap: () {
+                              Navigator.of(context).push(PageRouteBuilder(
+                                transitionDuration: const Duration(milliseconds: 600),
+                                pageBuilder: (_, __, ___) => const WeddingTimelinePage(),
+                                transitionsBuilder: (_, animation, __, child) {
+                                  final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+                                  return FadeTransition(
+                                    opacity: curved,
+                                    child: SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: const Offset(0, 0.1),
+                                        end: Offset.zero,
+                                      ).animate(curved),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                              ));
                             },
-                          ));
-                        },
-
+                          ),
+                          const SizedBox(height: 30),
+                          _buildTrendingTodaySection(),
+                          SizedBox(height: 20),
+                          _buildViewAllTrendingButton(),
+                          const SizedBox(height: 30),
+                          _buildHappyWedsServicesSection(),
+                          const SizedBox(height: 30),
+                          _buildWeddingIdeasSection(),
+                          const SizedBox(height: 20),
+                          _buildViewAllWeddingIdeasButton(),
+                          const SizedBox(height: 30),
+                          _buildFeaturedVideoSection(),
+                          const SizedBox(height: 30),
+                          _buildInterestingReadsSection(),
+                          const SizedBox(height: 30),
+                          _buildRealWeddingsSection(),
+                          const SizedBox(height: 100),
+                        ],
                       ),
-
-
-                      const SizedBox(height: 30),
-                      _buildTrendingTodaySection(),
-                      SizedBox(height: 20),
-                      _buildViewAllTrendingButton(),
-                      const SizedBox(height: 30),
-                      _buildHappyWedsServicesSection(),
-                      const SizedBox(height: 30),
-                      _buildWeddingIdeasSection(),
-                      const SizedBox(height: 20),
-                      _buildViewAllWeddingIdeasButton(),
-                      const SizedBox(height: 30),
-                      _buildFeaturedVideoSection(),
-                      const SizedBox(height: 30),
-                      _buildInterestingReadsSection(),
-                      const SizedBox(height: 30),
-                      _buildRealWeddingsSection(),
-                      const SizedBox(height: 100), // Space for bottom nav
-                    ],
+                    ),
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          // 🌟 Gemini AI Floating Button
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GenieScreen()),
+                );
+              },
+
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6A5AE0), Color(0xFFB26BF2)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purple.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(18),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      // bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+
+  Widget _buildGeminiChatPopup(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        height: 320,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: Color(0xFF6A5AE0), size: 28),
+                const SizedBox(width: 10),
+                const Text(
+                  "Ask AI Assistant",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Hi 👋 I'm your wedding planner assistant!\nAsk me anything about venues, vendors, or ideas.",
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              decoration: InputDecoration(
+                hintText: "Type your question...",
+                prefixIcon: const Icon(Icons.chat_bubble_outline),
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
               ),
-            ],
-          ),
+            ),
+            const Spacer(),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6A5AE0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("AI Assistant feature coming soon 🤖")),
+                  );
+                },
+                icon: const Icon(Icons.send, size: 18),
+                label: const Text("Send"),
+              ),
+            ),
+          ],
         ),
       ),
-      // bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
@@ -3242,79 +1810,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       throw Exception("Error fetching categories: $e");
     }
   }
-  // Widget _buildCategorySection(BuildContext context) {
-  //   final categories = [
-  //     {'name': 'Wedding\nVenues', 'image': 'assets/17.webp', 'page': const VenuesScreen()},
-  //      {'name': 'Wedding\nPhotographer', 'image': 'assets/19.webp', 'page':  PhotographerScreen()},
-  //     {'name': 'Bridal\nmakeup', 'image': 'assets/18.webp', 'page': const MakeupScreen()},
-  //     {'name': 'Wedding\nDecorators','image':'assets/16.webp', 'page': const WeddingDecoratorsScreen()},
-  //     {'name': 'All\nCategories', 'icon': Icons.add, 'page': const VendorCategoriesScreen()},
-  //
-  //   ];
-  //
-  //   return SizedBox(
-  //     height: 120,
-  //     child: ListView.builder(
-  //       scrollDirection: Axis.horizontal,
-  //       itemCount: categories.length,
-  //       itemBuilder: (context, index) {
-  //         final category = categories[index];
-  //         final isLast = index == categories.length - 1;
-  //
-  //         return Container(
-  //           margin: EdgeInsets.only(right: isLast ? 0 : 15),
-  //           child: Column(
-  //             children: [
-  //               InkWell(
-  //                 onTap: () {
-  //                   Navigator.push(
-  //                     context,
-  //                     MaterialPageRoute(builder: (_) => category['page'] as Widget),
-  //                   );
-  //                 },
-  //                 borderRadius: BorderRadius.circular(50),
-  //                 child: Container(
-  //                   width: 70,
-  //                   height: 70,
-  //                   decoration: BoxDecoration(
-  //                     shape: BoxShape.circle,
-  //                     color: isLast ? Colors.white : Colors.grey[300],
-  //                     border: isLast ? Border.all(color: Colors.pink, width: 2) : null,
-  //                   ),
-  //                   child: isLast
-  //                       ? Icon(
-  //                     category['icon'] as IconData,
-  //                     color: Colors.pink,
-  //                     size: 30,
-  //                   )
-  //                       : ClipOval(
-  //                     child: Image.asset(
-  //                       category['image'] as String,
-  //                       fit: BoxFit.cover,
-  //                       width: 70,
-  //                       height: 70,
-  //                     ),
-  //                   ),
-  //
-  //                 ),
-  //               ),
-  //               const SizedBox(height: 8),
-  //               Text(
-  //                 category['name'] as String,
-  //                 textAlign: TextAlign.center,
-  //                 style: const TextStyle(
-  //                   fontSize: 11,
-  //                   fontWeight: FontWeight.w500,
-  //                   color: Colors.black87,
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //         );
-  //       },
-  //     ),
-  //   );
-  // }
 
   Widget _buildPlanningToolsSection() {
     return Column(
@@ -4312,9 +2807,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   Widget _buildHappyWedsServicesSection() {
     return InkWell(
-      onTap: (){
-        Navigator.push(context, MaterialPageRoute(builder: (_) => PackagesScreen()));
-      },
+      // onTap: (){
+      //   Navigator.push(context, MaterialPageRoute(builder: (_) => PackagesScreen()));
+      // },
 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4423,21 +2918,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 ),
               ),
 
-              // Expanded(
-              //   child: _buildServiceCard(
-              //     'Couple Services',
-              //     'Book your perfect shoot',
-              //     Colors.green[100]!,
-              //   ),
-              // ),
-              // const SizedBox(width: 12),
-              // Expanded(
-              //   child: _buildServiceCard(
-              //     'Couple Services',
-              //     'Book your perfect shoot',
-              //     Colors.orange[100]!,
-              //   ),
-              // ),
             ],
           ),
         ],
@@ -5163,28 +3643,6 @@ class _BottomBarsState extends State<BottomBars> {
 
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

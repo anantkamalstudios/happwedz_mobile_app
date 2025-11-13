@@ -8,14 +8,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:html/parser.dart' show parse;
-
-
 import '../ClaimBusiness.dart';
 import '../Review.dart';
 import '../chat/chat_screen.dart';
 import '../chat/chat_service.dart';
 import '../chat_page_new.dart';
 import '../main.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 import 'dart:convert';
@@ -24,6 +27,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// ⬇️ Import your other screens
 
 
 class VendorServicesScreen extends StatefulWidget {
@@ -58,12 +62,14 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
   Future<void> fetchServices() async {
     try {
-      final encodedSubcategory = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
+      final encodedSubcategory =
+      Uri.encodeComponent(widget.subcategoryName.toLowerCase());
       final url = Uri.parse(
           "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory");
       print("🔍 Fetching services from: $url");
 
-      final response = await http.get(url, headers: {"Accept": "application/json"});
+      final response =
+      await http.get(url, headers: {"Accept": "application/json"});
 
       if (response.statusCode == 200) {
         final dynamic data = json.decode(response.body);
@@ -82,9 +88,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         }
 
         print("✅ Found ${servicesList.length} services");
-        if (servicesList.isNotEmpty) {
-          print("📦 First service structure: ${json.encode(servicesList[0])}");
-        }
 
         setState(() {
           services = servicesList;
@@ -126,8 +129,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     : SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    children:
-                    services.map((service) => _buildServiceCard(service)).toList(),
+                    children: services
+                        .map((service) => _buildServiceCard(service))
+                        .toList(),
                   ),
                 ),
               ),
@@ -152,7 +156,10 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
               widget.subcategoryName,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(width: 48),
@@ -186,31 +193,28 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     final attributes = service['attributes'] ?? {};
     final vendor = service['vendor'] ?? {};
 
-    // 🔹 Vendor Name
     final String businessName = vendor['businessName'] ??
         vendor['vendor_name'] ??
         attributes['name'] ??
         attributes['vendor_name'] ??
         'Unnamed Venue';
 
-    // 🔹 City
-    final String city = vendor['city'] ?? attributes['city'] ?? 'Unknown Location';
+    final String city =
+        vendor['city'] ?? attributes['city'] ?? 'Unknown Location';
 
-    // 🔹 Rating
     final double rating = double.tryParse(
         (vendor['rating'] ?? attributes['rating'] ?? '0').toString()) ??
         0.0;
 
-    // 🔹 Phone
     final String phone =
         vendor['phone']?.toString() ?? attributes['Phone']?.toString() ?? '';
 
-    // 🔹 Price
     String priceText = '';
     final vegPrice = attributes['veg_price']?.toString() ?? '';
     final startingPrice = attributes['starting_price']?.toString() ?? '';
-    final photoPackagePrice =
-        attributes['photo_package_price']?.toString() ?? attributes['PhotoPackage_Price']?.toString() ?? '';
+    final photoPackagePrice = attributes['photo_package_price']?.toString() ??
+        attributes['PhotoPackage_Price']?.toString() ??
+        '';
 
     if (vegPrice.isNotEmpty) {
       priceText = '₹$vegPrice per plate';
@@ -220,7 +224,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       priceText = photoPackagePrice;
     }
 
-    // 🔹 Media Image
     String imageUrl = 'https://via.placeholder.com/400x300';
     final media = service['media'];
     if (media != null) {
@@ -266,7 +269,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🖼 Image + Overlays
+            // 🖼 IMAGE & OVERLAYS
             Stack(
               children: [
                 ClipRRect(
@@ -280,12 +283,12 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     errorBuilder: (context, error, stackTrace) => Container(
                       height: 200,
                       color: Colors.grey[300],
-                      child:
-                      const Icon(Icons.image, size: 50, color: Colors.white),
+                      child: const Icon(Icons.image,
+                          size: 50, color: Colors.white),
                     ),
                   ),
                 ),
-                // Location
+                // 📍 Location
                 Positioned(
                   bottom: 8,
                   left: 8,
@@ -313,7 +316,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                     ),
                   ),
                 ),
-                // Rating
+                // ⭐ Rating
                 if (rating > 0)
                   Positioned(
                     top: 8,
@@ -336,74 +339,18 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                                 fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 2),
-                          const Icon(Icons.star, color: Colors.white, size: 12),
+                          const Icon(Icons.star,
+                              color: Colors.white, size: 12),
                         ],
                       ),
                     ),
                   ),
-                // Favourite
+                // ❤️ Favourite Button
                 Positioned(
                   top: 8,
                   right: 8,
                   child: InkWell(
-                    onTap: () async {
-                      if (currentUserId == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Please sign in first")));
-                        return;
-                      }
-
-                      final isFav =
-                      favouriteVendors.contains(vendorServiceId);
-                      setState(() {
-                        if (isFav) {
-                          favouriteVendors.remove(vendorServiceId);
-                        } else {
-                          favouriteVendors.add(vendorServiceId);
-                        }
-                      });
-
-                      final prefs = await SharedPreferences.getInstance();
-                      final token = prefs.getString('auth_token');
-
-                      if (token == null || token.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please login again')));
-                        return;
-                      }
-
-                      final url =
-                      Uri.parse('https://happywedz.com/api/wishlist/toggle');
-                      final body = {
-                        'user_id': currentUserId,
-                        'vendor_services_id': vendorServiceId,
-                      };
-
-                      try {
-                        final response = await http.post(url,
-                            headers: {
-                              'Accept': 'application/json',
-                              'Authorization': 'Bearer $token',
-                            },
-                            body: body);
-
-                        if (response.statusCode == 200) {
-                          final res = jsonDecode(response.body);
-                          final msg = res['message'] ?? 'Wishlist updated';
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(content: Text(msg)));
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      'Error: ${response.statusCode}')));
-                        }
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Something went wrong')));
-                      }
-                    },
+                    onTap: () => _toggleFavourite(vendorServiceId),
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -422,7 +369,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                 ),
               ],
             ),
-            // Details
+
+            // 🧾 Details Section
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -463,11 +411,12 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (_) => ChatPage(
-                                    currentUid: currentUserId ?? '',
-                                    otherUid: vendorId,
-                                    otherName: businessName,
-                                  )),
+                                builder: (_) => ChatPage(
+                                  currentUid: currentUserId ?? '',
+                                  otherUid: vendorId,
+                                  otherName: businessName,
+                                ),
+                              ),
                             );
                           },
                           icon: const Icon(Icons.message, size: 16),
@@ -475,7 +424,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFE91E63),
                             side: const BorderSide(color: Color(0xFFE91E63)),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding:
+                            const EdgeInsets.symmetric(vertical: 10),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -483,45 +433,28 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        height: 40,
-                        width: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF25D366),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.chat, color: Colors.white, size: 18),
-                          onPressed: () async {
-                            final loggedIn = await ensureLoggedIn(context);
-                            if (!loggedIn) return;
-
-                            if (phone.isNotEmpty) {
-                              final uri = Uri.parse("https://wa.me/$phone");
-                              launchUrl(uri);
-                            }
-                          },
-                          padding: EdgeInsets.zero,
-                        ),
+                      _iconButton(
+                        icon: Icons.chat,
+                        color: const Color(0xFF25D366),
+                        onPressed: () async {
+                          final loggedIn = await ensureLoggedIn(context);
+                          if (!loggedIn) return;
+                          if (phone.isNotEmpty) {
+                            final uri = Uri.parse("https://wa.me/$phone");
+                            launchUrl(uri);
+                          }
+                        },
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        height: 40,
-                        width: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.phone, color: Colors.white, size: 18),
-                          onPressed: () {
-                            if (phone.isNotEmpty) {
-                              final uri = Uri(scheme: 'tel', path: phone);
-                              launchUrl(uri);
-                            }
-                          },
-                          padding: EdgeInsets.zero,
-                        ),
+                      _iconButton(
+                        icon: Icons.phone,
+                        color: Colors.green,
+                        onPressed: () {
+                          if (phone.isNotEmpty) {
+                            final uri = Uri(scheme: 'tel', path: phone);
+                            launchUrl(uri);
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -534,8 +467,105 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     );
   }
 
-  Future<bool> ensureLoggedIn(BuildContext context) async {
+  Widget _iconButton(
+      {required IconData icon,
+        required Color color,
+        required VoidCallback onPressed}) {
+    return Container(
+      height: 40,
+      width: 40,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.white, size: 18),
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  Future<void> _toggleFavourite(String vendorServiceId) async {
     if (currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please sign in first")),
+      );
+      return;
+    }
+
+    final isFav = favouriteVendors.contains(vendorServiceId);
+    setState(() {
+      if (isFav) {
+        favouriteVendors.remove(vendorServiceId);
+      } else {
+        favouriteVendors.add(vendorServiceId);
+      }
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+
+    print('🟢 Current userId: $currentUserId');
+    print('🔑 Token (first 20 chars): ${token.isNotEmpty ? token.substring(0, 20) : "EMPTY"}...');
+    print('⭐ Vendor Service ID: $vendorServiceId');
+
+    if (token.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please login again')));
+      return;
+    }
+
+    final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+    final body = {
+      'user_id': currentUserId.toString(),
+      'vendor_services_id': vendorServiceId.toString(),
+    };
+
+    try {
+      print('🌍 Sending POST → $url');
+      print('📦 Headers: {Content-Type: application/json, Authorization: Bearer $token}');
+      print('📦 Body: $body');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body), // ✅ match JSON structure
+      );
+
+      print('📬 Response status: ${response.statusCode}');
+      print('📬 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final res = jsonDecode(response.body);
+        final msg = res['message'] ?? 'Wishlist updated';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      } else if (response.statusCode == 401) {
+        print('🚫 401 Unauthorized → Token invalid or expired.');
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Session expired. Please log in again.')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      print('❌ Exception in toggleFavourite: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Something went wrong')),
+      );
+    }
+  }
+
+
+
+  Future<bool> ensureLoggedIn(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null || token.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Please login first')));
       return false;
@@ -551,8 +581,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
 
 
-/// Paste this file into your project and call:
-/// Navigator.push(context, MaterialPageRoute(builder: (_) => VendorDetailsScreen(service: yourServiceMap)));
+
 class VendorDetailsScreen extends StatefulWidget {
   final dynamic service;
   const VendorDetailsScreen({Key? key, required this.service}) : super(key: key);
@@ -622,6 +651,54 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
     }
   }
 
+//   Future<void> toggleWishlist(Map<String, dynamic> service) async {
+//     if (currentUserId == null) {
+//       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first')));
+//       return;
+//     }
+//
+//     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
+//     final vendor = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
+//     final media = (service['media'] is List) ? List.from(service['media']) : [];
+//
+//     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
+//     final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
+//     final String image = media.isNotEmpty ? media[0].toString() : ''; // first image
+//
+// // API payload
+//     final Map<String, dynamic> payload = {
+//       'user_id': currentUserId,
+//       'vendor_id': vendor['id'] ?? attributes['vendor_id'] ?? '',
+//       'vendor_name': vendorName,
+//       'city': city,
+//       'hero_image': image,
+//     };
+//
+//     try {
+//       final response = await http.post(
+//         Uri.parse('https://happywedz.com/api/wishlist/toggle'), // replace with your API
+//         headers: {'Content-Type': 'application/json'},
+//         body: jsonEncode(payload),
+//       );
+//
+//       if (response.statusCode == 200) {
+//         setState(() => _isShortlisted = !_isShortlisted);
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(content: Text(_isShortlisted ? 'Added to wishlist' : 'Removed from wishlist')),
+//         );
+//       } else {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(content: Text('Failed to update wishlist')),
+//         );
+//       }
+//     } catch (e) {
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         const SnackBar(content: Text('Something went wrong')),
+//       );
+//     }
+//   }
+
+
   bool _hasValue(dynamic value) {
     if (value == null) return false;
     if (value is String) return value.trim().isNotEmpty;
@@ -636,7 +713,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
     final vendor = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
     final media = (service['media'] is List) ? List.from(service['media']) : [];
 
-    // Build images
+// Build images
     final List<String> images = [];
     for (var item in media) {
       if (item is String && item.isNotEmpty) {
@@ -648,7 +725,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
     }
     final String vendorId = (vendor['id'] ?? attributes['vendor_id'] ?? '').toString();
 
-    // Common fields
+// Common fields
     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
     final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
     final String address = (attributes['address'] ?? attributes['Address'] ?? '').toString();
@@ -736,378 +813,392 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Top appbar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              color: Colors.white,
-              child: Row(
+        child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Text(
-                      vendorName + (city.isNotEmpty ? ' · $city' : ''),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
+                  // Top appbar
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    color: Colors.white,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Text(
+                            vendorName + (city.isNotEmpty ? ' · $city' : ''),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.share, color: Colors.black87),
+                          onPressed: () {
+                            final shareLink = attributes['URL']?.toString() ?? attributes['url']?.toString() ?? '';
+                            if (shareLink.isNotEmpty) Share.share(shareLink);
+                            else ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No link to share')));
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(_isShortlisted ? Icons.bookmark : Icons.bookmark_border, color: Colors.black87),
+                          onPressed: () {
+                            // toggleWishlist(widget.service); // ✅ call the new function
+                          },
+                        ),
+
+                      ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.share, color: Colors.black87),
-                    onPressed: () {
-                      final shareLink = attributes['URL']?.toString() ?? attributes['url']?.toString() ?? '';
-                      if (shareLink.isNotEmpty) Share.share(shareLink);
-                      else ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No link to share')));
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(_isShortlisted ? Icons.bookmark : Icons.bookmark_border, color: Colors.black87),
-                    onPressed: () {
-                      setState(() => _isShortlisted = !_isShortlisted);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isShortlisted ? 'Added to shortlist' : 'Removed from shortlist')));
-                    },
-                  ),
-                ],
-              ),
-            ),
 
-            // Carousel
-            CarouselSlider.builder(
-              carouselController: _carouselController,
-              itemCount: images.length,
-              itemBuilder: (context, index, realIdx) {
-                final img = images[index];
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(img, fit: BoxFit.cover, loadingBuilder: (ctx, child, prog) {
-                      if (prog == null) return child;
-                      return Container(color: Colors.grey[200], child: const Center(child: CircularProgressIndicator()));
-                    }, errorBuilder: (ctx, err, st) {
-                      return Container(color: Colors.grey[300], child: const Center(child: Icon(Icons.broken_image, size: 44)));
-                    }),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 110,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [Colors.transparent, Colors.black.withOpacity(0.35)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                  // Carousel
+                  CarouselSlider.builder(
+                    carouselController: _carouselController,
+                    itemCount: images.length,
+                    itemBuilder: (context, index, realIdx) {
+                      final img = images[index];
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(img, fit: BoxFit.cover, loadingBuilder: (ctx, child, prog) {
+                            if (prog == null) return child;
+                            return Container(color: Colors.grey[200], child: const Center(child: CircularProgressIndicator()));
+                          }, errorBuilder: (ctx, err, st) {
+                            return Container(color: Colors.grey[300], child: const Center(child: Icon(Icons.broken_image, size: 44)));
+                          }),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: 110,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(colors: [Colors.transparent, Colors.black.withOpacity(0.35)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                    options: CarouselOptions(
+                      height: 280,
+                      viewportFraction: 1.0,
+                      enableInfiniteScroll: images.length > 1,
+                      enlargeCenterPage: false,
+                      onPageChanged: (index, reason) => setState(() => _currentCarouselIndex = index),
+                      autoPlay: images.length > 1,
+                      autoPlayInterval: const Duration(seconds: 5),
+                    ),
+                  ),
+
+                  // Carousel indicators
+                  if (images.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: images.asMap().entries.map((e) {
+                            final active = _currentCarouselIndex == e.key;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: active ? 26 : 8,
+                              height: 8,
+                              decoration: BoxDecoration(color: active ? Colors.black : Colors.grey[400], borderRadius: BorderRadius.circular(6)),
+                            );
+                          }).toList(),
                         ),
                       ),
                     ),
-                  ],
-                );
-              },
-              options: CarouselOptions(
-                height: 280,
-                viewportFraction: 1.0,
-                enableInfiniteScroll: images.length > 1,
-                enlargeCenterPage: false,
-                onPageChanged: (index, reason) => setState(() => _currentCarouselIndex = index),
-                autoPlay: images.length > 1,
-                autoPlayInterval: const Duration(seconds: 5),
-              ),
-            ),
 
-            // Carousel indicators
-            if (images.length > 1)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: images.asMap().entries.map((e) {
-                      final active = _currentCarouselIndex == e.key;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: active ? 26 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(color: active ? Colors.black : Colors.grey[400], borderRadius: BorderRadius.circular(6)),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-
-            // Scrollable content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Name and location
-                  Text(vendorName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                    const Icon(Icons.location_on, color: Colors.green, size: 18),
-                    const SizedBox(width: 4),
-                    Expanded(child: Text(city + (address.isNotEmpty ? ' · $address' : ''), style: const TextStyle(color: Colors.grey))),
-                  ]),
-
-
-
-
-                  const SizedBox(height: 8),
-
-                  // Rating and Reviews
-                  if (rating > 0 || reviewCount > 0)
-                    Row(children: [
-                      if (rating > 0) ...[
-                        const Icon(Icons.star, color: Colors.orange, size: 18),
+                  // Scrollable content
+                  // Scrollable content
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+                    child:
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      // Name and location
+                      Text(vendorName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                        const Icon(Icons.location_on, color: Colors.green, size: 18),
                         const SizedBox(width: 4),
-                        Text('${rating.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                      ],
-                      if (reviewCount > 0) ...[
-                        const SizedBox(width: 8),
-                        Text('($reviewCount ${reviewCount == 1 ? 'review' : 'reviews'})', style: const TextStyle(color: Colors.grey)),
-                      ],
-                    ]),
-
-                  const SizedBox(height: 12),
-
-
-
-                  const SizedBox(height: 8),
-
-                  // Quick info chips - dynamic based on vendor type
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    _infoChip(vendorType, Icons.business),
-                    if (isVenue) ...[
-                      if (_hasValue(vegPrice)) _infoChip('₹$vegPrice / plate', Icons.restaurant),
-                      if (_hasValue(rooms)) _infoChip('$rooms rooms', Icons.hotel),
-                      if (hasPoolside) _infoChip('Poolside', Icons.pool),
-                      if (hasLawn) _infoChip('Lawn', Icons.park),
-                    ],
-                    if (isPhotographer && _hasValue(photoPackagePrice))
-                      _infoChip(photoPackagePrice, Icons.photo_library),
-                    if ((isMakeup || isDecorator) && _hasValue(priceRange))
-                      _infoChip(priceRange, Icons.currency_rupee),
-                    if (isDJ && _hasValue(priceRange))
-                      _infoChip(priceRange, Icons.music_note),
-                  ]),
-                  const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Claim Your Business clicked (demo)')),
-              );
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BusinessClaimForm(),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text(
-              'Claim Your Business',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-                  const SizedBox(height: 16),
-
-                  // Pricing Info - Dynamic based on vendor type
-                  if (isVenue && (_hasValue(vegPrice) || _hasValue(nonVegPrice) || _hasValue(destinationPrice) || _hasValue(roomPrice)))
-                    _buildVenuePricing(vegPrice, nonVegPrice, destinationPrice, roomPrice),
-
-                  if (isPhotographer && (_hasValue(photoPackagePrice) || _hasValue(photoVideoPrice)))
-                    _buildPhotographerPricing(photoPackagePrice, photoVideoPrice),
-
-                  if ((isMakeup || isDecorator || isMehndi || isJewellery || isCake || isFoodStall) && _hasValue(priceRange))
-                    _buildGeneralPricing(
-                        priceRange,
-                        isMakeup ? 'Makeup Package' :
-                        isDecorator ? 'Decor Package' :
-                        isMehndi ? 'Mehndi Service' :
-                        isCake ? 'Cake Price' :
-                        isFoodStall ? 'Food Stall Package' :
-                        'Product/Service'
-                    ),
-                  if (isDJ && _hasValue(priceRange))
-                    _buildDJPricing(priceRange, travelInfo, paymentTerms, deliveryTime),
-                  if (vendorType.toLowerCase().contains('choreographer') ||
-                      vendorType.toLowerCase().contains('dance') ||
-                      vendorType.toLowerCase().contains('music') ||
-                      vendorSubcategoryId == 18)
-                    _buildSangeetPricing(
-                      priceRange,
-                      travelInfo,
-                      paymentTerms,
-                      deliveryTime,
-                      experience
-
-                    ),
-
-                  // Services/Offerings section
-                  if (services.isNotEmpty || offerings.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
-                        BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))
+                        Expanded(child: Text(city + (address.isNotEmpty ? ' · $address' : ''), style: const TextStyle(color: Colors.grey))),
                       ]),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Services Offered', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 10),
-                        if (services.isNotEmpty)
-                          ...services.map((s) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(children: [
-                              const Icon(Icons.check_circle, size: 16, color: Colors.green),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(s.toString())),
-                            ]),
-                          )).toList()
-                        else if (offerings.isNotEmpty)
-                          Text(offerings, style: const TextStyle(height: 1.4)),
-                      ]),
-                    ),
-                  ],
 
-                  // Venues & Seating (only for venues)
-                  if (isVenue && seatingList.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
-                        BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))
+
+
+
+                      const SizedBox(height: 8),
+
+                      // Rating and Reviews
+                      if (rating > 0 || reviewCount > 0)
+                        Row(children: [
+                          if (rating > 0) ...[
+                            const Icon(Icons.star, color: Colors.orange, size: 18),
+                            const SizedBox(width: 4),
+                            Text('${rating.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ],
+                          if (reviewCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Text('($reviewCount ${reviewCount == 1 ? 'review' : 'reviews'})', style: const TextStyle(color: Colors.grey)),
+                          ],
+                        ]),
+
+
+
+
+
+                      const SizedBox(height: 8),
+
+                      // Quick info chips - dynamic based on vendor type
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        _infoChip(vendorType, Icons.business),
+                        if (isVenue) ...[
+                          if (_hasValue(vegPrice)) _infoChip('₹$vegPrice / plate', Icons.restaurant),
+                          if (_hasValue(rooms)) _infoChip('$rooms rooms', Icons.hotel),
+                          if (hasPoolside) _infoChip('Poolside', Icons.pool),
+                          if (hasLawn) _infoChip('Lawn', Icons.park),
+                        ],
+                        if (isPhotographer && _hasValue(photoPackagePrice))
+                          _infoChip(photoPackagePrice, Icons.photo_library),
+                        if ((isMakeup || isDecorator) && _hasValue(priceRange))
+                          _infoChip(priceRange, Icons.currency_rupee),
+                        if (isDJ && _hasValue(priceRange))
+                          _infoChip(priceRange, Icons.music_note),
                       ]),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Banquets & Seating', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Column(children: seatingList.map((entry) {
-                          final title = (entry['title']?.isNotEmpty ?? false) ? (entry['title'] ?? entry['raw'] ?? '') : (entry['raw'] ?? '');
-                          final seating = (entry['seating']?.isNotEmpty ?? false) ? (entry['seating'] ?? '--') : '--';
-                          final floating = (entry['floating']?.isNotEmpty ?? false) ? (entry['floating'] ?? '--') : '--';
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Row(children: [
-                              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600))),
-                              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                Text('Seating: $seating', style: const TextStyle(color: Colors.grey)),
-                                Text('Floating: $floating', style: const TextStyle(color: Colors.grey)),
-                              ])
-                            ]),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Claim Your Business clicked (demo)')),
                           );
-                        }).toList()),
-                      ]),
-                    ),
-                  ],
 
-                  // Additional Info (for photographers/makeup/decorators)
-                  if ((isPhotographer || isMakeup || isDecorator || isMehndi || isJewellery) && (_hasValue(travelInfo) || _hasValue(paymentTerms) || _hasValue(deliveryTime))) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
-                        BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))
-                      ]),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Additional Info', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 10),
-                        if (_hasValue(travelInfo))
-                          _infoRow(Icons.travel_explore, 'Travel', travelInfo),
-                        if (_hasValue(paymentTerms))
-                          _infoRow(Icons.payment, 'Payment', paymentTerms),
-                        if (_hasValue(deliveryTime))
-                          _infoRow(Icons.timer, 'Delivery', deliveryTime),
-                      ]),
-                    ),
-                  ],
-
-                  // Albums
-                  if (images.length > 1) ...[
-                    const SizedBox(height: 16),
-                    const Text('Portfolio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 110,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: images.length,
-                        itemBuilder: (ctx, idx) {
-                          return Container(
-                            width: 140,
-                            margin: const EdgeInsets.only(right: 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              color: Colors.grey[300],
-                              image: DecorationImage(image: NetworkImage(images[idx]), fit: BoxFit.cover),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const BusinessClaimForm(),
                             ),
                           );
                         },
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-
-                  // Quote & Chat buttons
-                  Row(children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Custom quote requested (demo)')));
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Colors.pink),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text('Require Custom Quote?'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chat now (demo)')));
-                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.pink,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        child: const Text('Chat Now'),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(
+                              Icons.business_center_outlined, // 👈 business-related icon
+                              color: Colors.pink,
+                              size: 22,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Claim Your Business',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+
                       ),
-                    ),
-                  ]),
+
+                      const SizedBox(height: 5),
 
 
-                  const SizedBox(height: 16),
 
-                  // About
-                  if (_hasValue(about)) ...[
-                    const Text(
-                      'About',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 8),
+                      // Pricing Info - Dynamic based on vendor type
+                      if (isVenue && (_hasValue(vegPrice) || _hasValue(nonVegPrice) || _hasValue(destinationPrice) || _hasValue(roomPrice)))
+                        _buildVenuePricing(vegPrice, nonVegPrice, destinationPrice, roomPrice),
 
-                    AnimatedCrossFade(
-                      firstChild: SizedBox(
-                        height: 180,
-                        child: SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Html(
+                      if (isPhotographer && (_hasValue(photoPackagePrice) || _hasValue(photoVideoPrice)))
+                        _buildPhotographerPricing(photoPackagePrice, photoVideoPrice),
+
+                      if ((isMakeup || isDecorator || isMehndi || isJewellery || isCake || isFoodStall) && _hasValue(priceRange))
+                        _buildGeneralPricing(
+                            priceRange,
+                            isMakeup ? 'Makeup Package' :
+                            isDecorator ? 'Decor Package' :
+                            isMehndi ? 'Mehndi Service' :
+                            isCake ? 'Cake Price' :
+                            isFoodStall ? 'Food Stall Package' :
+                            'Product/Service'
+                        ),
+                      if (isDJ && _hasValue(priceRange))
+                        _buildDJPricing(priceRange, travelInfo, paymentTerms, deliveryTime),
+                      if (vendorType.toLowerCase().contains('choreographer') ||
+                          vendorType.toLowerCase().contains('dance') ||
+                          vendorType.toLowerCase().contains('music') ||
+                          vendorSubcategoryId == 18)
+                        _buildSangeetPricing(
+                            priceRange,
+                            travelInfo,
+                            paymentTerms,
+                            deliveryTime,
+                            experience
+
+                        ),
+
+                      // Services/Offerings section
+                      if (services.isNotEmpty || offerings.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
+                            BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))
+                          ]),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('Services Offered', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 10),
+                            if (services.isNotEmpty)
+                              ...services.map((s) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(children: [
+                                  const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(s.toString())),
+                                ]),
+                              )).toList()
+                            else if (offerings.isNotEmpty)
+                              Text(offerings, style: const TextStyle(height: 1.4)),
+                          ]),
+                        ),
+                      ],
+
+                      // Venues & Seating (only for venues)
+                      if (isVenue && seatingList.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
+                            BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))
+                          ]),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('Banquets & Seating', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 8),
+                            Column(children: seatingList.map((entry) {
+                              final title = (entry['title']?.isNotEmpty ?? false) ? (entry['title'] ?? entry['raw'] ?? '') : (entry['raw'] ?? '');
+                              final seating = (entry['seating']?.isNotEmpty ?? false) ? (entry['seating'] ?? '--') : '--';
+                              final floating = (entry['floating']?.isNotEmpty ?? false) ? (entry['floating'] ?? '--') : '--';
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(children: [
+                                  Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                    Text('Seating: $seating', style: const TextStyle(color: Colors.grey)),
+                                    Text('Floating: $floating', style: const TextStyle(color: Colors.grey)),
+                                  ])
+                                ]),
+                              );
+                            }).toList()),
+                          ]),
+                        ),
+                      ],
+
+                      // Additional Info (for photographers/makeup/decorators)
+                      if ((isPhotographer || isMakeup || isDecorator || isMehndi || isJewellery) && (_hasValue(travelInfo) || _hasValue(paymentTerms) || _hasValue(deliveryTime))) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
+                            BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))
+                          ]),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('Additional Info', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 10),
+                            if (_hasValue(travelInfo))
+                              _infoRow(Icons.travel_explore, 'Travel', travelInfo),
+                            if (_hasValue(paymentTerms))
+                              _infoRow(Icons.payment, 'Payment', paymentTerms),
+                            if (_hasValue(deliveryTime))
+                              _infoRow(Icons.timer, 'Delivery', deliveryTime),
+                          ]),
+                        ),
+                      ],
+
+                      // Albums
+                      if (images.length > 1) ...[
+                        const SizedBox(height: 16),
+                        const Text('Portfolio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 110,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: images.length,
+                            itemBuilder: (ctx, idx) {
+                              return Container(
+                                width: 140,
+                                margin: const EdgeInsets.only(right: 10),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  color: Colors.grey[300],
+                                  image: DecorationImage(image: NetworkImage(images[idx]), fit: BoxFit.cover),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+
+
+
+                      const SizedBox(height: 16),
+
+                      // About
+                      if (_hasValue(about)) ...[
+                        const Text(
+                          'About',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+
+                        AnimatedCrossFade(
+                          firstChild: SizedBox(
+                            height: 180,
+                            child: SingleChildScrollView(
+                              physics: const NeverScrollableScrollPhysics(),
+                              child: Html(
+                                data: about,
+                                style: {
+                                  "body": Style(
+                                    margin: Margins.zero,
+                                    padding: HtmlPaddings.zero,
+                                    fontSize: FontSize(15),
+                                    lineHeight: LineHeight(1.6),
+                                    color: Colors.black87,
+                                  ),
+                                  "h5": Style(
+                                    fontSize: FontSize(18),
+                                    fontWeight: FontWeight.bold,
+                                    margin: Margins.only(top: 12, bottom: 6),
+                                    color: Colors.black,
+                                  ),
+                                  "ul": Style(
+                                    padding: HtmlPaddings.only(left: 20),
+                                  ),
+                                  "li": Style(
+                                    margin: Margins.only(bottom: 6),
+                                  ),
+                                },
+                              ),
+                            ),
+                          ),
+                          secondChild: Html(
                             data: about,
                             style: {
                               "body": Style(
@@ -1131,72 +1222,160 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
                               ),
                             },
                           ),
+                          crossFadeState:
+                          _aboutExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                          duration: const Duration(milliseconds: 300),
                         ),
-                      ),
-                      secondChild: Html(
-                        data: about,
-                        style: {
-                          "body": Style(
-                            margin: Margins.zero,
-                            padding: HtmlPaddings.zero,
-                            fontSize: FontSize(15),
-                            lineHeight: LineHeight(1.6),
-                            color: Colors.black87,
+
+                        if ((parse(about).body?.text.length ?? 0) > 250)
+                          TextButton(
+                            onPressed: () => setState(() => _aboutExpanded = !_aboutExpanded),
+                            child: Text(_aboutExpanded ? 'Read less' : 'Read more'),
                           ),
-                          "h5": Style(
-                            fontSize: FontSize(18),
+                      ]
+
+
+
+
+                      // Policies (only for venues)
+                      ,if (isVenue && (_hasValue(decorPolicy) || _hasValue(cateringPolicy))) ...[
+                        const SizedBox(height: 12),
+                        const Text('Policies', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        if (_hasValue(decorPolicy))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text('• Decor: $decorPolicy', style: const TextStyle(height: 1.4)),
+                          ),
+                        if (_hasValue(cateringPolicy))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text('• Catering: $cateringPolicy', style: const TextStyle(height: 1.4)),
+                          ),
+                      ],
+
+                      const SizedBox(height: 4),
+                    ]),
+                  ),
+
+
+                  const SizedBox(height: 1),
+
+                  // Ratings & Reviews Section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "Ratings & Reviews (273)",
+                          style: TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            margin: Margins.only(top: 12, bottom: 6),
-                            color: Colors.black,
                           ),
-                          "ul": Style(
-                            padding: HtmlPaddings.only(left: 20),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          "Summary",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black54,
                           ),
-                          "li": Style(
-                            margin: Margins.only(bottom: 6),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ⭐ Rating Bars
+                        Column(
+                          children: [
+                            _buildRatingRow(5, 0.9),
+                            _buildRatingRow(4, 0.7),
+                            _buildRatingRow(3, 0.4),
+                            _buildRatingRow(2, 0.2),
+                            _buildRatingRow(1, 0.1),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ⭐ Summary details
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              "4.5 ",
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.pink,
+                              ),
+                            ),
+                            Icon(Icons.star, color: Colors.pink, size: 24),
+                            SizedBox(width: 6),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("273 Reviews", style: TextStyle(color: Colors.black54)),
+                                SizedBox(height: 4),
+                                Text("88% Recommended", style: TextStyle(color: Colors.black54)),
+                              ],
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // 🩷 Write a review button (static)
+                        OutlinedButton(
+                          onPressed: () {
+                            if (currentUserId == null || currentUserId!.isEmpty) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const SignInScreen()),
+                              );
+                              return;
+                            }
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RecommendVendorScreen(
+                                  vendorId: vendorId,
+                                  vendorName: vendorName,
+                                  vendorImage: images.isNotEmpty ? images[0] : null,
+                                  currentUserId: currentUserId,
+                                ),
+                              ),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.pink),
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                        },
-                      ),
-                      crossFadeState:
-                      _aboutExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-                      duration: const Duration(milliseconds: 300),
+
+                          child: const Text(
+                            'Write a review',
+                            style: TextStyle(
+                              color: Colors.pink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-
-                    if ((parse(about).body?.text.length ?? 0) > 250)
-                      TextButton(
-                        onPressed: () => setState(() => _aboutExpanded = !_aboutExpanded),
-                        child: Text(_aboutExpanded ? 'Read less' : 'Read more'),
-                      ),
-                  ]
+                  ),
 
 
+                  const SizedBox(height: 40),
 
 
-                  // Policies (only for venues)
-                  ,if (isVenue && (_hasValue(decorPolicy) || _hasValue(cateringPolicy))) ...[
-                    const SizedBox(height: 12),
-                    const Text('Policies', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    if (_hasValue(decorPolicy))
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text('• Decor: $decorPolicy', style: const TextStyle(height: 1.4)),
-                      ),
-                    if (_hasValue(cateringPolicy))
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text('• Catering: $cateringPolicy', style: const TextStyle(height: 1.4)),
-                      ),
-                  ],
-
-                  const SizedBox(height: 28),
-                ]),
-              ),
-            )
-          ],
+                ])
         ),
       ),
-      // Bottom call/message bar
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: Colors.white,
@@ -1204,39 +1383,39 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
           child: Row(
             children: [
               // Write a Review button
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    if (currentUserId == null || currentUserId!.isEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SignInScreen()),
-                      );
-                      return;
-                    }
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => RecommendVendorScreen(
-                          vendorId: vendorId,                 // dynamic from vendor details
-                          vendorName: vendorName,             // dynamic vendor name
-                          vendorImage: images.isNotEmpty ? images[0] : null, // first image if exists
-                          currentUserId: currentUserId,       // optional (pass user id if your API needs)
-                        ),
-                      ),
-                    );
-
-                  },
-                  icon: const Icon(Icons.rate_review, color: Colors.pink),
-                  label: const Text('Write a\nReview', style: TextStyle(color: Colors.pink)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.pink),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-
-              ),
+              // Expanded(
+              //   child: OutlinedButton.icon(
+              //     onPressed: () {
+              //       if (currentUserId == null || currentUserId!.isEmpty) {
+              //         Navigator.push(
+              //           context,
+              //           MaterialPageRoute(builder: (_) => const SignInScreen()),
+              //         );
+              //         return;
+              //       }
+              //
+              //       Navigator.push(
+              //         context,
+              //         MaterialPageRoute(
+              //           builder: (_) => RecommendVendorScreen(
+              //             vendorId: vendorId,                 // dynamic from vendor details
+              //             vendorName: vendorName,             // dynamic vendor name
+              //             vendorImage: images.isNotEmpty ? images[0] : null, // first image if exists
+              //             currentUserId: currentUserId,       // optional (pass user id if your API needs)
+              //           ),
+              //         ),
+              //       );
+              //
+              //     },
+              //     icon: const Icon(Icons.rate_review, color: Colors.pink),
+              //     label: const Text('Write a\nReview', style: TextStyle(color: Colors.pink)),
+              //     style: OutlinedButton.styleFrom(
+              //       side: const BorderSide(color: Colors.pink),
+              //       padding: const EdgeInsets.symmetric(vertical: 14),
+              //     ),
+              //   ),
+              //
+              // ),
               const SizedBox(width: 12),
 
               // Message button
@@ -1290,10 +1469,32 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
                 ),
               ),
             ],
+
           ),
         ),
       ),
 
+
+    );
+    // Bottom call/message bar
+
+  }
+  Widget _buildRatingRow(int star, double progress) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Text(star.toString()),
+          const SizedBox(width: 8),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: progress,
+              color: Colors.pink,
+              backgroundColor: Colors.grey[300],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

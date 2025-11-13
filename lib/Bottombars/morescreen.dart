@@ -116,11 +116,7 @@ class MoreOptionsScreen extends StatelessWidget {
                         title: 'Share App',
                         onTap: () => _handleMenuTap(context, 'Share App'),
                       ),
-                      _buildMenuItem(
-                        icon: Icons.rate_review_outlined,
-                        title: 'Write a Review',
-                        onTap: () => _handleMenuTap(context, 'Write a Review'),
-                      ),
+
 
                       _buildMenuItem(
                         icon: Icons.logout,
@@ -257,7 +253,7 @@ class MoreOptionsScreen extends StatelessWidget {
         Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingInvitesScreen1()));
         break;
         case 'Budget':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetPage(userId: 15,)));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetPage()));
         break;
         case 'Ideas':
         Navigator.push(context, MaterialPageRoute(builder: (_) => Ideas()));

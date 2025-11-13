@@ -102,155 +102,203 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: true,   // ✅ shows gradient behind appbar
+      backgroundColor: Colors.transparent, // ✅ let gradient be visible
+
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,   // ✅ transparent appbar
         centerTitle: true,
         title: const Text(
           "Share Your Wedding Story",
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFE91E63),
+            color: Colors.white,
           ),
         ),
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+        ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Center(
-              child: Text(
-                "Inspire thousands of couples with your special day",
-                style: TextStyle(fontSize: 14, color: Colors.black54),
-              ),
-            ),
-            const SizedBox(height: 20),
 
-            // Steps bar
-            SizedBox(
-              height: 90,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: steps.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 20),
-                itemBuilder: (context, index) {
-                  final isActive = index + 1 == currentStep;
-                  return GestureDetector(
-                    onTap: () {
-                      if (index + 1 <= currentStep + 1) {
-                        setState(() => currentStep = index + 1);
-                      }
-                    },
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor:
-                          isActive ? const Color(0xFFE91E63) : Colors.grey.shade300,
-                          child: Text(
-                            "${index + 1}",
-                            style: TextStyle(
-                              color: isActive ? Colors.white : Colors.black54,
-                              fontWeight: FontWeight.bold,
+
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4),  // Hot pink
+              Color(0xFFFFB6C1),  // Light pink
+              Colors.white,       // White
+            ],
+            stops: [0.0, 0.3, 0.6],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                const Center(
+                  child: Text(
+                    "Inspire thousands of couples with your special day",
+                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ✅ Keeps your steps + content
+                SizedBox(
+                  height: 90,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: steps.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 20),
+                    itemBuilder: (context, index) {
+                      final isActive = index + 1 == currentStep;
+                      return GestureDetector(
+                        onTap: () {
+                          if (index + 1 <= currentStep + 1) {
+                            setState(() => currentStep = index + 1);
+                          }
+                        },
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor:
+                              isActive ? const Color(0xFFE91E63) : Colors.grey.shade300,
+                              child: Text(
+                                "${index + 1}",
+                                style: TextStyle(
+                                  color: isActive ? Colors.white : Colors.black54,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
+                            const SizedBox(height: 8),
+                            Text(
+                              steps[index],
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isActive
+                                    ? const Color(0xFFE91E63)
+                                    : Colors.black54,
+                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                if (currentStep == 1) _buildStep1(),
+                if (currentStep == 2) _buildStep2(),
+                if (currentStep == 3) _buildStep3(),
+                if (currentStep == 4) _buildStep4(),
+                if (currentStep == 5) _buildStep5(),
+                if (currentStep == 6) _buildStep6(),
+                if (currentStep == 7) _buildStep7(),
+                if (currentStep == 8) _buildStep8(),
+
+                const SizedBox(height: 30),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (currentStep > 1)
+                      OutlinedButton(
+                        onPressed: () => setState(() => currentStep--),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black87,
+                          side: const BorderSide(color: Colors.black26),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          steps[index],
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isActive ? const Color(0xFFE91E63) : Colors.black54,
-                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        child: const Text("Previous"),
+                      )
+                    else
+                      const SizedBox(width: 110),
+
+                    Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Draft saved locally")),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            side: const BorderSide(color: Colors.black26),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: const Text("Save Draft"),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                            if (currentStep < steps.length) {
+                              setState(() => currentStep++);
+                            } else {
+                              setState(() => isSubmitting = true);
+                              await _submitWeddingStory(context);
+                              setState(() => isSubmitting = false);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE91E63),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                              : Text(
+                            currentStep < steps.length
+                                ? "Next"
+                                : "Submit for\n Approval",
+                            style: const TextStyle(color: Colors.white),
                           ),
                         ),
                       ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // render steps
-            if (currentStep == 1) _buildStep1(),
-            if (currentStep == 2) _buildStep2(),
-            if (currentStep == 3) _buildStep3(),
-            if (currentStep == 4) _buildStep4(),
-            if (currentStep == 5) _buildStep5(),
-            if (currentStep == 6) _buildStep6(),
-            if (currentStep == 7) _buildStep7(),
-            if (currentStep == 8) _buildStep8(),
-
-            const SizedBox(height: 30),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (currentStep > 1)
-                  OutlinedButton(
-                    onPressed: () => setState(() => currentStep--),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black87,
-                      side: const BorderSide(color: Colors.black26),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    ),
-                    child: const Text("Previous"),
-                  )
-                else
-                  const SizedBox(width: 110),
-
-                Row(
-                  children: [
-                    OutlinedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Draft saved locally")));
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.black87,
-                        side: const BorderSide(color: Colors.black26),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      ),
-                      child: const Text("Save Draft"),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: isSubmitting
-                          ? null
-                          : () async {
-                        if (currentStep < steps.length) {
-                          setState(() => currentStep++);
-                        } else {
-                          // final submit
-                          setState(() => isSubmitting = true);
-                          await _submitWeddingStory(context);
-                          setState(() => isSubmitting = false);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE91E63),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      ),
-                      child: isSubmitting
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text(currentStep < steps.length ? "Next" : "Submit for\n Approval", style: const TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),
               ],
             ),
-          ]),
+          ),
         ),
       ),
     );
   }
+
 
   // -------------------------
   // Submission (Multipart)
@@ -370,7 +418,6 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
     }
   }
 
-  // Try to parse common date formats and return yyyy-MM-dd; returns null if can't parse
   String? _tryFormatDate(String input) {
     final candidates = [
       "yyyy-MM-dd",

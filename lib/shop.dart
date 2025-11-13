@@ -601,13 +601,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 children: [
                   Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
                   SizedBox(width: 8),
-                  Text(
-                    'Nashik',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 16,
-                    ),
-                  ),
+
                   Spacer(),
                   Text(
                     'Shop',

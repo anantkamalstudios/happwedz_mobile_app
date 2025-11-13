@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../Wishlist/Wishlistscreen.dart';
 import '../vendor/vendordetailsscreen.dart';
 import 'dart:convert';
-import 'package:flutter/material.dart';
+
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
 
 class VenuesScreen extends StatefulWidget {
   const VenuesScreen({Key? key}) : super(key: key);
@@ -362,39 +359,68 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
                       Future<void> toggleWishlist() async {
                         final prefs = await SharedPreferences.getInstance();
-                        final userId = prefs.getInt('user_id') ?? 0;
+                        final userId = prefs.getInt('user_id');
+                        final token = prefs.getString('auth_token') ?? '';
 
-                        if (userId == 0) {
+                        if (userId == null || userId == 0) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Please sign in first')),
                           );
                           return;
                         }
 
+                        final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+                        final body = {
+                          'user_id': userId.toString(),
+                          'vendor_services_id': venue.id.toString(),
+                        };
+
                         try {
+                          print('🟢 Current userId: $userId');
+                          print('🔑 Token (first 20 chars): ${token.isNotEmpty ? token.substring(0, 20) : "none"}');
+                          print('⭐ Vendor Service ID: ${venue.id}');
+                          print('🌍 Sending POST → $url');
+                          print('📦 Headers: {Content-Type: application/json, Authorization: Bearer $token}');
+                          print('📦 Body: $body');
+
                           final response = await http.post(
-                            Uri.parse('https://happywedz.com/api/wishlist/toggle'),
-                            body: {
-                              'user_id': userId.toString(),
-                              'vendor_services_id': venue.id.toString(),
+                            url,
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json',
+                              'Authorization': 'Bearer $token',
                             },
+                            body: jsonEncode(body),
                           );
+
+                          print('📬 Response status: ${response.statusCode}');
+                          print('📬 Response body: ${response.body}');
 
                           if (response.statusCode == 200) {
                             final data = jsonDecode(response.body);
-                            final message = data['message'] ?? '';
+                            final message = data['message'] ?? 'Unknown response';
 
                             setInnerState(() {
                               isFav = message.toLowerCase().contains('added');
                               venue.isFavourite = isFav;
                             });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          } else if (response.statusCode == 401) {
+                            print('🚫 401 Unauthorized → Token invalid or expired.');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Session expired. Please sign in again.')),
+                            );
                           } else {
-                            debugPrint('Wishlist toggle failed: ${response.statusCode}');
+                            print('❌ Unexpected status: ${response.statusCode}');
                           }
                         } catch (e) {
-                          debugPrint('Error toggling wishlist: $e');
+                          print('💥 Error toggling wishlist: $e');
                         }
                       }
+
 
                       return InkWell(
                         onTap: toggleWishlist,

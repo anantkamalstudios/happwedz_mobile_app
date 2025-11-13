@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:happy_wedz/einvite1/weddingCard.dart';
+import 'package:happy_wedz/einvite1/CustomizeCard.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,11 +20,15 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
   List<Map<String, String>> weddingCards = [];
   bool isLoading = true;
 
+  /// ✅ Draft Data
+  String? selectedImage;
+  String? selectedTitle;
+
   @override
   void initState() {
     super.initState();
-    fetchWeddingCards();
     fetchWeddingCards().then((_) => _loadDraft());
+
   }
 
   Future<void> fetchWeddingCards() async {
@@ -36,7 +40,6 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
         if (data['success'] == true) {
           final List<Map<String, String>> fetchedCards = [];
           for (var item in data['data']) {
-            // Use backend URL for images
             String imageUrl = item['thumbnailUrl'] ?? '';
             if (imageUrl.contains('happywedz.com')) {
               imageUrl = imageUrl.replaceFirst(
@@ -65,41 +68,47 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
     }
   }
 
+  /// ✅ SAVE DRAFT
   Future<void> _saveDraft() async {
+    if (selectedImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❗ No card selected')),
+      );
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
 
-    // Save the list of wedding cards as draft
-    final draftData = weddingCards
-        .map((card) => {
-      'title': card['title'],
-      'image': card['image'],
-      'backgroundUrl': card['backgroundUrl'],
-    })
-        .toList();
+    List<String> drafts = prefs.getStringList("draftList") ?? [];
 
-    await prefs.setString('weddingDraft', jsonEncode(draftData));
+    Map<String, String> draftData = {
+      "image": selectedImage!,
+      "title": selectedTitle ?? ""
+    };
+
+    drafts.add(jsonEncode(draftData));
+
+    await prefs.setStringList("draftList", drafts);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Draft saved successfully!')),
+      const SnackBar(content: Text('✅ Draft Saved!')),
     );
   }
 
+
+  /// ✅ LOAD DRAFT
   Future<void> _loadDraft() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedDraft = prefs.getString('weddingDraft');
+    List<String> raw = prefs.getStringList("draftList") ?? [];
 
-    if (savedDraft != null) {
-      final List<dynamic> decoded = jsonDecode(savedDraft);
-      setState(() {
-        weddingCards = decoded
-            .map((e) => Map<String, String>.from(e))
-            .toList();
-      });
+    if (raw.isEmpty) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('📂 Draft loaded!')),
-      );
-    }
+    List<Map<String, String>> saved = raw
+        .map((e) => Map<String, String>.from(jsonDecode(e)))
+        .toList();
+
+    /// You can use it later if needed
+    setState(() {});
   }
 
 
@@ -107,64 +116,110 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: pink,
-        elevation: 0,
-        leading: const Icon(Icons.arrow_back_ios, color: Colors.white),
-        title: Text(
-          "E-Invites",
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4),
+              Color(0xFFFFB6C1),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.6],
           ),
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save, color: Colors.white),
-            tooltip: "Save Draft",
-            onPressed: _saveDraft,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // ✅ Budget-style AppBar
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                color: Colors.transparent,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                    Text(
+                      "E-Invites",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 20,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        icon: const Icon(Icons.save, color: Colors.white),
+                        tooltip: "Save Draft",
+                        onPressed: () async {
+                          await _saveDraft();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DraftListScreen()),
+                          );
+                        },
+                      ),
+                    ),
+
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 80),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+
+                      /// ✅ SHOW DRAFT
+
+                      const SizedBox(height: 20),
+
+                      /// ✅ BUILT SECTIONS
+                      _buildSection(
+                        title: "Wedding Cards",
+                        cards: weddingCards,
+                        context: context,
+                        pink: pink,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _buildSection(
+                        title: "Video Invites",
+                        cards: const [],
+                        context: context,
+                        pink: pink,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _buildSection(
+                        title: "Save The Date Cards",
+                        cards: const [],
+                        context: context,
+                        pink: pink,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-
-
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-
-            // Wedding Cards
-            _buildSection(
-              title: "Wedding Cards",
-              cards: weddingCards,
-              context: context,
-              pink: pink,
-            ),
-            const SizedBox(height: 20),
-
-            // Video Invites
-            _buildSection(
-              title: "Video Invites",
-              cards: const [],
-              context: context,
-              pink: pink,
-            ),
-            const SizedBox(height: 20),
-
-            // Save The Date Cards
-            _buildSection(
-              title: "Save The Date Cards",
-              cards: const [],
-              context: context,
-              pink: pink,
-            ),
-          ],
         ),
       ),
     );
@@ -181,7 +236,7 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row
+          /// Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -192,9 +247,11 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+
+              /// View All
               GestureDetector(
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => ViewAllScreen(
@@ -203,6 +260,7 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
                       ),
                     ),
                   );
+                  _loadDraft();
                 },
                 child: Row(
                   children: [
@@ -226,7 +284,7 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
           ),
           const SizedBox(height: 8),
 
-          // Horizontal scroll
+          /// Horizontal list
           SizedBox(
             height: 180,
             child: ListView.builder(
@@ -238,6 +296,11 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
                   child: InkWell(
                     onTap: () {
                       if (title == "Wedding Cards" && cards.isNotEmpty) {
+                        setState(() {
+                          selectedImage = cards[index]['image']!;
+                          selectedTitle = cards[index]['title']!;
+                        });
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -258,7 +321,8 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
                               ? BoxDecoration(
                             color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey[300]!),
+                            border: Border.all(
+                                color: Colors.grey[300]!),
                           )
                               : null,
                           child: cards.isEmpty
@@ -268,14 +332,6 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
                             child: Image.network(
                               cards[index]['image']!,
                               fit: BoxFit.cover,
-                              errorBuilder:
-                                  (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: const Icon(
-                                      Icons.image_not_supported),
-                                );
-                              },
                             ),
                           ),
                         ),
@@ -309,6 +365,78 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+
+class DraftListScreen extends StatefulWidget {
+  const DraftListScreen({super.key});
+
+  @override
+  State<DraftListScreen> createState() => _DraftListScreenState();
+}
+
+class _DraftListScreenState extends State<DraftListScreen> {
+  List<Map<String, String>> draftList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadDrafts();
+  }
+  Future<void> loadDrafts() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> raw = prefs.getStringList("draftList") ?? [];
+    draftList = raw
+        .map((e) => Map<String, String>.from(jsonDecode(e)))
+        .toList();
+
+    setState(() {});
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Saved Drafts"),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+        titleTextStyle: const TextStyle(
+            color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      body: draftList.isEmpty
+          ? const Center(child: Text("No drafts saved"))
+          : ListView.builder(
+        itemCount: draftList.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            leading: Image.network(
+              draftList[index]["image"] ?? "",
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+            ),
+
+            title: Text("Draft ${index + 1}"),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CustomizeCardScreen(
+                    templateImage: draftList[index]["image"] ?? "",
+
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      )
+
     );
   }
 }

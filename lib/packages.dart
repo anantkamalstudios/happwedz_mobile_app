@@ -30,14 +30,7 @@ class PackagesScreen extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Nashik',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 16,
-                    ),
-                  ),
+
                   Spacer(),
                   Text(
                     'Packages',
@@ -235,13 +228,8 @@ class DestinationWeddingScreen extends StatelessWidget {
                     child: Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
                   ),
                   SizedBox(width: 8),
-                  Text(
-                    'Nashik',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 16,
-                    ),
-                  ),
+
+
                   Spacer(),
                   Text(
                     'Destination Wedding',
@@ -536,13 +524,7 @@ class PackageDetailScreen extends StatelessWidget {
                     child: Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
                   ),
                   SizedBox(width: 8),
-                  Text(
-                    'Nashik',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 16,
-                    ),
-                  ),
+
                   Spacer(),
                   Text(
                     'Goa Value Package',

@@ -82,72 +82,72 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
   Future<void> _saveDraft() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Convert TextInfo objects into a storable Map
-    final data = pages.map((pageName, texts) => MapEntry(
-      pageName,
-      texts
-          .map((t) => {
-        'text': t.text,
-        'left': t.left,
-        'top': t.top,
-        'fontFamily': t.fontFamily,
-        'fontSize': t.fontSize,
-        'color': t.color.value,
-        'isBold': t.isBold,
-        'isItalic': t.isItalic,
-      })
-          .toList(),
-    ));
+    // Convert text pages into JSON
+    final draftData = {
+      "template": widget.templateImage,
+      "pages": pages.map(
+            (page, list) => MapEntry(
+          page,
+          list.map((t) => {
+            "text": t.text,
+            "left": t.left,
+            "top": t.top,
+            "fontFamily": t.fontFamily,
+            "fontSize": t.fontSize,
+            "color": t.color.value,
+            "isBold": t.isBold,
+            "isItalic": t.isItalic,
+          }).toList(),
+        ),
+      ),
+    };
 
-    // Save to SharedPreferences
-    await prefs.setString('draftData', jsonEncode(data));
-    await prefs.setString('draftTemplate', widget.templateImage);
+    List<String> draftList = prefs.getStringList("draftList") ?? [];
+
+    draftList.add(jsonEncode(draftData));
+
+    await prefs.setStringList("draftList", draftList);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('✅ Draft saved successfully!')),
     );
   }
 
+
   Future<void> _loadDraft() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedData = prefs.getString('draftData');
-    final savedTemplate = prefs.getString('draftTemplate');
+    List<String> rawList = prefs.getStringList("draftList") ?? [];
 
-    if (savedData != null && savedTemplate == widget.templateImage) {
-      final decoded = jsonDecode(savedData) as Map<String, dynamic>;
+    for (var item in rawList) {
+      final decoded = jsonDecode(item);
 
-      setState(() {
-        pages = decoded.map((pageName, textList) {
-          final list = (textList as List<dynamic>)
-              .map((t) => TextInfo(
-            text: t['text'],
-            left: (t['left'] as num).toDouble(),
-            top: (t['top'] as num).toDouble(),
-            fontFamily: t['fontFamily'],
-            fontSize: (t['fontSize'] as num).toDouble(),
-            color: Color(t['color']),
-            isBold: t['isBold'],
-            isItalic: t['isItalic'],
-          ))
-              .toList();
-          return MapEntry(pageName, list);
+      if (decoded["template"] == widget.templateImage) {
+        final loadedPages = decoded["pages"] as Map<String, dynamic>;
+
+        setState(() {
+          pages = loadedPages.map((page, list) {
+            return MapEntry(
+              page,
+              (list as List).map((t) {
+                return TextInfo(
+                  text: t["text"],
+                  left: (t["left"] as num).toDouble(),
+                  top: (t["top"] as num).toDouble(),
+                  fontFamily: t["fontFamily"],
+                  fontSize: (t["fontSize"] as num).toDouble(),
+                  color: Color(t["color"]),
+                  isBold: t["isBold"],
+                  isItalic: t["isItalic"],
+                );
+              }).toList(),
+            );
+          });
+
+          if (pages.isNotEmpty) currentPage = pages.keys.first;
         });
-        if (pages.isNotEmpty) currentPage = pages.keys.first;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('📂 Draft loaded!')),
-      );
+        break;
+      }
     }
-  }
-
-  Future<void> _clearDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('draftData');
-    await prefs.remove('draftTemplate');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('🗑️ Draft cleared')),
-    );
   }
 
 
@@ -258,20 +258,35 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
 
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
+
       appBar: AppBar(
         title: const Text("Customize Card"),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         titleTextStyle: const TextStyle(
-            color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+          color: Colors.black,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _saveDraft,
+          ),
+        ],
       ),
-      body: isEditing ? _buildEditMode(context) : _buildPreviewMode(context),
-      backgroundColor: Colors.white,
+
+      body: isEditing
+          ? _buildEditMode(context)
+          : _buildPreviewMode(context),
     );
   }
+
 
   Widget _buildPageTabs() {
     return SingleChildScrollView(

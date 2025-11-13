@@ -37,6 +37,23 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   }
 
+  Future<bool> ensureLoggedIn(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token != null && token.isNotEmpty) {
+      return true; // ✅ already logged in
+    }
+
+    // 🚫 not logged in → go to SignInScreen
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SignInScreen()),
+    );
+
+    return result == true; // ✅ if login succeeded
+  }
+
   // 🧠 Load user data from SharedPreferences
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -125,6 +142,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   // 🔁 Update profile
   Future<void> _updateUserProfile() async {
+    // 🧠 Check login before allowing edit
+    final loggedIn = await ensureLoggedIn(context);
+    if (!loggedIn) {
+      _showSnackBar('Please log in to update your profile.');
+      return;
+    }
+
     if (userId == null) {
       _showSnackBar('User ID missing');
       return;
@@ -175,6 +199,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       setState(() => _isSaving = false);
     }
   }
+
 
   // 🚪 Logout
   Future<void> _logout() async {

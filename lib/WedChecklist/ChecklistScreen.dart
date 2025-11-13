@@ -338,27 +338,35 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   void _addTask() async {
     final text = _taskController.text.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter task name')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter task name')),
+      );
       return;
     }
     if (startDate == null || weddingDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select dates')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select dates')),
+      );
       return;
     }
     if (_selectedCategory.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select category')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select category')),
+      );
       return;
     }
 
-    // Prepare values
     final start = _fmtDate(startDate!);
     final wed = _fmtDate(weddingDate!);
     final vendorSubId = _selectedCategory;
 
-    // Optimistically insert local item with category name resolved
-    final sub = _subcategories.firstWhere((s) => s.id == vendorSubId, orElse: () => _VendorSubcategory(id: vendorSubId, name: vendorSubId));
+    // Optimistically insert task locally
+    final sub = _subcategories.firstWhere(
+          (s) => s.id == vendorSubId,
+      orElse: () => _VendorSubcategory(id: vendorSubId, name: vendorSubId),
+    );
+
     final task = _TaskItem(title: text, category: sub.name);
-    // Insert locally with animation
     setState(() {
       _tasks.insert(0, task);
       _listKey.currentState?.insertItem(0, duration: const Duration(milliseconds: 450));
@@ -366,6 +374,14 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
     // Clear input
     _taskController.clear();
+
+    // Show feedback: "Adding task..."
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Adding task...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
 
     // Post to server
     final ok = await _createChecklistOnServer(
@@ -375,27 +391,38 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       vendorSubcategoryId: vendorSubId,
     );
 
-    if (!ok) {
-      // If server failed, remove the optimistic item and inform user
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Task added successfully!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      await _fetchChecklist(); // refresh tasks from server
+    } else {
+      // Remove optimistic insert if failed
       final idx = _tasks.indexWhere((t) => t.title == text && t.category == sub.name);
       if (idx != -1) {
         final removed = _tasks.removeAt(idx);
-        _listKey.currentState?.removeItem(idx, (context, animation) {
-          return SizeTransition(
+        _listKey.currentState?.removeItem(
+          idx,
+              (context, animation) => SizeTransition(
             sizeFactor: animation,
             axis: Axis.vertical,
             child: _buildTaskTile(removed, idx, anim: animation),
-          );
-        }, duration: const Duration(milliseconds: 380));
+          ),
+          duration: const Duration(milliseconds: 380),
+        );
       }
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Your wedding is near! Checklist cannot be created (less than 8 days left).')));
-    } else {
-      // re-sync with server list
-      await _fetchChecklist();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to add task! Please try again.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
-
-    print('➕ Task add attempt: $text [sub:$vendorSubId] -> ${ok ? "OK" : "FAILED"}');
   }
+
 
   // Toggle done
   void _toggleDone(int index) {
@@ -442,20 +469,32 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   Future<void> _pickWeddingDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: weddingDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
+      initialDate: weddingDate ?? (startDate ?? DateTime.now()),
+      firstDate: startDate ?? DateTime(2020), // ← prevent before start date
       lastDate: DateTime(2035),
       builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFFE91E63))),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: Color(0xFFE91E63)),
+        ),
         child: child!,
       ),
     );
+
     if (picked != null) {
+      if (startDate != null && picked.isBefore(startDate!)) {
+        // Just in case, extra safeguard
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Wedding date cannot be before start date')),
+        );
+        return;
+      }
+
       setState(() => weddingDate = picked);
       print('💍 Wedding Date set: $picked');
       _daysController.forward(from: 0.0);
     }
   }
+
 
   // ---------------- UI BUILDERS ----------------
   @override
@@ -463,7 +502,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     return Scaffold(
       backgroundColor: const Color(0xFFFDE9F1),
       appBar: AppBar(
-        title: const Text('Wedding Timeline'),
+        title: const Text('Wedding Checklist'),
         centerTitle: true,
         backgroundColor: const Color(0xFFE91E63),
         elevation: 0,
@@ -572,7 +611,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
         ],
       ),
-      title: '📅 WEDDING TIMELINE',
+      title: '📅 WEDDING CHECKLIST',
     );
   }
 

@@ -106,44 +106,27 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+
+              // ✅ Centered App Bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    // IconButton(
-                    //   icon: const Icon(
-                    //     Icons.arrow_back_ios,
-                    //     color: Colors.white,
-                    //     size: 20,
-                    //   ),
-                    //   onPressed: () => Navigator.pop(context),
-                    // ),
-                    // const Text(
-                    //   'Nashik',
-                    //   style: TextStyle(
-                    //     color: Colors.white,
-                    //     fontSize: 14,
-                    //     fontWeight: FontWeight.w500,
-                    //   ),
-                    // ),
-                    Text(
-                      'Vendor Categories',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
+
+                    const Center(
+                      child: Text(
+                        'Vendor Categories',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(width: 60), // Balance the left side
                   ],
                 ),
               ),
-
-              // Search Bar
 
               Expanded(
                 child: categories.isEmpty
@@ -157,14 +140,14 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                           _buildCategoryCard(
                             title: cat.name,
                             subtitle: cat.description ?? "",
-                            backgroundColor: const Color(0xFFE8D5E8), // You can randomize per category
+                            backgroundColor: const Color(0xFFE8D5E8),
                             isExpanded: expandedState[cat.id] ?? false,
                             onTap: () async {
                               setState(() {
-                                expandedState[cat.id] = !(expandedState[cat.id] ?? false);
+                                expandedState[cat.id] =
+                                !(expandedState[cat.id] ?? false);
                               });
 
-                              // Fetch services for all subcategories if not already fetched
                               for (var sub in cat.subcategories) {
                                 if (sub.services == null) {
                                   await fetchSubcategoryServices(sub);
@@ -172,7 +155,8 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                               }
                             },
                             image: cat.heroImage,
-                            subcategories: cat.subcategories.map((s) => s.name).toList(),
+                            subcategories:
+                            cat.subcategories.map((s) => s.name).toList(),
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -180,14 +164,14 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                     }).toList(),
                   ),
                 ),
-              )
-
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
 
   Widget _buildCategoryCard({
     required String title,
