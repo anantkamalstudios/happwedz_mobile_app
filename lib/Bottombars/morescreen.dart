@@ -76,11 +76,11 @@ class MoreOptionsScreen extends StatelessWidget {
                         title: 'Wishlist',
                         onTap: () => _handleMenuTap(context, 'Wishlist'),
                       ),
-                      _buildMenuItem(
-                        icon: Icons.favorite,
-                        title: 'Real Wedding',
-                        onTap: () => _handleMenuTap(context, 'Real Wedding'),
-                      ),
+                      // _buildMenuItem(
+                      //   icon: Icons.favorite,
+                      //   title: 'Real Wedding',
+                      //   onTap: () => _handleMenuTap(context, 'Real Wedding'),
+                      // ),
                       _buildMenuItem(
                         icon: Icons.inbox,
                         title: 'Inbox',

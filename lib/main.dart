@@ -190,7 +190,7 @@ class _SignInScreenState extends State<SignInScreen> {
           'tokenId': googleAuth.idToken ?? '',
         }),
       );
-
+      print('tokenId: ${googleAuth.idToken}');
       print('🟢 API Response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -209,7 +209,7 @@ class _SignInScreenState extends State<SignInScreen> {
           await prefs.setString('user_photo', googleUser.photoUrl ?? '');
 
           _showSnackBar('Welcome ${user['name']}');
-
+          print("user_id: ${user['id']}");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const BottomBars()),

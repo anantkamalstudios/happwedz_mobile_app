@@ -51,16 +51,15 @@ class _VenuesScreenState extends State<VenuesScreen> {
       } else {
         venues = allVenues
             .where((v) =>
-        v.name.toLowerCase().contains(query) ||
-            v.pax.toLowerCase().contains(query) || // ✅ maybe contains city/area info
+        v.vendorName.toLowerCase().contains(query) ||
+            v.area.toLowerCase().contains(query) || // ✅ maybe contains city/area info
             v.type.toLowerCase().contains(query)) // ✅ or type/category name
             .toList()
-          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          ..sort((a, b) => a.vendorName.toLowerCase().compareTo(b.vendorName.toLowerCase()));
 
       }
     });
   }
-
 
   Future<void> fetchVenues({int page = 1, String query = ""}) async {
     setState(() {
@@ -125,13 +124,19 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
           return Venue(
             id: service['id'] ?? 0,
-            name: vendor['businessName'] ?? 'Unknown Venue',
+            vendorName: attributes['vendor_name'] ?? vendor['businessName'] ?? '',
+            city: attributes['city'] ?? vendor['city'] ?? '',
+            vegPrice: attributes['veg_price']?.toString() ?? '',
+            nonVegPrice: attributes['non_veg_price']?.toString() ?? '',
+            area: attributes['area'] ?? '',
+            address: attributes['address'] ?? '',
+            rating: attributes['averageRating']?.toString() ?? '0.0',
+            reviewCount: attributes['totalReviews']?.toString() ?? '0',
+            about: attributes['about_us'] ?? '',
+            type: subcategory['name'] ?? vendor['vendorType']?['name'] ?? '',
             image: imageUrl.isNotEmpty
                 ? imageUrl
                 : 'https://via.placeholder.com/400x300.png?text=No+Image',
-            price: "₹ ${attributes['veg_price'] ?? '—'} per plate",
-            pax: attributes['area'] ?? 'Capacity info not available',
-            type: subcategory['name'] ?? 'Venue',
             isFavourite: service['is_favourite'] == true || service['is_favourite'] == 1,
           );
 
@@ -286,39 +291,70 @@ class _VenuesScreenState extends State<VenuesScreen> {
   Widget _buildAppBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Expanded(
-            child: Text(
-              'Venues',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+          // LEFT BACK BUTTON
+          // Align(
+          //   alignment: Alignment.centerLeft,
+          //   child: IconButton(
+          //     icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          //     onPressed: () => Navigator.pop(context),
+          //   ),
+          // ),
+
+          // CENTER TITLE
+          const Text(
+            'Venues',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 48),
         ],
       ),
     );
   }
-
   Widget _buildVenueCard(BuildContext context, Venue venue) {
     return GestureDetector(
       onTap: () {
+        // Passing complete & correct structure to VendorDetailsScreen
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => VendorDetailsScreen(service: venue),
+            builder: (context) => VendorDetailsScreen(
+              service: {
+                "attributes": {
+                  "vendor_name": venue.vendorName ?? "",
+                  "veg_price": venue.vegPrice ?? "",
+                  "non_veg_price": venue.nonVegPrice ?? "",
+                  "area": venue.area ?? "",
+                  "address": venue.address ?? "",
+                  "averageRating": venue.rating ?? 0,
+                  "totalReviews": venue.reviewCount ?? 0,
+                  "about_us": venue.about ?? "",
+                  "vendor_type": venue.type ?? "",
+                },
+
+                "media": [
+                  {
+                    "original_url": venue.image ??
+                        "https://via.placeholder.com/500x300?text=No+Image",
+                  }
+                ],
+
+                "vendor": {
+                  "id": venue.id ?? 0,
+                  // "phone": venue.phone ?? "",
+                  "review_count": venue.reviewCount ?? 0,
+                }
+              },
+            ),
           ),
         );
       },
+
       child: Container(
         margin: const EdgeInsets.only(bottom: 24),
         decoration: BoxDecoration(
@@ -326,15 +362,19 @@ class _VenuesScreenState extends State<VenuesScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.08),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ----------------------------------
+            // IMAGE + FAV BUTTON
+            // ----------------------------------
             Stack(
               children: [
                 Container(
@@ -345,11 +385,16 @@ class _VenuesScreenState extends State<VenuesScreen> {
                       topRight: Radius.circular(12),
                     ),
                     image: DecorationImage(
-                      image: NetworkImage(venue.image),
+                      image: NetworkImage(
+                        venue.image ??
+                            "https://via.placeholder.com/500x300?text=No+Image",
+                      ),
                       fit: BoxFit.cover,
                     ),
                   ),
                 ),
+
+                // ❤️ Wishlist Icon
                 Positioned(
                   top: 8,
                   right: 8,
@@ -362,27 +407,22 @@ class _VenuesScreenState extends State<VenuesScreen> {
                         final userId = prefs.getInt('user_id');
                         final token = prefs.getString('auth_token') ?? '';
 
-                        if (userId == null || userId == 0) {
+                        if (userId == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Please sign in first')),
                           );
                           return;
                         }
 
-                        final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+                        final url = Uri.parse(
+                            'https://happywedz.com/api/wishlist/toggle');
+
                         final body = {
                           'user_id': userId.toString(),
                           'vendor_services_id': venue.id.toString(),
                         };
 
                         try {
-                          print('🟢 Current userId: $userId');
-                          print('🔑 Token (first 20 chars): ${token.isNotEmpty ? token.substring(0, 20) : "none"}');
-                          print('⭐ Vendor Service ID: ${venue.id}');
-                          print('🌍 Sending POST → $url');
-                          print('📦 Headers: {Content-Type: application/json, Authorization: Bearer $token}');
-                          print('📦 Body: $body');
-
                           final response = await http.post(
                             url,
                             headers: {
@@ -393,34 +433,23 @@ class _VenuesScreenState extends State<VenuesScreen> {
                             body: jsonEncode(body),
                           );
 
-                          print('📬 Response status: ${response.statusCode}');
-                          print('📬 Response body: ${response.body}');
-
                           if (response.statusCode == 200) {
                             final data = jsonDecode(response.body);
-                            final message = data['message'] ?? 'Unknown response';
+                            final message = data['message'] ?? "";
 
                             setInnerState(() {
-                              isFav = message.toLowerCase().contains('added');
+                              isFav = message.toLowerCase().contains("added");
                               venue.isFavourite = isFav;
                             });
 
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(message)),
                             );
-                          } else if (response.statusCode == 401) {
-                            print('🚫 401 Unauthorized → Token invalid or expired.');
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Session expired. Please sign in again.')),
-                            );
-                          } else {
-                            print('❌ Unexpected status: ${response.statusCode}');
                           }
                         } catch (e) {
-                          print('💥 Error toggling wishlist: $e');
+                          print("💥 Wishlist Error: $e");
                         }
                       }
-
 
                       return InkWell(
                         onTap: toggleWishlist,
@@ -442,107 +471,395 @@ class _VenuesScreenState extends State<VenuesScreen> {
                 ),
               ],
             ),
+
+            // ----------------------------------
+            // VENUE DETAILS
+            // ----------------------------------
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Name
                   Text(
-                    venue.name,
+                    venue.vendorName ?? "Not available",
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                   ),
+
                   const SizedBox(height: 4),
+
+                  // Veg Price
                   Text(
-                    venue.price,
+                    venue.vegPrice ?? "",
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
                     ),
                   ),
+
                   const SizedBox(height: 8),
+
+                  // Location
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                      const Icon(Icons.location_on,
+                          size: 16, color: Colors.grey),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          venue.pax,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          venue.area ?? "",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 8),
+
+                  // Type
                   Row(
                     children: [
                       const Icon(Icons.event, size: 16, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text(
-                        venue.type,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        venue.type ?? "",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
+  // Widget _buildVenueCard(BuildContext context, Venue venue) {
+  //   return GestureDetector(
+  //     onTap: () {
+  //       Navigator.push(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (context) => VendorDetailsScreen(
+  //             service: {
+  //               "attributes": {
+  //                 "vendor_name": venue.vendorName,
+  //                 "veg_price": venue.vegPrice,
+  //                 "non_veg_price": venue.nonVegPrice,
+  //                 "area": venue.area,
+  //                 "address": venue.address,
+  //                 "averageRating": venue.rating,
+  //                 "totalReviews": venue.reviewCount,
+  //                 "about_us": venue.about,
+  //                 "vendor_type": venue.type,
+  //               },
+  //
+  //               "media": [
+  //                 {"original_url": venue.image}   // Matches your backend format
+  //               ],
+  //
+  //               "vendor": {
+  //                 "id": venue.id,
+  //                 "phone": "",   // leave empty if not available
+  //                 "review_count": venue.reviewCount,
+  //               }
+  //             },
+  //           ),
+  //         ),
+  //       );
+  //
+  //     },
+  //     child: Container(
+  //       margin: const EdgeInsets.only(bottom: 24),
+  //       decoration: BoxDecoration(
+  //         color: Colors.white,
+  //         borderRadius: BorderRadius.circular(12),
+  //         boxShadow: [
+  //           BoxShadow(
+  //             color: Colors.black.withOpacity(0.1),
+  //             blurRadius: 8,
+  //             offset: const Offset(0, 2),
+  //           ),
+  //         ],
+  //       ),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Stack(
+  //             children: [
+  //               Container(
+  //                 height: 200,
+  //                 decoration: BoxDecoration(
+  //                   borderRadius: const BorderRadius.only(
+  //                     topLeft: Radius.circular(12),
+  //                     topRight: Radius.circular(12),
+  //                   ),
+  //                   image: DecorationImage(
+  //                     image: NetworkImage(venue.image),
+  //                     fit: BoxFit.cover,
+  //                   ),
+  //                 ),
+  //               ),
+  //               Positioned(
+  //                 top: 8,
+  //                 right: 8,
+  //                 child: StatefulBuilder(
+  //                   builder: (context, setInnerState) {
+  //                     bool isFav = venue.isFavourite ?? false;
+  //
+  //                     Future<void> toggleWishlist() async {
+  //                       final prefs = await SharedPreferences.getInstance();
+  //                       final userId = prefs.getInt('user_id');
+  //                       final token = prefs.getString('auth_token') ?? '';
+  //
+  //                       if (userId == null || userId == 0) {
+  //                         ScaffoldMessenger.of(context).showSnackBar(
+  //                           const SnackBar(content: Text('Please sign in first')),
+  //                         );
+  //                         return;
+  //                       }
+  //
+  //                       final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+  //                       final body = {
+  //                         'user_id': userId.toString(),
+  //                         'vendor_services_id': venue.id.toString(),
+  //                       };
+  //
+  //                       try {
+  //                         print('🟢 Current userId: $userId');
+  //                         print('🔑 Token (first 20 chars): ${token.isNotEmpty ? token.substring(0, 20) : "none"}');
+  //                         print('⭐ Vendor Service ID: ${venue.id}');
+  //                         print('🌍 Sending POST → $url');
+  //                         print('📦 Headers: {Content-Type: application/json, Authorization: Bearer $token}');
+  //                         print('📦 Body: $body');
+  //
+  //                         final response = await http.post(
+  //                           url,
+  //                           headers: {
+  //                             'Content-Type': 'application/json',
+  //                             'Accept': 'application/json',
+  //                             'Authorization': 'Bearer $token',
+  //                           },
+  //                           body: jsonEncode(body),
+  //                         );
+  //
+  //                         print('📬 Response status: ${response.statusCode}');
+  //                         print('📬 Response body: ${response.body}');
+  //
+  //                         if (response.statusCode == 200) {
+  //                           final data = jsonDecode(response.body);
+  //                           final message = data['message'] ?? 'Unknown response';
+  //
+  //                           setInnerState(() {
+  //                             isFav = message.toLowerCase().contains('added');
+  //                             venue.isFavourite = isFav;
+  //                           });
+  //
+  //                           ScaffoldMessenger.of(context).showSnackBar(
+  //                             SnackBar(content: Text(message)),
+  //                           );
+  //                         } else if (response.statusCode == 401) {
+  //                           print('🚫 401 Unauthorized → Token invalid or expired.');
+  //                           ScaffoldMessenger.of(context).showSnackBar(
+  //                             const SnackBar(content: Text('Session expired. Please sign in again.')),
+  //                           );
+  //                         } else {
+  //                           print('❌ Unexpected status: ${response.statusCode}');
+  //                         }
+  //                       } catch (e) {
+  //                         print('💥 Error toggling wishlist: $e');
+  //                       }
+  //                     }
+  //
+  //
+  //                     return InkWell(
+  //                       onTap: toggleWishlist,
+  //                       child: Container(
+  //                         padding: const EdgeInsets.all(6),
+  //                         decoration: BoxDecoration(
+  //                           color: Colors.white.withOpacity(0.85),
+  //                           shape: BoxShape.circle,
+  //                         ),
+  //                         child: Icon(
+  //                           isFav ? Icons.favorite : Icons.favorite_border,
+  //                           color: Colors.pinkAccent,
+  //                           size: 20,
+  //                         ),
+  //                       ),
+  //                     );
+  //                   },
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //           Padding(
+  //             padding: const EdgeInsets.all(16.0),
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Text(
+  //                   venue.vendorName ?? "Not available",
+  //                   style: const TextStyle(
+  //                     fontSize: 16,
+  //                     fontWeight: FontWeight.bold,
+  //                     color: Colors.black87,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 4),
+  //                 Text(
+  //                   venue.vegPrice,
+  //                   style: const TextStyle(
+  //                     fontSize: 16,
+  //                     fontWeight: FontWeight.bold,
+  //                     color: Colors.black87,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 8),
+  //                 Row(
+  //                   children: [
+  //                     const Icon(Icons.location_on, size: 16, color: Colors.grey),
+  //                     const SizedBox(width: 4),
+  //                     Expanded(
+  //                       child: Text(
+  //                         venue.area,
+  //                         style: const TextStyle(fontSize: 12, color: Colors.grey),
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 ),
+  //                 const SizedBox(height: 8),
+  //                 Row(
+  //                   children: [
+  //                     const Icon(Icons.event, size: 16, color: Colors.grey),
+  //                     const SizedBox(width: 4),
+  //                     Text(
+  //                       venue.type,
+  //                       style: const TextStyle(fontSize: 12, color: Colors.grey),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
 }
 
 // ✅ Venue Model
+// class Venue {
+//   final int id;
+//   final String name;
+//   final String image;
+//   final String price;
+//   final String pax;
+//   final String type;
+//   bool isFavourite;
+//
+//   Venue({
+//     required this.id,
+//     required this.name,
+//     required this.image,
+//     required this.price,
+//     required this.pax,
+//     required this.type,
+//     this.isFavourite = false,
+//   });
+//
+//   factory Venue.fromJson(Map<String, dynamic> json) {
+//     return Venue(
+//       id: json['id'] ?? 0,
+//       name: json['name'] ?? '',
+//       image: json['image'] ?? '',
+//       price: json['price']?.toString() ?? '',
+//       pax: json['pax']?.toString() ?? '',
+//       type: json['type'] ?? '',
+//       isFavourite:
+//       json['is_favourite'] == 1 || json['is_favourite'] == true ? true : false,
+//     );
+//   }
+//
+//   Map<String, dynamic> toJson() {
+//     return {
+//       'id': id,
+//       'name': name,
+//       'image': image,
+//       'price': price,
+//       'pax': pax,
+//       'type': type,
+//       'is_favourite': isFavourite,
+//     };
+//   }
+// }
+
 class Venue {
   final int id;
-  final String name;
-  final String image;
-  final String price;
-  final String pax;
+  final String vendorName;
+  final String city;
+  final String vegPrice;
+  final String nonVegPrice;
+  final String area;
+  final String address;
+  final String rating;
+  final String reviewCount;
+  final String about;
   final String type;
+  final String image;
   bool isFavourite;
 
   Venue({
     required this.id,
-    required this.name,
-    required this.image,
-    required this.price,
-    required this.pax,
+    required this.vendorName,
+    required this.city,
+    required this.vegPrice,
+    required this.nonVegPrice,
+    required this.area,
+    required this.address,
+    required this.rating,
+    required this.reviewCount,
+    required this.about,
     required this.type,
+    required this.image,
     this.isFavourite = false,
   });
 
   factory Venue.fromJson(Map<String, dynamic> json) {
+    final attr = json['attributes'] ?? {};
+    final vendor = json['vendor'] ?? {};
+    final vendorType = vendor['vendorType'] ?? {};
+
     return Venue(
       id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      image: json['image'] ?? '',
-      price: json['price']?.toString() ?? '',
-      pax: json['pax']?.toString() ?? '',
-      type: json['type'] ?? '',
-      isFavourite:
-      json['is_favourite'] == 1 || json['is_favourite'] == true ? true : false,
+      vendorName: attr['vendor_name'] ?? vendor['businessName'] ?? '',
+      city: attr['city'] ?? vendor['city'] ?? '',
+      vegPrice: attr['veg_price']?.toString() ?? '',
+      nonVegPrice: attr['non_veg_price']?.toString() ?? '',
+      area: attr['area'] ?? '',
+      address: attr['address'] ?? '',
+      rating: attr['averageRating']?.toString() ?? '0.0',
+      reviewCount: attr['totalReviews']?.toString() ?? '0',
+      about: attr['about_us'] ?? '',
+      type: vendorType['name'] ?? '',
+      image: (json['media'] != null)
+          ? json['media'][0]['url'] ?? ''
+          : '', // handle null media
+      isFavourite: json['is_favourite'].toString() == "1",
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'image': image,
-      'price': price,
-      'pax': pax,
-      'type': type,
-      'is_favourite': isFavourite,
-    };
-  }
 }
-
 

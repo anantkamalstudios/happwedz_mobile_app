@@ -395,8 +395,8 @@ class _BudgetPageState extends State<BudgetPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddExpenseDialog,
         backgroundColor: const Color(0xFFE91E63),
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
+        icon: const Icon(Icons.add,color: Colors.white,),
+        label: const Text('Add',style: TextStyle(color: Colors.white),),
       ),
     );
   }
@@ -454,9 +454,21 @@ class _BudgetPageState extends State<BudgetPage> {
       );
     }
 
-    final colors = [Colors.pink, Colors.purple, Colors.blue, Colors.teal, Colors.green, Colors.amber, Colors.orange, Colors.red];
+    final colors = [
+      Colors.pink,
+      Colors.purple,
+      Colors.blue,
+      Colors.teal,
+      Colors.green,
+      Colors.amber,
+      Colors.orange,
+      Colors.red,
+    ];
+
     final Map<String, double> dataMap = {};
-    for (var e in expenses) dataMap[e.category] = (dataMap[e.category] ?? 0) + e.finalCost;
+    for (var e in expenses) {
+      dataMap[e.category] = (dataMap[e.category] ?? 0) + e.finalCost;
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -464,7 +476,10 @@ class _BudgetPageState extends State<BudgetPage> {
       decoration: _cardStyle(),
       child: Column(
         children: [
-          const Text('Expense Breakdown', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'Expense Breakdown',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             height: 200,
@@ -472,11 +487,17 @@ class _BudgetPageState extends State<BudgetPage> {
               PieChartData(
                 sections: dataMap.entries.map((e) {
                   final index = dataMap.keys.toList().indexOf(e.key);
+                  final percentage = (e.value / totalFinalCost) * 100;
+
                   return PieChartSectionData(
                     value: e.value,
                     color: colors[index % colors.length],
-                    title: '${(e.value / totalSpent * 100).toStringAsFixed(1)}%',
-                    titleStyle: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                    title: '${percentage.toStringAsFixed(1)}%',
+                    titleStyle: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   );
                 }).toList(),
                 centerSpaceRadius: 40,

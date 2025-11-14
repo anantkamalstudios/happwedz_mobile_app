@@ -651,54 +651,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
     }
   }
 
-//   Future<void> toggleWishlist(Map<String, dynamic> service) async {
-//     if (currentUserId == null) {
-//       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first')));
-//       return;
-//     }
-//
-//     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
-//     final vendor = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
-//     final media = (service['media'] is List) ? List.from(service['media']) : [];
-//
-//     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
-//     final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
-//     final String image = media.isNotEmpty ? media[0].toString() : ''; // first image
-//
-// // API payload
-//     final Map<String, dynamic> payload = {
-//       'user_id': currentUserId,
-//       'vendor_id': vendor['id'] ?? attributes['vendor_id'] ?? '',
-//       'vendor_name': vendorName,
-//       'city': city,
-//       'hero_image': image,
-//     };
-//
-//     try {
-//       final response = await http.post(
-//         Uri.parse('https://happywedz.com/api/wishlist/toggle'), // replace with your API
-//         headers: {'Content-Type': 'application/json'},
-//         body: jsonEncode(payload),
-//       );
-//
-//       if (response.statusCode == 200) {
-//         setState(() => _isShortlisted = !_isShortlisted);
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(content: Text(_isShortlisted ? 'Added to wishlist' : 'Removed from wishlist')),
-//         );
-//       } else {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text('Failed to update wishlist')),
-//         );
-//       }
-//     } catch (e) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(content: Text('Something went wrong')),
-//       );
-//     }
-//   }
-
-
   bool _hasValue(dynamic value) {
     if (value == null) return false;
     if (value is String) return value.trim().isNotEmpty;
@@ -1382,40 +1334,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
         child: SafeArea(
           child: Row(
             children: [
-              // Write a Review button
-              // Expanded(
-              //   child: OutlinedButton.icon(
-              //     onPressed: () {
-              //       if (currentUserId == null || currentUserId!.isEmpty) {
-              //         Navigator.push(
-              //           context,
-              //           MaterialPageRoute(builder: (_) => const SignInScreen()),
-              //         );
-              //         return;
-              //       }
-              //
-              //       Navigator.push(
-              //         context,
-              //         MaterialPageRoute(
-              //           builder: (_) => RecommendVendorScreen(
-              //             vendorId: vendorId,                 // dynamic from vendor details
-              //             vendorName: vendorName,             // dynamic vendor name
-              //             vendorImage: images.isNotEmpty ? images[0] : null, // first image if exists
-              //             currentUserId: currentUserId,       // optional (pass user id if your API needs)
-              //           ),
-              //         ),
-              //       );
-              //
-              //     },
-              //     icon: const Icon(Icons.rate_review, color: Colors.pink),
-              //     label: const Text('Write a\nReview', style: TextStyle(color: Colors.pink)),
-              //     style: OutlinedButton.styleFrom(
-              //       side: const BorderSide(color: Colors.pink),
-              //       padding: const EdgeInsets.symmetric(vertical: 14),
-              //     ),
-              //   ),
-              //
-              // ),
+
               const SizedBox(width: 12),
 
               // Message button

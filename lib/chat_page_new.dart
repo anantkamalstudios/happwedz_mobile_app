@@ -404,62 +404,76 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.otherName),
-        backgroundColor: Colors.pink,
+        // backgroundColor: Colors.pink,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: messagesQuery.snapshots(),
-              builder: (context, snap) {
-                if (!snap.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final docs = snap.data!.docs;
-
-                if (docs.isEmpty) {
-                  return const Center(child: Text("No messages yet."));
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) =>
-                      _buildMessageItem(docs[index]),
-                );
-              },
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4),
+              Color(0xFFFFB6C1),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.6],
           ),
-          SafeArea(
-            child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.attach_file)),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message',
-                        border: InputBorder.none,
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Colors.pink),
-                    onPressed: _sendMessage,
-                  ),
-                ],
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: messagesQuery.snapshots(),
+                builder: (context, snap) {
+                  if (!snap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final docs = snap.data!.docs;
+
+                  if (docs.isEmpty) {
+                    return const Center(child: Text("No messages yet."));
+                  }
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) =>
+                        _buildMessageItem(docs[index]),
+                  );
+                },
               ),
             ),
-          ),
-        ],
+            SafeArea(
+              child: Container(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                color: Colors.white,
+                child: Row(
+                  children: [
+                    IconButton(
+                        onPressed: () {},
+                        icon: const Icon(Icons.attach_file)),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: const InputDecoration(
+                          hintText: 'Type a message',
+                          border: InputBorder.none,
+                        ),
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.send, color: Colors.pink),
+                      onPressed: _sendMessage,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
