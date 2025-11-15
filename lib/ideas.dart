@@ -63,19 +63,41 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     }
     return 'https://happywedz.com$path';
   }
+
   Future<List<RealWedding>> fetchRealWeddings() async {
-    final response = await http.get(Uri.parse('https://happywedz.com/api/realwedding'));
+    final response = await http.get(
+      Uri.parse('https://happywedz.com/api/realwedding/public'),
+    );
 
     if (response.statusCode == 200) {
-      List<dynamic> data = json.decode(response.body);
-      print(data);
-      print(response);
-      print(response.body);
+      final decoded = json.decode(response.body);
+
+      // Safely check for key existence and null
+      final List<dynamic>? data = decoded['weddings'];
+
+      if (data == null) {
+        throw Exception('No weddings found in response');
+      }
+
       return data.map((json) => RealWedding.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load real weddings');
     }
   }
+
+  // Future<List<RealWedding>> fetchRealWeddings() async {
+  //   final response = await http.get(Uri.parse('https://happywedz.com/api/realwedding/public'));
+  //
+  //   if (response.statusCode == 200) {
+  //     List<dynamic> data = json.decode(response.body);
+  //     print(data);
+  //     print(response);
+  //     print(response.body);
+  //     return data.map((json) => RealWedding.fromJson(json)).toList();
+  //   } else {
+  //     throw Exception('Failed to load real weddings');
+  //   }
+  // }
 
 
   Future<void> debugImageUrl(String url) async {
@@ -1508,47 +1530,84 @@ class RealWedding {
   });
 
   factory RealWedding.fromJson(Map<String, dynamic> json) {
+    // Helper to safely decode stringified JSON lists
+    List<String> parseStringOrList(dynamic value) {
+      if (value == null) return [];
+      if (value is String) {
+        try {
+          final decoded = jsonDecode(value);
+          if (decoded is List) {
+            return List<String>.from(decoded.map((e) => e.toString()));
+          } else {
+            return [value];
+          }
+        } catch (_) {
+          return [value];
+        }
+      } else if (value is List) {
+        return List<String>.from(value.map((e) => e.toString()));
+      }
+      return [];
+    }
+
+    // Helper for list of maps (events/vendors)
+    List<Map<String, String>> parseListOfMaps(dynamic value) {
+      if (value == null) return [];
+      if (value is String) {
+        try {
+          final decoded = jsonDecode(value);
+          if (decoded is List) {
+            return decoded.map((e) => Map<String, String>.from(e)).toList();
+          }
+        } catch (_) {}
+        return [];
+      } else if (value is List) {
+        return value.map((e) => Map<String, String>.from(e)).toList();
+      }
+      return [];
+    }
+
     return RealWedding(
-      id: json['id'],
-      title: json['title'],
-      slug: json['slug'],
-      weddingDate: json['weddingDate'],
-      city: json['city'],
-      venues: List<String>.from(json['venues'] ?? []),
-      brideName: json['brideName'],
-      brideBio: json['brideBio'],
-      groomName: json['groomName'],
-      groomBio: json['groomBio'],
-      story: json['story'],
-      events: (json['events'] as List<dynamic>?)
-          ?.map((e) => Map<String, String>.from(e as Map))
-          .toList() ?? [],
-      vendors: (json['vendors'] as List<dynamic>?)
-          ?.map((v) => Map<String, String>.from(v as Map))
-          .toList() ?? [],
-      coverPhoto: json['coverPhoto'] != null
-          ? "https://happywedz.com${json['coverPhoto']}"
+      id: json['id'] ?? 0,
+      title: json['title'] ?? '',
+      slug: json['slug'] ?? '',
+      weddingDate: json['wedding_date'] ?? '',
+      city: json['city'] ?? '',
+      venues: parseStringOrList(json['venues']),
+      brideName: json['bride_name'] ?? '',
+      brideBio: json['bride_bio'] ?? '',
+      groomName: json['groom_name'] ?? '',
+      groomBio: json['groom_bio'] ?? '',
+      story: json['story'] ?? '',
+      events: parseListOfMaps(json['events']),
+      vendors: parseListOfMaps(json['vendors']),
+      coverPhoto: json['cover_photo'] != null
+          ? "https://happywedz.com${json['cover_photo']}"
           : null,
-      highlightPhotos: (json['highlightPhotos'] as List<dynamic>?)
-          ?.map((e) => "https://happywedz.com$e")
-          .toList() ?? [],
-      allPhotos: (json['allPhotos'] as List<dynamic>?)
-          ?.map((e) => "https://happywedz.com$e")
-          .toList() ?? [],
-      themes: List<String>.from(json['themes'] ?? []),
-      brideOutfit: json['brideOutfit'],
-      groomOutfit: json['groomOutfit'],
-      specialMoments: json['specialMoments'],
-      photographer: json['photographer'],
-      makeup: json['makeup'],
-      decor: json['decor'],
-      additionalCredits: List<String>.from(json['additionalCredits'] ?? []),
-      status: json['status'],
+      highlightPhotos: parseStringOrList(json['highlight_photos'])
+          .map((e) => "https://happywedz.com$e")
+          .toList(),
+      allPhotos: parseStringOrList(json['all_photos'])
+          .map((e) => "https://happywedz.com$e")
+          .toList(),
+      themes: parseStringOrList(json['themes']),
+      brideOutfit: json['bride_outfit'] ?? '',
+      groomOutfit: json['groom_outfit'] ?? '',
+      specialMoments: json['special_moments'] ?? '',
+      photographer: json['photographer'] ?? '',
+      makeup: json['makeup'] ?? '',
+      decor: json['decor'] ?? '',
+      additionalCredits: parseStringOrList(json['additional_credits']),
+      status: json['status'] ?? '',
       featured: json['featured'] ?? false,
-      userId: json['user_id'],
-      userEmail: json['user_email'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      userId: json['user_id'] ?? 0,
+      userEmail: json['user_email'] ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at']) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at']) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 

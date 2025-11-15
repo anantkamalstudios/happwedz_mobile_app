@@ -1324,40 +1324,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
         child: SafeArea(
           child: Row(
             children: [
-              // Write a Review button
-              // Expanded(
-              //   child: OutlinedButton.icon(
-              //     onPressed: () {
-              //       if (currentUserId == null || currentUserId!.isEmpty) {
-              //         Navigator.push(
-              //           context,
-              //           MaterialPageRoute(builder: (_) => const SignInScreen()),
-              //         );
-              //         return;
-              //       }
-              //
-              //       Navigator.push(
-              //         context,
-              //         MaterialPageRoute(
-              //           builder: (_) => RecommendVendorScreen(
-              //             vendorId: vendorId,                 // dynamic from vendor details
-              //             vendorName: vendorName,             // dynamic vendor name
-              //             vendorImage: images.isNotEmpty ? images[0] : null, // first image if exists
-              //             currentUserId: currentUserId,       // optional (pass user id if your API needs)
-              //           ),
-              //         ),
-              //       );
-              //
-              //     },
-              //     icon: const Icon(Icons.rate_review, color: Colors.pink),
-              //     label: const Text('Write a\nReview', style: TextStyle(color: Colors.pink)),
-              //     style: OutlinedButton.styleFrom(
-              //       side: const BorderSide(color: Colors.pink),
-              //       padding: const EdgeInsets.symmetric(vertical: 14),
-              //     ),
-              //   ),
-              //
-              // ),
+
               const SizedBox(width: 12),
 
               // Message button

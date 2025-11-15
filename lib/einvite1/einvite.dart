@@ -27,7 +27,7 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
   @override
   void initState() {
     super.initState();
-    fetchWeddingCards().then((_) => _loadDraft());
+    fetchWeddingCards().then((_) => loadDrafts());
 
   }
 
@@ -71,46 +71,61 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
   /// ✅ SAVE DRAFT
   Future<void> _saveDraft() async {
     if (selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❗ No card selected')),
-      );
+      print("❌ selectedImage is NULL");
       return;
     }
 
     final prefs = await SharedPreferences.getInstance();
-
     List<String> drafts = prefs.getStringList("draftList") ?? [];
 
     Map<String, String> draftData = {
       "image": selectedImage!,
-      "title": selectedTitle ?? ""
+      "title": selectedTitle ?? "",
     };
+
+    print("💾 Saving draft: $draftData");
 
     drafts.add(jsonEncode(draftData));
 
     await prefs.setStringList("draftList", drafts);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Draft Saved!')),
-    );
+    print("✅ Final drafts list saved: $drafts");
   }
 
+  List<Map<String, String>> draftList = [];
 
-  /// ✅ LOAD DRAFT
-  Future<void> _loadDraft() async {
+  Future<void> loadDrafts() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> raw = prefs.getStringList("draftList") ?? [];
 
-    if (raw.isEmpty) return;
+    print("📥 Loaded drafts from SharedPrefs: $raw");
 
-    List<Map<String, String>> saved = raw
-        .map((e) => Map<String, String>.from(jsonDecode(e)))
-        .toList();
+    List<Map<String, String>> parsedList = [];
 
-    /// You can use it later if needed
+    for (var item in raw) {
+      try {
+        final decoded = jsonDecode(item);
+
+        if (decoded is Map) {
+          // Convert everything inside the map to String
+          final cleanMap = decoded.map<String, String>(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+          );
+
+          parsedList.add(cleanMap);
+        }
+      } catch (err) {
+        print("❌ Error parsing entry: $item");
+      }
+    }
+
+    // Assign final parsed list
+    draftList = parsedList;
+
+    print("📦 Final parsed draftList = $draftList");
+
     setState(() {});
   }
-
 
 
   @override
@@ -260,7 +275,7 @@ class _WeddingInvitesScreen1State extends State<WeddingInvitesScreen1> {
                       ),
                     ),
                   );
-                  _loadDraft();
+                  loadDrafts();
                 },
                 child: Row(
                   children: [
@@ -386,16 +401,30 @@ class _DraftListScreenState extends State<DraftListScreen> {
     super.initState();
     loadDrafts();
   }
+
   Future<void> loadDrafts() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> raw = prefs.getStringList("draftList") ?? [];
-    draftList = raw
-        .map((e) => Map<String, String>.from(jsonDecode(e)))
-        .toList();
+    final List<String> raw = prefs.getStringList("draftList") ?? [];
 
-    setState(() {});
+    List<Map<String, String>> parsedList = [];
+
+    for (var item in raw) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map) {
+          // Convert all values to String to ensure type safety
+          parsedList.add(decoded.map<String, String>(
+                  (key, value) => MapEntry(key.toString(), value.toString())));
+        }
+      } catch (e) {
+        print("❌ Failed to parse draft: $item -> $e");
+      }
+    }
+
+    setState(() {
+      draftList = parsedList;
+    });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -411,32 +440,61 @@ class _DraftListScreenState extends State<DraftListScreen> {
       body: draftList.isEmpty
           ? const Center(child: Text("No drafts saved"))
           : ListView.builder(
+        padding: const EdgeInsets.all(16),
         itemCount: draftList.length,
         itemBuilder: (context, index) {
-          return ListTile(
-            leading: Image.network(
-              draftList[index]["image"] ?? "",
-              width: 60,
-              height: 60,
-              fit: BoxFit.cover,
-            ),
+          final imageUrl = draftList[index]["image"] ?? "";
+          final title = draftList[index]["title"] ?? "Draft ${index + 1}";
 
-            title: Text("Draft ${index + 1}"),
+          return GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => CustomizeCardScreen(
-                    templateImage: draftList[index]["image"] ?? "",
-
-                  ),
+                  builder: (_) =>
+                      CustomizeCardScreen(templateImage: imageUrl),
                 ),
               );
             },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      imageUrl,
+                      height: 250,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
-      )
-
+      ),
     );
   }
 }

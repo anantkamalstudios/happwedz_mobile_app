@@ -95,11 +95,6 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
   String _searchQuery = '';
   String _selectedCategory = 'All';
 
-  bool showSearch = false; // already exists
-  TextEditingController searchCtrl = TextEditingController();
-
-
-
   List<Guest> _allGuests = [];
   bool _isLoading = false;
 
@@ -248,6 +243,10 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
 
     setState(() => _isLoading = false);
   }
+
+
+
+
 
 
   // ---------------- API: Add Guest ----------------
@@ -586,32 +585,22 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                       ),
                     ),
                     // TabBar
-                    // TabBar
                     Container(
                       color: Colors.transparent,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: TabBar(
-                          controller: _tabController,
-                          labelColor: Colors.white,
-                          unselectedLabelColor: Colors.white70,
-                          indicatorColor: Colors.white,
-                          onTap: (index) => setState(() {}),
-                          isScrollable: true,
-                          tabAlignment: TabAlignment.start,
-                          labelPadding: EdgeInsets.symmetric(horizontal: 12),
-
-                          tabs: [
-                            Tab(text: 'All (${_allGuests.length})'),
-                            Tab(text: 'Attending ($_totalAccepted)'),
-                            Tab(text: 'Pending ($_totalPending)'),
-                            Tab(text: 'Not Attending ($_totalDeclined)'),
-                          ],
-                        ),
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.white70,
+                        indicatorColor: Colors.white,
+                        onTap: (index) => setState(() {}),
+                        tabs: [
+                          Tab(text: 'All (${_allGuests.length})'),
+                          Tab(text: 'Attending ($_totalAccepted)'),
+                          Tab(text: 'Pending ($_totalPending)'),
+                          Tab(text: 'Not Attending ($_totalDeclined)'),
+                        ],
                       ),
                     ),
-
-
                   ],
                 ),
               ),
@@ -646,8 +635,8 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
           _showAddGuestDialog();
         },
         backgroundColor: const Color(0xFFFF69B4),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Guest'),
+        icon: const Icon(Icons.add,color: Colors.white,),
+            label: const Text('Add Guest',style: TextStyle(color: Colors.white),),
       ),
     );
   }
@@ -689,88 +678,59 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
       child: Row(
         children: [
-          // Search box or icon
           Expanded(
-            child: showSearch
-                ? Container(
-              height: 48,
+            child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ],
               ),
               child: TextField(
-                controller: searchCtrl,
-                autofocus: true,
-                onChanged: (v) {
-                  setState(() {
-                    _searchQuery = v;
-                  });
-                },
+                onChanged: (v) => setState(() => _searchQuery = v),
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, color: Colors.pink),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 12, right: 8),
+                    child: Icon(Icons.search, color: Colors.pink),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 0,
+                    minHeight: 0,
+                  ),
                   hintText: 'Search guests...',
                   border: InputBorder.none,
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () {
-                      setState(() {
-                        showSearch = false;
-                        _searchQuery = '';
-                        searchCtrl.clear();
-                      });
-                    },
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
               ),
-            )
-                : Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.search, color: Colors.pink),
-                onPressed: () {
-                  setState(() => showSearch = true);
-                },
-              ),
             ),
           ),
 
-          const SizedBox(width: 12),
-
-          // Add Guest
-          ElevatedButton.icon(
-            onPressed: _showAddGuestDialog,
-            icon: const Icon(Icons.person_add_alt_1),
-            label: const Text('Add Guest'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF69B4),
-              foregroundColor: Colors.white,
-            ),
-          ),
-
+          // const SizedBox(width: 12),
+          // ElevatedButton.icon(
+          //   onPressed: () => _showAddGuestDialog(),
+          //   icon: const Icon(Icons.person_add_alt_1),
+          //   label: const Text('Add Guest'),
+          //   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF69B4),foregroundColor: Colors.white),
+          // ),
           const SizedBox(width: 8),
-
-          // Create Group
           OutlinedButton.icon(
             onPressed: _showCreateGroupDialog,
-            icon: const Icon(Icons.group),
-            label: const Text('Create Group'),
+            icon: const Icon(Icons.group,color: Colors.black,),
+            label: const Text('Create Group',style: TextStyle(color: Colors.black),),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.pink),
+              foregroundColor: Colors.white, // ✅ sets text & icon color to white
+              side: const BorderSide(color: Colors.pink), // optional: white border
             ),
           ),
         ],
       ),
     );
   }
-
-
-
-
 
   Widget _buildGuestList() {
     final guests = _filteredGuests;
@@ -816,13 +776,12 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
     Color statusColor;
     IconData statusIcon;
 
-
     switch (statusLower) {
       case 'attending':
         statusColor = Colors.green;
         statusIcon = Icons.check_circle;
         break;
-      case 'Not Attending':
+      case 'not attending':
         statusColor = Colors.red;
         statusIcon = Icons.cancel;
         break;
@@ -853,13 +812,14 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
             ),
           );
 
-          // ✅ If the guest was updated, refresh UI
-          if (updated == true) {
-            setState(() {}); // re-build to reflect new status
-          }
+          if (updated == true) setState(() {});
         },
 
         contentPadding: const EdgeInsets.all(16),
+
+        // ---------------------------------------------
+        // Avatar
+        // ---------------------------------------------
         leading: CircleAvatar(
           backgroundColor: const Color(0xFFFF69B4).withOpacity(0.12),
           child: Text(
@@ -870,6 +830,10 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
             ),
           ),
         ),
+
+        // ---------------------------------------------
+        // Title + Status
+        // ---------------------------------------------
         title: Row(
           children: [
             Expanded(
@@ -902,10 +866,16 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
             )
           ],
         ),
+
+        // ---------------------------------------------
+        // Subtitle Content
+        // ---------------------------------------------
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
+
+            // Email
             if (guest.email.isNotEmpty)
               Row(
                 children: [
@@ -917,12 +887,14 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                   ),
                 ],
               ),
+
             const SizedBox(height: 6),
+
+            // Group + Companions
             Row(
               children: [
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -938,8 +910,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.pink.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -955,6 +926,8 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                 ),
               ],
             ),
+
+            // Seat
             if (guest.seatNumber.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -963,64 +936,136 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
+
+            // Meal
             if (guest.menu.isNotEmpty)
               Text(
                 'Meal: ${guest.menu}',
                 style: const TextStyle(fontSize: 12),
               ),
-            const SizedBox(height: 1),
 
-// 🗑️ Action buttons: View, Delete
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 10),
+
+            // ---------------------------------------------
+            // Action Icons Row
+            // ---------------------------------------------
+            Row(
               children: [
-                // ... other content like email, seat, group, etc.
+                IconButton(
+                  icon: const Icon(Icons.email_outlined, color: Colors.blue),
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    final int? userId = prefs.getInt('user_id');
 
-                const SizedBox(height: 2),
-
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: TextButton.icon(
-                    icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                    label: const Text("Delete", style: TextStyle(color: Colors.red)),
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text("Confirm Delete"),
-                          content: Text("Are you sure you want to delete ${guest.name}?"),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text("Cancel"),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                              child: const Text("Delete"),
-                            ),
-                          ],
-                        ),
+                    if (userId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("User ID not found! Please login again.")),
                       );
+                      return;
+                    }
 
-                      if (confirm == true && guest.id != null) {
-                        await deleteGuest(guest.id!);
-                      }
-                    },
-                  ),
+                    await sendGuestEmail(
+                      toEmail: guest.email,
+                      subject: "Guest List",
+                      message: "Hello ${guest.name}",
+                      userId: userId,   // 👉 now dynamic
+                      context: context,
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.sms, color: Colors.green),
+                  onPressed: () {
+                    // TODO: WhatsApp
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.card_giftcard, color: Colors.pink),
+                  onPressed: () {
+                    // TODO: Send E-invite
+                  },
                 ),
               ],
-            )
+            ),
 
+            // ---------------------------------------------
+            // Delete Button
+            // ---------------------------------------------
+            Align(
+              alignment: Alignment.bottomRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                label: const Text("Delete", style: TextStyle(color: Colors.red)),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text("Confirm Delete"),
+                      content: Text("Are you sure you want to delete ${guest.name}?"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text("Cancel"),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                          child: const Text("Delete"),
+                        ),
+                      ],
+                    ),
+                  );
 
-
-
+                  if (confirm == true && guest.id != null) {
+                    await deleteGuest(guest.id!);
+                  }
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  Future<void> sendGuestEmail({
+    required String toEmail,
+    required String message,
+    required String subject,
+    required int userId,
+    required BuildContext context,
+  }) async {
+    try {
+      final url = Uri.parse("https://happywedz.com/api/guestlist/send-guestlist-email");
+
+      final body = {
+        "toEmail": [toEmail],
+        "message": message,
+        "subject": subject,
+        "userId": userId.toString(),
+      };
+
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Email sent successfully!")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to send email: ${response.body}")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    }
+  }
 
   void _showOptionsMenu() {
     showModalBottomSheet(
@@ -1080,8 +1125,6 @@ class GuestDetailsScreen extends StatefulWidget {
 }
 
 class _GuestDetailsScreenState extends State<GuestDetailsScreen> {
-
-
   String selectedStatus = "";
   bool isUpdating = false;
 
@@ -1090,6 +1133,7 @@ class _GuestDetailsScreenState extends State<GuestDetailsScreen> {
     super.initState();
     selectedStatus = widget.guest.status; // initial value
   }
+
 
 
   Future<void> updateGuestStatus(String newStatus) async {
