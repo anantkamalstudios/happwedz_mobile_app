@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../DecorationScreen.dart';
+import '../LoadingLogo.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../designstudio.dart';
 import '../einvite1/einvite.dart';
@@ -979,7 +980,7 @@ class WeddingHomePage extends StatefulWidget {
 
 class _WeddingHomePageState extends State<WeddingHomePage> {
   int _selectedIndex = 0;
-
+  bool isLoading = true;
 
 
   bool _isLoading = false;
@@ -1016,6 +1017,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     fetchHorizontalCategories();
     fetchVenues();
     fetchPhotographers();
+    loadHomeData();
+
+  }
+
+  void loadHomeData() async {
+    await Future.delayed(const Duration(seconds: 3)); // simulate loading
+    setState(() { isLoading = false; });
   }
 
 
@@ -1232,11 +1240,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // 🌸 Your existing background and content
+          // 🌸 Background + Content
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -1299,7 +1308,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                           ),
                           const SizedBox(height: 30),
                           _buildTrendingTodaySection(),
-                          SizedBox(height: 20),
+                          const SizedBox(height: 20),
                           _buildViewAllTrendingButton(),
                           const SizedBox(height: 30),
                           _buildHappyWedsServicesSection(),
@@ -1323,7 +1332,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             ),
           ),
 
-          // 🌟 Gemini AI Floating Button
+          // 🌟 Floating AI Button
           Positioned(
             bottom: 20,
             right: 20,
@@ -1334,7 +1343,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   MaterialPageRoute(builder: (context) => const GenieScreen()),
                 );
               },
-
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 600),
                 curve: Curves.easeInOut,
@@ -1358,79 +1366,24 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               ),
             ),
           ),
+
+          // 🔥 GLOBAL LOADING OVERLAY
+          if (isLoading)
+            Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: Colors.white.withOpacity(0.9),
+              child: const Center(
+                child: LoadingLogo(size: 130),
+              ),
+            ),
         ],
       ),
-
-      // bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
 
-  Widget _buildGeminiChatPopup(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        height: 320,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.auto_awesome, color: Color(0xFF6A5AE0), size: 28),
-                const SizedBox(width: 10),
-                const Text(
-                  "Ask AI Assistant",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Hi 👋 I'm your wedding planner assistant!\nAsk me anything about venues, vendors, or ideas.",
-              style: TextStyle(fontSize: 14, color: Colors.black87),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              decoration: InputDecoration(
-                hintText: "Type your question...",
-                prefixIcon: const Icon(Icons.chat_bubble_outline),
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const Spacer(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A5AE0),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("AI Assistant feature coming soon 🤖")),
-                  );
-                },
-                icon: const Icon(Icons.send, size: 18),
-                label: const Text("Send"),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
 
   Widget _buildHeader() {
@@ -1543,94 +1496,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   }
 
 
-  Future<void> _fetchVenuesByCity(String city) async {
-    setState(() => isLoadingVenues = true);
-
-    try {
-      final url = Uri.parse(
-        "https://happywedz.com/api/vendor-services?subCategory=venue",
-      );
-      final response = await http.get(url, headers: {"Accept": "application/json"});
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List<dynamic>;
-
-        // 🔍 Filter manually by city
-        final filtered = data.where((venue) {
-          final attributes = (venue is Map && venue['attributes'] is Map)
-              ? venue['attributes'] as Map<String, dynamic>
-              : <String, dynamic>{};
-
-          final location = (attributes['city'] ??
-              attributes['address'] ??
-              attributes['location'] ??
-              '')
-              .toString()
-              .toLowerCase();
-
-          return location.contains(city.toLowerCase());
-        }).toList();
-
-        setState(() {
-          venues = filtered;
-          isLoadingVenues = false;
-        });
-      } else {
-        setState(() {
-          venues = [];
-          isLoadingVenues = false;
-        });
-        print("Error fetching venues for $city: ${response.statusCode}");
-      }
-    } catch (e) {
-      setState(() {
-        venues = [];
-        isLoadingVenues = false;
-      });
-      print("Error fetching venues for $city: $e");
-    }
-  }
-
-  Future<void> _fetchPhotographersByCity(String city) async {
-    setState(() => isLoadingPhotographers = true);
-
-    try {
-      final url = Uri.parse(
-        "https://happywedz.com/api/vendor-services?subCategory=photographer",
-      );
-      final response = await http.get(url, headers: {"Accept": "application/json"});
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List<dynamic>;
-
-        // Filter by city
-        final filtered = data.where((photo) {
-          final attributes = (photo is Map && photo['attributes'] is Map)
-              ? photo['attributes'] as Map<String, dynamic>
-              : <String, dynamic>{};
-          final location = (attributes['location'] ?? '').toString().toLowerCase();
-          return location.contains(city.toLowerCase());
-        }).toList();
-
-        setState(() {
-          photographers = filtered;
-          isLoadingPhotographers = false;
-        });
-      } else {
-        setState(() {
-          photographers = [];
-          isLoadingPhotographers = false;
-        });
-        print("Error fetching photographers: ${response.statusCode}");
-      }
-    } catch (e) {
-      setState(() {
-        photographers = [];
-        isLoadingPhotographers = false;
-      });
-      print("Error fetching photographers: $e");
-    }
-  }
 
 
 
@@ -2125,77 +1990,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
 
 
-  Widget _buildVenueCard(String name, String location, String price, String imagePath) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.pink[100],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.asset(
-                imagePath,        // 👈 use your asset path
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.broken_image, size: 40, color: Colors.grey),
-              ),
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  location,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildViewAllVenuesButton(BuildContext context) {
     return InkWell(
@@ -2427,75 +2221,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
 
 
-  Widget _buildPhotographerCard(String name, String location, String price, String imagePath) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.asset(
-                imagePath,        // 👈 use the asset path
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.broken_image, size: 40, color: Colors.grey),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  location,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildViewAllPhotographersButton() {
     return InkWell(
@@ -2533,6 +2258,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       ),
     );
   }
+
   Widget _buildWeddingChecklistSection({
     required int completedCount,
     required int totalTasks,

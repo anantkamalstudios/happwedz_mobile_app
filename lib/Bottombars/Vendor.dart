@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../vendor/vendordetailsscreen.dart';
+import 'GenieScreen.dart';
 
 class VendorCategoriesScreen extends StatefulWidget {
   const VendorCategoriesScreen({Key? key}) : super(key: key);
@@ -90,31 +91,31 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
+      body: Stack(
+        children: [
 
-              // ✅ Centered App Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
+          // ---------------------- MAIN SCREEN UI ----------------------
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFF69B4),
+                  Color(0xFFFFB6C1),
+                  Colors.white,
+                ],
+                stops: [0.0, 0.3, 0.6],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
 
-                    const Center(
+                  // ------------------ HEADER ------------------
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: const Center(
                       child: Text(
                         'Vendor Categories',
                         style: TextStyle(
@@ -124,51 +125,96 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                         ),
                       ),
                     ),
+                  ),
+
+                  // ------------------ CATEGORY LIST ------------------
+                  Expanded(
+                    child: categories.isEmpty
+                        ? const Center(child: CircularProgressIndicator())
+                        : SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: categories.map((cat) {
+                          return Column(
+                            children: [
+                              _buildCategoryCard(
+                                title: cat.name,
+                                subtitle: cat.description ?? "",
+                                backgroundColor: const Color(0xFFE8D5E8),
+                                isExpanded: expandedState[cat.id] ?? false,
+                                onTap: () async {
+                                  setState(() {
+                                    expandedState[cat.id] =
+                                    !(expandedState[cat.id] ?? false);
+                                  });
+
+                                  for (var sub in cat.subcategories) {
+                                    if (sub.services == null) {
+                                      await fetchSubcategoryServices(sub);
+                                    }
+                                  }
+                                },
+                                image: cat.heroImage,
+                                subcategories:
+                                cat.subcategories.map((s) => s.name).toList(),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ---------------------- FLOATING GENIE BUTTON ----------------------
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GenieScreen()),
+                );
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF6A5AE0),
+                      Color(0xFFB26BF2),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purpleAccent.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
                   ],
                 ),
-              ),
-
-              Expanded(
-                child: categories.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: categories.map((cat) {
-                      return Column(
-                        children: [
-                          _buildCategoryCard(
-                            title: cat.name,
-                            subtitle: cat.description ?? "",
-                            backgroundColor: const Color(0xFFE8D5E8),
-                            isExpanded: expandedState[cat.id] ?? false,
-                            onTap: () async {
-                              setState(() {
-                                expandedState[cat.id] =
-                                !(expandedState[cat.id] ?? false);
-                              });
-
-                              for (var sub in cat.subcategories) {
-                                if (sub.services == null) {
-                                  await fetchSubcategoryServices(sub);
-                                }
-                              }
-                            },
-                            image: cat.heroImage,
-                            subcategories:
-                            cat.subcategories.map((s) => s.name).toList(),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      );
-                    }).toList(),
-                  ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 32,
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+
+        ],
       ),
+
     );
   }
 

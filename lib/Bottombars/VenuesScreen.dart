@@ -6,6 +6,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'GenieScreen.dart';
+
 class VenuesScreen extends StatefulWidget {
   const VenuesScreen({Key? key}) : super(key: key);
 
@@ -168,60 +170,105 @@ class _VenuesScreenState extends State<VenuesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildAppBar(context),
-              _buildSearchBar(),
-              Expanded(
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Colors.pink))
-                    : venues.isEmpty
-                    ? const Center(
-                  child: Text(
-                    "No venues found 😔",
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w500, color: Colors.grey),
-                  ),
-                )
-                    : RefreshIndicator(
-                  color: Colors.pink,
-                  onRefresh: () async => await fetchVenues(page: 1),
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    child: Column(
-                      children: [
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16.0),
-                          itemCount: venues.length,
-                          itemBuilder: (context, index) {
-                            final venue = venues[index];
-                            return _buildVenueCard(context, venue);
-                          },
+      body: Stack(
+        children: [
+
+          // ---------- MAIN VENUE UI ----------
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
+                stops: [0.0, 0.3, 0.6],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildAppBar(context),
+                  _buildSearchBar(),
+                  Expanded(
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator(color: Colors.pink))
+                        : venues.isEmpty
+                        ? const Center(
+                      child: Text(
+                        "No venues found 😔",
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey),
+                      ),
+                    )
+                        : RefreshIndicator(
+                      color: Colors.pink,
+                      onRefresh: () async => await fetchVenues(page: 1),
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        child: Column(
+                          children: [
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.all(16.0),
+                              itemCount: venues.length,
+                              itemBuilder: (context, index) {
+                                final venue = venues[index];
+                                return _buildVenueCard(context, venue);
+                              },
+                            ),
+                            _buildPaginationButtons(),
+                            const SizedBox(height: 80),
+                          ],
                         ),
-                        _buildPaginationButtons(), // ✅ added here
-                        const SizedBox(height: 80),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+
+          // ---------- FLOATING GENIE BUTTON ----------
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GenieScreen()),
+                );
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6A5AE0), Color(0xFFB26BF2)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purple.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(18),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
+              ),
+            ),
+          ),
+
+        ],
       ),
     );
+
   }
 
   Widget _buildPaginationButtons() {

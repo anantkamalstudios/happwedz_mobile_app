@@ -469,21 +469,25 @@ class _BudgetPageState extends State<BudgetPage> {
           SizedBox(
             height: 200,
             child: PieChart(
-              PieChartData(
-                sections: dataMap.entries.map((e) {
-                  final index = dataMap.keys.toList().indexOf(e.key);
-                  return PieChartSectionData(
-                    value: e.value,
-                    color: colors[index % colors.length],
-                    title: '${(e.value / totalSpent * 100).toStringAsFixed(1)}%',
-                    titleStyle: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
-                  );
-                }).toList(),
-                centerSpaceRadius: 40,
-              ),
+                PieChartData(
+                  sections: dataMap.entries.map((e) {
+                    final index = dataMap.keys.toList().indexOf(e.key);
+                    return PieChartSectionData(
+                      value: e.value,
+                      color: colors[index % colors.length],
+                      title: e.value.toStringAsFixed(0),     // 👈 show number
+                      titleStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    );
+
+                  }).toList()
+                )
+
             ),
-          ),
-        ],
+          )],
       ),
     );
   }

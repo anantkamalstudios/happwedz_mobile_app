@@ -52,6 +52,9 @@ dependencies:
   animated_text_kit: ^4.2.2
   file_picker: ^8.0.6
   animations: ^2.0.0
+  flutter_quill: ^11.5.0
+
+
 
 
   flutter_html: ^3.0.0-alpha.6
@@ -166,6 +169,15 @@ flutter:
    - assets/blush.png
    - assets/eyeshadow.png
    - assets/lipstick.png
+   - assets/logo.png
+   - assets/Splash1.png
+   - assets/Splash2.png
+   - assets/Splash3.png
+   - assets/Splash4.png
+   - assets/Splash5.png
+   - assets/Splash6.png
+   - assets/Splash7.png
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

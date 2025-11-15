@@ -18,6 +18,7 @@ import '../my_bookings/my_bookings.dart';
 import '../packages.dart';
 import '../planning.dart';
 import '../shop.dart';
+import 'GenieScreen.dart';
 
 class MoreOptionsScreen extends StatelessWidget {
   const MoreOptionsScreen({super.key});
@@ -25,114 +26,154 @@ class MoreOptionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Top App Bar
-               _buildAppBar(context),
+      body: Stack(
+        children: [
 
-              // Menu Items
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  child: ListView(
-                    padding: const EdgeInsets.only(top: 30, bottom: 20),
-                    children: [
-                      _buildMenuItem(
-                        icon: Icons.shopping_bag,
-                        title: 'Budget',
-                        onTap: () => _handleMenuTap(context, 'Budget'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.mail_outline,
-                        title: 'E-Invites',
-                        onTap: () => _handleMenuTap(context, 'E-Invites'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.person,
-                        title: 'Guestlist',
-                        onTap: () => _handleMenuTap(context, 'Guestlist')
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.info_outline,
-                        title: 'Ideas',
-                        onTap: () => _handleMenuTap(context, 'Ideas'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.favorite,
-                        title: 'Wishlist',
-                        onTap: () => _handleMenuTap(context, 'Wishlist'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.favorite,
-                        title: 'Real Wedding',
-                        onTap: () => _handleMenuTap(context, 'Real Wedding'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.inbox,
-                        title: 'Inbox',
-                        onTap: () => _handleMenuTap(context, 'Inbox'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.rate_review_outlined,
-                        title: 'My Bookings',
-                        onTap: () => _handleMenuTap(context, 'My Bookings'),
-                      ),
-                      // _buildMenuItem(
-                      //   icon: Icons.rate_review_outlined,
-                      //   title: 'Planning',
-                      //   onTap: () => _handleMenuTap(context, 'Planning'),
-                      // ),
-                      // _buildMenuItem(
-                      //   icon: Icons.rate_review_outlined,
-                      //   title: 'Packages',
-                      //   onTap: () => _handleMenuTap(context, 'Packages'),
-                      // ),
-                      _buildMenuItem(
-                        icon: Icons.rate_review_outlined,
-                        title: 'Rate on Play Store',
-                        onTap: () => _handleMenuTap(context, 'Rate on Play Store'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.help_outline,
-                        title: 'Help & Support',
-                        onTap: () => _handleMenuTap(context, 'Help & Support'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.share,
-                        title: 'Share App',
-                        onTap: () => _handleMenuTap(context, 'Share App'),
-                      ),
+          // ---------------------- MAIN BACKGROUND + SCREEN UI ----------------------
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFF69B4),
+                  Color(0xFFFFB6C1),
+                  Colors.white,
+                ],
+                stops: [0.0, 0.3, 0.6],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
 
+                  // --------------------- TOP APP BAR ---------------------
+                  _buildAppBar(context),
 
-                      _buildMenuItem(
-                        icon: Icons.logout,
-                        title: 'Log out',
-                        onTap: () => _handleLogout(context),
-                        isLast: true,
+                  // --------------------- MENU LIST ---------------------
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ListView(
+                        padding: const EdgeInsets.only(top: 30, bottom: 20),
+                        children: [
+
+                          _buildMenuItem(
+                            icon: Icons.shopping_bag,
+                            title: 'Budget',
+                            onTap: () => _handleMenuTap(context, 'Budget'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.mail_outline,
+                            title: 'E-Invites',
+                            onTap: () => _handleMenuTap(context, 'E-Invites'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.person,
+                            title: 'Guestlist',
+                            onTap: () => _handleMenuTap(context, 'Guestlist'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.info_outline,
+                            title: 'Ideas',
+                            onTap: () => _handleMenuTap(context, 'Ideas'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.favorite,
+                            title: 'Wishlist',
+                            onTap: () => _handleMenuTap(context, 'Wishlist'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.favorite,
+                            title: 'Real Wedding',
+                            onTap: () => _handleMenuTap(context, 'Real Wedding'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.inbox,
+                            title: 'Inbox',
+                            onTap: () => _handleMenuTap(context, 'Inbox'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.rate_review_outlined,
+                            title: 'My Bookings',
+                            onTap: () => _handleMenuTap(context, 'My Bookings'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.rate_review_outlined,
+                            title: 'Rate on Play Store',
+                            onTap: () => _handleMenuTap(context, 'Rate on Play Store'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.help_outline,
+                            title: 'Help & Support',
+                            onTap: () => _handleMenuTap(context, 'Help & Support'),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.share,
+                            title: 'Share App',
+                            onTap: () => _handleMenuTap(context, 'Share App'),
+                          ),
+
+                          _buildMenuItem(
+                            icon: Icons.logout,
+                            title: 'Log out',
+                            onTap: () => _handleLogout(context),
+                            isLast: true,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          // --------------------------- FLOATING GENIE BUTTON ---------------------------
+          Positioned(
+            bottom: 25,
+            right: 20,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GenieScreen()),
+                );
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF6A5AE0),
+                      Color(0xFFB26BF2),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purpleAccent.withOpacity(0.4),
+                      blurRadius: 20,
+                      spreadRadius: 6,
+                      offset: Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 32,
                 ),
               ),
-
-            ],
+            ),
           ),
-        ),
+        ],
       ),
+
     );
   }
 

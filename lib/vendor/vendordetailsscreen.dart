@@ -560,8 +560,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     }
   }
 
-
-
   Future<bool> ensureLoggedIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -573,14 +571,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     return true;
   }
 }
-
-
-
-
-
-
-
-
 
 class VendorDetailsScreen extends StatefulWidget {
   final dynamic service;
@@ -650,54 +640,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> with SingleTi
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot make a call')));
     }
   }
-
-//   Future<void> toggleWishlist(Map<String, dynamic> service) async {
-//     if (currentUserId == null) {
-//       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first')));
-//       return;
-//     }
-//
-//     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
-//     final vendor = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
-//     final media = (service['media'] is List) ? List.from(service['media']) : [];
-//
-//     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
-//     final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
-//     final String image = media.isNotEmpty ? media[0].toString() : ''; // first image
-//
-// // API payload
-//     final Map<String, dynamic> payload = {
-//       'user_id': currentUserId,
-//       'vendor_id': vendor['id'] ?? attributes['vendor_id'] ?? '',
-//       'vendor_name': vendorName,
-//       'city': city,
-//       'hero_image': image,
-//     };
-//
-//     try {
-//       final response = await http.post(
-//         Uri.parse('https://happywedz.com/api/wishlist/toggle'), // replace with your API
-//         headers: {'Content-Type': 'application/json'},
-//         body: jsonEncode(payload),
-//       );
-//
-//       if (response.statusCode == 200) {
-//         setState(() => _isShortlisted = !_isShortlisted);
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(content: Text(_isShortlisted ? 'Added to wishlist' : 'Removed from wishlist')),
-//         );
-//       } else {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text('Failed to update wishlist')),
-//         );
-//       }
-//     } catch (e) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(content: Text('Something went wrong')),
-//       );
-//     }
-//   }
-
 
   bool _hasValue(dynamic value) {
     if (value == null) return false;

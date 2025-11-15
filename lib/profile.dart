@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'authservice.dart';
 import 'main.dart';
 
 
@@ -58,18 +59,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    setState(() {
-      userName = prefs.getString('user_name') ?? '';
-      userEmail = prefs.getString('user_email') ?? '';
-      userPhoto = prefs.getString('user_photo') ?? '';
-      userId = prefs.getInt('user_id');
-      mobileController.text = prefs.getString('user_mobile') ?? '';
-      weddingVenueController.text = prefs.getString('wedding_venue') ?? '';
-      weddingDateController.text = prefs.getString('wedding_date') ?? '';
-    });
+    // Load strings
+    userName = prefs.getString("user_name") ?? "";
+    userEmail = prefs.getString("user_email") ?? "";
+    userPhoto = prefs.getString("user_photo") ?? "";
+    userId = prefs.getInt("user_id");
 
-    print('📦 Loaded User Data → $userName | $userEmail | $userId');
+    // Load profile editable fields
+    mobileController.text = prefs.getString("user_mobile") ?? "";
+    weddingVenueController.text = prefs.getString("wedding_venue") ?? "";
+    weddingDateController.text = prefs.getString("wedding_date") ?? "";
+
+    setState(() {});
   }
+
+
+
 
   // 🏙️ Load Cities
   Future<void> _loadCities() async {
@@ -181,10 +186,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         if (data['success'] == true) {
           final user = data['user'];
           final prefs = await SharedPreferences.getInstance();
-
           await prefs.setString('user_mobile', user['phone'] ?? '');
           await prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
           await prefs.setString('wedding_date', user['weddingDate'] ?? '');
+
 
           _showSnackBar('Profile updated successfully ✅');
         } else {
@@ -203,8 +208,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   // 🚪 Logout
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await UserPrefs.clear();
     await FirebaseAuth.instance.signOut();
     await GoogleSignIn().signOut();
 
@@ -214,6 +218,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           (route) => false,
     );
   }
+
 
   void _showSnackBar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(

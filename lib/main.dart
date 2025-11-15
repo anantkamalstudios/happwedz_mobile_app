@@ -18,6 +18,8 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart' show MultiProvider, ChangeNotifierProvider;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'LoadingLogo.dart';
+import 'SplashScreen.dart';
 import 'Wishlist/Wishlistscreen.dart';
 
 import 'firebase_options.dart';
@@ -82,7 +84,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const AuthWrapper(),
+      home: const SplashScreen(),
+
     );
   }
 }
@@ -152,6 +155,7 @@ class CountryData {
   ];
 }
 
+
 class SignInScreen extends StatefulWidget {
   const SignInScreen({Key? key}) : super(key: key);
 
@@ -161,371 +165,191 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-    clientId:
-    '83829632051-pgn25ipst5lf3bv7pcihooha5o91pe9o.apps.googleusercontent.com',
+    scopes: ["email", "profile"],
+    clientId: "83829632051-pgn25ipst5lf3bv7pcihooha5o91pe9o.apps.googleusercontent.com",
   );
 
+  bool isLoading = false;
+
   Future<void> _signInWithGoogle() async {
-    print('🟡 Starting Google Sign-In process...');
+    print("🟡 Starting Google Sign-In...");
+
+    setState(() => isLoading = true);
+
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      print('🟢 Google User result: $googleUser');
+      final googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
-        _showSnackBar('Google Sign-In cancelled');
+        setState(() => isLoading = false);
+        _showSnackBar("Google Sign-In cancelled");
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth =
-      await googleUser.authentication;
+      final googleAuth = await googleUser.authentication;
 
-      print('🌐 Sending POST request to API...');
+      print("🌐 Sending data to backend...");
       final response = await http.post(
-        Uri.parse('https://happywedz.com/api/user/google-auth'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse("https://happywedz.com/api/user/google-auth"),
+        headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          'email': googleUser.email,
-          'name': googleUser.displayName ?? 'Guest User',
-          'tokenId': googleAuth.idToken ?? '',
+          "email": googleUser.email,
+          "name": googleUser.displayName ?? "Guest User",
+          "tokenId": googleAuth.idToken,
         }),
       );
 
-      print('🟢 API Response: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          final user = data['user'];
-          final token = data['token'];
+      print("📥 Response Code: ${response.statusCode}");
+      final data = jsonDecode(response.body);
 
-          // ✅ Save data locally
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('user_id', user['id']);
-          await prefs.setString('user_name', user['name']);
-          await prefs.setString('user_email', user['email']);
-          await prefs.setString('user_phone', user['phone'] ?? '');
+      if (response.statusCode == 200 && data["success"] == true) {
+        final user = data["user"];
+        final token = data["token"];
 
-          await prefs.setString('auth_token', token);
-          await prefs.setString('user_photo', googleUser.photoUrl ?? '');
+        final prefs = await SharedPreferences.getInstance();
 
-          _showSnackBar('Welcome ${user['name']}');
+        /// SAVE ALL USER FIELDS
+        await prefs.setBool("is_logged_in", true);
+        await prefs.setInt("user_id", user["id"]);
+        await prefs.setString("user_name", user["name"] ?? "");
+        await prefs.setString("user_email", user["email"] ?? "");
+        await prefs.setString("auth_token", token);
+        await prefs.setString("user_photo", googleUser.photoUrl ?? "");
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const BottomBars()),
-          );
-        } else {
-          _showSnackBar('Login failed: ${data['message']}');
-        }
+        /// ADD NEW FIELDS
+        await prefs.setString("user_mobile", user["phone"] ?? "");
+        await prefs.setString("wedding_venue", user["weddingVenue"] ?? "");
+        await prefs.setString("wedding_date", user["weddingDate"] ?? "");
+
+        print("✅ User session saved completely!");
+
+        _showSnackBar("Welcome ${user['name']}");
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BottomBars()),
+        );
       } else {
-        _showSnackBar('Server Error: ${response.statusCode}');
+        _showSnackBar("Login failed: ${data["message"]}");
       }
-    } catch (e, stack) {
-      print('🚨 Google Sign-In failed: $e');
-      print(stack);
-      _showSnackBar('Google Sign-In failed: $e');
+    } catch (e) {
+      print("🚨 ERROR: $e");
+      _showSnackBar("Google Sign-In failed: $e");
     }
+
+    setState(() => isLoading = false);
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: const Color(0xFFE91E63),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFE91E63),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Sign In / Sign Up',
-                    style: GoogleFonts.poppins(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF424242),
-                    ),
-                  ),
-                  const SizedBox(height: 50),
-                  OutlinedButton.icon(
-                    onPressed: _signInWithGoogle,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 60),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      side: BorderSide(
-                        color: Colors.grey.shade300,
-                        width: 1,
-                      ),
-                      backgroundColor: Colors.white,
-                    ),
-                    icon: Image.network(
-                      'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
-                      width: 24,
-                      height: 24,
-                    ),
-                    label: Text(
-                      'Continue with Google',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF424242),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  TextButton(
-                    onPressed: () {},
-                    child: Text(
-                      'Looking for a Business Account?',
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        color: const Color(0xFF00ACC1),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+      body: Stack(
+        children: [
+          /// Gradient Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFF69B4),
+                  Color(0xFFFFB6C1),
+                  Colors.white,
                 ],
+                stops: [0.0, 0.3, 0.6],
               ),
             ),
           ),
-        ),
+
+          /// Main Content
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Sign In / Sign Up",
+                      style: GoogleFonts.poppins(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF424242),
+                      ),
+                    ),
+                    const SizedBox(height: 50),
+
+                    /// Google Button
+                    OutlinedButton.icon(
+                      onPressed: isLoading ? null : _signInWithGoogle,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 60),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        side: BorderSide(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
+                        backgroundColor: Colors.white,
+                      ),
+                      icon: Image.network(
+                        "https://cdn-icons-png.flaticon.com/512/2991/2991148.png",
+                        width: 24,
+                      ),
+                      label: Text(
+                        isLoading ? "Signing in..." : "Continue with Google",
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF424242),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    TextButton(
+                      onPressed: () {},
+                      child: Text(
+                        "Looking for a Business Account?",
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          color: const Color(0xFF00ACC1),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          /// Loading Overlay
+          if (isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.25),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFFE91E63),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-
-
-
-
-// class TruecallerScreen extends StatelessWidget {
-//   final Map<String, String> userData;
-//
-//   const TruecallerScreen({Key? key, required this.userData}) : super(key: key);
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final String displayName = userData['name'] ?? '';
-//     final String contact = userData['phone'] ?? userData['email'] ?? '';
-//     final String method = userData['method'] ?? '';
-//
-//     return Scaffold(
-//       body: Container(
-//         decoration: const BoxDecoration(
-//           gradient: LinearGradient(
-//             begin: Alignment.topCenter,
-//             end: Alignment.bottomCenter,
-//             colors: [
-//               Color(0xFFFF69B4),
-//               Color(0xFFFFB6C1),
-//               Colors.white,
-//             ],
-//             stops: [0.0, 0.3, 0.6],
-//           ),
-//         ),
-//         child: SafeArea(
-//           child: Stack(
-//             children: [
-//               // Decorative bunting at top
-//               Positioned(
-//                 top: 0,
-//                 right: 0,
-//                 child: Image.network(
-//                   'https://cdn-icons-png.flaticon.com/512/2917/2917995.png',
-//                   width: MediaQuery.of(context).size.width * 0.8,
-//                   fit: BoxFit.contain,
-//                   errorBuilder: (context, error, stackTrace) => const SizedBox(),
-//                 ),
-//               ),
-//               // Dimmed background overlay
-//               Container(
-//                 color: Colors.black.withOpacity(0.4),
-//               ),
-//               // Bottom sheet
-//               Align(
-//                 alignment: Alignment.bottomCenter,
-//                 child: Container(
-//                   decoration: const BoxDecoration(
-//                     color: Colors.white,
-//                     borderRadius: BorderRadius.only(
-//                       topLeft: Radius.circular(25),
-//                       topRight: Radius.circular(25),
-//                     ),
-//                   ),
-//                   child: Padding(
-//                     padding: const EdgeInsets.all(30),
-//                     child: Column(
-//                       mainAxisSize: MainAxisSize.min,
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         // Dynamic user name
-//                         Text(
-//                           'Hi, $displayName',
-//                           style: GoogleFonts.poppins(
-//                             fontSize: 28,
-//                             fontWeight: FontWeight.w600,
-//                             color: const Color(0xFF424242),
-//                           ),
-//                         ),
-//                         const SizedBox(height: 10),
-//                         Text(
-//                           'To get started, please login/signup',
-//                           style: GoogleFonts.poppins(
-//                             fontSize: 16,
-//                             color: Colors.grey.shade600,
-//                           ),
-//                         ),
-//                         const SizedBox(height: 30),
-//                         // Continue button showing dynamic phone/email
-//                         ElevatedButton(
-//                           onPressed: () {
-//                             Navigator.push(
-//                               context,
-//                               MaterialPageRoute(
-//                                 builder: (context) => const UserRoleScreen(),
-//                               ),
-//                             );
-//                           },
-//                           style: ElevatedButton.styleFrom(
-//                             backgroundColor: const Color(0xFFE91E63),
-//                             minimumSize: const Size(double.infinity, 60),
-//                             shape: RoundedRectangleBorder(
-//                               borderRadius: BorderRadius.circular(15),
-//                             ),
-//                             elevation: 0,
-//                           ),
-//                           child: Text(
-//                             'CONTINUE WITH $contact',
-//                             style: GoogleFonts.poppins(
-//                               fontSize: 16,
-//                               fontWeight: FontWeight.w600,
-//                               color: Colors.white,
-//                               letterSpacing: 0.5,
-//                             ),
-//                           ),
-//                         ),
-//                         const SizedBox(height: 20),
-//                         // "Use another method" button
-//                         Center(
-//                           child: TextButton(
-//                             onPressed: () {
-//                               // Navigate back to SignInScreen for alternate method
-//                               Navigator.pop(context, false);
-//                             },
-//                             child: Text(
-//                               'USE ANOTHER METHOD',
-//                               style: GoogleFonts.poppins(
-//                                 fontSize: 14,
-//                                 color: Colors.grey.shade500,
-//                                 fontWeight: FontWeight.w500,
-//                                 letterSpacing: 0.5,
-//                               ),
-//                             ),
-//                           ),
-//                         ),
-//                         const SizedBox(height: 15),
-//                         // Info text
-//                         RichText(
-//                           text: TextSpan(
-//                             style: GoogleFonts.poppins(
-//                               fontSize: 12,
-//                               color: Colors.grey.shade500,
-//                             ),
-//                             children: const [
-//                               TextSpan(
-//                                 text: 'By continuing you consent to share your Truecaller profile information with ',
-//                               ),
-//                               TextSpan(
-//                                 text: 'Happy Wedz',
-//                                 style: TextStyle(fontWeight: FontWeight.w600),
-//                               ),
-//                               TextSpan(text: ', and agree to the '),
-//                               TextSpan(
-//                                 text: 'privacy policy',
-//                                 style: TextStyle(
-//                                   color: Color(0xFF00ACC1),
-//                                   decoration: TextDecoration.underline,
-//                                 ),
-//                               ),
-//                               TextSpan(text: ' and '),
-//                               TextSpan(
-//                                 text: 'terms of service',
-//                                 style: TextStyle(
-//                                   color: Color(0xFF00ACC1),
-//                                   decoration: TextDecoration.underline,
-//                                 ),
-//                               ),
-//                               TextSpan(text: ' of '),
-//                               TextSpan(
-//                                 text: 'Happy Wedz',
-//                                 style: TextStyle(fontWeight: FontWeight.w600),
-//                               ),
-//                               TextSpan(text: '.'),
-//                             ],
-//                           ),
-//                         ),
-//                         const SizedBox(height: 20),
-//                         // Instant verification info
-//                         Center(
-//                           child: Row(
-//                             mainAxisSize: MainAxisSize.min,
-//                             children: [
-//                               Text(
-//                                 'Instant Verification by ',
-//                                 style: GoogleFonts.poppins(
-//                                   fontSize: 13,
-//                                   color: Colors.grey.shade600,
-//                                 ),
-//                               ),
-//                               Image.network(
-//                                 'https://cdn-icons-png.flaticon.com/512/732/732221.png',
-//                                 height: 20,
-//                                 errorBuilder: (context, error, stackTrace) => Text(
-//                                   'Truecaller',
-//                                   style: GoogleFonts.poppins(
-//                                     fontSize: 13,
-//                                     color: const Color(0xFF2196F3),
-//                                     fontWeight: FontWeight.w600,
-//                                   ),
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//                         const SizedBox(height: 10),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
 
 class UserRoleScreen extends StatelessWidget {
   const UserRoleScreen({Key? key}) : super(key: key);
@@ -1129,68 +953,6 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // 👇 Don't import signin_screen.dart since it's already in main.dart
 
 Future<bool> ensureLoggedIn(BuildContext context) async {
@@ -1211,179 +973,6 @@ Future<bool> ensureLoggedIn(BuildContext context) async {
 }
 
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-    void initState() {
-    super.initState();
-    Future.delayed(const Duration(seconds: 5), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const BottomBars()),
-      );
-    });
-  }
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFE83580),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            /// 🔹 Top Overlapping Images
-            Positioned(
-              top: screenHeight * 0.05,
-              left: screenWidth * 0.05,
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2012.png?alt=media&token=1939ca1e-2736-4229-9a01-8672ef867f55',
-                -0.1,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-            Positioned(
-              top: screenHeight * 0.03, // slightly higher for overlap
-              left: screenWidth * 0.14, // overlap with first
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F9c1e472683db909626bf6f5ae08a18d7fefd155bRectangle%2013.png?alt=media&token=f2bcafb7-30c5-440b-8212-1e5aea6420bc',
-                0.1,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-
-// right side pair
-            Positioned(
-              top: screenHeight * 0.05,
-              right: screenWidth * 0.05,
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2012.png?alt=media&token=1939ca1e-2736-4229-9a01-8672ef867f55',
-                -0.1,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-            Positioned(
-              top: screenHeight * 0.03,
-              right: screenWidth * 0.14, // overlap inside right group
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F9c1e472683db909626bf6f5ae08a18d7fefd155bRectangle%2013.png?alt=media&token=f2bcafb7-30c5-440b-8212-1e5aea6420bc',
-                0.08,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-
-
-            /// 🔹 Bottom Overlapping Images
-            Positioned(
-              bottom: screenHeight * 0.05,
-              left: screenWidth * 0.05,
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2012.png?alt=media&token=1939ca1e-2736-4229-9a01-8672ef867f55',
-                0.1,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-            Positioned(
-              bottom: screenHeight * 0.03,
-              left: screenWidth * 0.14,
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F9c1e472683db909626bf6f5ae08a18d7fefd155bRectangle%2013.png?alt=media&token=f2bcafb7-30c5-440b-8212-1e5aea6420bc',
-                -0.1,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-            Positioned(
-              bottom: screenHeight * 0.05,
-              right: screenWidth * 0.28,
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2012.png?alt=media&token=1939ca1e-2736-4229-9a01-8672ef867f55',
-                0.1,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-            Positioned(
-              bottom: screenHeight * 0.02,
-              right: screenWidth * 0.05,
-              child: _tiltedImage(
-                'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F9c1e472683db909626bf6f5ae08a18d7fefd155bRectangle%2013.png?alt=media&token=f2bcafb7-30c5-440b-8212-1e5aea6420bc',
-                -0.08,
-                screenWidth * 0.28,
-                screenHeight * 0.20,
-              ),
-            ),
-
-            /// 🔹 Center Logo + Text
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.network(
-                    'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fc1b3759a213819470729c75cb198cc23ca254ad4image%204.png?alt=media&token=3f5e24ec-7683-4afe-94ee-f747b85c49b4',
-                    height: screenHeight * 0.08,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "We want to make your\nwedding planning\nprocess super easy!",
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: screenWidth * 0.06,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF5A2072),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
-                    child: Text(
-                      "Wedding Photographers in India | Bridal Makeup Artists in India | "
-                          "Wedding Cards in India | Wedding Venues in India",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: screenWidth * 0.035,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 🔹 Helper widget for tilted image
-  /// 🔹 Helper widget for tilted image
-  Widget _tiltedImage(String url, double angle, double width, double height) {
-    return Transform.rotate(
-      angle: angle,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          url,
-          width: width,
-          height: height,
-          fit: BoxFit.cover,
-        ),
-      ),
-    );
-  }
-}
 
 
 
@@ -1506,44 +1095,6 @@ class _TravelPromoScreenState extends State<TravelPromoScreen> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 class MakeMyTripHomePage extends StatelessWidget {
   const MakeMyTripHomePage({Key? key}) : super(key: key);
@@ -1845,774 +1396,3 @@ class MakeMyTripHomePage extends StatelessWidget {
     );
   }
 }
-
-// Main app widget
-
-
-//
-// class SplashScreen extends StatefulWidget {
-//   const SplashScreen({super.key});
-//
-//   @override
-//   State<SplashScreen> createState() => _SplashScreenState();
-// }
-//
-// class _SplashScreenState extends State<SplashScreen> {
-//
-//   void initState() {
-//     super.initState();
-//     Future.delayed(const Duration(seconds: 5), () {
-//       Navigator.pushReplacement(
-//         context,
-//         MaterialPageRoute(builder: (context) => const SplashScreen2()),
-//       );
-//     });
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final screenWidth = MediaQuery.of(context).size.width;
-//     final screenHeight = MediaQuery.of(context).size.height;
-//
-//     return Scaffold(
-//       body: Container(
-//         width: screenWidth,
-//         height: screenHeight,
-//         decoration: const BoxDecoration(
-//           color: Color(0xFFE83580),
-//         ),
-//         child: Stack(
-//           clipBehavior: Clip.none,
-//           children: [
-//             // Center logo
-//             Positioned(
-//               left: screenWidth * 0.26,
-//               top: screenHeight * 0.33,
-//               child: Image.network(
-//                 'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fc1b3759a213819470729c75cb198cc23ca254ad4image%204.png?alt=media&token=3f5e24ec-7683-4afe-94ee-f747b85c49b4',
-//                 width: screenWidth * 0.5,
-//                 height: screenWidth * 0.5,
-//                 fit: BoxFit.cover,
-//               ),
-//             ),
-//
-//             // Top-left image
-//             Positioned(
-//               left: 0,
-//               top: screenHeight * 0.1,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2012.png?alt=media&token=1939ca1e-2736-4229-9a01-8672ef867f55',
-//                   width: screenWidth * 0.23,
-//                   height: screenHeight * 0.15,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             // Top-center left
-//             Positioned(
-//               left: screenWidth * 0.18,
-//               top: screenHeight * 0.065,
-//               child: Container(
-//                 width: screenWidth * 0.28,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F9c1e472683db909626bf6f5ae08a18d7fefd155bRectangle%2013.png?alt=media&token=f2bcafb7-30c5-440b-8212-1e5aea6420bc',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//
-//             // Top-center right
-//             Positioned(
-//               left: screenWidth * 0.49,
-//               top: screenHeight * 0.075,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F4855dbc515174bb64ccc4415740197965630aa87Rectangle%2014.png?alt=media&token=aae6fe19-6c3c-4a5d-b74a-fc9e578c5f79',
-//                   width: screenWidth * 0.31,
-//                   height: screenHeight * 0.18,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             // Top-right
-//             Positioned(
-//               left: screenWidth * 0.66,
-//               top: screenHeight * 0.07,
-//               child: Container(
-//                 width: screenWidth * 0.28,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bRectangle%2015.png?alt=media&token=3b85bdf7-465a-4a11-b63b-1b87c4d73c0b',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//
-//             // Bottom-left small
-//             Positioned(
-//               left: -screenWidth * 0.03,
-//               top: screenHeight * 0.77,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2016.png?alt=media&token=78af332f-b3a8-46ab-b567-67e6356d11bf',
-//                   width: screenWidth * 0.28,
-//                   height: screenHeight * 0.16,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             // Bottom-center left
-//             Positioned(
-//               left: screenWidth * 0.17,
-//               top: screenHeight * 0.74,
-//               child: Container(
-//                 width: screenWidth * 0.29,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cRectangle%2017.png?alt=media&token=da23ed98-6571-412f-b82a-c48ef0e1a16a',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//
-//             // Bottom-center right
-//             Positioned(
-//               left: screenWidth * 0.5,
-//               top: screenHeight * 0.75,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fdd166484d026f1e3e0d9d5d7393243d6ec850f54Rectangle%2018.png?alt=media&token=b77dc731-8674-4a1e-a093-75d5a5ef205b',
-//                   width: screenWidth * 0.28,
-//                   height: screenHeight * 0.16,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             // Bottom-right
-//             Positioned(
-//               left: screenWidth * 0.71,
-//               top: screenHeight * 0.75,
-//               child: Container(
-//                 width: screenWidth * 0.28,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bRectangle%2019.png?alt=media&token=b9d064e0-e6bd-42e2-9a86-d043e0e4cdc4',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-//
-//
-//
-// //
-// //
-// //
-// // class SplashScreen2 extends StatelessWidget {
-// //   const SplashScreen2({super.key});
-// //
-// //   @override
-// //   Widget build(BuildContext context) {
-// //     return Scaffold(
-// //       body: Container(
-// //         width: MediaQuery.of(context).size.width,
-// //         height: MediaQuery.of(context).size.height,
-// //         clipBehavior: Clip.hardEdge,
-// //         decoration: BoxDecoration(
-// //           color: const Color(0xFFE83580),
-// //           border: Border.all(),
-// //         ),
-// //         child: Stack(
-// //           clipBehavior: Clip.none,
-// //           children: [
-// //             Positioned(
-// //               left: -11,
-// //               top: 715,
-// //               child: ClipRRect(
-// //                 borderRadius: BorderRadius.circular(20),
-// //                 child: Image.network(
-// //                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F6f737faf306ed62da03bc66b0dbea6022f58d4a4Rectangle%2016.png?alt=media&token=76e1709c-6424-437d-93bb-d4bc580125d5',
-// //                   width: 123,
-// //                   height: 147,
-// //                   fit: BoxFit.none,
-// //                   alignment: const Alignment(0.232, 0),
-// //                   scale: 21.008,
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 0,
-// //               top: 94,
-// //               child: ClipRRect(
-// //                 borderRadius: BorderRadius.circular(20),
-// //                 child: Image.network(
-// //                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2020.png?alt=media&token=3cfc6340-4ff8-4c13-b2b3-7df89845769c',
-// //                   width: 100,
-// //                   height: 130,
-// //                   fit: BoxFit.cover,
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 76,
-// //               top: 61,
-// //               child: Container(
-// //                 width: 119,
-// //                 height: 144,
-// //                 decoration: BoxDecoration(
-// //                   image: const DecorationImage(
-// //                     image: NetworkImage(
-// //                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F9c1e472683db909626bf6f5ae08a18d7fefd155bRectangle%2021.png?alt=media&token=319f7637-14a6-4a06-afd5-7b754ef63582',
-// //                     ),
-// //                     fit: BoxFit.cover,
-// //                   ),
-// //                   border: Border.all(width: 3, color: Colors.white),
-// //                   borderRadius: BorderRadius.circular(20),
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 209,
-// //               top: 71,
-// //               child: ClipRRect(
-// //                 borderRadius: BorderRadius.circular(20),
-// //                 child: Image.network(
-// //                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F4855dbc515174bb64ccc4415740197965630aa87Rectangle%2022.png?alt=media&token=4c27d685-7c86-4bee-b16b-32de454456a6',
-// //                   width: 132,
-// //                   height: 153,
-// //                   fit: BoxFit.cover,
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 285,
-// //               top: 66,
-// //               child: Container(
-// //                 width: 119,
-// //                 height: 144,
-// //                 decoration: BoxDecoration(
-// //                   image: const DecorationImage(
-// //                     image: NetworkImage(
-// //                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bRectangle%2023.png?alt=media&token=bce49bb4-4daa-4242-a0dc-aa1d66dcf4b9',
-// //                     ),
-// //                     fit: BoxFit.cover,
-// //                   ),
-// //                   border: Border.all(width: 3, color: Colors.white),
-// //                   borderRadius: BorderRadius.circular(20),
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 73,
-// //               top: 689,
-// //               child: Container(
-// //                 width: 125,
-// //                 height: 148,
-// //                 decoration: BoxDecoration(
-// //                   image: const DecorationImage(
-// //                     image: NetworkImage(
-// //                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cRectangle%2025.png?alt=media&token=b99d4f7d-01ba-4ee6-bb6f-235ba45c7a41',
-// //                     ),
-// //                     fit: BoxFit.cover,
-// //                   ),
-// //                   border: Border.all(width: 3, color: Colors.white),
-// //                   borderRadius: BorderRadius.circular(20),
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 215,
-// //               top: 698,
-// //               child: ClipRRect(
-// //                 borderRadius: BorderRadius.circular(20),
-// //                 child: Image.network(
-// //                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fdd166484d026f1e3e0d9d5d7393243d6ec850f54Rectangle%2026.png?alt=media&token=e342464e-5c61-45af-8369-5bdc5cec8cab',
-// //                   width: 121,
-// //                   height: 145,
-// //                   fit: BoxFit.none,
-// //                   alignment: const Alignment(0.139, 0),
-// //                   scale: 11.108,
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 305,
-// //               top: 696,
-// //               child: Container(
-// //                 width: 119,
-// //                 height: 144,
-// //                 decoration: BoxDecoration(
-// //                   image: const DecorationImage(
-// //                     image: NetworkImage(
-// //                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bRectangle%2027.png?alt=media&token=cb23d679-90b2-4c26-b715-88044ce32579',
-// //                     ),
-// //                     fit: BoxFit.cover,
-// //                   ),
-// //                   border: Border.all(width: 3, color: Colors.white),
-// //                   borderRadius: BorderRadius.circular(20),
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 32,
-// //               top: 552,
-// //               child: SizedBox(
-// //                 width: 365,
-// //                 child: Text(
-// //                   'Wedding Photographers in India | Bridal Makeup Artists in India | Wedding Cards in India | Wedding Venues in India',
-// //                   style: GoogleFonts.inter(
-// //                     color: Colors.white,
-// //                     fontSize: 10,
-// //                     fontWeight: FontWeight.w300,
-// //                   ),
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 40,
-// //               top: 394,
-// //               child: SizedBox(
-// //                 width: 367,
-// //                 child: Text(
-// //                   'We want to make your wedding planning process super easy!',
-// //                   style: GoogleFonts.poltawskiNowy(
-// //                     fontSize: 33,
-// //                     fontWeight: FontWeight.bold,
-// //                   ),
-// //                 ),
-// //               ),
-// //             ),
-// //             Positioned(
-// //               left: 151,
-// //               top: 264,
-// //               child: Image.network(
-// //                 'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fc1b3759a213819470729c75cb198cc23ca254ad4image%204.png?alt=media&token=48c623f1-9e0b-4a9f-aa34-a5c4e959624a',
-// //                 width: 128,
-// //                 height: 128,
-// //                 fit: BoxFit.cover,
-// //               ),
-// //             ),
-// //           ],
-// //         ),
-// //       ),
-// //     );
-// //   }
-// // }
-//
-//
-//
-// class SplashScreen2 extends StatefulWidget {
-//   const SplashScreen2({super.key});
-//
-//   @override
-//   State<SplashScreen2> createState() => _SplashScreen2State();
-// }
-//
-// class _SplashScreen2State extends State<SplashScreen2> {
-//   @override
-//   void initState() {
-//     super.initState();
-//     Future.delayed(const Duration(seconds: 5), () {
-//       Navigator.pushReplacement(
-//         context,
-//         MaterialPageRoute(builder: (context) => const SplashScreen2()),
-//       );
-//     });
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final screenWidth = MediaQuery.of(context).size.width;
-//     final screenHeight = MediaQuery.of(context).size.height;
-//
-//     return Scaffold(
-//       body: Container(
-//         width: screenWidth,
-//         height: screenHeight,
-//         decoration: const BoxDecoration(
-//           color: Color(0xFFE83580),
-//         ),
-//         child: Stack(
-//           clipBehavior: Clip.none,
-//           children: [
-//             /// ---------------------------
-//             /// Center logo
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.26,
-//               top: screenHeight * 0.33,
-//               child: Image.network(
-//                 'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fc1b3759a213819470729c75cb198cc23ca254ad4image%204.png?alt=media&token=3f5e24ec-7683-4afe-94ee-f747b85c49b4',
-//                 width: screenWidth * 0.5,
-//                 height: screenWidth * 0.5,
-//                 fit: BoxFit.cover,
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Top-left image
-//             /// ---------------------------
-//             Positioned(
-//               left: 0,
-//               top: screenHeight * 0.1,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2012.png?alt=media&token=1939ca1e-2736-4229-9a01-8672ef867f55',
-//                   width: screenWidth * 0.23,
-//                   height: screenHeight * 0.15,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Top-center left
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.18,
-//               top: screenHeight * 0.065,
-//               child: Container(
-//                 width: screenWidth * 0.28,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F9c1e472683db909626bf6f5ae08a18d7fefd155bRectangle%2013.png?alt=media&token=f2bcafb7-30c5-440b-8212-1e5aea6420bc',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Top-center right
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.49,
-//               top: screenHeight * 0.075,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F4855dbc515174bb64ccc4415740197965630aa87Rectangle%2014.png?alt=media&token=aae6fe19-6c3c-4a5d-b74a-fc9e578c5f79',
-//                   width: screenWidth * 0.31,
-//                   height: screenHeight * 0.18,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Top-right
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.66,
-//               top: screenHeight * 0.07,
-//               child: Container(
-//                 width: screenWidth * 0.28,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bRectangle%2015.png?alt=media&token=3b85bdf7-465a-4a11-b63b-1b87c4d73c0b',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Bottom-left small
-//             /// ---------------------------
-//             Positioned(
-//               left: -screenWidth * 0.03,
-//               top: screenHeight * 0.77,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%2016.png?alt=media&token=78af332f-b3a8-46ab-b567-67e6356d11bf',
-//                   width: screenWidth * 0.28,
-//                   height: screenHeight * 0.16,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Bottom-center left
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.17,
-//               top: screenHeight * 0.74,
-//               child: Container(
-//                 width: screenWidth * 0.29,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cRectangle%2017.png?alt=media&token=da23ed98-6571-412f-b82a-c48ef0e1a16a',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Bottom-center right
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.5,
-//               top: screenHeight * 0.75,
-//               child: ClipRRect(
-//                 borderRadius: BorderRadius.circular(20),
-//                 child: Image.network(
-//                   'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fdd166484d026f1e3e0d9d5d7393243d6ec850f54Rectangle%2018.png?alt=media&token=b77dc731-8674-4a1e-a093-75d5a5ef205b',
-//                   width: screenWidth * 0.28,
-//                   height: screenHeight * 0.16,
-//                   fit: BoxFit.cover,
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Bottom-right
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.71,
-//               top: screenHeight * 0.75,
-//               child: Container(
-//                 width: screenWidth * 0.28,
-//                 height: screenHeight * 0.17,
-//                 decoration: BoxDecoration(
-//                   image: const DecorationImage(
-//                     image: NetworkImage(
-//                       'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bRectangle%2019.png?alt=media&token=b9d064e0-e6bd-42e2-9a86-d043e0e4cdc4',
-//                     ),
-//                     fit: BoxFit.cover,
-//                   ),
-//                   border: Border.all(width: 3, color: Colors.white),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Main Heading Text
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.1,
-//               top: screenHeight * 0.55,
-//               child: SizedBox(
-//                 width: screenWidth * 0.8,
-//                 child: Text(
-//                   "We want to make your wedding\nplanning process super easy!",
-//                   textAlign: TextAlign.center,
-//                   style: GoogleFonts.poppins(
-//                     fontSize: screenWidth * 0.05,
-//                     fontWeight: FontWeight.bold,
-//                     color: Colors.white,
-//                   ),
-//                 ),
-//               ),
-//             ),
-//
-//             /// ---------------------------
-//             /// Bottom Info Text
-//             /// ---------------------------
-//             Positioned(
-//               left: screenWidth * 0.08,
-//               bottom: screenHeight * 0.30,
-//               child: SizedBox(
-//                 width: screenWidth * 0.85,
-//                 child: Text(
-//                   "Wedding Photographers in India | \nBridal Makeup Artists in India | \nWedding Cards in India | \nWedding Venues in India",
-//                   textAlign: TextAlign.center,
-//                   style: GoogleFonts.inter(
-//                     fontSize: screenWidth * 0.03,
-//                     fontWeight: FontWeight.w300,
-//                     color: Colors.white,
-//                   ),
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
-
-//
-// class LoginScreen extends StatefulWidget {
-//   const LoginScreen({Key? key}) : super(key: key);
-//
-//   @override
-//   State<LoginScreen> createState() => _LoginScreenState();
-// }
-//
-// class _LoginScreenState extends State<LoginScreen> {
-//   final TextEditingController _emailController = TextEditingController();
-//   final TextEditingController _passwordController = TextEditingController();
-//
-//   bool _isLoading = false;       // For showing a loading spinner
-//   User? _user;                   // Stores the logged-in user
-//   String? _errorMessage;         // Stores login errors
-//
-//   @override
-//   void dispose() {
-//     _emailController.dispose();
-//     _passwordController.dispose();
-//     super.dispose();
-//   }
-//
-//   Future<void> _login() async {
-//     setState(() {
-//       _isLoading = true;
-//       _errorMessage = null;
-//     });
-//
-//     try {
-//       UserCredential userCredential = await FirebaseAuth.instance
-//           .signInWithEmailAndPassword(
-//           email: _emailController.text,
-//           password: _passwordController.text);
-//
-//       if (!mounted) return;
-//
-//       setState(() {
-//         _isLoading = false;
-//         _user = userCredential.user;
-//       });
-//
-//       // Navigate to home
-//       Navigator.pushReplacement(
-//           context, MaterialPageRoute(builder: (_) => HomeScreen()));
-//     } catch (e) {
-//       if (!mounted) return;
-//
-//       setState(() {
-//         _isLoading = false;
-//         _errorMessage = e.toString();
-//       });
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: const Text("Login")),
-//       body: Padding(
-//         padding: const EdgeInsets.all(20),
-//         child: Column(
-//           children: [
-//             TextField(
-//               controller: _emailController,
-//               decoration: const InputDecoration(labelText: "Email"),
-//             ),
-//             const SizedBox(height: 16),
-//             TextField(
-//               controller: _passwordController,
-//               obscureText: true,
-//               decoration: const InputDecoration(labelText: "Password"),
-//             ),
-//             const SizedBox(height: 24),
-//             if (_errorMessage != null)
-//               Text(
-//                 _errorMessage!,
-//                 style: const TextStyle(color: Colors.red),
-//               ),
-//             const SizedBox(height: 24),
-//             _isLoading
-//                 ? const CircularProgressIndicator()
-//                 : ElevatedButton(
-//               onPressed: _login,
-//               child: const Text("Login"),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-//
-
-
-
-
-
-
-
-
-
-
-
-//
-//
-// rules_version = '2';
-//
-// service cloud.firestore {
-// match /databases/{database}/documents {
-// match /{document=**} {
-// allow read, write: if
-// request.time < timestamp.date(2025, 11, 6);
-// }
-// }
-// }
-
-
-
-
-
-// gt7crz05tgi0o3mk10wimjig0irao0fr7xgsljqdfh8

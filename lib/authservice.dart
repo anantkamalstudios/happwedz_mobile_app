@@ -1,41 +1,65 @@
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:google_sign_in/google_sign_in.dart';
-//
-// class AuthService {
-//   final FirebaseAuth _auth = FirebaseAuth.instance;
-//
-//   final GoogleSignIn _googleSignIn = GoogleSignIn(
-//     scopes: ['email'],
-//   );
-//
-//   Future<User?> signInWithGoogle() async {
-//     try {
-//       // Trigger Google Sign-In
-//       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-//       if (googleUser == null) return null; // user canceled
-//
-//       // Get Auth Details
-//       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-//
-//       // Create Credential
-//       final credential = GoogleAuthProvider.credential(
-//         accessToken: googleAuth.accessToken,
-//         idToken: googleAuth.idToken,
-//       );
-//       print("Google sign-in credential: $credential");
-//       // Sign in with Firebase
-//       UserCredential userCredential =
-//       await _auth.signInWithCredential(credential);
-//
-//       return userCredential.user;
-//     } catch (e) {
-//       print("Google sign-in error: $e");
-//       return null;
-//     }
-//   }
-//
-//   Future<void> signOut() async {
-//     await _googleSignIn.signOut();
-//     await _auth.signOut();
-//   }
-// }
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+class UserPrefs {
+  static Future<SharedPreferences> _prefs() async {
+    return await SharedPreferences.getInstance();
+  }
+
+  /// Save values
+  static Future<void> saveUser({
+    required int id,
+    required String name,
+    required String email,
+    required String token,
+    String? phone,
+    String? photo,
+  }) async {
+    final prefs = await _prefs();
+    await prefs.setBool('is_logged_in', true);
+    await prefs.setInt('user_id', id);
+    await prefs.setString('user_name', name);
+    await prefs.setString('user_email', email);
+    await prefs.setString('auth_token', token);
+    await prefs.setString('user_phone', phone ?? "");
+    await prefs.setString('user_photo', photo ?? "");
+  }
+
+  /// Check login status
+  static Future<bool> isLoggedIn() async {
+    final prefs = await _prefs();
+    return prefs.getBool('is_logged_in') ?? false;
+  }
+
+  /// Get user values
+  static Future<int?> getUserId() async {
+    final prefs = await _prefs();
+    return prefs.getInt('user_id');
+  }
+
+  static Future<String?> getUserName() async {
+    final prefs = await _prefs();
+    return prefs.getString('user_name');
+  }
+
+  static Future<String?> getUserEmail() async {
+    final prefs = await _prefs();
+    return prefs.getString('user_email');
+  }
+
+  static Future<String?> getUserPhoto() async {
+    final prefs = await _prefs();
+    return prefs.getString('user_photo');
+  }
+
+  static Future<String?> getToken() async {
+    final prefs = await _prefs();
+    return prefs.getString('auth_token');
+  }
+
+  /// Logout
+  static Future<void> clear() async {
+    final prefs = await _prefs();
+    await prefs.clear();
+  }
+}

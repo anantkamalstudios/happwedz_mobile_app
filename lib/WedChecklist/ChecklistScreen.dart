@@ -500,37 +500,98 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDE9F1),
-      appBar: AppBar(
-        title: const Text('Wedding Checklist'),
-        centerTitle: true,
-        backgroundColor: const Color(0xFFE91E63),
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFF69B4), // Hot Pink
+              Color(0xFFFFB6C1), // Light Pink
+              Colors.white,      // White
+            ],
+            stops: [0.0, 0.3, 0.6],
+          ),
+        ),
+        child: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // CARD 1: Task Status (unchanged visual)
-              SlideTransition(position: _slide1, child: FadeTransition(opacity: _fade1, child: _taskStatusCard())),
 
-              const SizedBox(height: 20),
+              // 🌸 Custom AppBar (same as Budget Screen)
+              Container(
+                color: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Text(
+                      'Wedding Checklist',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 48), // for symmetry
+                  ],
+                ),
+              ),
 
-              // CARD 2: Wedding Timeline (dates + days box)
-              SlideTransition(position: _slide2, child: FadeTransition(opacity: _fade2, child: _timelineCard())),
+              // 🌸 Body (with your animated cards)
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
 
-              const SizedBox(height: 20),
+                      // CARD 1
+                      SlideTransition(
+                        position: _slide1,
+                        child: FadeTransition(
+                          opacity: _fade1,
+                          child: _taskStatusCard(),
+                        ),
+                      ),
 
-              // CARD 3: Wedding Checklist (premium)
-              SlideTransition(position: _slide3, child: FadeTransition(opacity: _fade3, child: _checklistCard())),
+                      const SizedBox(height: 20),
+
+                      // CARD 2
+                      SlideTransition(
+                        position: _slide2,
+                        child: FadeTransition(
+                          opacity: _fade2,
+                          child: _timelineCard(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // CARD 3
+                      SlideTransition(
+                        position: _slide3,
+                        child: FadeTransition(
+                          opacity: _fade3,
+                          child: _checklistCard(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
 
   // Task status card
   Widget _taskStatusCard() {
@@ -1067,18 +1128,6 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     );
   }
 
-  Widget _emptyTasksView() {
-    return Center(
-      child: Column(
-        children: const [
-          SizedBox(height: 10),
-          Icon(Icons.list_alt, size: 48, color: Colors.pinkAccent),
-          SizedBox(height: 8),
-          Text('No tasks yet — add your first task!', style: TextStyle(color: Colors.black54)),
-        ],
-      ),
-    );
-  }
 
   // small circular icon button used in row
   Widget _iconCircleButton({required IconData icon, required VoidCallback onTap}) {

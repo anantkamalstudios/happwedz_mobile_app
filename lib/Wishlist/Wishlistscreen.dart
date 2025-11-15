@@ -88,7 +88,6 @@ class _FavouritesPageState extends State<FavouritesPage> {
             });
           }
         }
-
         setState(() {
           wishlistItems = fullDetails;
           favouriteVendors = fullDetails
