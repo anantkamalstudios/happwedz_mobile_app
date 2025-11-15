@@ -263,6 +263,7 @@ class ChatPage extends StatefulWidget {
     Key? key,
     required this.currentUid,
     required this.otherUid,
+
     required this.otherName,
   }) : super(key: key);
 

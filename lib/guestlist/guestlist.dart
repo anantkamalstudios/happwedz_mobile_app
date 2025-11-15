@@ -95,6 +95,11 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
   String _searchQuery = '';
   String _selectedCategory = 'All';
 
+  bool showSearch = false; // already exists
+  TextEditingController searchCtrl = TextEditingController();
+
+
+
   List<Guest> _allGuests = [];
   bool _isLoading = false;
 
@@ -243,10 +248,6 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
 
     setState(() => _isLoading = false);
   }
-
-
-
-
 
 
   // ---------------- API: Add Guest ----------------
@@ -585,22 +586,32 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                       ),
                     ),
                     // TabBar
+                    // TabBar
                     Container(
                       color: Colors.transparent,
-                      child: TabBar(
-                        controller: _tabController,
-                        labelColor: Colors.white,
-                        unselectedLabelColor: Colors.white70,
-                        indicatorColor: Colors.white,
-                        onTap: (index) => setState(() {}),
-                        tabs: [
-                          Tab(text: 'All (${_allGuests.length})'),
-                          Tab(text: 'Attending ($_totalAccepted)'),
-                          Tab(text: 'Pending ($_totalPending)'),
-                          Tab(text: 'Not Attending ($_totalDeclined)'),
-                        ],
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TabBar(
+                          controller: _tabController,
+                          labelColor: Colors.white,
+                          unselectedLabelColor: Colors.white70,
+                          indicatorColor: Colors.white,
+                          onTap: (index) => setState(() {}),
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          labelPadding: EdgeInsets.symmetric(horizontal: 12),
+
+                          tabs: [
+                            Tab(text: 'All (${_allGuests.length})'),
+                            Tab(text: 'Attending ($_totalAccepted)'),
+                            Tab(text: 'Pending ($_totalPending)'),
+                            Tab(text: 'Not Attending ($_totalDeclined)'),
+                          ],
+                        ),
                       ),
                     ),
+
+
                   ],
                 ),
               ),
@@ -678,59 +689,88 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
       child: Row(
         children: [
+          // Search box or icon
           Expanded(
-            child: Container(
+            child: showSearch
+                ? Container(
+              height: 48,
               decoration: BoxDecoration(
-
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ],
               ),
               child: TextField(
-                onChanged: (v) => setState(() => _searchQuery = v),
+                controller: searchCtrl,
+                autofocus: true,
+                onChanged: (v) {
+                  setState(() {
+                    _searchQuery = v;
+                  });
+                },
                 decoration: InputDecoration(
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.only(left: 12, right: 8),
-                    child: Icon(Icons.search, color: Colors.pink),
-                  ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 0,
-                    minHeight: 0,
-                  ),
+                  prefixIcon: const Icon(Icons.search, color: Colors.pink),
                   hintText: 'Search guests...',
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () {
+                      setState(() {
+                        showSearch = false;
+                        _searchQuery = '';
+                        searchCtrl.clear();
+                      });
+                    },
+                  ),
                 ),
+              ),
+            )
+                : Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.search, color: Colors.pink),
+                onPressed: () {
+                  setState(() => showSearch = true);
+                },
               ),
             ),
           ),
 
           const SizedBox(width: 12),
+
+          // Add Guest
           ElevatedButton.icon(
-            onPressed: () => _showAddGuestDialog(),
+            onPressed: _showAddGuestDialog,
             icon: const Icon(Icons.person_add_alt_1),
             label: const Text('Add Guest'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF69B4),foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF69B4),
+              foregroundColor: Colors.white,
+            ),
           ),
+
           const SizedBox(width: 8),
+
+          // Create Group
           OutlinedButton.icon(
             onPressed: _showCreateGroupDialog,
             icon: const Icon(Icons.group),
             label: const Text('Create Group'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white, // ✅ sets text & icon color to white
-              side: const BorderSide(color: Colors.pink), // optional: white border
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.pink),
             ),
           ),
         ],
       ),
     );
   }
+
+
+
+
 
   Widget _buildGuestList() {
     final guests = _filteredGuests;
@@ -1040,6 +1080,8 @@ class GuestDetailsScreen extends StatefulWidget {
 }
 
 class _GuestDetailsScreenState extends State<GuestDetailsScreen> {
+
+
   String selectedStatus = "";
   bool isUpdating = false;
 
@@ -1048,7 +1090,6 @@ class _GuestDetailsScreenState extends State<GuestDetailsScreen> {
     super.initState();
     selectedStatus = widget.guest.status; // initial value
   }
-
 
 
   Future<void> updateGuestStatus(String newStatus) async {
