@@ -92,7 +92,10 @@ dependencies:
   sliding_up_panel:
   fl_chart:
   lottie: ^3.3.2
-
+  mime:
+  pdf:
+  printing:
+  open_filex:
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -177,6 +180,7 @@ flutter:
    - assets/Splash5.png
    - assets/Splash6.png
    - assets/Splash7.png
+   - assets/whatsapp.png
 
 
   # To add assets to your application, add an assets section, like this:

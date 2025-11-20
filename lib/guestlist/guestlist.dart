@@ -116,6 +116,41 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
     _tabController.dispose();
     super.dispose();
   }
+  Future<void> sendSMS(String phone) async {
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No phone number")),
+      );
+      return;
+    }
+
+    final smsUrl = Uri.parse("sms:$phone?body=Hello! You are invited 🥳");
+    if (await canLaunchUrl(smsUrl)) {
+      await launchUrl(smsUrl, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Could not open SMS")),
+      );
+    }
+  }
+  Future<void> sendWhatsApp(String phone) async {
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Phone not available")),
+      );
+      return;
+    }
+
+    final whatsappUrl = Uri.parse("https://wa.me/$phone?text=Hello! You are invited 🎉");
+
+    if (await canLaunchUrl(whatsappUrl)) {
+      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Could not open WhatsApp")),
+      );
+    }
+  }
 
   // ---------------- Local Groups ----------------
   Future<void> _loadLocalGroups() async {
@@ -951,6 +986,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
             // ---------------------------------------------
             Row(
               children: [
+                // EMAIL
                 IconButton(
                   icon: const Icon(Icons.email_outlined, color: Colors.blue),
                   onPressed: () async {
@@ -959,30 +995,36 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
 
                     if (userId == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("User ID not found! Please login again.")),
+                        const SnackBar(content: Text("Login again")),
                       );
                       return;
                     }
 
                     await sendGuestEmail(
                       toEmail: guest.email,
-                      subject: "Guest List",
-                      message: "Hello ${guest.name}",
-                      userId: userId,   // 👉 now dynamic
+                      subject: "Wedding Invitation",
+                      message: "Dear ${guest.name},\nYou are invited!",
+                      userId: userId,
                       context: context,
                     );
                   },
                 ),
+
+
+
+                // WHATSAPP
                 IconButton(
                   icon: const Icon(Icons.sms, color: Colors.green),
                   onPressed: () {
-                    // TODO: WhatsApp
+                    sendWhatsApp(guest.phone ?? "");
                   },
                 ),
+
+                // E-INVITE
                 IconButton(
                   icon: const Icon(Icons.card_giftcard, color: Colors.pink),
                   onPressed: () {
-                    // TODO: Send E-invite
+                    // sendInvite(guest);
                   },
                 ),
               ],
@@ -1036,6 +1078,16 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
     required BuildContext context,
   }) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("auth_token");
+
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please login again")),
+        );
+        return;
+      }
+
       final url = Uri.parse("https://happywedz.com/api/guestlist/send-guestlist-email");
 
       final body = {
@@ -1047,7 +1099,10 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
 
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
         body: jsonEncode(body),
       );
 
@@ -1057,7 +1112,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to send email: ${response.body}")),
+          SnackBar(content: Text("Failed: ${response.body}")),
         );
       }
     } catch (e) {
@@ -1066,6 +1121,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
       );
     }
   }
+
 
   void _showOptionsMenu() {
     showModalBottomSheet(
