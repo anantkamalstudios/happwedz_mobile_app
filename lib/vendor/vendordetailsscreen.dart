@@ -51,7 +51,7 @@ import 'package:url_launcher/url_launcher.dart';
 class VendorServicesScreen extends StatefulWidget {
   final String subcategoryName;
 
-  const            VendorServicesScreen({Key? key, required this.subcategoryName}) : super(key: key);
+  const VendorServicesScreen({Key? key, required this.subcategoryName}) : super(key: key);
 
   @override
   State<VendorServicesScreen> createState() => _VendorServicesScreenState();
@@ -207,6 +207,16 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     }
 
     setState(() => isLoadingMore = false);
+  }
+  Future<void> applyFilters() async {
+    setState(() {
+      filterCity = selectedCity;
+      filterMinPrice = minPrice;
+      filterMaxPrice = maxPrice;
+      filterMinRating = selectedRating;
+    });
+
+    _applyFiltersAndSearch(); // 🔥 local filtering
   }
 
   void _applyFiltersAndSearch() {
@@ -435,50 +445,50 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       },
     );
   }
-  Future<void> applyFilters() async {
-    setState(() {
-      isLoading = true;
-      services.clear();
-    });
-
-    currentPage = 1;
-
-    final encodedSubcategory =
-    Uri.encodeComponent(widget.subcategoryName.toLowerCase());
-
-    final url =
-        "https://happywedz.com/api/vendor-services"
-        "?subCategory=$encodedSubcategory"
-        "&page=$currentPage"
-        "&limit=9"
-        "${selectedCity.isNotEmpty ? "&city=$selectedCity" : ""}"
-        "${selectedRating > 0 ? "&rating=$selectedRating" : ""}"
-        "&minPrice=$minPrice"
-        "&maxPrice=$maxPrice";
-
-    print("🎯 FILTER API URL: $url");
-
-    try {
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        final list = jsonData["data"] ?? [];
-        final pagination = jsonData["pagination"];
-
-        totalPages = pagination["totalPages"];
-        hasMore = currentPage < totalPages;
-
-        setState(() {
-          services = list;
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      print("❌ Filter error: $e");
-      setState(() => isLoading = false);
-    }
-  }
+  // Future<void> applyFilters() async {
+  //   setState(() {
+  //     isLoading = true;
+  //     services.clear();
+  //   });
+  //
+  //   currentPage = 1;
+  //
+  //   final encodedSubcategory =
+  //   Uri.encodeComponent(widget.subcategoryName.toLowerCase());
+  //
+  //   final url =
+  //       "https://happywedz.com/api/vendor-services"
+  //       "?subCategory=$encodedSubcategory"
+  //       "&page=$currentPage"
+  //       "&limit=9"
+  //       "${selectedCity.isNotEmpty ? "&city=$selectedCity" : ""}"
+  //       "${selectedRating > 0 ? "&rating=$selectedRating" : ""}"
+  //       "&minPrice=$minPrice"
+  //       "&maxPrice=$maxPrice";
+  //
+  //   print("🎯 FILTER API URL: $url");
+  //
+  //   try {
+  //     final response = await http.get(Uri.parse(url));
+  //
+  //     if (response.statusCode == 200) {
+  //       final jsonData = json.decode(response.body);
+  //       final list = jsonData["data"] ?? [];
+  //       final pagination = jsonData["pagination"];
+  //
+  //       totalPages = pagination["totalPages"];
+  //       hasMore = currentPage < totalPages;
+  //
+  //       setState(() {
+  //         services = list;
+  //         isLoading = false;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     print("❌ Filter error: $e");
+  //     setState(() => isLoading = false);
+  //   }
+  // }
 
   Widget _buildAppBar() {
     return Padding(
@@ -559,7 +569,10 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       itemCount: services.length + (isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == services.length) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(12),
+            child: CircularProgressIndicator(),
+          ));
         }
         return _buildServiceCard(services[index]);
       },
@@ -769,6 +782,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -791,14 +805,35 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
               ),
             ),
             Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : services.isEmpty
-                  ? const Center(child: Text('No services found'))
-                  : isList
-                  ? _buildGridView()
-                  : _buildListView(),
-            )
+              child: RefreshIndicator(
+                color: Colors.pink,
+                onRefresh: () async {
+                  await fetchServices(reset: true);
+                },
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : services.isEmpty
+                    ? ListView( // Required because RefreshIndicator needs scrollable widget
+                  children: const [
+                    SizedBox(height: 200),
+                    Center(child: Text('No services found')),
+                  ],
+                )
+                    : isList
+                    ? _buildGridView()
+                    : _buildListView(),
+              ),
+            ),
+
+            // Expanded(
+            //   child: isLoading
+            //       ? const Center(child: CircularProgressIndicator())
+            //       : services.isEmpty
+            //       ? const Center(child: Text('No services found'))
+            //       : isList
+            //       ? _buildGridView()
+            //       : _buildListView(),
+            // )
           ],
         ),
       ),
@@ -1384,13 +1419,52 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   int apiTotalReviews = 0;
   List<Map<String, dynamic>> reviews = [];
 
+
+  bool isClaimLoading = true;
+  bool hasClaim = false;
+  bool canSubmit = true;
+  String claimStatus = "";
+  String? rejectionReason;
+  int? claimId;
+
+
   @override
   void initState() {
     super.initState();
+    loadFavouritesFromLocal();
     _loadCurrentUser();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       fetchReviewsFromApi();
     });
+    checkClaimStatus();
+  }
+  Future<void> checkClaimStatus() async {
+    final url = Uri.parse(
+        "https://happywedz.com/api/business/claims/check-status?"
+            "vendor_id=${widget.service['id']}&vendor_subcategory_data_id=${widget.service['vendor_subcategory_id']}"
+    );
+
+    try {
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+
+        setState(() {
+          hasClaim = data["hasClaim"];
+          canSubmit = data["canSubmit"];
+          claimStatus = data["claimStatus"] ?? "";
+          claimId = data["claimId"];
+          rejectionReason = data["rejectionReason"];
+          isClaimLoading = false;
+        });
+      } else {
+        setState(() => isClaimLoading = false);
+      }
+    } catch (e) {
+      print("STATUS ERROR: $e");
+      setState(() => isClaimLoading = false);
+    }
   }
 
   Future<void> _loadCurrentUser() async {
@@ -1545,15 +1619,189 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       debugPrint("Reviews API error: $e");
     }
   }
+  Widget claimButton(String vendorId, String vendorSubcategoryId) {
+    if (isClaimLoading) {
+      return ElevatedButton(
+        onPressed: () {},
+        child: SizedBox(
+          height: 16,
+          width: 16,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey,
+          padding: EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
 
+    // APPROVED
+    if (claimStatus == "approved") {
+      return ElevatedButton.icon(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text("Business Claim Approved"),
+              content: Text("Your claim is approved. You cannot submit again."),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text("OK"))
+              ],
+            ),
+          );
+        },
+        icon: Icon(Icons.check_circle, color: Colors.white),
+        label: Text("Approved",style: TextStyle(color: Colors.white),),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          padding: EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+
+    // PENDING
+    if (claimStatus == "pending") {
+      return ElevatedButton.icon(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text("Pending Review"),
+              content: Text("Your claim is under review."),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text("OK"))
+              ],
+            ),
+          );
+        },
+        icon: Icon(Icons.hourglass_top, color: Colors.white),
+        label: Text("Pending",style: TextStyle(color: Colors.white),),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange,
+          padding: EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+
+    // REJECTED
+    if (claimStatus == "rejected") {
+      return ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BusinessClaimForm(
+                vendorId: vendorId,
+                vendorSubcategoryId: vendorSubcategoryId,
+              ),
+            ),
+          );
+        },
+        icon: Icon(Icons.cancel, color: Colors.white),
+        label: Text("Rejected – Resubmit",style: TextStyle(color: Colors.white),),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red,
+          padding: EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+
+    // DEFAULT — SHOW CLAIM FORM BUTTON
+    return ElevatedButton.icon(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BusinessClaimForm(
+              vendorId: vendorId,
+              vendorSubcategoryId: vendorSubcategoryId,
+            ),
+          ),
+        );
+      },
+      icon: Icon(Icons.business_center_outlined, color: Colors.white),
+      label: Text("Claim Your Business",style: TextStyle(color: Colors.white),),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.pink,
+        padding: EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
   // ---------------------------
   // Wishlist toggle (placeholder — wire to your backend)
   // ---------------------------
-  Future<void> toggleWishlist() async {
-    setState(() => _isShortlisted = !_isShortlisted);
-    // TODO: call your API to persist wishlist state
-    // Example:
-    // await http.post(Uri.parse('https://your.api/wishlist'), body: {...});
+  // Future<void> toggleWishlist() async {
+  //   setState(() => _isShortlisted = !_isShortlisted);
+  //   // TODO: call your API to persist wishlist state
+  //   // Example:
+  //   // await http.post(Uri.parse('https://your.api/wishlist'), body: {...});
+  // }
+  Set<String> favouriteVendors = {};
+  Future<void> saveFavouritesToLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setStringList("favourite_vendors", favouriteVendors.toList());
+  }
+
+  Future<void> loadFavouritesFromLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedList = prefs.getStringList("favourite_vendors") ?? [];
+    setState(() {
+      favouriteVendors = savedList.toSet();
+    });
+  }
+
+  Future<void> toggleWishlist(String vendorServiceId) async {
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to manage wishlist')),
+      );
+      return;
+    }
+
+    final isFav = favouriteVendors.contains(vendorServiceId);
+
+    setState(() {
+      if (isFav)
+        favouriteVendors.remove(vendorServiceId);
+      else
+        favouriteVendors.add(vendorServiceId);
+    });
+
+    // SAVE LOCALLY
+    saveFavouritesToLocal();
+
+    // Optional: Call API
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+      if (token.isEmpty) return;
+
+      final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+      final body = jsonEncode({
+        'user_id': currentUserId.toString(),
+        'vendor_services_id': vendorServiceId,
+      });
+
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: body,
+      );
+    } catch (e) {
+      print("Wishlist API error: $e");
+    }
   }
 
   // ---------------------------
@@ -1562,6 +1810,8 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   @override
   Widget build(BuildContext context) {
     final service = widget.service ?? <String, dynamic>{};
+    final String vendorServiceId = service['id'].toString();
+
     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
     final vendor = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
     final media = (service['media'] is List) ? List.from(service['media']) : [];
@@ -1707,9 +1957,15 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                 radius: 20,
                                 backgroundColor: Colors.white.withOpacity(0.85),
                                 child: IconButton(
-                                  icon: Icon(_isShortlisted ? Icons.bookmark : Icons.bookmark_border, color: primaryAccent),
-                                  onPressed: toggleWishlist,
+                                  icon: Icon(
+                                    favouriteVendors.contains(vendorServiceId)
+                                        ? Icons.bookmark
+                                        : Icons.bookmark_border,
+                                    color: primaryAccent,
+                                  ),
+                                  onPressed: () => toggleWishlist(vendorServiceId),
                                 ),
+
                               ),
                             ],
                           ),
@@ -1869,31 +2125,35 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           // Claim / contact actions
                           Row(
                             children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    // claim
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => BusinessClaimForm(
-                                          vendorId: vendorId,
-                                          vendorSubcategoryId: vendorSubcategoryId,
+                              Expanded(child: claimButton(vendorId, vendorSubcategoryId)),
 
-                                        ),
-                                      ),
-                                    );
-
-                                  },
-                                  icon: const Icon(Icons.business_center_outlined,color: Colors.white,),
-                                  label: const Text('Claim Your Business',style: TextStyle(color: Colors.white),),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: primaryAccent,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
-                              ),
+                              // Expanded(
+                              //   child:
+                              //   ElevatedButton.icon(
+                              //
+                              //     onPressed: () {
+                              //       // claim
+                              //       Navigator.push(
+                              //         context,
+                              //         MaterialPageRoute(
+                              //           builder: (_) => BusinessClaimForm(
+                              //             vendorId: vendorId,
+                              //             vendorSubcategoryId: vendorSubcategoryId,
+                              //
+                              //           ),
+                              //         ),
+                              //       );
+                              //
+                              //     },
+                              //     icon: const Icon(Icons.business_center_outlined,color: Colors.white,),
+                              //     label: const Text('Claim Your Business',style: TextStyle(color: Colors.white),),
+                              //     style: ElevatedButton.styleFrom(
+                              //       backgroundColor: primaryAccent,
+                              //       padding: const EdgeInsets.symmetric(vertical: 12),
+                              //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              //     ),
+                              //   ),
+                              // ),
                               const SizedBox(width: 12),
                               Container(
                                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
@@ -1925,26 +2185,26 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                       if (_hasValue(vegPrice)) Text('Veg: ₹$vegPrice / plate', style: const TextStyle(color: Colors.grey)),
                                       if (_hasValue(nonVegPrice)) Text('Non-veg: ₹$nonVegPrice / plate', style: const TextStyle(color: Colors.grey)),
                                     ]),
-                                    const Spacer(),
-                                    ElevatedButton(
-                                      onPressed: () async {
-                                        final picked = await showDatePicker(
-                                          context: context,
-                                          initialDate: _selectedDate ?? DateTime.now(),
-                                          firstDate: DateTime.now(),
-                                          lastDate: DateTime(DateTime.now().year + 2),
-                                        );
-                                        if (picked != null) {
-                                          setState(() => _selectedDate = picked);
-                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Checked availability: ${picked.day}/${picked.month}/${picked.year}')));
-                                        }
-                                      },
-                                      child: const Text('Check availability',style: TextStyle(color: Colors.white),),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: primaryAccent,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                    )
+                                    // const Spacer(),
+                                    // ElevatedButton(
+                                    //   onPressed: () async {
+                                    //     final picked = await showDatePicker(
+                                    //       context: context,
+                                    //       initialDate: _selectedDate ?? DateTime.now(),
+                                    //       firstDate: DateTime.now(),
+                                    //       lastDate: DateTime(DateTime.now().year + 2),
+                                    //     );
+                                    //     if (picked != null) {
+                                    //       setState(() => _selectedDate = picked);
+                                    //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Checked availability: ${picked.day}/${picked.month}/${picked.year}')));
+                                    //     }
+                                    //   },
+                                    //   child: const Text('Check availability',style: TextStyle(color: Colors.white),),
+                                    //   style: ElevatedButton.styleFrom(
+                                    //     backgroundColor: primaryAccent,
+                                    //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    //   ),
+                                    // )
                                   ],
                                 ),
                               ),
@@ -2205,6 +2465,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       ),
     );
   }
+
 
   // small helper chip used in UI
   Widget _infoChip(String text, IconData icon) {

@@ -46,7 +46,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   }
 // Fetch stories from API
   Future<List<Map<String, dynamic>>> fetchStories() async {
-    final response = await http.get(Uri.parse('https://happywedz.com/api/blog-deatils/all'));
+    final response = await http.get(Uri.parse('https://happywedz.com/api/blog-categories/all'));
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> decodedJson = json.decode(response.body);
@@ -85,19 +85,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     }
   }
 
-  // Future<List<RealWedding>> fetchRealWeddings() async {
-  //   final response = await http.get(Uri.parse('https://happywedz.com/api/realwedding/public'));
-  //
-  //   if (response.statusCode == 200) {
-  //     List<dynamic> data = json.decode(response.body);
-  //     print(data);
-  //     print(response);
-  //     print(response.body);
-  //     return data.map((json) => RealWedding.fromJson(json)).toList();
-  //   } else {
-  //     throw Exception('Failed to load real weddings');
-  //   }
-  // }
+
 
 
   Future<void> debugImageUrl(String url) async {
@@ -428,7 +416,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         if (snapshot.hasError)
           return Center(child: Text('Error: ${snapshot.error}'));
         if (!snapshot.hasData || snapshot.data!.isEmpty)
-          return Center(child: Text('No stories found'));
+          return Center(child: Text('No categories found'));
 
         final stories = snapshot.data!;
 
@@ -437,44 +425,28 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
           itemCount: stories.length,
           itemBuilder: (context, index) {
             final story = stories[index];
-            final title = story['title'] ?? 'No Title';
-            final imageUrl = story['image'] ?? '';
-            final postDate = formatDate(story['postDate'] ?? '');
-            final blogId = story['id']; // 👈 make sure this matches your API
+
+            final title = story['name'] ?? 'No Title';
+            final date = formatDate(story['createdDate'] ?? '');
+            final desc = story['description'] ?? '';
+            final imageUrl = "https://via.placeholder.com/400x200.png?text=${title.replaceAll(' ', '+')}";
 
             return Column(
               children: [
-                GestureDetector(
-                  onTap: () async {
-                    print('Story tapped with blogId: $blogId');
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (_) => Center(child: CircularProgressIndicator()),
-                    );
-
-                    try {
-                      final fullBlog = await fetchBlogDetail(blogId);
-                      print('Fetched blog detail: ${fullBlog['title']}');
-                      Navigator.pop(context); // remove loading dialog
-
-                      _navigateToBlogPage(
-                        fullBlog['title'],
-                        formatDate(fullBlog['date']),
-                        fullBlog['readTime'],
-                        fullBlog['images'],
-                        fullBlog['content'],
-                      );
-                    } catch (e) {
-                      Navigator.pop(context);
-                      print('Failed to load blog detail: $e');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to load blog: $e')),
-                      );
-                    }
-                  },
-                  child: _buildStoryCard(title, postDate, '5 min read', imageUrl, () {}),
-                ),
+                _buildStoryCard(title, date, desc, imageUrl, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BlogDetailPage(
+                        title: title,
+                        date: date,
+                        readTime: "5 min read",
+                        images: [imageUrl],
+                        content: desc,
+                      ),
+                    ),
+                  );
+                }),
                 SizedBox(height: 16),
               ],
             );
@@ -521,7 +493,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildStoryCard(String title, String date, String readTime, String imageUrl, VoidCallback onTap) {
+  Widget _buildStoryCard(String title, String date, String description, String imageUrl, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -819,193 +791,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-// Content methods for different articles
-  String _getBridalBusajContent() {
-    return """
-Wedding season is upon us, and brides are looking for that perfect blend of tradition and contemporary style. This season's bridal busaj trends are all about making a statement while honoring cultural heritage.
 
-**The New Age Bridal Busaj**
-
-Modern brides are gravitating towards busaj designs that offer versatility and comfort without compromising on elegance. The latest trends showcase:
-
-• **Rich Textures**: Velvet, silk, and brocade fabrics are making a comeback
-• **Contemporary Cuts**: A-line silhouettes with modern tailoring
-• **Subtle Embellishments**: Delicate beadwork and thread embroidery
-
-**Color Palette Trends**
-
-This season, we're seeing a shift from traditional reds to:
-- Deep burgundy and wine shades
-- Emerald green with gold accents  
-- Royal blue with silver detailing
-- Blush pink with rose gold elements
-
-**Styling Tips**
-
-To complete your bridal busaj look:
-
-1. **Jewelry**: Opt for statement pieces that complement the outfit's neckline
-2. **Footwear**: Choose comfortable heels that match the color scheme
-3. **Dupatta**: Experiment with different draping styles
-4. **Hair & Makeup**: Keep it elegant and timeless
-
-**Where to Shop**
-
-Popular designers are showcasing their latest collections at bridal exhibitions across major cities. Don't miss out on the exclusive pieces that are flying off the racks!
-
-Remember, your wedding day is about feeling confident and beautiful in your own skin. Choose a busaj that reflects your personality and makes you feel like the best version of yourself.
-""";
-  }
-
-  String _getPhotographyContent() {
-    return """
-Your wedding photos will be treasured for generations, so getting the perfect shots is crucial. Here are the top 10 poses that every couple should consider for their special day.
-
-**1. The Classic First Look**
-Capture the raw emotion when the groom sees his bride for the first time. This intimate moment creates some of the most genuine expressions.
-
-**2. Walking Hand in Hand**
-A candid shot of you both walking together, laughing and enjoying each other's company. Perfect for showing your natural chemistry.
-
-**3. The Dip Kiss**
-A romantic pose where the groom dips the bride for a passionate kiss. It's dramatic and shows the romance between you two.
-
-**4. Forehead Touch**
-An intimate pose where you both close your eyes and touch foreheads. It conveys deep connection and tenderness.
-
-**5. The Lift**
-The groom lifts the bride off the ground in a joyful embrace. Great for showing celebration and happiness.
-
-**6. Silhouette Against Sunset**
-Create a dramatic silhouette shot during golden hour. The lighting creates a magical, dreamy atmosphere.
-
-**7. Detail Shots of Hands**
-Focus on your intertwined hands showing off the wedding rings. These detail shots are perfect for close-up memories.
-
-**8. The Veil Shot**
-Use the bride's veil as a prop to create movement and drama in the photos. Wind can create beautiful flowing effects.
-
-**9. Candid Laughter**
-Nothing beats genuine laughter and joy. These unposed moments often become the most cherished photos.
-
-**10. The Exit Shot**
-Capture your grand exit with sparklers, petals, or bubbles. It's a perfect way to end your photo session.
-
-**Pro Tips:**
-- Practice poses beforehand to feel more natural
-- Trust your photographer's guidance
-- Focus on each other, not the camera
-- Have fun and let your personalities shine through
-
-Remember, the best wedding photos capture authentic emotions and genuine moments between you and your partner.
-""";
-  }
-
-  String _getMehendiContent() {
-    return """
-Mehendi ceremony is one of the most anticipated pre-wedding functions, and choosing the right design can make all the difference. This season brings fresh, contemporary patterns that blend tradition with modern aesthetics.
-
-**Trending Mehendi Styles**
-
-**Minimalist Patterns**
-Less is more this season. Brides are opting for:
-- Simple geometric patterns
-- Delicate finger designs  
-- Single motif on palms
-- Clean, uncluttered look
-
-**Floral Contemporary**
-Modern floral designs featuring:
-- Rose patterns with leaves
-- Lotus motifs with modern twists  
-- Vine patterns extending up the arm
-- Mixed flower bouquets design
-
-**Bridal Portraits**
-A unique trend where:
-- Groom's face is incorporated in the design
-- Couple silhouettes on palms
-- Wedding venue sketches
-- Meaningful symbols and dates
-
-**Arabic Fusion**
-Combining Arabic and Indian styles:
-- Bold, flowing patterns
-- Negative space usage
-- Geometric elements
-- Less dense, more artistic
-
-**Color Variations**
-Beyond traditional brown henna:
-- White henna for contrast
-- Gold glitter accents
-- Colored henna in red and black
-- Metallic temporary tattoos mixed in
-
-**Application Tips**
-
-**Before Application:**
-- Exfoliate hands and feet
-- Avoid moisturizer on the day
-- Keep hands clean and dry
-- Choose comfortable clothing
-
-**During Application:**
-- Stay still and relaxed
-- Keep the area warm
-- Don't touch or smudge
-- Take breaks if needed
-
-**After Care:**
-- Let it dry completely (2-4 hours)
-- Apply lemon-sugar mixture
-- Avoid water for 12 hours
-- Use natural oils to maintain color
-
-**Choosing Your Artist**
-- Check portfolios and reviews
-- Book well in advance
-- Discuss design preferences
-- Do a patch test for allergies
-
-**Popular Motifs This Season:**
-- Mandala patterns
-- Peacock designs
-- Heart shapes
-- Infinity symbols
-- Religious symbols
-
-The key to perfect mehendi is choosing a design that resonates with your personal style while complementing your overall bridal look.
-""";
-  }
-}
-Future<Map<String, dynamic>> fetchBlogDetail(int blogId) async {
-  final response = await http.get(Uri.parse('https://happywedz.com/api/blog-deatils/$blogId'));
-
-  if (response.statusCode == 200) {
-    final Map<String, dynamic> decodedJson = json.decode(response.body);
-    final data = decodedJson['data'];
-
-    // Join fullDescription list into one text
-    String content = "";
-    if (data['fullDescription'] != null) {
-      content = (data['fullDescription'] as List<dynamic>).join("\n\n");
-    }
-
-    // Prepare a cleaned-up map
-    return {
-      "id": data['id'],
-      "title": data['title'],
-      "date": data['createdDate'],
-      "readTime": data['readTime'] ?? "5 min",
-      "images": List<String>.from(data['images'] ?? []),
-      "tags": List<String>.from(data['tags'] ?? []),
-      "author": data['author'],
-      "content": content,
-    };
-  } else {
-    throw Exception('Failed to load blog details');
-  }
 }
 
 
@@ -1126,30 +912,30 @@ class BlogDetailPage extends StatelessWidget {
                       ],
                     ),
                   ),
-
-                  SizedBox(height: 30),
-
-                  // Related Articles Section
-                  Text(
-                    'Related Articles',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  _buildRelatedArticle(
-                    'Wedding Decor Ideas That Will Make Your Guests Wow',
-                    '2min read',
-                    'https://images.unsplash.com/photo-1519741497674-611481863552?w=300&h=160&fit=crop',
-                  ),
-                  SizedBox(height: 12),
-                  _buildRelatedArticle(
-                    'Budget-Friendly Wedding Planning Tips That Actually Work',
-                    '3min read',
-                    'https://images.unsplash.com/photo-1465495976277-4387d4b0e4a6?w=300&h=160&fit=crop',
-                  ),
+                  //
+                  // SizedBox(height: 30),
+                  //
+                  // // Related Articles Section
+                  // Text(
+                  //   'Related Articles',
+                  //   style: TextStyle(
+                  //     fontSize: 20,
+                  //     fontWeight: FontWeight.bold,
+                  //     color: Colors.black87,
+                  //   ),
+                  // ),
+                  // SizedBox(height: 16),
+                  // _buildRelatedArticle(
+                  //   'Wedding Decor Ideas That Will Make Your Guests Wow',
+                  //   '2min read',
+                  //   'https://images.unsplash.com/photo-1519741497674-611481863552?w=300&h=160&fit=crop',
+                  // ),
+                  // SizedBox(height: 12),
+                  // _buildRelatedArticle(
+                  //   'Budget-Friendly Wedding Planning Tips That Actually Work',
+                  //   '3min read',
+                  //   'https://images.unsplash.com/photo-1465495976277-4387d4b0e4a6?w=300&h=160&fit=crop',
+                  // ),
                 ],
               ),
             ),

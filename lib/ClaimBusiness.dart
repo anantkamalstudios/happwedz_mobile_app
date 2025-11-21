@@ -574,7 +574,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
             _labelWithRequired("Business Category / Type"),
             _textField(controller: category, hint: "e.g. Mehndi venue", validator: _requiredValidator),
             const SizedBox(height: 10),
-            _labelWithRequired("Business Registration Number (if applicable)"),
+            _labelWithRequired("Business Registration Number"),
             _textField(controller: registrationNumber, hint: "Registration number", validator: _requiredValidator),
             const SizedBox(height: 8),
           ],
