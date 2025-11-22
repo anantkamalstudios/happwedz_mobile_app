@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -22,6 +23,7 @@ import 'Wishlist/Wishlistscreen.dart';
 
 import 'firebase_options.dart';
 import 'guestlist/guestlist.dart';
+import 'internetconnection.dart';
 
 
 Future<void> main() async {
@@ -29,6 +31,15 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Setup Connectivity Listener
+  Connectivity().onConnectivityChanged.listen((status) async {
+    final hasNet = await InternetService.hasInternet();
+    if (!hasNet) {
+      print("❌ No Internet");
+    } else {
+      print("✅ Internet Connected");
+    }
+  });
   final status = await GoogleApiAvailability.instance.checkGooglePlayServicesAvailability();
   print('Google Play Services Status: $status');
   try {
@@ -62,8 +73,13 @@ Future<void> main() async {
   await _openBoxSafe('guestBox');
 
   // ✅ Run App with Providers
-  runApp(const MyApp());
-
+  // runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ConnectivityProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 Future<void> _openBoxSafe(String boxName) async {
@@ -82,6 +98,14 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
+      builder: (context, child) {
+        return Stack(
+          children: [
+            if (child != null) child,
+            const ConnectivityOverlay(), // shows/hides automatically
+          ],
+        );
+      },
       home: const AuthWrapper(),
     );
   }

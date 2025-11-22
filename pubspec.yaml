@@ -96,6 +96,7 @@ dependencies:
   pdf:
   printing:
   open_filex:
+  connectivity_plus:
 dev_dependencies:
   flutter_test:
     sdk: flutter

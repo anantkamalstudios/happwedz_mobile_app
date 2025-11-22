@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../DecorationScreen.dart';
 import '../LoadingLogo.dart';
 import '../WedChecklist/ChecklistScreen.dart';
+import '../Wishlist/Wishlistscreen.dart';
 import '../designstudio.dart';
 import '../einvite1/einvite.dart';
 import '../favscreen.dart';
@@ -1020,7 +1021,34 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     super.initState();
     _loadInitialData();
   }
-
+  // ---- Data (provided by you) ----
+  final List<Map<String, String>> categories = [
+    {
+      'label': 'Wedding Planners',
+      'image':
+      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bEllipse%202.png?alt=media&token=126f43e7-fd80-4323-8f94-13f102b01688'
+    },
+    {
+      'label': 'Photographer',
+      'image':
+      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cEllipse%203.png?alt=media&token=50dae8bf-2c7d-4b69-a847-a88432b235b6'
+    },
+    {
+      'label': 'Venues',
+      'image':
+      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F138e7fc800113229c148bb8e1c42d934b661828bEllipse%204.png?alt=media&token=cdb01134-472d-448c-8530-ae7557a78233'
+    },
+    {
+      'label': 'Bridal makeup',
+      'image':
+      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Ellipse%205.png?alt=media&token=5c7554ea-e064-4a0e-9fac-9fe9a779da08'
+    },
+    {
+      'label': 'All Categories',
+      'image':
+      'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F74d0bec9-682b-4ea0-8c61-f23d309a3de7.png'
+    },
+  ];
   // -------- INITIAL LOADING --------
   Future<void> _loadInitialData() async {
     setState(() => isLoading = true);
@@ -1079,36 +1107,47 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 // ---------- BLOG CATEGORIES ----------
   List<dynamic> blogCategories = [];
   bool isLoadingBlogCategories = true;
+  Future<List<Map<String, dynamic>>> fetchStories() async {
+    final response = await http.get(Uri.parse('https://happywedz.com/api/blog-categories/all'));
 
-  Future<void> fetchBlogCategories() async {
-    setState(() => isLoadingBlogCategories = true);
-
-    try {
-      final response = await http.get(
-        Uri.parse("https://happywedz.com/api/blog-categories/all"),
-        headers: {"Accept": "application/json"},
-      );
-
-      if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-
-        final List<dynamic> data =
-        decoded is Map && decoded['data'] is List
-            ? decoded['data'] as List<dynamic>
-            : [];
-
-        setState(() {
-          blogCategories = data;
-          isLoadingBlogCategories = false;
-        });
-      } else {
-        setState(() => isLoadingBlogCategories = false);
-      }
-    } catch (e) {
-      debugPrint("Blog Categories Error: $e");
-      setState(() => isLoadingBlogCategories = false);
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> decodedJson = json.decode(response.body);
+      final List<dynamic> dataList = decodedJson['data'];
+      return dataList.cast<Map<String, dynamic>>().toList();
+    } else {
+      throw Exception('Failed to load stories');
     }
   }
+
+  // Future<void> fetchBlogCategories() async {
+  //   setState(() => isLoadingBlogCategories = true);
+  //
+  //   try {
+  //     final response = await http.get(
+  //       Uri.parse("https://happywedz.com/api/blog-categories/all"),
+  //       headers: {"Accept": "application/json"},
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final decoded = json.decode(response.body);
+  //
+  //       final List<dynamic> data =
+  //       decoded is Map && decoded['data'] is List
+  //           ? decoded['data'] as List<dynamic>
+  //           : [];
+  //
+  //       setState(() {
+  //         blogCategories = data;
+  //         isLoadingBlogCategories = false;
+  //       });
+  //     } else {
+  //       setState(() => isLoadingBlogCategories = false);
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Blog Categories Error: $e");
+  //     setState(() => isLoadingBlogCategories = false);
+  //   }
+  // }
 
   void _showLocationSelection(BuildContext context) async {
     if (_cities.isEmpty && !_isLoadingCities) {
@@ -1283,6 +1322,34 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       setState(() => isLoadingBlogPosts = false);
     }
   }
+  Future<bool> checkUserHasFavourites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+
+    if (token.isEmpty) return false;
+
+    final url = Uri.parse('https://happywedz.com/api/wishlist');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final items = data['data'] ?? [];
+        return items.isNotEmpty;
+      }
+    } catch (e) {
+      debugPrint("Error checking favourites: $e");
+    }
+
+    return false;
+  }
 
   // -------- UI BUILD --------
   @override
@@ -1312,7 +1379,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                         children: [
                           const SizedBox(height: 20),
                           _buildCategorySection(),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 10),
                           _buildPlanningToolsSection(),
                           const SizedBox(height: 30),
                           _buildVenuesSection(),
@@ -1347,22 +1414,26 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                               ));
                             },
                           ),
-                          const SizedBox(height: 30),
-                          _buildTrendingTodaySection(),
-                          const SizedBox(height: 20),
-                          _buildViewAllTrendingButton(),
-                          const SizedBox(height: 30),
-                          _buildHappyWedsServicesSection(),
-                          const SizedBox(height: 30),
-                          _buildWeddingIdeasSection(),
-                          const SizedBox(height: 20),
-                          _buildViewAllWeddingIdeasButton(),
-                          const SizedBox(height: 30),
-                          _buildFeaturedVideoSection(),
+                          // const SizedBox(height: 30),
+                          // _buildTrendingTodaySection(),
+                          // const SizedBox(height: 20),
+                          // _buildViewAllTrendingButton(),
+                          // const SizedBox(height: 30),
+                          // _buildHappyWedsServicesSection(),
+                          // const SizedBox(height: 30),
+                          // _buildWeddingIdeasSection(),
+                          // const SizedBox(height: 20),
+                          // _buildViewAllWeddingIdeasButton(),
+                          // const SizedBox(height: 30),
+                          // _buildFeaturedVideoSection(),
                           const SizedBox(height: 30),
                           _buildInterestingReadsSection(),
+                          const SizedBox(height: 20),
+                          _buildViewAllInterestingReadsButton(),
                           const SizedBox(height: 30),
                           _buildRealWeddingsSection(),
+                          const SizedBox(height: 20),
+                          _buildViewAllRealWeddingsButton(),
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -1480,75 +1551,204 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       ]),
     );
   }
-
   Widget _buildCategorySection() {
     if (isLoadingCategories) {
-      return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+      return const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
+
     return SizedBox(
       height: 120,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: horizontalCategories.length + 1,
+        itemCount: horizontalCategories.length + 1, // +1 for "All Categories"
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemBuilder: (context, index) {
           final isLast = index == horizontalCategories.length;
+
           if (isLast) {
+            // "All Categories" button
             return Container(
               margin: const EdgeInsets.only(right: 0),
-              child: Column(children: [
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const VendorCategoriesScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(50),
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.pink, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.pink,
+                        size: 30,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'All\nCategories',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final category = horizontalCategories[index];
+          final imageUrl = category.heroImage.isNotEmpty
+              ? "https://happywedzbackend.happywedz.com/${category.heroImage}"
+              : '';
+
+          return Container(
+            margin: const EdgeInsets.only(right: 15),
+            child: Column(
+              children: [
                 InkWell(
                   onTap: () {
-                    // navigate to all categories
-                     Navigator.push(context, MaterialPageRoute(builder: (context) => VendorCategoriesScreen()));
+                    // Open VendorServicesScreen directly with the first subcategory
+                    if (category.subcategories.isNotEmpty) {
+                      final subcategoryName = category.subcategories.first.name;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VendorServicesScreen(
+                            subcategoryName: subcategoryName,
+                          ),
+                        ),
+                      );
+                    }
                   },
                   borderRadius: BorderRadius.circular(50),
                   child: Container(
                     width: 70,
                     height: 70,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: Colors.pink, width: 2)),
-                    child: const Icon(Icons.add, color: Colors.pink, size: 30),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey[300],
+                    ),
+                    child: ClipOval(
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        width: 70,
+                        height: 70,
+                        errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.image, color: Colors.white),
+                      )
+                          : const Icon(Icons.image, color: Colors.white),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('All\nCategories', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87)),
-              ]),
-            );
-          }
-
-          final category = horizontalCategories[index];
-          final imageUrl = category.heroImage.isNotEmpty ? "https://happywedzbackend.happywedz.com/${category.heroImage}" : '';
-
-          return Container(
-            margin: const EdgeInsets.only(right: 15),
-            child: Column(children: [
-              InkWell(
-                onTap: () {
-                  if (category.subcategories.isNotEmpty) {
-                    final subcategoryName = category.subcategories.first.name;
-                    // Navigator.push to VendorServicesScreen(subcategoryName)
-                  }
-                },
-                borderRadius: BorderRadius.circular(50),
-                child: Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[300]),
-                  child: ClipOval(
-                    child: imageUrl.isNotEmpty
-                        ? Image.network(imageUrl, fit: BoxFit.cover, width: 70, height: 70, errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.white))
-                        : const Icon(Icons.image, color: Colors.white),
+                SizedBox(
+                  width: 70, // same as the image width
+                  child: Text(
+                    category.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(width: 70, child: Text(category.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87))),
-            ]),
+              ],
+            ),
           );
         },
       ),
     );
   }
+  // Widget _buildCategorySection() {
+  //   if (isLoadingCategories) {
+  //     return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+  //   }
+  //   return SizedBox(
+  //     height: 120,
+  //     child: ListView.builder(
+  //       scrollDirection: Axis.horizontal,
+  //       itemCount: horizontalCategories.length + 1,
+  //       padding: const EdgeInsets.symmetric(horizontal: 16),
+  //       itemBuilder: (context, index) {
+  //         final isLast = index == horizontalCategories.length;
+  //         if (isLast) {
+  //           return Container(
+  //             margin: const EdgeInsets.only(right: 0),
+  //             child: Column(children: [
+  //               InkWell(
+  //                 onTap: () {
+  //                   // navigate to all categories
+  //                    Navigator.push(context, MaterialPageRoute(builder: (context) => VendorCategoriesScreen()));
+  //                 },
+  //                 borderRadius: BorderRadius.circular(50),
+  //                 child: Container(
+  //                   width: 70,
+  //                   height: 70,
+  //                   decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: Colors.pink, width: 2)),
+  //                   child: const Icon(Icons.add, color: Colors.pink, size: 30),
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 8),
+  //               const Text('All\nCategories', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87)),
+  //             ]),
+  //           );
+  //         }
+  //
+  //         final category = horizontalCategories[index];
+  //         final imageUrl = category.heroImage.isNotEmpty ? "https://happywedzbackend.happywedz.com/${category.heroImage}" : '';
+  //
+  //         return Container(
+  //           margin: const EdgeInsets.only(right: 15),
+  //           child: Column(children: [
+  //             InkWell(
+  //               onTap: () {
+  //                 if (category.subcategories.isNotEmpty) {
+  //                   final subcategoryName = category.subcategories.first.name;
+  //                   // Navigator.push to VendorServicesScreen(subcategoryName)
+  //                 }
+  //               },
+  //               borderRadius: BorderRadius.circular(50),
+  //               child: Container(
+  //                 width: 70,
+  //                 height: 70,
+  //                 decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[300]),
+  //                 child: ClipOval(
+  //                   child: imageUrl.isNotEmpty
+  //                       ? Image.network(imageUrl, fit: BoxFit.cover, width: 70, height: 70, errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.white))
+  //                       : const Icon(Icons.image, color: Colors.white),
+  //                 ),
+  //               ),
+  //             ),
+  //             const SizedBox(height: 8),
+  //             SizedBox(width: 70, child: Text(category.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87))),
+  //           ]),
+  //         );
+  //       },
+  //     ),
+  //   );
+  // }
 
   Widget _buildPlanningToolsSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1558,7 +1758,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         Expanded(
           child: InkWell(
             onTap: () {
-              // Navigate to WeddingInvitesScreen1
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const WeddingInvitesScreen1(),
+                ),
+              );
             },
             child: _buildPlanningToolCard('Build your\nDigital E-invites', 'on app launch', Colors.purple[100]!, Icons.card_giftcard, Colors.purple),
           ),
@@ -1566,17 +1771,40 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         const SizedBox(width: 12),
         Expanded(
           child: InkWell(
-            onTap: () {
-              // Navigate to VendorCategoriesScreen
+            onTap: () async {
+              bool hasFavourites = await checkUserHasFavourites();
+
+              if (hasFavourites) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FavouritesPage()),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) =>  VendorCategoriesScreen()),
+                );
+              }
             },
-            child: _buildPlanningToolCard('Your shortlisted\nvendor', 'Venue vendors', Colors.orange[100]!, Icons.favorite, Colors.orange),
+            child: _buildPlanningToolCard(
+              'Your shortlisted\nvendor',
+              'Venue vendors',
+              Colors.orange[100]!,
+              Icons.favorite,
+              Colors.orange,
+            ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: InkWell(
             onTap: () {
-              // Navigate to FavouritesScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Ideas(initialSubTabIndex: 1),
+                ),
+              );
             },
             child: _buildPlanningToolCard('Your Favourite\nblog', 'will it favourite', Colors.pink[100]!, Icons.bookmark, Colors.pink),
           ),
@@ -1682,6 +1910,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return InkWell(
       onTap: () {
         // Navigator.push to VenuesScreen()
+
       },
       borderRadius: BorderRadius.circular(25),
       child: Container(
@@ -1708,34 +1937,46 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           : SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(children: photographers.map<Widget>((photo) {
-          final vendor = (photo is Map && photo['vendor'] is Map) ? photo['vendor'] as Map<String, dynamic> : <String, dynamic>{};
-          final attributes = (photo is Map && photo['attributes'] is Map) ? photo['attributes'] as Map<String, dynamic> : <String, dynamic>{};
-          final media = (photo is Map && photo['media'] is Map) ? photo['media'] as Map<String, dynamic> : <String, dynamic>{};
+          final vendor = (photo is Map && photo['vendor'] is Map)
+              ? photo['vendor'] as Map<String, dynamic>
+              : {};
 
+          final attributes = (photo is Map && photo['attributes'] is Map)
+              ? photo['attributes'] as Map<String, dynamic>
+              : {};
+
+          final media = photo['media'];
           String imageUrl = 'https://via.placeholder.com/200x120';
-          if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-            final cover = media['coverImage'].toString();
-            imageUrl = cover.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$cover" : cover;
-          } else if (media['gallery'] != null && media['gallery'] is List) {
-            for (var item in media['gallery']) {
+
+// FIX: media is actually a List of URLs
+          if (media != null && media is List) {
+            for (var item in media) {
               if (item is String && item.isNotEmpty) {
-                imageUrl = item.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$item" : item;
-                break;
-              } else if (item is Map && item['url'] != null) {
-                final url = item['url'].toString();
-                imageUrl = url.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$url" : url;
+                imageUrl = item;
                 break;
               }
             }
-          } else if (attributes['url'] != null && attributes['url'].toString().isNotEmpty) {
-            imageUrl = 'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['url'])}&width=400';
           }
+// Try Portfolio field
+          else if (attributes['Portfolio'] != null &&
+              attributes['Portfolio'].toString().isNotEmpty) {
+            final portfolioString = attributes['Portfolio'].toString();
+            final list = portfolioString.split("|");
+            if (list.isNotEmpty) imageUrl = list.first;
+          }
+// Thumbnail fallback
+          else if (attributes['URL'] != null &&
+              attributes['URL'].toString().isNotEmpty) {
+            imageUrl =
+            'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['URL'])}&width=400';
+          }
+
 
           final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
           final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
           String price = "--";
-          final startPrice = attributes['starting_price']?.toString() ?? "";
-          if (startPrice.isNotEmpty) price = "Starting from ₹$startPrice";
+          final startPrice = attributes['PriceRange']?.toString() ?? "";
+          if (startPrice.isNotEmpty) price = "Price Range ₹$startPrice";
 
           return Container(
             width: 200,
@@ -2011,6 +2252,29 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     ]);
   }
 
+  Widget _buildViewAllInterestingReadsButton() {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Ideas(initialSubTabIndex: 1),
+          ),
+        );
+
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
+        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text('View all Interesting reads', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
+          SizedBox(width: 5),
+          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
+        ]),
+      ),
+    );
+  }
   // -------- REAL WEDDINGS --------
   Widget _buildRealWeddingsSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2046,6 +2310,30 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         }).toList()),
       ),
     ]);
+  }
+
+  Widget _buildViewAllRealWeddingsButton() {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Ideas(initialSubTabIndex: 2),
+          ),
+        );
+
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
+        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text('View all Real Wedding', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
+          SizedBox(width: 5),
+          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
+        ]),
+      ),
+    );
   }
 
   // Helper

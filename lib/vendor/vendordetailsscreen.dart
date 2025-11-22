@@ -141,7 +141,19 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
-        final List<dynamic> list = (data['data'] ?? []) as List<dynamic>;
+        // final List<dynamic> list = (data['data'] ?? []) as List<dynamic>;
+        final rawData = data['data'];
+
+        List<dynamic> list = [];
+
+        if (rawData is List) {
+          list = rawData;
+        } else if (rawData is Map<String, dynamic>) {
+          list = [rawData];  // wrap single object into a list
+        } else {
+          list = [];  // null or unexpected format
+        }
+
         final pagination = data['pagination'] ?? {};
 
         totalPages = (pagination['totalPages'] ?? 1) is int
@@ -185,7 +197,19 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
-        final List<dynamic> list = (data['data'] ?? []) as List<dynamic>;
+        // final List<dynamic> list = (data['data'] ?? []) as List<dynamic>;
+        final rawData = data['data'];
+
+        List<dynamic> list = [];
+
+        if (rawData is List) {
+          list = rawData;
+        } else if (rawData is Map<String, dynamic>) {
+          list = [rawData];  // wrap single object into a list
+        } else {
+          list = [];  // null or unexpected format
+        }
+
         final pagination = data['pagination'] ?? {};
 
         totalPages = (pagination['totalPages'] ?? 1) is int
