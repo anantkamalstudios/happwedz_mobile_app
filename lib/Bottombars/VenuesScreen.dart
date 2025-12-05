@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../ai_chat_screen/ai_chat_screen.dart';
 import '../vendor/vendordetailsscreen.dart';
 import 'dart:convert';
 
@@ -914,6 +915,11 @@ class _VenuesScreenState extends State<VenuesScreen> {
   // Server-side search state
   String currentServerQuery = '';
   Timer? _searchDebounce;
+  // NEW FILTERS
+  String selectedVenueType = "";
+  String selectedCapacity = "";
+  String selectedPricePlate = "";
+  String selectedRooms = "";
 
   // UI
   bool isList = true;
@@ -925,35 +931,80 @@ class _VenuesScreenState extends State<VenuesScreen> {
   double minPrice = 0;
   double maxPrice = 200000;
   double selectedRating = 0;
+  int currentLoadingPage = 0;
+  bool isBulkLoading = false;
 
   // Wishlist (local)
   Set<String> favouriteVenues = {};
   String? currentUserId;
-
   @override
   void initState() {
     super.initState();
     _loadCurrentUser();
     _loadFavouritesFromLocal();
+    fetchAllVenues(page: 1);     // 🔥 load everything once
 
-    // initial load: page 1 with no search query
-    _startFreshLoad();
 
-    _scrollController.addListener(_onScroll);
-
-    // debounce search: server query + reset list
-    _searchController.addListener(() {
-      final txt = _searchController.text.trim();
-      if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-      _searchDebounce = Timer(const Duration(milliseconds: 500), () {
-        // trigger server search (resets list and pagination)
-        if (txt != currentServerQuery) {
-          currentServerQuery = txt;
-          _startFreshLoad();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        if (hasMore && !isLoadingMore) {
+          fetchVenues(page: page + 1);
         }
-      });
+      }
+    });
+    _searchController.addListener(_applyFiltersAndSearch);
+  }
+
+  Future<void> fetchAllVenues({int page = 1}) async {
+    if (isLoadingMore) return;
+
+    setState(() {
+      if (page == 1) isLoading = true;
+      isLoadingMore = true;
+    });
+
+    try {
+      final url = Uri.parse(
+          "https://happywedz.com/api/vendor-services?vendorType=venue&page=$page&limit=20"
+      );
+
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final List data = decoded["data"] ?? [];
+
+        // total pages
+        final pagination = decoded["pagination"] ?? {};
+        totalPages = pagination["totalPages"] ?? 1;
+
+        final newVenues = data.map((e) => Venue.fromJson(e)).toList();
+
+        setState(() {
+          if (page == 1) {
+            allVenues.clear();
+            allVenues.addAll(newVenues);
+          } else {
+            allVenues.addAll(newVenues);
+          }
+
+          venues = allVenues;
+          hasMore = page < totalPages;
+          this.page = page;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching venues: $e");
+    }
+
+    setState(() {
+      isLoading = false;
+      isLoadingMore = false;
     });
   }
+
+
 
   @override
   void dispose() {
@@ -1113,7 +1164,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
           }
 
           // local filters applied on top of loaded data
-          _applyFiltersAndSearch_internal(); // sets venues from allVenues
+          _applyFiltersAndSearch(); // sets venues from allVenues
           hasMore = page < totalPages;
           isLoading = false;
           isLoadingMore = false;
@@ -1144,49 +1195,101 @@ class _VenuesScreenState extends State<VenuesScreen> {
     setState(() => isLoadingMore = false);
   }
 
-  // ----------------- Filters + Search -----------------
-  // Public entry used by UI to apply local filters & search
-  void _applyFiltersAndSearch() {
-    // When user updates only local filters (not server search),
-    // we do local filtering on allVenues already loaded.
-    _applyFiltersAndSearch_internal();
-  }
 
-  // internal helper that reads current local filter states and search box
-  void _applyFiltersAndSearch_internal() {
-    final qLocal = _searchController.text.trim().toLowerCase();
+  void _applyFiltersAndSearch() {
+    final query = _searchController.text.trim().toLowerCase();
 
     final filtered = allVenues.where((v) {
       final name = v.vendorName.toLowerCase();
       final city = v.city.toLowerCase();
+      final type = v.type.toLowerCase();
       final area = v.area.toLowerCase();
 
-      // price parsing
-      double price = 0;
-      final vegRaw = v.vegPrice.toString().replaceAll(',', '').replaceAll(RegExp(r'[^0-9.]'), '');
-      final nonVegRaw = v.nonVegPrice.toString().replaceAll(',', '').replaceAll(RegExp(r'[^0-9.]'), '');
-      if (vegRaw.isNotEmpty) price = double.tryParse(vegRaw) ?? 0;
-      else if (nonVegRaw.isNotEmpty) price = double.tryParse(nonVegRaw) ?? 0;
+      // rating
+      final rating = double.tryParse(v.rating) ?? 0;
 
-      final rating = double.tryParse(v.rating.replaceAll(',', '')) ?? 0.0;
+      // price
+      double price = double.tryParse(v.vegPrice.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
-      // local search (works on all loaded items)
-      final matchSearch = qLocal.isEmpty || name.contains(qLocal) || city.contains(qLocal) || area.contains(qLocal);
+      // rooms
+      int rooms = int.tryParse(v.rooms ?? "0") ?? 0;
 
-      // local filters
-      final matchCity = selectedCity.isEmpty || city.contains(selectedCity.toLowerCase());
-      final matchPrice = price >= minPrice && price <= maxPrice;
-      final matchRating = rating >= selectedRating;
+      // capacity
+      int capacity = _extractCapacity(v.area);
 
-      return matchSearch && matchCity && matchPrice && matchRating;
+      return
+        // SEARCH
+        (query.isEmpty || name.contains(query) || city.contains(query) || area.contains(query)) &&
+
+            // CITY FILTER
+            (selectedCity.isEmpty || city.contains(selectedCity.toLowerCase())) &&
+
+            // RATING
+            rating >= selectedRating &&
+
+            // PRICE RANGE
+            price >= minPrice && price <= maxPrice &&
+
+            // VENUE TYPE
+            (selectedVenueType.isEmpty || type == selectedVenueType) &&
+
+            // CAPACITY FILTER
+            _capacityMatch(capacity, selectedCapacity) &&
+
+            // PRICE PER PLATE
+            _pricePlateMatch(price, selectedPricePlate) &&
+
+            // ROOMS
+            _roomMatch(rooms, selectedRooms);
     }).toList();
 
-    setState(() {
-      venues = filtered;
-    });
+    setState(() => venues = filtered);
   }
 
-  // ----------------- Wishlist / Actions -----------------
+
+  int _extractCapacity(String area) {
+    final match = RegExp(r'(\d+)\s*Seating').firstMatch(area);
+    if (match != null) return int.tryParse(match.group(1)!) ?? 0;
+    return 0;
+  }
+
+  bool _capacityMatch(int capacity, String filter) {
+    if (filter.isEmpty) return true;
+
+    switch (filter) {
+      case "<100": return capacity < 100;
+      case "100-200": return capacity >= 100 && capacity <= 200;
+      case "200-500": return capacity >= 200 && capacity <= 500;
+      case "500-1000": return capacity >= 500 && capacity <= 1000;
+      case "1000+": return capacity > 1000;
+    }
+    return true;
+  }
+
+  bool _pricePlateMatch(double price, String filter) {
+    switch (filter) {
+      case "<1000": return price < 1000;
+      case "1000-2000": return price >= 1000 && price <= 2000;
+      case "2000-3000": return price >= 2000 && price <= 3000;
+      case "3000+": return price > 3000;
+    }
+    return true;
+  }
+
+  bool _roomMatch(int rooms, String filter) {
+    switch (filter) {
+      case "10": return rooms == 10;
+      case "10-20": return rooms >= 10 && rooms <= 20;
+      case "20-30": return rooms >= 20 && rooms <= 30;
+      case "30-40": return rooms >= 30 && rooms <= 40;
+      case "40-50": return rooms >= 40 && rooms <= 50;
+      case "50-100": return rooms >= 50 && rooms <= 100;
+      case "100+": return rooms > 100;
+    }
+    return true;
+  }
+
+
   Future<void> _toggleFavourite(Venue v) async {
     if (currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please sign in to manage wishlist')));
@@ -1233,87 +1336,239 @@ class _VenuesScreenState extends State<VenuesScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
+        // temp variables for sheet
         String tmpCity = selectedCity;
         double tmpMin = minPrice;
         double tmpMax = maxPrice;
         double tmpRating = selectedRating;
 
+        String tmpVenueType = selectedVenueType;
+        String tmpCapacity = selectedCapacity;
+        String tmpPricePlate = selectedPricePlate;
+        String tmpRooms = selectedRooms;
+
         return StatefulBuilder(builder: (context, setSheetState) {
           return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Filters', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                const Text('City', style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                TextField(
-                  decoration: InputDecoration(hintText: 'Enter city', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                  controller: TextEditingController(text: tmpCity),
-                  onChanged: (v) => setSheetState(() => tmpCity = v.trim()),
-                ),
-                const SizedBox(height: 16),
-                const Text('Price Range', style: TextStyle(fontWeight: FontWeight.w600)),
-                RangeSlider(
-                  values: RangeValues(tmpMin, tmpMax),
-                  min: 0,
-                  max: 200000,
-                  divisions: 100,
-                  labels: RangeLabels('₹${tmpMin.toInt()}', '₹${tmpMax.toInt()}'),
-                  onChanged: (vals) => setSheetState(() {
-                    tmpMin = vals.start;
-                    tmpMax = vals.end;
-                  }),
-                ),
-                const SizedBox(height: 10),
-                const Text('Rating', style: TextStyle(fontWeight: FontWeight.w600)),
-                Slider(
-                  value: tmpRating,
-                  min: 0,
-                  max: 5,
-                  divisions: 5,
-                  label: tmpRating.toString(),
-                  onChanged: (v) => setSheetState(() => tmpRating = v),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      child: const Text('Reset'),
-                      onPressed: () {
-                        setState(() {
-                          selectedCity = "";
-                          minPrice = 0;
-                          maxPrice = 200000;
-                          selectedRating = 0;
-                        });
-                        Navigator.pop(context);
-                        _applyFiltersAndSearch();
-                      },
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 20,
+              right: 20,
+              top: 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  const Text(
+                    'Filters',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- CITY ----------------
+                  const Text('City', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Enter city',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    ElevatedButton(
-                      child: const Text('Apply', style: TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
-                      onPressed: () {
-                        setState(() {
-                          selectedCity = tmpCity;
-                          minPrice = tmpMin;
-                          maxPrice = tmpMax;
-                          selectedRating = tmpRating;
-                        });
-                        Navigator.pop(context);
-                        _applyFiltersAndSearch();
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
+                    controller: TextEditingController(text: tmpCity),
+                    onChanged: (v) => setSheetState(() => tmpCity = v.trim()),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- VENUE TYPE ----------------
+                  const Text('Venue Type', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+
+                  DropdownButtonFormField(
+                    value: tmpVenueType.isEmpty ? null : tmpVenueType,
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    items: [
+                      "Banquet Halls",
+                      "Marriage Garden / Lawns",
+                      "Wedding Farmhouses",
+                      "Wedding Resorts",
+                      "Destination Wedding Venues",
+                      "Kalyana Mandapams",
+                      "4 Star And Above Wedding Hotels",
+                    ]
+                        .map((e) =>
+                        DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
+                    onChanged: (v) =>
+                        setSheetState(() => tmpVenueType = v.toString()),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- CAPACITY ----------------
+                  const Text('Capacity', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+
+                  DropdownButtonFormField(
+                    value: tmpCapacity.isEmpty ? null : tmpCapacity,
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    items: [
+                      "<100",
+                      "100-200",
+                      "200-500",
+                      "500-1000",
+                      "1000+",
+                    ]
+                        .map((e) =>
+                        DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
+                    onChanged: (v) =>
+                        setSheetState(() => tmpCapacity = v.toString()),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- PRICE PER PLATE ----------------
+                  const Text('Price Per Plate', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+
+                  DropdownButtonFormField(
+                    value: tmpPricePlate.isEmpty ? null : tmpPricePlate,
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    items: [
+                      "<1000",
+                      "1000-2000",
+                      "2000-3000",
+                      "3000+",
+                    ]
+                        .map((e) =>
+                        DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
+                    onChanged: (v) =>
+                        setSheetState(() => tmpPricePlate = v.toString()),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- ROOMS ----------------
+                  const Text('Rooms', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+
+                  DropdownButtonFormField(
+                    value: tmpRooms.isEmpty ? null : tmpRooms,
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    items: [
+                      "10",
+                      "10-20",
+                      "20-30",
+                      "30-40",
+                      "40-50",
+                      "50-100",
+                      "100+",
+                    ]
+                        .map((e) =>
+                        DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
+                    onChanged: (v) =>
+                        setSheetState(() => tmpRooms = v.toString()),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- PRICE RANGE ----------------
+                  const Text('Price Range',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  RangeSlider(
+                    values: RangeValues(tmpMin, tmpMax),
+                    min: 0,
+                    max: 200000,
+                    divisions: 100,
+                    labels: RangeLabels(
+                        '₹${tmpMin.toInt()}', '₹${tmpMax.toInt()}'),
+                    onChanged: (vals) =>
+                        setSheetState(() {
+                          tmpMin = vals.start;
+                          tmpMax = vals.end;
+                        }),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- RATING ----------------
+                  const Text('Rating', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: tmpRating,
+                    min: 0,
+                    max: 5,
+                    divisions: 5,
+                    label: tmpRating.toString(),
+                    onChanged: (v) => setSheetState(() => tmpRating = v),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ---------------- ACTION BUTTONS ----------------
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        child: const Text('Reset'),
+                        onPressed: () {
+                          setState(() {
+                            selectedCity = "";
+                            selectedVenueType = "";
+                            selectedCapacity = "";
+                            selectedPricePlate = "";
+                            selectedRooms = "";
+                            minPrice = 0;
+                            maxPrice = 200000;
+                            selectedRating = 0;
+                          });
+                          Navigator.pop(context);
+                          _applyFiltersAndSearch();
+                        },
+                      ),
+                      ElevatedButton(
+                        child: const Text('Apply',
+                            style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.pink),
+                        onPressed: () {
+                          setState(() {
+                            selectedCity = tmpCity;
+                            selectedVenueType = tmpVenueType;
+                            selectedCapacity = tmpCapacity;
+                            selectedPricePlate = tmpPricePlate;
+                            selectedRooms = tmpRooms;
+                            minPrice = tmpMin;
+                            maxPrice = tmpMax;
+                            selectedRating = tmpRating;
+                          });
+                          Navigator.pop(context);
+                          _applyFiltersAndSearch();
+                        },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           );
         });
@@ -1407,7 +1662,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${venues.length} results', style: const TextStyle(color: Colors.black54)),
+                  // Text('${venues.length} results', style: const TextStyle(color: Colors.black54)),
                   Row(
                     children: [
                       if (selectedCity.isNotEmpty || minPrice != 0 || maxPrice != 200000 || selectedRating != 0)
@@ -1445,8 +1700,12 @@ class _VenuesScreenState extends State<VenuesScreen> {
                 child: isList ? _buildList() : _buildGrid(),
               ),
             ),
+            // floating AI button (unchanged)
+
           ],
+
         ),
+
       ),
     );
   }
@@ -1659,6 +1918,7 @@ class Venue {
   final String about;
   final String type;
   final String image;
+  final String? rooms;
   bool isFavourite;
 
   Venue({
@@ -1674,42 +1934,50 @@ class Venue {
     required this.about,
     required this.type,
     required this.image,
+    this.rooms,
     this.isFavourite = false,
   });
 
   factory Venue.fromJson(Map<String, dynamic> json) {
     final attr = json['attributes'] ?? {};
     final vendor = json['vendor'] ?? {};
-    final vendorType = vendor['vendorType'] ?? {};
+    final subcategory = json['subcategory'] ?? {};
 
-    String image = '';
-    if (json['media'] != null) {
-      final media = json['media'];
-      if (media is List && media.isNotEmpty) {
-        final first = media[0];
-        if (first is String) image = first;
-        else if (first is Map) image = first['url'] ?? first['original_url'] ?? '';
-      } else if (media is Map) {
-        image = media['coverImage'] ?? media['original_url'] ?? '';
+    // IMAGE FIX
+    String image = "";
+    final media = json["media"];
+    if (media is List && media.isNotEmpty) {
+      if (media.first is String) {
+        image = media.first;
+      } else if (media.first is Map) {
+        image = media.first["url"] ?? media.first["original_url"] ?? "";
       }
     }
 
-    if (image.startsWith('/uploads/')) image = "https://happywedzbackend.happywedz.com$image";
+    if (image.startsWith("/uploads/")) {
+      image = "https://happywedzbackend.happywedz.com$image";
+    }
+
+    // fall back
+    if (image.isEmpty) {
+      image = "https://via.placeholder.com/400x300.png?text=No+Image";
+    }
 
     return Venue(
-      id: json['id'] ?? 0,
-      vendorName: attr['vendor_name'] ?? vendor['businessName'] ?? '',
-      city: attr['city'] ?? vendor['city'] ?? '',
-      vegPrice: attr['veg_price']?.toString() ?? '',
-      nonVegPrice: attr['non_veg_price']?.toString() ?? '',
-      area: attr['area'] ?? '',
-      address: attr['address'] ?? '',
-      rating: attr['averageRating']?.toString() ?? '0.0',
-      reviewCount: attr['totalReviews']?.toString() ?? '0',
-      about: attr['about_us'] ?? '',
-      type: vendorType['name'] ?? '',
-      image: image.isNotEmpty ? image : 'https://via.placeholder.com/400x300.png?text=No+Image',
-      isFavourite: json['is_favourite'].toString() == "1",
+      id: json["id"] ?? 0,
+      vendorName: attr["name"] ?? vendor["businessName"] ?? "",
+      city: attr["city"] ?? vendor["city"] ?? "",
+      vegPrice: attr["veg_price"]?.toString() ?? "",
+      nonVegPrice: attr["non_veg_price"]?.toString() ?? "",
+      area: attr["area"] ?? "",
+      address: attr["address"] ?? "",
+      rating: attr["averageRating"]?.toString() ?? "0",
+      reviewCount: attr["totalReviews"]?.toString() ?? "0",
+      about: attr["about_us"] ?? "",
+      type: subcategory["name"]?.toString() ?? "",     // << Correct venue type
+      rooms: attr["rooms"]?.toString(),
+      image: image,
+      isFavourite: json["is_favourite"]?.toString() == "1",
     );
   }
 }

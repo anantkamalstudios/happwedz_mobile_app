@@ -31,41 +31,45 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   bool _isLoadingCities = false;
   bool _isSaving = false;
 
+  // Validation Errors
+  String? mobileError;
+  String? venueError;
+  String? weddingDateError;
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
-
   }
 
+  // -----------------------------------------------------
+  // LOGIN CHECK
+  // -----------------------------------------------------
   Future<bool> ensureLoggedIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
-    if (token != null && token.isNotEmpty) {
-      return true; // ✅ already logged in
-    }
+    if (token != null && token.isNotEmpty) return true;
 
-    // 🚫 not logged in → go to SignInScreen
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SignInScreen()),
     );
 
-    return result == true; // ✅ if login succeeded
+    return result == true;
   }
 
-  // 🧠 Load user data from SharedPreferences
+  // -----------------------------------------------------
+  // LOAD USER DATA
+  // -----------------------------------------------------
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Load strings
     userName = prefs.getString("user_name") ?? "";
     userEmail = prefs.getString("user_email") ?? "";
     userPhoto = prefs.getString("user_photo") ?? "";
     userId = prefs.getInt("user_id");
 
-    // Load profile editable fields
     mobileController.text = prefs.getString("user_mobile") ?? "";
     weddingVenueController.text = prefs.getString("wedding_venue") ?? "";
     weddingDateController.text = prefs.getString("wedding_date") ?? "";
@@ -73,10 +77,39 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     setState(() {});
   }
 
+  // -----------------------------------------------------
+  // VALIDATIONS
+  // -----------------------------------------------------
+  String? validateMobile(String m) {
+    if (m.isEmpty) return "Mobile number is required";
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(m)) return "Enter a valid 10-digit number";
+    if (!RegExp(r'^[6-9]').hasMatch(m)) return "Must start with 6, 7, 8, or 9";
+    return null;
+  }
 
+  String? validateVenue(String v) {
+    if (v.isEmpty) return "Wedding venue is required";
+    return null;
+  }
 
+  String? validateWeddingDate(String date) {
+    if (date.isEmpty) return "Wedding date is required";
 
-  // 🏙️ Load Cities
+    DateTime today = DateTime.now();
+    DateTime selected = DateTime.tryParse(date) ?? today;
+
+    DateTime minDate = DateTime(today.year - 1);
+    DateTime maxDate = DateTime(today.year + 5);
+
+    if (selected.isBefore(minDate)) return "Wedding date is too old";
+    if (selected.isAfter(maxDate)) return "Wedding date is too far in the future";
+
+    return null;
+  }
+
+  // -----------------------------------------------------
+  // LOAD CITIES
+  // -----------------------------------------------------
   Future<void> _loadCities() async {
     setState(() => _isLoadingCities = true);
     try {
@@ -93,17 +126,17 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         }
       }
     } catch (e) {
-      print('🚨 Error loading cities: $e');
+      print('🚨 City loading error: $e');
     } finally {
       setState(() => _isLoadingCities = false);
     }
   }
 
-  // 🏙️ City picker
+  // -----------------------------------------------------
+  // CITY SEARCH
+  // -----------------------------------------------------
   Future<void> _showCityPicker() async {
-    if (_cities.isEmpty && !_isLoadingCities) {
-      await _loadCities();
-    }
+    if (_cities.isEmpty) await _loadCities();
 
     final selected = await showSearch<String>(
       context: context,
@@ -117,9 +150,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     }
   }
 
-
-
-  // 📅 Wedding date picker
+  // -----------------------------------------------------
+  // DATE PICKER
+  // -----------------------------------------------------
   Future<void> _pickWeddingDate() async {
     DateTime now = DateTime.now();
     DateTime? picked = await showDatePicker(
@@ -132,39 +165,37 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
     if (picked != null) {
       String formatted = picked.toIso8601String().split('T')[0];
-
-      setState(() {
-        weddingDateController.text = formatted;
-      });
+      weddingDateController.text = formatted;
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('wedding_date', formatted);
-
-      print("✅ Saved wedding date → $formatted");
     }
   }
 
-
-  // 🔁 Update profile
+  // -----------------------------------------------------
+  // UPDATE PROFILE
+  // -----------------------------------------------------
   Future<void> _updateUserProfile() async {
-    // 🧠 Check login before allowing edit
-    final loggedIn = await ensureLoggedIn(context);
-    if (!loggedIn) {
-      _showSnackBar('Please log in to update your profile.');
+    // RUN VALIDATIONS
+    setState(() {
+      mobileError = validateMobile(mobileController.text.trim());
+      venueError = validateVenue(weddingVenueController.text.trim());
+      weddingDateError = validateWeddingDate(weddingDateController.text.trim());
+    });
+
+    if (mobileError != null || venueError != null || weddingDateError != null) {
+      _showSnackBar("Please fix the errors before saving");
       return;
     }
 
-    if (userId == null) {
-      _showSnackBar('User ID missing');
-      return;
-    }
+    final loggedIn = await ensureLoggedIn(context);
+    if (!loggedIn) return;
+
+    if (userId == null) return _showSnackBar('User ID missing');
 
     setState(() => _isSaving = true);
 
-    const String baseUrl = 'https://happywedz.com/api';
-    final String url = '$baseUrl/user/$userId';
-
-    print('🛰️ PATCH URL: $url');
+    final url = 'https://happywedz.com/api/user/$userId';
 
     try {
       final response = await http.put(
@@ -177,36 +208,34 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         }),
       );
 
-      print('📡 [PATCH] Status: ${response.statusCode}');
-      print('📡 [PATCH] Body: ${response.body}');
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         if (data['success'] == true) {
-          final user = data['user'];
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_mobile', user['phone'] ?? '');
-          await prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
-          await prefs.setString('wedding_date', user['weddingDate'] ?? '');
+          final user = data['user'];
 
+          prefs.setString('user_mobile', user['phone'] ?? '');
+          prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
+          prefs.setString('wedding_date', user['weddingDate'] ?? '');
 
-          _showSnackBar('Profile updated successfully ✅');
+          _showSnackBar('Profile updated successfully ✔️');
         } else {
-          _showSnackBar('Failed to update profile');
+          _showSnackBar('Update failed');
         }
       } else {
-        _showSnackBar('Server error: ${response.statusCode}');
+        _showSnackBar('Server error ${response.statusCode}');
       }
     } catch (e) {
-      _showSnackBar('Error updating profile: $e');
+      _showSnackBar('Error: $e');
     } finally {
       setState(() => _isSaving = false);
     }
   }
 
-
-  // 🚪 Logout
+  // -----------------------------------------------------
+  // LOGOUT
+  // -----------------------------------------------------
   Future<void> _logout() async {
     await UserPrefs.clear();
     await FirebaseAuth.instance.signOut();
@@ -219,148 +248,239 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-
   void _showSnackBar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.pink),
     );
   }
 
+  // -----------------------------------------------------
+  // FULL PROFESSIONAL UI
+  // -----------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
-            stops: [0.0, 0.3, 0.6],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          Container(
+            height: 260,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF4F9A), Color(0xFFFFB7D5)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const SizedBox(height: 50),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundImage: userPhoto.isNotEmpty
-                          ? NetworkImage(userPhoto)
-                          : const NetworkImage(
-                          'https://www.wedmegood.com/images/placeholder-profile.png'),
+
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: BouncingScrollPhysics(),
+              child: Column(
+                children: [
+
+                  const SizedBox(height: 20),
+
+                  // PROFILE CARD
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 10,
+                            offset: Offset(0, 4))
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          userName.isNotEmpty ? userName : 'User',
-                          style: GoogleFonts.poppins(
-                              fontSize: 18, fontWeight: FontWeight.w600),
+                        CircleAvatar(
+                          radius: 43,
+                          backgroundImage: userPhoto.isNotEmpty
+                              ? NetworkImage(userPhoto)
+                              : NetworkImage(
+                              "https://www.wedmegood.com/images/placeholder-profile.png"),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          userEmail.isNotEmpty ? userEmail : 'example@mail.com',
-                          style: GoogleFonts.poppins(
-                              color: Colors.grey.shade700, fontSize: 14),
+                        SizedBox(width: 20),
+                        Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(userName.isNotEmpty ? userName : "Your Name",
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700)),
+                                Text(
+                                  userEmail.isNotEmpty
+                                      ? userEmail
+                                      : "example@mail.com",
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      color: Colors.grey[700]),
+                                )
+                              ]),
+                        )
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // SETTINGS CONTAINER
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 15,
+                            offset: Offset(0, 5))
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildField(
+                          label: "Mobile Number",
+                          controller: mobileController,
+                          icon: Icons.phone_android,
+                          keyboard: TextInputType.phone,
+                          error: mobileError,
+                        ),
+
+                        SizedBox(height: 20),
+
+                        _buildField(
+                          label: "Wedding Venue (City)",
+                          controller: weddingVenueController,
+                          icon: Icons.location_on_outlined,
+                          readOnly: true,
+                          onTap: _showCityPicker,
+                          error: venueError,
+                        ),
+
+                        SizedBox(height: 20),
+
+                        _buildField(
+                          label: "Wedding Date",
+                          controller: weddingDateController,
+                          icon: Icons.calendar_today_outlined,
+                          readOnly: true,
+                          onTap: _pickWeddingDate,
+                          error: weddingDateError,
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isSaving ? null : _updateUserProfile,
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.all(15),
+                              backgroundColor: _isSaving
+                                  ? Colors.grey
+                                  : Colors.pinkAccent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              _isSaving ? "Saving..." : "Save Changes",
+                              style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        Divider(),
+
+                        ListTile(
+                          leading: Icon(Icons.logout, color: Colors.redAccent),
+                          title: Text(
+                            "Logout",
+                            style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.red),
+                          ),
+                          onTap: _logout,
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              const Divider(),
-
-              // 📞 Mobile
-              ListTile(
-                title: Text('Mobile Number',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-                subtitle: TextField(
-                  controller: mobileController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                      hintText: 'Enter your mobile number',
-                      border: InputBorder.none),
-                ),
-              ),
-              const Divider(),
-
-              // 🏙️ Wedding Venue
-              ListTile(
-                title: Text('Wedding Venue (City)',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-                subtitle: TextField(
-                  controller: weddingVenueController,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    hintText: 'Select your wedding city',
-                    border: InputBorder.none,
                   ),
-                  onTap: _showCityPicker,
-                ),
-              ),
-              const Divider(),
 
-              // 📅 Wedding Date
-              ListTile(
-                title: Text('Wedding Date',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-                subtitle: TextField(
-                  controller: weddingDateController,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                      hintText: 'Select wedding date',
-                      border: InputBorder.none),
-                  onTap: _pickWeddingDate,
-                ),
+                  SizedBox(height: 40),
+                ],
               ),
-              const Divider(),
+            ),
+          )
+        ],
+      ),
+    );
+  }
 
-              // 💾 Save
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                    _isSaving ? Colors.grey : Colors.pinkAccent,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: _isSaving ? null : _updateUserProfile,
-                  child: Text(
-                    _isSaving ? 'Saving...' : 'Save Changes',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
+  // -----------------------------------------------------
+  // BEAUTIFUL INPUT FIELD WITH ERROR
+  // -----------------------------------------------------
+  Widget _buildField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    String? error,
+    TextInputType? keyboard,
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800])),
 
-              const Divider(),
+        const SizedBox(height: 6),
 
-              // 🚪 Logout
-              ListTile(
-                leading:
-                const Icon(Icons.logout_outlined, color: Colors.redAccent),
-                title: Text('Logout',
-                    style: GoogleFonts.poppins(
-                        color: Colors.red, fontSize: 15)),
-                onTap: _logout,
-              ),
-            ],
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: error != null
+                ? Border.all(color: Colors.redAccent)
+                : null,
+          ),
+          child: TextField(
+            controller: controller,
+            readOnly: readOnly,
+            keyboardType: keyboard,
+            onTap: onTap,
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: Colors.pinkAccent),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 14),
+            ),
           ),
         ),
-      ),
+
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(error,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+          ),
+      ],
     );
   }
 }

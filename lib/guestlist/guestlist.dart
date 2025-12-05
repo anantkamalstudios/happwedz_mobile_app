@@ -1167,10 +1167,6 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
 }
 
 
-
-
-
-
 class GuestDetailsScreen extends StatefulWidget {
   final Guest guest;
 

@@ -20,7 +20,7 @@ plugins {
 
 android {
     namespace = "com.happy.happy_wedz"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -38,9 +38,9 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "1.0.8"
     }
 //    signingConfigs {
 //        release {

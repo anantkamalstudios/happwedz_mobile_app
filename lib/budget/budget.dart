@@ -398,6 +398,7 @@ class _BudgetPageState extends State<BudgetPage> {
         icon: const Icon(Icons.add),
         label: const Text('Add'),
       ),
+
     );
   }
 

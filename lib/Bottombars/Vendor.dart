@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../ai_chat_screen/ai_chat_screen.dart';
 import '../vendor/vendordetailsscreen.dart';
 import 'GenieScreen.dart';
 
@@ -32,6 +33,8 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
   bool ispandit=false;
   List<VendorCategory> categories = [];
   Map<int, bool> expandedState = {}; // Track expanded cards
+  bool isLoading = true;
+
 
   @override
   void initState() {
@@ -171,46 +174,7 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
           ),
 
           // ---------------------- FLOATING GENIE BUTTON ----------------------
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const GenieScreen()),
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF6A5AE0),
-                      Color(0xFFB26BF2),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.purpleAccent.withOpacity(0.5),
-                      blurRadius: 20,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.auto_awesome,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-            ),
-          ),
+
 
         ],
       ),

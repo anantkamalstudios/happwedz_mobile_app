@@ -1,4 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:http/http.dart' as http;
@@ -7,44 +8,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:html/parser.dart' show parse;
 import '../ClaimBusiness.dart';
 import '../Review.dart';
-import '../chat/chat_screen.dart';
-import '../chat/chat_service.dart';
+import '../ai_chat_screen/ai_chat_screen.dart';
 import '../chat_page_new.dart';
-import '../main.dart';
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // ⬇️ Import your other screens
 
 // Updated VendorServicesScreen with rich UI, wishlist, list/grid toggle, search, filters
 // NOTE: This is a full file. Replace your existing code with this.
 
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Final VendorServicesScreen — Fully integrated with pagination, grid/list toggle, search, filters,
 // wishlist toggle, phone/WhatsApp/message actions, safe image handling and no overflow.
 
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // Replace with your actual vendor details screen import
 
@@ -91,8 +70,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   void initState() {
     super.initState();
     _loadCurrentUser();
-    fetchServices();
-    setupPaginationListener();
+    // fetchServices();
+    fetchAllServices();
+    // setupPaginationListener();
   }
 
   @override
@@ -100,6 +80,46 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     _scrollController.dispose();
     searchController.dispose();
     super.dispose();
+  }
+  Future<void> fetchAllServices() async {
+    setState(() {
+      isLoading = true;
+      allServices.clear();
+      services.clear();
+    });
+
+    try {
+      final sub = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
+
+      final url = Uri.parse(
+          "https://happywedz.com/api/vendor-services?subCategory=$sub&limit=5000"
+      );
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final raw = data["data"];
+
+        List<dynamic> list = [];
+
+        if (raw is List) {
+          list = raw;
+        } else if (raw is Map<String, dynamic>) {
+          list = [raw];
+        }
+
+        setState(() {
+          allServices.addAll(list);
+        });
+
+        _applyFiltersAndSearch();
+      }
+    } catch (e) {
+      print("Error loading ALL services: $e");
+    }
+
+    setState(() => isLoading = false);
   }
 
   void setupPaginationListener() {
@@ -242,42 +262,105 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
     _applyFiltersAndSearch(); // 🔥 local filtering
   }
+  Timer? _debounce;
 
+  // void _applyFiltersAndSearch() {
+  //   if (_debounce?.isActive ?? false) _debounce!.cancel();
+  //
+  //   _debounce = Timer(const Duration(milliseconds: 400), () {
+  //     fetchVendors(searchController.text.trim());
+  //   });
+  // }
   void _applyFiltersAndSearch() {
     final q = searchController.text.trim().toLowerCase();
 
-    final filtered = allServices.where((s) {
-      final attr = s['attributes'] ?? {};
-      final vendor = s['vendor'] ?? {};
+    final filtered = allServices.where((service) {
+      final attr = service['attributes'] ?? {};
+      final vendor = service['vendor'] ?? {};
 
-      final name = (vendor['businessName'] ?? attr['vendor_name'] ?? '')
+      final name = (vendor['businessName'] ??
+          attr['vendor_name'] ??
+          attr['Name'] ??
+          '')
           .toString()
           .toLowerCase();
-      final city = (vendor['city'] ?? attr['city'] ?? '').toString().toLowerCase();
 
-      // price parsing (veg_price or non_veg_price)
-      double price = 0;
-      final veg = (attr['veg_price'] ?? attr['PriceRange'] ?? '')
+      final city = (vendor['city'] ?? attr['city'] ?? '')
           .toString()
-          .replaceAll(',', '')
+          .toLowerCase();
+
+      // Price extraction
+      double price = 0;
+      final pText = (attr['veg_price'] ?? attr['PriceRange'] ?? '')
+          .toString()
           .replaceAll(RegExp(r'[^0-9.]'), '');
-      if (veg.isNotEmpty) price = double.tryParse(veg) ?? 0;
+      if (pText.isNotEmpty) price = double.tryParse(pText) ?? 0.0;
 
-      final ratingStr = (attr['rating'] ?? attr['averageRating'] ?? '0').toString();
-      final rating = double.tryParse(ratingStr.replaceAll(',', '')) ?? 0.0;
+      // Rating
+      final rating = double.tryParse(
+        (attr['rating'] ??
+            attr['averageRating'] ??
+            '0')
+            .toString(),
+      ) ??
+          0;
 
-      bool matchesSearch = q.isEmpty || name.contains(q) || city.contains(q);
-      bool matchesCity = filterCity.isEmpty || city.contains(filterCity.toLowerCase());
-      bool matchesPrice = price >= filterMinPrice && price <= filterMaxPrice;
-      bool matchesRating = rating >= filterMinRating;
+      return
+        // 🔎 SEARCH (name + city)
+        (q.isEmpty || name.contains(q) || city.contains(q)) &&
 
-      return matchesSearch && matchesCity && matchesPrice && matchesRating;
+            // 🏙 City Filter
+            (filterCity.isEmpty || city.contains(filterCity.toLowerCase())) &&
+
+            // 💰 Price Filter
+            price >= filterMinPrice &&
+            price <= filterMaxPrice &&
+
+            // ⭐ Rating Filter
+            rating >= filterMinRating;
     }).toList();
 
     setState(() {
       services = filtered;
     });
   }
+
+
+  // void _applyFiltersAndSearch() {
+  //   final q = searchController.text.trim().toLowerCase();
+  //
+  //   final filtered = allServices.where((s) {
+  //     final attr = s['attributes'] ?? {};
+  //     final vendor = s['vendor'] ?? {};
+  //
+  //     final name = (vendor['businessName'] ?? attr['vendor_name'] ?? '')
+  //         .toString()
+  //         .toLowerCase();
+  //     final city = (vendor['city'] ?? attr['city'] ?? '').toString().toLowerCase();
+  //
+  //     // price parsing (veg_price or non_veg_price)
+  //     double price = 0;
+  //     final veg = (attr['veg_price'] ?? attr['PriceRange'] ?? '')
+  //         .toString()
+  //         .replaceAll(',', '')
+  //         .replaceAll(RegExp(r'[^0-9.]'), '');
+  //     if (veg.isNotEmpty) price = double.tryParse(veg) ?? 0;
+  //
+  //     final ratingStr = (attr['rating'] ?? attr['averageRating'] ?? '0').toString();
+  //     final rating = double.tryParse(ratingStr.replaceAll(',', '')) ?? 0.0;
+  //
+  //     bool matchesSearch = q.isEmpty || name.contains(q) || city.contains(q);
+  //     bool matchesCity = filterCity.isEmpty || city.contains(filterCity.toLowerCase());
+  //     bool matchesPrice = price >= filterMinPrice && price <= filterMaxPrice;
+  //     bool matchesRating = rating >= filterMinRating;
+  //
+  //     return matchesSearch && matchesCity && matchesPrice && matchesRating;
+  //   }).toList();
+  //
+  //   setState(() {
+  //     services = filtered;
+  //   });
+  // }
 
   // Toggle favourite (local + API)
   Future<void> _toggleFavourite(String vendorServiceId) async {
@@ -538,6 +621,25 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       ),
     );
   }
+  List<dynamic> vendorList = [];
+
+  Future<void> fetchVendors(String query) async {
+    final url = Uri.parse(
+      "https://happywedz.com/api/vendor-services?search=$query",
+    );
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+
+      setState(() {
+        vendorList = data['data']; // Adjust based on API response
+      });
+    } else {
+      print("Error fetching vendors: ${response.statusCode}");
+    }
+  }
 
   Widget _buildSearchBar() {
     return Padding(
@@ -573,7 +675,12 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: Colors.pink),
-            onPressed: (){},
+            onPressed: (){
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiChatScreen()),
+              );
+            },
           )
         ],
       ),
@@ -1501,11 +1608,13 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   // ---------------------------
   // Helper parsers (kept from your code)
   // ---------------------------
-  String normalizeUrl(String url) {
-    if (url == null) return '';
+  String normalizeUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+
     if (url.startsWith('/uploads/')) {
       return "https://happywedzbackend.happywedz.com$url";
     }
+
     return url;
   }
 
@@ -1875,6 +1984,37 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     // Visual theme colors
     final primaryAccent = Colors.pink.shade600;
 
+    // Parse lat & lng carefully (they might be num or String)
+    dynamic latRaw = attributes['latitude'] ?? attributes['lat'] ?? attributes['Latitude'] ?? attributes['LATITUDE'];
+    dynamic lngRaw = attributes['longitude'] ?? attributes['lng'] ?? attributes['lon'] ?? attributes['Longitude'] ?? attributes['LONGITUDE'];
+
+    double? latitude;
+    double? longitude;
+
+    if (latRaw != null) {
+      if (latRaw is num) latitude = latRaw.toDouble();
+      else if (latRaw is String) latitude = double.tryParse(latRaw);
+    }
+
+    if (lngRaw != null) {
+      if (lngRaw is num) longitude = lngRaw.toDouble();
+      else if (lngRaw is String) longitude = double.tryParse(lngRaw);
+    }
+
+    Future<void> openMap(double lat, double lng) async {
+      final Uri url = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+
+      final bool launched = await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+      print(lat);
+      print(longitude);
+      if (!launched) {
+        await launchUrl(url, mode: LaunchMode.inAppBrowserView);
+      }
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       body: SafeArea(
@@ -2061,21 +2201,24 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                     if (images.length > 1)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: images.asMap().entries.map((e) {
-                            final active = _currentCarouselIndex == e.key;
-                            return AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              height: 8,
-                              width: active ? 26 : 8,
-                              decoration: BoxDecoration(
-                                color: active ? Colors.black87 : Colors.grey.shade400,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            );
-                          }).toList(),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: images.asMap().entries.map((e) {
+                              final active = _currentCarouselIndex == e.key;
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                height: 8,
+                                width: active ? 26 : 8,
+                                decoration: BoxDecoration(
+                                  color: active ? Colors.black87 : Colors.grey.shade400,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
 
@@ -2179,16 +2322,32 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                               //   ),
                               // ),
                               const SizedBox(width: 12),
-                              Container(
-                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
-                                child: IconButton(
-                                  tooltip: 'View on map',
-                                  icon: const Icon(Icons.map_outlined),
-                                  onPressed: () {
-                                    // open maps maybe using address
-                                  },
-                                ),
-                              ),
+              Container(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                child: IconButton(
+                  tooltip: 'View on map',
+                  icon: const Icon(Icons.location_on_sharp),
+                  onPressed: () async {
+                    // if lat/lng are available, open map; otherwise show SnackBar
+                    if (latitude != null && longitude != null) {
+                      try {
+                        await openMap(latitude, longitude);
+                        print("Opening map...");
+                        print(latitude);
+                        print(longitude);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Could not open map: $e')),
+                        );
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Location not available for this vendor')),
+                      );
+                    }
+                  },
+                ),
+              ),
                             ],
                           ),
 
@@ -2309,6 +2468,34 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                             ),
 
                           const SizedBox(height: 18),
+                          Container(
+                            decoration: BoxDecoration(
+                                color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                            child: IconButton(
+                              tooltip: 'Write a review',
+                              icon: const Icon(Icons.rate_review_outlined),
+                              onPressed: ()  {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RecommendVendorScreen(
+                                      vendorId: vendorId,
+                                      vendorName: vendorName,
+                                      vendorImage: images.isNotEmpty ? images[0] : null,
+                                      currentUserId: currentUserId,
+                                    ),
+                                  ),
+                                );
+                                print('Reviews');
+                                print("Vendor ID: $vendorId");
+                                  print(currentUserId);
+                                  print(vendorName);
+
+                              },
+                            ),
+                          )
+
+
 
                           // Ratings summary + call to fetch reviews
                           // Card(
@@ -2507,4 +2694,4 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   }
 }
 
-//
+

@@ -1,32 +1,32 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!--    &lt;!&ndash;  🔥 STORAGE PERMISSIONS  &ndash;&gt;-->
+<!--    &lt;!&ndash;  For Android 9 and below  &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>-->
+<!--    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>-->
+<!--    &lt;!&ndash;  🔥 For Android 10 (legacy access)  &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>-->
+<!--    &lt;!&ndash;  🔥 Android 11+ Scoped Storage  &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>-->
+<!--    &lt;!&ndash;  🔥 Android 13+ media-specific permissions  &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>-->
 
-    <!-- 🔥 STORAGE PERMISSIONS -->
-    <!-- For Android 9 and below -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28"/>
+<!--    &lt;!&ndash; Android 12 and below &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"-->
+<!--        android:maxSdkVersion="32"/>-->
 
-    <!-- 🔥 For Android 10 (legacy access) -->
-    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>
+<!--    &lt;!&ndash; Android 13+ media permissions &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>-->
 
-    <!-- 🔥 Android 11+ Scoped Storage -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
-
-    <!-- 🔥 Android 13+ media-specific permissions -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
-
-    <application
-        android:label="happy_wedz"
+<!--    &lt;!&ndash; If your app needs location of photos (optional) &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>-->
+    <application android:label="Happy Wedz"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true">
-
-        <activity
-            android:name=".MainActivity"
+        <activity android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -34,45 +34,21 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-
-            <meta-data
-                android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme" />
-
-            <meta-data
-                android:name="com.google.android.gms.client_id"
-                android:value="83829632051-89oet44jqrggh315k99q9h0ruff4vkuh.apps.googleusercontent.com" />
-
-            <meta-data
-                android:name="com.truecaller.android.sdk.ClientId"
-                android:value="gt7crz05tgi0o3mk10wimjig0irao0fr7xgsljqdfh8" />
-
-            <meta-data
-                android:name="com.facebook.sdk.ApplicationId"
-                android:value="@string/facebook_app_id" />
-
-            <meta-data
-                android:name="com.facebook.sdk.ClientToken"
-                android:value="@string/facebook_client_token" />
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme"/>
+            <meta-data android:name="com.google.android.gms.client_id" android:value="83829632051-89oet44jqrggh315k99q9h0ruff4vkuh.apps.googleusercontent.com"/>
+<!--            <meta-data android:name="com.truecaller.android.sdk.ClientId" android:value="gt7crz05tgi0o3mk10wimjig0irao0fr7xgsljqdfh8"/>-->
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-
         </activity>
-
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-
+        <meta-data android:name="flutterEmbedding" android:value="2"/>
     </application>
-
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT" />
-            <data android:mimeType="text/plain" />
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
         </intent>
     </queries>
-
 </manifest>

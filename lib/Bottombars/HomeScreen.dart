@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:video_player/video_player.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy_wedz/login.dart';
@@ -16,6 +18,7 @@ import '../DecorationScreen.dart';
 import '../LoadingLogo.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../Wishlist/Wishlistscreen.dart';
+import '../ai_chat_screen/ai_chat_screen.dart';
 import '../designstudio.dart';
 import '../einvite1/einvite.dart';
 import '../favscreen.dart';
@@ -446,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
                 TextButton(
                   onPressed: () {
-                    // TODO: navigate to venues listing
+
                   },
                   child: Text('View all',
                       style: GoogleFonts.inter(color: const Color(0xFFA60F93))),
@@ -1020,7 +1023,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   void initState() {
     super.initState();
     _loadInitialData();
+    loadStories();
+
   }
+  Future<void> loadStories() async {
+    final data = await fetchStories();
+
+    setState(() {
+      blogPosts = data;
+      isLoadingBlogPosts = false;
+    });
+  }
+
   // ---- Data (provided by you) ----
   final List<Map<String, String>> categories = [
     {
@@ -1059,7 +1073,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       fetchVenues(), // no city -> default limited load for home
       fetchPhotographers(),
       fetchRealWeddings(),
-      fetchBlogPosts(),
+
     ]).catchError((e) {
       // individual fetches handle their own errors; this is fallback
       debugPrint('Initial load error: $e');
@@ -1107,15 +1121,44 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 // ---------- BLOG CATEGORIES ----------
   List<dynamic> blogCategories = [];
   bool isLoadingBlogCategories = true;
+  // Future<List<Map<String, dynamic>>> fetchStories() async {
+  //   final response = await http.get(Uri.parse('https://happywedz.com/api/blog-categories/all'));
+  // print(response);
+  //   if (response.statusCode == 200) {
+  //     final Map<String, dynamic> decodedJson = json.decode(response.body);
+  //     final List<dynamic> dataList = decodedJson['data'];
+  //     return dataList.cast<Map<String, dynamic>>().toList();
+  //   } else {
+  //     throw Exception('Failed to load stories');
+  //   }
+  //
+  // }
   Future<List<Map<String, dynamic>>> fetchStories() async {
-    final response = await http.get(Uri.parse('https://happywedz.com/api/blog-categories/all'));
+    try {
+      final response = await http.get(
+        Uri.parse('https://happywedz.com/api/blogs/all'),
+      );
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> decodedJson = json.decode(response.body);
-      final List<dynamic> dataList = decodedJson['data'];
-      return dataList.cast<Map<String, dynamic>>().toList();
-    } else {
-      throw Exception('Failed to load stories');
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+
+        final List<dynamic> dataList = decoded['data'] ?? [];
+
+        return dataList.map((item) {
+          return {
+            'title': item['title'] ?? 'No Title',
+            'shortDescription': item['shortDescription'] ?? '',
+            'image': item['image']?.toString() ?? '',
+            'author': item['author'] ?? '',
+            'date': item['postDate'] ?? '',
+          };
+        }).toList();
+      } else {
+        throw Exception('Failed to load stories');
+      }
+    } catch (e) {
+      print("fetchBlogPosts error: $e");
+      return [];
     }
   }
 
@@ -1299,29 +1342,29 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-  Future<void> fetchBlogPosts() async {
-    setState(() => isLoadingBlogPosts = true);
-    try {
-      final response = await http.get(Uri.parse("https://happywedz.com/api/blog-deatils/all"));
-      if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-        // check shape — some APIs return {data: [...] } else root list
-        final List<dynamic> data = decoded is Map && decoded['data'] is List
-            ? decoded['data'] as List<dynamic>
-            : (decoded is List ? decoded : []);
-        setState(() {
-          blogPosts = data;
-          isLoadingBlogPosts = false;
-        });
-      } else {
-        debugPrint('fetchBlogPosts error: ${response.statusCode}');
-        setState(() => isLoadingBlogPosts = false);
-      }
-    } catch (e) {
-      debugPrint('fetchBlogPosts exception: $e');
-      setState(() => isLoadingBlogPosts = false);
-    }
-  }
+  // Future<void> fetchBlogPosts() async {
+  //   setState(() => isLoadingBlogPosts = true);
+  //   try {
+  //     final response = await http.get(Uri.parse("https://happywedz.com/api/blog-deatils/all"));
+  //     if (response.statusCode == 200) {
+  //       final decoded = json.decode(response.body);
+  //       // check shape — some APIs return {data: [...] } else root list
+  //       final List<dynamic> data = decoded is Map && decoded['data'] is List
+  //           ? decoded['data'] as List<dynamic>
+  //           : (decoded is List ? decoded : []);
+  //       setState(() {
+  //         blogPosts = data;
+  //         isLoadingBlogPosts = false;
+  //       });
+  //     } else {
+  //       debugPrint('fetchBlogPosts error: ${response.statusCode}');
+  //       setState(() => isLoadingBlogPosts = false);
+  //     }
+  //   } catch (e) {
+  //     debugPrint('fetchBlogPosts exception: $e');
+  //     setState(() => isLoadingBlogPosts = false);
+  //   }
+  // }
   Future<bool> checkUserHasFavourites() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
@@ -1445,30 +1488,79 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           ),
 
           // floating AI button (unchanged)
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: GestureDetector(
-              onTap: () {
-                // Navigator.push(... to GenieScreen)
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeInOut,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6A5AE0), Color(0xFFB26BF2)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [BoxShadow(color: Colors.purple.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)],
-                ),
-                padding: const EdgeInsets.all(18),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
-              ),
-            ),
-          ),
+          // Positioned(
+          //   bottom: 20,
+          //   right: 20,
+          //   child: GestureDetector(
+          //     onTap: () {
+          //       Navigator.push(
+          //         context,
+          //         MaterialPageRoute(builder: (_) => const AiChatScreen()),
+          //       );
+          //     },
+          //     child: AnimatedContainer(
+          //       duration: const Duration(milliseconds: 600),
+          //       curve: Curves.easeInOut,
+          //       decoration: BoxDecoration(
+          //         shape: BoxShape.circle,
+          //         gradient: const LinearGradient(
+          //           colors: [Color(0xFF6A5AE0), Color(0xFFB26BF2)],
+          //           begin: Alignment.topLeft,
+          //           end: Alignment.bottomRight,
+          //         ),
+          //         boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)],
+          //       ),
+          //       padding: const EdgeInsets.all(18),
+          //       // child: const VideoIcon(),
+          //       child: SizedBox(
+          //         height: 35,
+          //         width: 35,
+          //         child: Image.asset('assets/shadiai-unscreen.gif'),
+          //       ),
+          //
+          //       // child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
+          //     ),
+          //   ),
+          // ),
+    Positioned(
+    bottom: 20,
+    right: 20,
+    child: GestureDetector(
+    onTap: () {
+    Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const AiChatScreen()),
+    );
+    },
+    child: AnimatedContainer(
+    duration: const Duration(milliseconds: 600),
+    curve: Curves.easeInOut,
+
+    decoration: BoxDecoration(
+    shape: BoxShape.circle,
+    color: Colors.pink,   // Pink background
+    boxShadow: [
+    BoxShadow(
+    color: Colors.pink.withOpacity(0.4),
+    blurRadius: 25,
+    spreadRadius: 5,
+    ),
+    ],
+    ),
+
+    // Bigger button
+    padding: const EdgeInsets.all(20),
+
+    // ⭐ Directly increase the image size
+    child: Image.asset(
+    'assets/shadiai-unscreen.gif',
+    height: 35,     // 🔥 Increase image height
+    width: 35,      // 🔥 Increase image width
+    fit: BoxFit.contain,
+    ),
+    ),
+    ),
+    ),
 
           // global loading overlay that only hides after initial loads complete
           if (isLoading)
@@ -1539,7 +1631,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           const SizedBox(width: 10),
           InkWell(
             onTap: () {
-              // Navigate to ProfileSettingsScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()));
             },
             child: Container(
               padding: const EdgeInsets.all(8),
@@ -1614,17 +1708,20 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           }
 
           final category = horizontalCategories[index];
-          final imageUrl = category.heroImage.isNotEmpty
-              ? "https://happywedzbackend.happywedz.com/${category.heroImage}"
-              : '';
 
+// Fix hero image URL
+          String imageUrl = '';
+          if (category.heroImage.isNotEmpty) {
+            imageUrl =
+            "https://happywedzbackend.happywedz.com${category.heroImage}";
+          }
+        print(imageUrl);
           return Container(
             margin: const EdgeInsets.only(right: 15),
             child: Column(
               children: [
                 InkWell(
                   onTap: () {
-                    // Open VendorServicesScreen directly with the first subcategory
                     if (category.subcategories.isNotEmpty) {
                       final subcategoryName = category.subcategories.first.name;
                       Navigator.push(
@@ -1652,16 +1749,23 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                         fit: BoxFit.cover,
                         width: 70,
                         height: 70,
-                        errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.image, color: Colors.white),
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.pink.shade100,
+                          child: const Icon(Icons.broken_image,
+                              color: Colors.white),
+                        ),
                       )
-                          : const Icon(Icons.image, color: Colors.white),
+                          : Container(
+                        color: Colors.pink.shade100,
+                        child:
+                        const Icon(Icons.image, color: Colors.white),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
-                  width: 70, // same as the image width
+                  width: 70,
                   child: Text(
                     category.name,
                     textAlign: TextAlign.center,
@@ -1677,10 +1781,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               ],
             ),
           );
+
         },
       ),
     );
   }
+
   // Widget _buildCategorySection() {
   //   if (isLoadingCategories) {
   //     return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
@@ -1909,9 +2015,16 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   Widget _buildViewAllVenuesButton(BuildContext context) {
     return InkWell(
       onTap: () {
-        // Navigator.push to VenuesScreen()
-
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VendorServicesScreen(
+              subcategoryName: "venues",   // 👈 pass category name
+            ),
+          ),
+        );
       },
+
       borderRadius: BorderRadius.circular(25),
       child: Container(
         width: double.infinity,
@@ -2006,7 +2119,16 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   Widget _buildViewAllPhotographersButton() {
     return InkWell(
-      onTap: () {},
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VendorServicesScreen(
+              subcategoryName: "photographer",   // 👈 pass category name
+            ),
+          ),
+        );
+      },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -2044,18 +2166,69 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 ]),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Upcoming tasks', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
-                    const SizedBox(height: 8),
-                    ...upcomingTasks.map((task) => Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Container(width: 4, height: 4, margin: const EdgeInsets.only(top: 6), decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle)),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(task, style: const TextStyle(fontSize: 11, color: Colors.black87, height: 1.3))),
-                    ]))),
-                  ]),
+                  padding: const EdgeInsets.all(8), // reduced padding
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Upcoming tasks',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4), // reduced spacing
+                      ...upcomingTasks.map(
+                            (task) => Padding(
+                          padding: const EdgeInsets.only(bottom: 2), // reduced spacing
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 4,
+                                margin: const EdgeInsets.only(top: 6),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black87,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6), // slightly smaller
+                              Expanded(
+                                child: Text(
+                                  task,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black87,
+                                    height: 1.1, // reduce line height
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                // Container(
+                //   padding: const EdgeInsets.all(14),
+                //   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                //   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                //     const Text('Upcoming tasks', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
+                //     const SizedBox(height: 8),
+                //     ...upcomingTasks.map((task) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                //       Container(width: 4, height: 4, margin: const EdgeInsets.only(top: 6), decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle)),
+                //       const SizedBox(width: 8),
+                //       Expanded(child: Text(task, style: const TextStyle(fontSize: 11, color: Colors.black87, height: 1.3))),
+                //     ]))),
+                //   ]),
+                // ),
               ]),
             )
           ]),
@@ -2212,45 +2385,267 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   }
 
   // -------- INTERESTING READS (blogs) --------
+  // Widget _buildInterestingReadsSection() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       const Text(
+  //         'Interesting reads',
+  //         style: TextStyle(
+  //             fontSize: 18,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.black87),
+  //       ),
+  //       const SizedBox(height: 15),
+  //
+  //       isLoadingBlogPosts
+  //           ? const Center(child: CircularProgressIndicator())
+  //           : blogPosts.isEmpty
+  //           ? const Text('No blog posts found')
+  //           : Column(
+  //         children: [
+  //           SingleChildScrollView(
+  //             scrollDirection: Axis.horizontal,
+  //             child: Row(
+  //               children: blogPosts.take(5).map<Widget>((post) {
+  //                 final title = post['name'] ?? 'No title';
+  //                 final imageUrl = (post['image'] != null &&
+  //                     post['image'].toString().isNotEmpty)
+  //                     ? post['image'].toString()
+  //                     : 'https://via.placeholder.com/300x200';
+  //
+  //                 return Container(
+  //                   height: 120,
+  //                   width: 160,
+  //                   margin: const EdgeInsets.only(right: 12),
+  //                   decoration: BoxDecoration(
+  //                       borderRadius: BorderRadius.circular(8)),
+  //                   child: ClipRRect(
+  //                     borderRadius: BorderRadius.circular(8),
+  //                     child: Stack(
+  //                       children: [
+  //                         Image.network(
+  //                           imageUrl,
+  //                           fit: BoxFit.cover,
+  //                           width: double.infinity,
+  //                           height: double.infinity,
+  //                           errorBuilder: (_, __, ___) =>
+  //                               Container(color: Colors.grey[300]),
+  //                         ),
+  //                         Container(
+  //                           padding: const EdgeInsets.all(8),
+  //                           alignment: Alignment.bottomLeft,
+  //                           decoration: BoxDecoration(
+  //                             gradient: LinearGradient(
+  //                               colors: [
+  //                                 Colors.black.withOpacity(0.4),
+  //                                 Colors.transparent
+  //                               ],
+  //                               begin: Alignment.bottomCenter,
+  //                               end: Alignment.topCenter,
+  //                             ),
+  //                           ),
+  //                           child: Text(
+  //                             title,
+  //                             style: const TextStyle(
+  //                                 color: Colors.white, fontSize: 12),
+  //                             maxLines: 2,
+  //                             overflow: TextOverflow.ellipsis,
+  //                           ),
+  //                         ),
+  //                       ],
+  //                     ),
+  //                   ),
+  //                 );
+  //               }).toList(),
+  //             ),
+  //           ),
+  //           //
+  //           // const SizedBox(height: 8),
+  //           //
+  //           // // ✅ NO 'post' HERE
+  //           // Text(
+  //           //   blogPosts.isNotEmpty
+  //           //       ? (blogPosts.first['description'] ?? '')
+  //           //       : '',
+  //           //   style: const TextStyle(
+  //           //       fontSize: 14,
+  //           //       color: Colors.black87,
+  //           //       height: 1.4),
+  //           // ),
+  //           //
+  //           // const SizedBox(height: 16),
+  //           //
+  //           // InkWell(
+  //           //   onTap: () {},
+  //           //   child: Container(
+  //           //     width: double.infinity,
+  //           //     padding:
+  //           //     const EdgeInsets.symmetric(vertical: 12),
+  //           //     decoration: BoxDecoration(
+  //           //         border:
+  //           //         Border.all(color: Color(0xFFE91E63)),
+  //           //         borderRadius: BorderRadius.circular(25)),
+  //           //     child: const Text(
+  //           //       'View all interesting reads >',
+  //           //       textAlign: TextAlign.center,
+  //           //       style: TextStyle(
+  //           //           color: Color(0xFFE91E63),
+  //           //           fontSize: 14,
+  //           //           fontWeight: FontWeight.w500),
+  //           //     ),
+  //           //   ),
+  //           // )
+  //         ],
+  //       ),
+  //     ],
+  //   );
+  // }
   Widget _buildInterestingReadsSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Interesting reads', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-      const SizedBox(height: 15),
-      isLoadingBlogPosts
-          ? const Center(child: CircularProgressIndicator())
-          : blogPosts.isEmpty
-          ? const Text('No blog posts found')
-          : Column(
-        children: [
-          SingleChildScrollView(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Interesting reads',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        isLoadingBlogPosts
+            ? const Center(child: CircularProgressIndicator())
+            : blogPosts.isEmpty
+            ? const Text('No blog posts found')
+            : SizedBox(
+          height: 250,
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            child: Row(children: blogPosts.take(5).map<Widget>((post) {
-              final title = (post is Map) ? (post['title'] ?? 'No title') : post.toString();
-              final image = (post is Map) ? (post['image'] ?? '') : '';
-              final imageUrl = image.toString().isNotEmpty ? image.toString() : 'https://via.placeholder.com/300x200';
-              return Container(
-                height: 120,
-                width: 160,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Stack(children: [
-                    Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity, height: double.infinity, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300])),
-                    Container(padding: const EdgeInsets.all(8), alignment: Alignment.bottomLeft, decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.black.withOpacity(0.4), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter)), child: Text(title.toString(), style: const TextStyle(color: Colors.white, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis))
-                  ]),
+            itemCount: blogPosts.length,
+            padding: const EdgeInsets.only(left: 4),
+            itemBuilder: (context, index) {
+              final post = blogPosts[index];
+              final img = post['image'] ?? "";
+              final title = post['title'] ?? "";
+              final shortDesc = post['shortDescription'] ?? "";
+              final author = post['author'] ?? "";
+              final date = post['date']?.toString().split("T")[0] ?? "";
+
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BlogDetailPage(
+                        title: post['title'] ?? '',
+                        date: post['postDate']?.toString().split("T")[0] ?? '',
+                        author: post['author'] ?? '',
+                        image: post['image'] ?? '',
+                        content: post['shortDescription'] ?? '',
+                        category: post['category']?['name'] ?? '',
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 260,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image
+                        SizedBox(
+                          height: 120,
+                          width: double.infinity,
+                          child: Image.network(
+                            img.isNotEmpty
+                                ? img
+                                : "https://via.placeholder.com/600x400",
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+
+                        // Title
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+
+                        // Short Description
+                        Padding(
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            shortDesc,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.black54),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+
+                        const Spacer(),
+
+                        // Author + Date
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          child: Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                author,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blueGrey,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                date,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
                 ),
               );
-            }).toList()),
+            },
           ),
-          const SizedBox(height: 8),
-          Text(blogPosts.isNotEmpty ? (blogPosts.first['excerpt'] ?? '') : '', style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4)),
-          const SizedBox(height: 16),
-          InkWell(onTap: () {}, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(border: Border.all(color: Color(0xFFE91E63)), borderRadius: BorderRadius.circular(25)), child: const Text('View all interesting reads >', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFE91E63), fontSize: 14, fontWeight: FontWeight.w500))))
-        ],
-      ),
-    ]);
+        ),
+      ],
+    );
   }
+
 
   Widget _buildViewAllInterestingReadsButton() {
     return InkWell(
@@ -2276,40 +2671,194 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
   // -------- REAL WEDDINGS --------
+  // Widget _buildRealWeddingsSection() {
+  //   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  //     const Text('Real weddings we love', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+  //     const SizedBox(height: 16),
+  //     isLoadingRealWeddings
+  //         ? const Center(child: CircularProgressIndicator())
+  //         : realWeddings.isEmpty
+  //         ? const Text("No real weddings found")
+  //         : SingleChildScrollView(
+  //       scrollDirection: Axis.horizontal,
+  //       child: Row(children: realWeddings.map<Widget>((wedding) {
+  //         final cover = (wedding is Map) ? (wedding['cover_photo'] ?? '') : '';
+  //         final title = (wedding is Map) ? (wedding['title'] ?? 'No title') : wedding.toString();
+  //         final imageUrl = cover.toString().isNotEmpty ? cover.toString() : 'https://via.placeholder.com/300x200';
+  //         final city = (wedding is Map) ? (wedding['city'] ?? '') : '';
+  //         return Container(
+  //           width: 200,
+  //           margin: const EdgeInsets.only(right: 12),
+  //           child: InkWell(
+  //             onTap: () {
+  //               // open wedding details screen
+  //             },
+  //             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  //               ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(imageUrl, height: 120, width: 200, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => Container(height: 120, width: 200, color: Colors.grey[300], child: const Icon(Icons.image)))),
+  //               const SizedBox(height: 8),
+  //               Text(title.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+  //               const SizedBox(height: 4),
+  //               Text(city.toString(), style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+  //             ]),
+  //           ),
+  //         );
+  //       }).toList()),
+  //     ),
+  //   ]);
+  // }
   Widget _buildRealWeddingsSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Real weddings we love', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-      const SizedBox(height: 16),
-      isLoadingRealWeddings
-          ? const Center(child: CircularProgressIndicator())
-          : realWeddings.isEmpty
-          ? const Text("No real weddings found")
-          : SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: realWeddings.map<Widget>((wedding) {
-          final cover = (wedding is Map) ? (wedding['cover_photo'] ?? '') : '';
-          final title = (wedding is Map) ? (wedding['title'] ?? 'No title') : wedding.toString();
-          final imageUrl = cover.toString().isNotEmpty ? cover.toString() : 'https://via.placeholder.com/300x200';
-          final city = (wedding is Map) ? (wedding['city'] ?? '') : '';
-          return Container(
-            width: 200,
-            margin: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: () {
-                // open wedding details screen
-              },
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(imageUrl, height: 120, width: 200, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => Container(height: 120, width: 200, color: Colors.grey[300], child: const Icon(Icons.image)))),
-                const SizedBox(height: 8),
-                Text(title.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(city.toString(), style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ]),
-            ),
-          );
-        }).toList()),
-      ),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Real weddings we love',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        isLoadingRealWeddings
+            ? const Center(child: CircularProgressIndicator())
+            : realWeddings.isEmpty
+            ? const Text("No real weddings found")
+            : SizedBox(
+          height: 230,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: realWeddings.length,
+            itemBuilder: (context, index) {
+              final wedding = realWeddings[index];
+              final String imageUrl = wedding['cover_photo'] ?? "";
+              final String title = wedding['title'] ?? "";
+              final String city = wedding['city'] ?? "";
+              final String date = wedding['wedding_date'] ?? "";
+
+              return InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RealWeddingDetailPage(
+                        wedding: RealWedding.fromJson(wedding),
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 200,
+                  margin: EdgeInsets.only(right: 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      children: [
+                        // Wedding cover image
+                        Positioned.fill(
+                          child: Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (c, child, progress) {
+                              if (progress == null) return child;
+                              return Container(
+                                color: Colors.grey.shade200,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value: progress.expectedTotalBytes != null
+                                        ? progress.cumulativeBytesLoaded /
+                                        progress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) =>
+                                Container(color: Colors.grey[300]),
+                          ),
+                        ),
+
+                        // Gradient overlay
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.6),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Text bottom area
+                        Positioned(
+                          bottom: 10,
+                          left: 10,
+                          right: 10,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on,
+                                      size: 12, color: Colors.white70),
+                                  SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      city,
+                                      style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                date,
+                                style: TextStyle(
+                                    color: Colors.white60, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildViewAllRealWeddingsButton() {
@@ -2380,7 +2929,7 @@ class VendorCategory {
   factory VendorCategory.fromJson(Map<String, dynamic> json) {
     return VendorCategory(
       name: json['name'] ?? '',
-      heroImage: json['heroImage'] ?? '',
+      heroImage: json['hero_image'] ?? '',
       subcategories: json['subcategories'] ?? [],
     );
   }
@@ -2493,7 +3042,7 @@ class _BottomBarsState extends State<BottomBars> {
   final List<Widget> _screens = [
     const WeddingHomePage(),
     const VenuesScreen(),
-    VirtualTryOnScreennnnnnn(),
+     VirtualTryOnScreennnnnnn(),
     // LancomeMakeupTryOnScreen(),
     // FinalLookResultScreen(),
     const VendorCategoriesScreen(),
@@ -2572,7 +3121,7 @@ class _BottomBarsState extends State<BottomBars> {
                 size: 20,
               ),
             ),
-            label: 'VirtualStudio',
+            label: 'DesignStudio',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.people_outline),
@@ -2587,18 +3136,7 @@ class _BottomBarsState extends State<BottomBars> {
     );
   }
 
-
-
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -2794,6 +3332,49 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+
+
+
+class VideoIcon extends StatefulWidget {
+  const VideoIcon({super.key});
+
+  @override
+  State<VideoIcon> createState() => _VideoIconState();
+}
+
+class _VideoIconState extends State<VideoIcon> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.asset('assets/shadiai.mp4')
+      ..initialize().then((_) {
+        _controller.setLooping(true);
+        _controller.play();
+        setState(() {});
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      width: 40,
+      child: _controller.value.isInitialized
+          ? VideoPlayer(_controller)
+          : const SizedBox(),
     );
   }
 }

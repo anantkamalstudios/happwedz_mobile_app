@@ -7,7 +7,6 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 import 'package:google_api_availability/google_api_availability.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'Wishlist/Wishlistscreen.dart';
 
+import 'ai_chat_screen/ai_chat_screen.dart';
 import 'firebase_options.dart';
 import 'guestlist/guestlist.dart';
 import 'internetconnection.dart';
@@ -71,15 +71,21 @@ Future<void> main() async {
   // ✅ Open all boxes safely
   await _openBoxSafe('weddingBox');
   await _openBoxSafe('guestBox');
+  final prefs = await SharedPreferences.getInstance();
+  final savedUserId = prefs.getInt('user_id') ?? 0;
 
   // ✅ Run App with Providers
   // runApp(const MyApp());
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ConnectivityProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()..setUserId(savedUserId)),
+      ],
       child: const MyApp(),
     ),
   );
+
 }
 
 Future<void> _openBoxSafe(String boxName) async {

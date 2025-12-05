@@ -8,6 +8,7 @@ import '../RealWedding/share_ur_story.dart';
 import '../Review.dart';
 import '../Wishlist/Wishlistscreen.dart';
 
+import '../ai_chat_screen/ai_chat_screen.dart';
 import '../budget/budget.dart';
 import '../einvite/einvite.dart';
 import '../einvite1/einvite.dart';
@@ -19,8 +20,16 @@ import '../packages.dart';
 import '../planning.dart';
 import '../shop.dart';
 
-class MoreOptionsScreen extends StatelessWidget {
+class MoreOptionsScreen extends StatefulWidget {
   const MoreOptionsScreen({super.key});
+
+  @override
+  State<MoreOptionsScreen> createState() => _MoreOptionsScreenState();
+}
+
+class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
+  bool isLoading = true;
+
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +137,7 @@ class MoreOptionsScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              // floating AI button (unchanged)
 
             ],
           ),
@@ -333,7 +343,6 @@ class MoreOptionsScreen extends StatelessWidget {
     }
   }
 
-
   void _openPlayStore() async {
     const packageName = "com.yourcompany.yourapp"; // <-- Replace with your app's package name
     final url = Uri.parse("https://play.google.com/store/apps/details?id=$packageName");
@@ -344,7 +353,6 @@ class MoreOptionsScreen extends StatelessWidget {
       print("Could not launch Play Store URL");
     }
   }
-
 
   void _shareApp() {
     const packageName = "com.yourcompany.yourapp"; // <-- Replace with your app's package name
