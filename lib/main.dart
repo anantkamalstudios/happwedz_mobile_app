@@ -21,71 +21,49 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'Wishlist/Wishlistscreen.dart';
 
 import 'ai_chat_screen/ai_chat_screen.dart';
-import 'firebase_options.dart';
+
 import 'guestlist/guestlist.dart';
 import 'internetconnection.dart';
 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  // Setup Connectivity Listener
-  Connectivity().onConnectivityChanged.listen((status) async {
-    final hasNet = await InternetService.hasInternet();
-    if (!hasNet) {
-      print("❌ No Internet");
-    } else {
-      print("✅ Internet Connected");
-    }
-  });
-  final status = await GoogleApiAvailability.instance.checkGooglePlayServicesAvailability();
-  print('Google Play Services Status: $status');
-  try {
-    // Test Firestore
-    await FirebaseFirestore.instance.collection('test').add({'timestamp': DateTime.now()});
-    print('✅ Firestore write success');
 
-    // Test Auth (anonymous sign in)
-    await FirebaseAuth.instance.signInAnonymously();
-    print('✅ Firebase Auth success');
-  } catch (e) {
-    print('❌ Firebase error: $e');
+  // ✅ Manual Firebase initialization
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp();
   }
-  // // ✅ Initialize Firebase
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
+
   FirebaseAuth.instance.setLanguageCode('en');
 
-  // ✅ Enable Firebase App Check
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.playIntegrity,
-    appleProvider: AppleProvider.deviceCheck,
-  );
+  // await FirebaseAppCheck.instance.activate(
+  //   androidProvider: AndroidProvider.playIntegrity,
+  //   appleProvider: AppleProvider.deviceCheck,
+  // );
 
-  // ✅ Initialize Hive
+  Connectivity().onConnectivityChanged.listen((status) async {
+    final hasNet = await InternetService.hasInternet();
+    debugPrint(hasNet ? "✅ Internet Connected" : "❌ No Internet");
+  });
+
   await Hive.initFlutter();
-
-  // ✅ Open all boxes safely
   await _openBoxSafe('weddingBox');
   await _openBoxSafe('guestBox');
+
   final prefs = await SharedPreferences.getInstance();
   final savedUserId = prefs.getInt('user_id') ?? 0;
 
-  // ✅ Run App with Providers
-  // runApp(const MyApp());
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
-        ChangeNotifierProvider(create: (_) => ChatProvider()..setUserId(savedUserId)),
+        ChangeNotifierProvider(
+          create: (_) => ChatProvider()..setUserId(savedUserId),
+        ),
       ],
       child: const MyApp(),
     ),
   );
-
 }
 
 Future<void> _openBoxSafe(String boxName) async {
@@ -192,8 +170,8 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
-    clientId:
-    '83829632051-pgn25ipst5lf3bv7pcihooha5o91pe9o.apps.googleusercontent.com',
+    // clientId:
+    //   '5404414440-cpfrtjjfh6maga878im03li5lmpqga30.apps.googleusercontent.com'
   );
 
   Future<void> _signInWithGoogle() async {

@@ -866,30 +866,16 @@ import 'GenieScreen.dart';
 // }
 
 // venues_screen.dart
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // import 'vendor_details_screen.dart'; // adjust path to your file
 
 // VenuesScreen.dart
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // Replace this import with your actual VendorDetailsScreen import path
 
 // Paste required imports at top of your file
 import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // --- VenuesScreen starts here ---
 class VenuesScreen extends StatefulWidget {
@@ -1004,6 +990,14 @@ class _VenuesScreenState extends State<VenuesScreen> {
     });
   }
 
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      currentServerQuery = value.trim();
+      _startFreshLoad(); // resets + calls API
+    });
+  }
 
 
   @override
@@ -1069,13 +1063,22 @@ class _VenuesScreenState extends State<VenuesScreen> {
     try {
       final encoded = Uri.encodeComponent("venue");
       final buffer = StringBuffer();
+      // buffer.write("https://happywedz.com/api/vendor-services");
+      // buffer.write("?subCategory=$encoded");
+      // buffer.write("&page=$page");
+      // buffer.write("&limit=$limit");
+      // if (serverQuery != null && serverQuery.isNotEmpty) {
+      //   buffer.write("&search=${Uri.encodeQueryComponent(serverQuery)}");
+      // }
       buffer.write("https://happywedz.com/api/vendor-services");
-      buffer.write("?subCategory=$encoded");
+      buffer.write("?vendorType=venue");
       buffer.write("&page=$page");
       buffer.write("&limit=$limit");
-      if (serverQuery != null && serverQuery.isNotEmpty) {
-        buffer.write("&search=${Uri.encodeQueryComponent(serverQuery)}");
+
+      if (currentServerQuery.isNotEmpty) {
+        buffer.write("&search=${Uri.encodeQueryComponent(currentServerQuery)}");
       }
+
       // If you want server-side city filter, you may add: &city=${Uri.encodeQueryComponent(selectedCity)}
       final url = Uri.parse(buffer.toString());
 
@@ -1107,18 +1110,39 @@ class _VenuesScreenState extends State<VenuesScreen> {
         }
 
         // parse items safely
+        // parse items safely
         final loaded = data.map((service) {
           final attributes = service['attributes'] ?? {};
           final vendor = service['vendor'] ?? {};
           final subcategory = service['subcategory'] ?? {};
           final media = service['media'] ?? [];
+          final vendorId = service['vendor_id'];
+          final vendorSubcategoryId = service['vendor_subcategory_id'];
 
+          // ✅ 1. READ lat/lng from attributes
+          final latRaw = attributes['latitude'];
+          final lngRaw = attributes['longitude'];
+
+          double? lat;
+          double? lng;
+
+          if (latRaw is String) lat = double.tryParse(latRaw);
+          if (lngRaw is String) lng = double.tryParse(lngRaw);
+          if (latRaw is num) lat = latRaw.toDouble();
+          if (lngRaw is num) lng = lngRaw.toDouble();
+
+          debugPrint("VENUE ${service['id']} RAW LAT=$latRaw LNG=$lngRaw  =>  $lat , $lng");
+            print(lat);
+            print(lng);
+
+          // 🔹 IMAGE
           String imageUrl = '';
 
           if (media is List && media.isNotEmpty) {
             final first = media.first;
-            if (first is String) imageUrl = first;
-            else if (first is Map) {
+            if (first is String) {
+              imageUrl = first;
+            } else if (first is Map) {
               imageUrl = (first['url'] ?? first['original_url'] ?? '').toString();
             }
           } else if (media is Map) {
@@ -1132,8 +1156,11 @@ class _VenuesScreenState extends State<VenuesScreen> {
             imageUrl = 'https://via.placeholder.com/400x300.png?text=No+Image';
           }
 
+          // ✅ 2. PASS latitude & longitude into Venue constructor
           return Venue(
             id: service['id'] ?? 0,
+            vendorId: vendorId,                     // ✅ add this
+            vendorSubcategoryId: vendorSubcategoryId,
             vendorName: attributes['vendor_name'] ?? vendor['businessName'] ?? '',
             city: attributes['city'] ?? vendor['city'] ?? '',
             vegPrice: attributes['veg_price']?.toString() ?? '',
@@ -1145,10 +1172,55 @@ class _VenuesScreenState extends State<VenuesScreen> {
             about: attributes['about_us'] ?? '',
             type: subcategory['name'] ?? vendor['vendorType']?['name'] ?? '',
             image: imageUrl,
+            latitude: lat,      // 👈 important
+            longitude: lng,     // 👈 important
             isFavourite: (service['is_favourite']?.toString() ?? '') == "1" ||
                 service['is_favourite'] == true,
           );
         }).toList();
+
+        // final loaded = data.map((service) {
+        //   final attributes = service['attributes'] ?? {};
+        //   final vendor = service['vendor'] ?? {};
+        //   final subcategory = service['subcategory'] ?? {};
+        //   final media = service['media'] ?? [];
+        //
+        //   String imageUrl = '';
+        //
+        //   if (media is List && media.isNotEmpty) {
+        //     final first = media.first;
+        //     if (first is String) imageUrl = first;
+        //     else if (first is Map) {
+        //       imageUrl = (first['url'] ?? first['original_url'] ?? '').toString();
+        //     }
+        //   } else if (media is Map) {
+        //     imageUrl = (media['coverImage'] ?? media['original_url'] ?? '').toString();
+        //   }
+        //
+        //   if (imageUrl.startsWith('/uploads/')) {
+        //     imageUrl = "https://happywedzbackend.happywedz.com$imageUrl";
+        //   }
+        //   if (imageUrl.isEmpty) {
+        //     imageUrl = 'https://via.placeholder.com/400x300.png?text=No+Image';
+        //   }
+        //
+        //   return Venue(
+        //     id: service['id'] ?? 0,
+        //     vendorName: attributes['vendor_name'] ?? vendor['businessName'] ?? '',
+        //     city: attributes['city'] ?? vendor['city'] ?? '',
+        //     vegPrice: attributes['veg_price']?.toString() ?? '',
+        //     nonVegPrice: attributes['non_veg_price']?.toString() ?? '',
+        //     area: attributes['area'] ?? '',
+        //     address: attributes['address'] ?? '',
+        //     rating: attributes['averageRating']?.toString() ?? '0.0',
+        //     reviewCount: attributes['totalReviews']?.toString() ?? '0',
+        //     about: attributes['about_us'] ?? '',
+        //     type: subcategory['name'] ?? vendor['vendorType']?['name'] ?? '',
+        //     image: imageUrl,
+        //     isFavourite: (service['is_favourite']?.toString() ?? '') == "1" ||
+        //         service['is_favourite'] == true,
+        //   );
+        // }).toList();
 
         // append or replace depending on page
         setState(() {
@@ -1196,7 +1268,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
   }
 
 
-  void _applyFiltersAndSearch() {
+  void  _applyFiltersAndSearch() {
     final query = _searchController.text.trim().toLowerCase();
 
     final filtered = allVenues.where((v) {
@@ -1205,24 +1277,24 @@ class _VenuesScreenState extends State<VenuesScreen> {
       final type = v.type.toLowerCase();
       final area = v.area.toLowerCase();
 
-      // rating
       final rating = double.tryParse(v.rating) ?? 0;
 
-      // price
-      double price = double.tryParse(v.vegPrice.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-
-      // rooms
-      int rooms = int.tryParse(v.rooms ?? "0") ?? 0;
-
-      // capacity
-      int capacity = _extractCapacity(v.area);
+      double price = 0;
+      final match = RegExp(r'\d+').firstMatch(v.vegPrice);
+      if (match != null) {
+        price = double.tryParse(match.group(0)!) ?? 0;
+      }
 
       return
         // SEARCH
-        (query.isEmpty || name.contains(query) || city.contains(query) || area.contains(query)) &&
+        (query.isEmpty ||
+            name.contains(query) ||
+            city.contains(query) ||
+            area.contains(query)) &&
 
-            // CITY FILTER
-            (selectedCity.isEmpty || city.contains(selectedCity.toLowerCase())) &&
+            // CITY
+            (selectedCity.isEmpty ||
+                city.contains(selectedCity.toLowerCase())) &&
 
             // RATING
             rating >= selectedRating &&
@@ -1231,16 +1303,12 @@ class _VenuesScreenState extends State<VenuesScreen> {
             price >= minPrice && price <= maxPrice &&
 
             // VENUE TYPE
-            (selectedVenueType.isEmpty || type == selectedVenueType) &&
+            (selectedVenueType.isEmpty ||
+                type.contains(selectedVenueType.toLowerCase())) &&
 
-            // CAPACITY FILTER
-            _capacityMatch(capacity, selectedCapacity) &&
+            // PRICE PER PLATE dropdown
+            _pricePlateMatch(price, selectedPricePlate);
 
-            // PRICE PER PLATE
-            _pricePlateMatch(price, selectedPricePlate) &&
-
-            // ROOMS
-            _roomMatch(rooms, selectedRooms);
     }).toList();
 
     setState(() => venues = filtered);
@@ -1369,21 +1437,21 @@ class _VenuesScreenState extends State<VenuesScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
 
-                  const SizedBox(height: 20),
-
-                  // ---------------- CITY ----------------
-                  const Text('City', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Enter city',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    controller: TextEditingController(text: tmpCity),
-                    onChanged: (v) => setSheetState(() => tmpCity = v.trim()),
-                  ),
+                  // const SizedBox(height: 20),
+                  //
+                  // // ---------------- CITY ----------------
+                  // const Text('City', style: TextStyle(fontWeight: FontWeight.w600)),
+                  // const SizedBox(height: 6),
+                  // TextField(
+                  //   decoration: InputDecoration(
+                  //     hintText: 'Enter city',
+                  //     border: OutlineInputBorder(
+                  //       borderRadius: BorderRadius.circular(12),
+                  //     ),
+                  //   ),
+                  //   controller: TextEditingController(text: tmpCity),
+                  //   onChanged: (v) => setSheetState(() => tmpCity = v.trim()),
+                  // ),
 
                   const SizedBox(height: 20),
 
@@ -1576,8 +1644,39 @@ class _VenuesScreenState extends State<VenuesScreen> {
     );
   }
 
+  // Map<String, dynamic> _serviceShapeFromVenue(Venue v) {
+  //   return {
+  //     "attributes": {
+  //       "vendor_name": v.vendorName,
+  //       "veg_price": v.vegPrice,
+  //       "non_veg_price": v.nonVegPrice,
+  //       "area": v.area,
+  //       "address": v.address,
+  //       "averageRating": v.rating,
+  //       "totalReviews": v.reviewCount,
+  //       "about_us": v.about,
+  //       "vendor_type": v.type,
+  //       "latitude": v.latitude,
+  //       "longitude": v.longitude,
+  //     },
+  //     "media": [
+  //       {"original_url": v.image}
+  //     ],
+  //     "vendor": {
+  //       "id": v.vendorId,                    // ✅ FIXED
+  //       "vendor_subcategory_id": v.vendorSubcategoryId,
+  //       "phone": "",
+  //       "review_count": v.reviewCount,
+  //
+  //       "businessName": v.vendorName,
+  //     }
+  //   };
+  // }
   Map<String, dynamic> _serviceShapeFromVenue(Venue v) {
     return {
+      "id": v.id, // service id
+      "vendor_id": v.vendorId, // ✅ THIS WAS MISSING
+      "vendor_subcategory_id": v.vendorSubcategoryId,
       "attributes": {
         "vendor_name": v.vendorName,
         "veg_price": v.vegPrice,
@@ -1587,17 +1686,16 @@ class _VenuesScreenState extends State<VenuesScreen> {
         "averageRating": v.rating,
         "totalReviews": v.reviewCount,
         "about_us": v.about,
-        "vendor_type": v.type,
+        "latitude": v.latitude,
+        "longitude": v.longitude,
+      },
+      "vendor": {
+        "id": v.vendorId,
+        "businessName": v.vendorName,
       },
       "media": [
         {"original_url": v.image}
-      ],
-      "vendor": {
-        "id": v.id,
-        "phone": "",
-        "review_count": v.reviewCount,
-        "businessName": v.vendorName,
-      }
+      ]
     };
   }
 
@@ -1643,6 +1741,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
                           Expanded(
                             child: TextField(
                               controller: _searchController,
+                              onChanged: _onSearchChanged,
                               decoration: const InputDecoration(hintText: 'Search venues, city, name...', border: InputBorder.none),
                             ),
                           ),
@@ -1904,6 +2003,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
   }
 }
 
+
 // Venue model
 class Venue {
   final int id;
@@ -1919,6 +2019,11 @@ class Venue {
   final String type;
   final String image;
   final String? rooms;
+  final double? latitude;     // ✅
+  final double? longitude;
+  final int? vendorId;
+  final int? vendorSubcategoryId;
+
   bool isFavourite;
 
   Venue({
@@ -1935,13 +2040,25 @@ class Venue {
     required this.type,
     required this.image,
     this.rooms,
-    this.isFavourite = false,
+    this.latitude,
+    this.longitude,
+    this.isFavourite = false, this.vendorId, this.vendorSubcategoryId,
   });
 
   factory Venue.fromJson(Map<String, dynamic> json) {
     final attr = json['attributes'] ?? {};
     final vendor = json['vendor'] ?? {};
     final subcategory = json['subcategory'] ?? {};
+    final latRaw = attr['latitude'];
+    final lngRaw = attr['longitude'];
+
+    double? lat;
+    double? lng;
+
+    if (latRaw is String) lat = double.tryParse(latRaw);
+    if (lngRaw is String) lng = double.tryParse(lngRaw);
+    if (latRaw is num) lat = latRaw.toDouble();
+    if (lngRaw is num) lng = lngRaw.toDouble();
 
     // IMAGE FIX
     String image = "";
@@ -1965,6 +2082,8 @@ class Venue {
 
     return Venue(
       id: json["id"] ?? 0,
+      vendorId: json["vendor_id"],                 // ✅ add
+      vendorSubcategoryId: json["vendor_subcategory_id"], // ✅ add
       vendorName: attr["name"] ?? vendor["businessName"] ?? "",
       city: attr["city"] ?? vendor["city"] ?? "",
       vegPrice: attr["veg_price"]?.toString() ?? "",
@@ -1977,6 +2096,8 @@ class Venue {
       type: subcategory["name"]?.toString() ?? "",     // << Correct venue type
       rooms: attr["rooms"]?.toString(),
       image: image,
+      latitude: lat,
+      longitude: lng,
       isFavourite: json["is_favourite"]?.toString() == "1",
     );
   }

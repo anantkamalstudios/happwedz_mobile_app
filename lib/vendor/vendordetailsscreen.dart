@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:http/http.dart' as http;
+import 'package:imageview360/imageview360.dart';
+import 'package:panorama_viewer/panorama_viewer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1609,13 +1611,63 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   // Helper parsers (kept from your code)
   // ---------------------------
   String normalizeUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
+    if (url == null || url.trim().isEmpty) return '';
+
+    if (url.startsWith('//')) {
+      return 'https:$url';
+    }
 
     if (url.startsWith('/uploads/')) {
       return "https://happywedzbackend.happywedz.com$url";
     }
 
     return url;
+  }
+
+  List<String> extractImages(dynamic media, dynamic vendor) {
+    final Set<String> images = {};
+
+    void add(String? url) {
+      if (url == null || url.trim().isEmpty) return;
+      final u = normalizeUrl(url);
+      if (u.startsWith('http')) {
+        images.add(u);
+      }
+    }
+
+    // media as List
+    if (media is List) {
+      for (final item in media) {
+        if (item is String) {
+          add(item);
+        } else if (item is Map) {
+          add(item['original_url']);
+          add(item['url']);
+          add(item['thumb']);
+        }
+      }
+    }
+
+    // media as Map
+    if (media is Map) {
+      add(media['original_url']);
+      add(media['url']);
+      add(media['coverImage']);
+    }
+
+    // fallback to vendor profile image
+    if (images.isEmpty && vendor is Map) {
+      add(vendor['profileImage']);
+    }
+
+    // final fallback
+    if (images.isEmpty) {
+      images.add(
+        'https://via.placeholder.com/1200x700?text=No+Image',
+      );
+    }
+
+    return images.toList();
   }
 
   List<Map<String, String>> parseArea(String areaRaw) {
@@ -1937,6 +1989,92 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     }
   }
 
+
+
+  void open360Viewer(
+      BuildContext context,
+      List<ImageProvider> images,
+      ) {
+    if (images.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('360° view not available')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black,
+      builder: (_) {
+        bool autoRotate = true;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Scaffold(
+              backgroundColor: Colors.black,
+              body: SafeArea(
+                child: Stack(
+                  children: [
+                    // ✅ 360 VIEW
+                    Center(
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 3.0,
+                        child: ImageView360(
+                          key: UniqueKey(),
+                          imageList: images,
+                          autoRotate: autoRotate,
+                          rotationCount: images.length,
+                          swipeSensitivity: 2,
+                          allowSwipeToRotate: true,
+                        ),
+                      ),
+                    ),
+
+                    // ✅ CLOSE
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: IconButton(
+                        icon: const Icon(Icons.close,
+                            color: Colors.white, size: 26),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+
+                    // ✅ PLAY / PAUSE
+                    Positioned(
+                      bottom: 20,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              autoRotate
+                                  ? Icons.pause_circle_filled
+                                  : Icons.play_circle_fill,
+                              color: Colors.white,
+                              size: 44,
+                            ),
+                            onPressed: () {
+                              setState(() => autoRotate = !autoRotate);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ---------------------------
   // UI
   // ---------------------------
@@ -1947,18 +2085,21 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
     final vendor = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
-    final media = (service['media'] is List) ? List.from(service['media']) : [];
-
-    // Build images list
-    final List<String> images = [];
-    for (var item in media) {
-      if (item is String && item.isNotEmpty) {
-        images.add(normalizeUrl(item));
-      } else if (item is Map && item['url'] != null) {
-        images.add(normalizeUrl(item['url'].toString()));
-      }
-    }
-    if (images.isEmpty) images.add('https://via.placeholder.com/1200x700?text=No+Image');
+    // final media = (service['media'] is List) ? List.from(service['media']) : [];
+    //
+    // // Build images list
+    // final List<String> images = [];
+    // for (var item in media) {
+    //   if (item is String && item.isNotEmpty) {
+    //     images.add(normalizeUrl(item));
+    //   } else if (item is Map && item['url'] != null) {
+    //     images.add(normalizeUrl(item['url'].toString()));
+    //   }
+    // }
+    // if (images.isEmpty) images.add('https://via.placeholder.com/1200x700?text=No+Image');
+    final List<String> images = extractImages(service['media'], vendor);
+    print("IMAGES COUNT: ${images.length}");
+    images.forEach(print);
 
     final String vendorId = (service['id'] ?? attributes['vendor_id'] ?? '').toString();
     final String vendorSubcategoryId = (service['vendor_subcategory_id'] ?? attributes['vendor_subcategory_id'] ?? '').toString();
@@ -1984,36 +2125,91 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     // Visual theme colors
     final primaryAccent = Colors.pink.shade600;
 
-    // Parse lat & lng carefully (they might be num or String)
-    dynamic latRaw = attributes['latitude'] ?? attributes['lat'] ?? attributes['Latitude'] ?? attributes['LATITUDE'];
-    dynamic lngRaw = attributes['longitude'] ?? attributes['lng'] ?? attributes['lon'] ?? attributes['Longitude'] ?? attributes['LONGITUDE'];
-
+    // // Parse lat & lng carefully (they might be num or String)
+    // dynamic latRaw = attributes['latitude'] ?? attributes['lat'] ?? attributes['Latitude'] ?? attributes['LATITUDE'];
+    // dynamic lngRaw = attributes['longitude'] ?? attributes['lng'] ?? attributes['lon'] ?? attributes['Longitude'] ?? attributes['LONGITUDE'];
+    //
+    // double? latitude;
+    // double? longitude;
+    //
+    // if (latRaw != null) {
+    //   if (latRaw is num) latitude = latRaw.toDouble();
+    //   else if (latRaw is String) latitude = double.tryParse(latRaw);
+    // }
+    //
+    // if (lngRaw != null) {
+    //   if (lngRaw is num) longitude = lngRaw.toDouble();
+    //   else if (lngRaw is String) longitude = double.tryParse(lngRaw);
+    // }
     double? latitude;
     double? longitude;
 
-    if (latRaw != null) {
-      if (latRaw is num) latitude = latRaw.toDouble();
-      else if (latRaw is String) latitude = double.tryParse(latRaw);
-    }
+// 1️⃣ From attributes
+    dynamic latRaw = attributes['latitude'] ??
+        attributes['lat'] ??
+        attributes['Latitude'] ??
+        attributes['LATITUDE'];
 
-    if (lngRaw != null) {
-      if (lngRaw is num) longitude = lngRaw.toDouble();
-      else if (lngRaw is String) longitude = double.tryParse(lngRaw);
-    }
+    dynamic lngRaw = attributes['longitude'] ??
+        attributes['lng'] ??
+        attributes['lon'] ??
+        attributes['Longitude'] ??
+        attributes['LONGITUDE'];
 
-    Future<void> openMap(double lat, double lng) async {
-      final Uri url = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+// 2️⃣ From vendor
+    latRaw ??= vendor['latitude'] ?? vendor['lat'];
+    lngRaw ??= vendor['longitude'] ?? vendor['lng'];
 
-      final bool launched = await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
-      print(lat);
-      print(longitude);
-      if (!launched) {
-        await launchUrl(url, mode: LaunchMode.inAppBrowserView);
+// 3️⃣ From service root
+    latRaw ??= service['latitude'] ?? service['lat'];
+    lngRaw ??= service['longitude'] ?? service['lng'];
+
+// 4️⃣ From attributes.location
+    if (latRaw == null || lngRaw == null) {
+      final location = attributes['location'] ?? vendor['location'];
+      if (location is Map) {
+        latRaw ??= location['latitude'];
+        lngRaw ??= location['longitude'];
       }
     }
+
+// 5️⃣ From lat_lng string
+    if (latRaw == null || lngRaw == null) {
+      final latLng =
+          attributes['lat_lng'] ??
+              vendor['lat_lng'] ??
+              service['lat_lng'];
+      if (latLng is String && latLng.contains(',')) {
+        final parts = latLng.split(',');
+        latRaw ??= parts[0];
+        lngRaw ??= parts[1];
+      }
+    }
+
+// ✅ Parse safely
+    if (latRaw is num) latitude = latRaw.toDouble();
+    if (lngRaw is num) longitude = lngRaw.toDouble();
+
+    if (latRaw is String) latitude ??= double.tryParse(latRaw.trim());
+    if (lngRaw is String) longitude ??= double.tryParse(lngRaw.trim());
+
+    print("✅ FINAL LAT LNG => $latitude , $longitude");
+
+    Future<void> openMap(double lat, double lng) async {
+      final Uri geoUri = Uri.parse("geo:$lat,$lng?q=$lat,$lng");
+
+      if (await canLaunchUrl(geoUri)) {
+        await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+      } else {
+        // fallback to browser
+        final webUrl = Uri.parse("https://maps.google.com/?q=$lat,$lng");
+        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+      }
+    }
+    final String? panoramaImage = attributes['panorama_image'] as String?;
+    final bool hasPanorama = panoramaImage != null && panoramaImage.isNotEmpty;
+
+
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -2066,6 +2262,26 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                             viewportFraction: 1,
                             autoPlay: images.length > 1,
                             onPageChanged: (i, r) => setState(() => _currentCarouselIndex = i),
+                          ),
+                        ),
+                        Positioned(
+                          right: 16,
+                          bottom: 20,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black.withOpacity(0.7),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            ),
+                            icon: const Icon(Icons.threed_rotation, color: Colors.white),
+                            label: const Text("360° View", style: TextStyle(color: Colors.white)),
+                            onPressed: () {
+                              final List<ImageProvider> providers =
+                              images.map((e) => NetworkImage(e)).toList();
+
+                              open360Viewer(context, providers);
+                            },
+
+
                           ),
                         ),
 
@@ -2327,25 +2543,24 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                 child: IconButton(
                   tooltip: 'View on map',
                   icon: const Icon(Icons.location_on_sharp),
-                  onPressed: () async {
-                    // if lat/lng are available, open map; otherwise show SnackBar
-                    if (latitude != null && longitude != null) {
-                      try {
-                        await openMap(latitude, longitude);
-                        print("Opening map...");
-                        print(latitude);
-                        print(longitude);
-                      } catch (e) {
+                    onPressed: () async {
+                      if (latitude != null && longitude != null) {
+                        await openMap(latitude!, longitude!);
+                      } else if (address.isNotEmpty || city.isNotEmpty) {
+                        final query = Uri.encodeComponent("$vendorName $address $city");
+                        final fallback = Uri.parse(
+                          "geo:0,0?q=$query",
+                        );
+                        await launchUrl(
+                          fallback,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Could not open map: $e')),
+                          const SnackBar(content: Text('Location not available')),
                         );
                       }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Location not available for this vendor')),
-                      );
                     }
-                  },
                 ),
               ),
                             ],

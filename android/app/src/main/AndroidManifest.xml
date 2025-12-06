@@ -35,7 +35,9 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
             <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme"/>
-            <meta-data android:name="com.google.android.gms.client_id" android:value="83829632051-89oet44jqrggh315k99q9h0ruff4vkuh.apps.googleusercontent.com"/>
+            <meta-data android:name="com.google.android.gms.client_id"
+                android:value="5404414440-cem4pmibedcbi2qi7h2cgoop841jeot7.apps.googleusercontent.com"
+                />
 <!--            <meta-data android:name="com.truecaller.android.sdk.ClientId" android:value="gt7crz05tgi0o3mk10wimjig0irao0fr7xgsljqdfh8"/>-->
 
             <intent-filter>

@@ -56,7 +56,8 @@ dependencies:
   video_player:
   flutter_staggered_grid_view:
   photo_view:
-
+  panorama_viewer:
+  imageview360:
   flutter_html: ^3.0.0-alpha.6
   html: ^0.15.4
 
