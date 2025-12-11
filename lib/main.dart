@@ -7,6 +7,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:g_recaptcha_v3/g_recaptcha_v3.dart';
 import 'package:google_api_availability/google_api_availability.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -54,14 +55,17 @@ Future<void> main() async {
   final savedUserId = prefs.getInt('user_id') ?? 0;
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
-        ChangeNotifierProvider(
-          create: (_) => ChatProvider()..setUserId(savedUserId),
-        ),
-      ],
-      child: const MyApp(),
+
+    ProviderScope(
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+          ChangeNotifierProvider(
+            create: (_) => ChatProvider()..setUserId(savedUserId),
+          ),
+        ],
+        child: const MyApp(),
+      ),
     ),
   );
 }

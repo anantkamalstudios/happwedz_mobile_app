@@ -21,6 +21,7 @@ import '../Wishlist/Wishlistscreen.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
 import '../designstudio.dart';
 import '../einvite1/einvite.dart';
+import '../einvite1/template_listscreen.dart';
 import '../favscreen.dart';
 import '../fetch_location.dart';
 import '../ideas.dart';
@@ -1870,7 +1871,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const WeddingInvitesScreen1(),
+                  builder: (_) => const TemplateListScreen(),
                 ),
               );
             },

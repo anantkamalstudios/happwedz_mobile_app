@@ -12,6 +12,7 @@ import '../ai_chat_screen/ai_chat_screen.dart';
 import '../budget/budget.dart';
 import '../einvite/einvite.dart';
 import '../einvite1/einvite.dart';
+import '../einvite1/template_listscreen.dart';
 import '../ideas.dart';
 import '../login.dart';
 import '../main.dart';
@@ -260,7 +261,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
   void _handleMenuTap(BuildContext context, String menuTitle) async {
     switch (menuTitle) {
       case 'E-Invites':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => WeddingInvitesScreen1()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => TemplateListScreen()));
         break;
         case 'Budget':
         Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetPage()));
