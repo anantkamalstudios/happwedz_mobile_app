@@ -216,6 +216,8 @@ class _SignInScreenState extends State<SignInScreen> {
           await prefs.setString('auth_token', token);
           await prefs.setString('user_photo', googleUser.photoUrl ?? '');
 
+          // 👇 Save login time (for 2 days expiry)
+          await prefs.setString('token_saved_at', DateTime.now().toIso8601String());
           _showSnackBar('Welcome ${user['name']}');
           print("user_id: ${user['id']}");
           Navigator.pushReplacement(
@@ -1851,6 +1853,37 @@ class MakeMyTripHomePage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+
+
+
+
+
+
+class AuthUtils {
+  static const int tokenExpiryDays = 2;
+
+  // Check if token expired
+  static Future<bool> isTokenExpired() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedAt = prefs.getString('token_saved_at');
+
+    if (savedAt == null) return true; // No token saved
+
+    final savedTime = DateTime.parse(savedAt);
+    final now = DateTime.now();
+
+    final difference = now.difference(savedTime).inDays;
+
+    return difference >= tokenExpiryDays;
+  }
+
+  // Logout function
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
   }
 }
 

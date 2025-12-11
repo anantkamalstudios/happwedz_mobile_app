@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:happy_wedz/Bottombars/HomeScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,7 +12,7 @@ import 'main.dart';
 
 
 class ProfileSettingsScreen extends StatefulWidget {
-  const ProfileSettingsScreen({super.key});
+  const  ProfileSettingsScreen({super.key});
 
   @override
   State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
@@ -273,7 +274,34 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
             ),
           ),
-
+          Positioned(
+            top: 16,
+            left: 16,
+            child: SafeArea(
+              child: InkWell(
+                onTap: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WeddingHomePage()),
+                        (route) => false,
+                  );
+                },
+                borderRadius: BorderRadius.circular(30),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          ),
           SafeArea(
             child: SingleChildScrollView(
               physics: BouncingScrollPhysics(),

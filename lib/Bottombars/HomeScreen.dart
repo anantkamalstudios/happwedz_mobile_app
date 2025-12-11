@@ -1549,13 +1549,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     ),
 
     // Bigger button
-    padding: const EdgeInsets.all(20),
+    // padding: const EdgeInsets.all(20),
 
     // ⭐ Directly increase the image size
     child: Image.asset(
     'assets/shadiai-unscreen.gif',
-    height: 35,     // 🔥 Increase image height
-    width: 35,      // 🔥 Increase image width
+    height: 70,     // 🔥 Increase image height
+    width: 70,      // 🔥 Increase image width
     fit: BoxFit.contain,
     ),
     ),
@@ -1723,7 +1723,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 InkWell(
                   onTap: () {
                     if (category.subcategories.isNotEmpty) {
-                      final subcategoryName = category.subcategories.first.name;
+                      final subcategory = category.subcategories.first;
+
+                      final subcategoryName = subcategory["name"] ?? "";
+                      // final subcategoryName = category.subcategories.first.name;
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -1986,8 +1989,16 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             margin: const EdgeInsets.only(right: 12),
             child: InkWell(
               onTap: () {
-                // navigate to VendorDetailsScreen(service: venue)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VendorDetailsScreen(
+                    service: venue,
+                    ),
+                  ),
+                );
               },
+
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -2095,7 +2106,16 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             width: 200,
             margin: const EdgeInsets.only(right: 12),
             child: InkWell(
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VendorDetailsScreen(
+                      service: photo,
+                    ),
+                  ),
+                );
+              },
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(imageUrl, height: 120, width: 200, fit: BoxFit.cover, loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -3029,7 +3049,7 @@ class VendorCategory {
 
 
 class BottomBars extends StatefulWidget {
-  const BottomBars({super.key});
+  const  BottomBars({super.key});
 
   @override
   State<BottomBars> createState() => _BottomBarsState();
@@ -3110,16 +3130,18 @@ class _BottomBarsState extends State<BottomBars> {
           ),
           BottomNavigationBarItem(
             icon: Container(
-              padding: const EdgeInsets.all(8),
+              // padding: const EdgeInsets.all(8),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.pink,
-                size: 20,
+              child: Image.asset(
+                'assets/tryimg.png',
+                width: 40,
+                height: 40,
+                fit: BoxFit.contain,
               ),
+
             ),
             label: 'DesignStudio',
           ),

@@ -13,11 +13,13 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:happy_wedz/vendor/vendordetailsscreen.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import 'package:file_picker/file_picker.dart';
+
 import 'package:mime/mime.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -27,7 +29,6 @@ import 'package:path_provider/path_provider.dart';
 // PDF + Printing
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:permission_handler/permission_handler.dart';
 import 'package:printing/printing.dart';
 
 import 'Bottombars/HomeScreen.dart';
@@ -163,34 +164,12 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
 
     return pdf.save();
   }
-  Future<String> _savePdfToDownloads(Uint8List pdfBytes) async {
-    // Request storage permissions
-    final status = await Permission.storage.request();
-    bool allowed = await _requestStoragePermission();
-    if (!allowed) throw Exception("Storage permission denied");
-
-
-    Directory? downloadsDir;
-
-    if (Platform.isAndroid) {
-      downloadsDir = Directory("/storage/emulated/0/Download");
-    } else {
-      downloadsDir = await getApplicationDocumentsDirectory();
-    }
-
-    final filePath = "${downloadsDir.path}/BusinessClaim.pdf";
-    final file = File(filePath);
-
-    await file.writeAsBytes(pdfBytes);
-
-    return filePath;
-  }
 
   void _showSuccessPopup(Uint8List pdfBytes) async {
     String? savedPath;
 
     try {
-      savedPath = await _savePdfToDownloads(pdfBytes);
+      savedPath = await savePdfSafely(pdfBytes);
     } catch (e) {
       print("PDF save error: $e");
     }
@@ -264,12 +243,22 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
       },
     );
   }
-  Future<bool> _requestStoragePermission() async {
-    if (await Permission.manageExternalStorage.isGranted) return true;
+  // Future<bool> _requestStoragePermission() async {
+  //   if (await Permission.manageExternalStorage.isGranted) return true;
+  //
+  //   final status = await Permission.manageExternalStorage.request();
+  //
+  //   return status.isGranted;
+  // }
+  Future<String> savePdfSafely(Uint8List pdfBytes) async {
+    final directory = await getApplicationDocumentsDirectory();
 
-    final status = await Permission.manageExternalStorage.request();
+    final filePath = "${directory.path}/BusinessClaim.pdf";
+    final file = File(filePath);
 
-    return status.isGranted;
+    await file.writeAsBytes(pdfBytes);
+
+    return filePath;
   }
 
   // Endpoint constant
@@ -305,52 +294,69 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
 // ===== FILE PICKER =====
   Future<void> pickFile(String label) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      File? file;
+
+      // First ask user what they want to pick
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Select File"),
+          content: const Text("Choose file type"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, "image"), child: const Text("Image")),
+            TextButton(onPressed: () => Navigator.pop(context, "pdf"), child: const Text("PDF")),
+          ],
+        ),
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = File(result.files.single.path!);
+      if (choice == null) return;
 
-        // Check MIME type
-        final mimeType = lookupMimeType(file.path);
-        print("Picked file: ${file.path} | MIME type: $mimeType");
-
-        if (mimeType == null ||
-            !['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
-                .contains(mimeType)) {
-          print("❌ Invalid file type selected: ${file.path}");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Only JPG, PNG, or PDF files are allowed."),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-
-        // Save valid file
-        setState(() {
-          filePaths[label] = file;
-        });
-
-        print("✅ File ready to upload: ${file.path}");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("$label selected successfully."),
-            backgroundColor: Colors.green.shade700,
-          ),
+      if (choice == "image") {
+        // Uses Android photo picker → NO PERMISSION NEEDED
+        final pickedImage = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
         );
+        if (pickedImage == null) return;
+        file = File(pickedImage.path);
+      } else {
+        // Pick PDF using file_selector → NO PERMISSION NEEDED
+        final XTypeGroup pdfType = XTypeGroup(
+          extensions: ['pdf'],
+        );
+
+        final selectedPdf = await openFile(acceptedTypeGroups: [pdfType]);
+
+        if (selectedPdf == null) return;
+
+        file = File(selectedPdf.path);
       }
+
+      // Validate MIME
+      final mimeType = lookupMimeType(file!.path);
+      if (mimeType == null ||
+          !['image/jpeg', 'image/png', 'application/pdf'].contains(mimeType)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Only JPG, PNG or PDF allowed.")),
+        );
+        return;
+      }
+
+      setState(() {
+        filePaths[label] = file!;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("$label selected successfully."),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
     } catch (e) {
-      print("File pick error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Unable to pick file: $e")),
       );
     }
-  }
-  // ======= DATE PICKER =======
+  }  // ======= DATE PICKER =======
   Future<void> _pickDateSigned() async {
     final DateTime? picked = await showDatePicker(
       context: context,

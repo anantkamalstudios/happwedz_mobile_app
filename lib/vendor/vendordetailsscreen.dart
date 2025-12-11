@@ -675,16 +675,30 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.auto_awesome, color: Colors.pink),
-            onPressed: (){
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AiChatScreen()),
-              );
-            },
-          )
-        ],
+    IconButton(
+    padding: EdgeInsets.zero,
+    onPressed: () {
+    Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const AiChatScreen()),
+    );
+    },
+    icon: Container(
+    height: 40,       // Adjust size
+    width: 40,
+    decoration: BoxDecoration(
+    shape: BoxShape.circle,
+    color: Colors.pink,       // 🌸 Pink Circle Background
+    ),
+    child: Image.asset(
+    'assets/shadiai-unscreen.gif',
+    fit: BoxFit.contain,
+    ),
+    ),
+    ),
+
+
+    ],
       ),
     );
   }
@@ -2264,26 +2278,26 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                             onPageChanged: (i, r) => setState(() => _currentCarouselIndex = i),
                           ),
                         ),
-                        Positioned(
-                          right: 16,
-                          bottom: 20,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black.withOpacity(0.7),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                            ),
-                            icon: const Icon(Icons.threed_rotation, color: Colors.white),
-                            label: const Text("360° View", style: TextStyle(color: Colors.white)),
-                            onPressed: () {
-                              final List<ImageProvider> providers =
-                              images.map((e) => NetworkImage(e)).toList();
-
-                              open360Viewer(context, providers);
-                            },
-
-
-                          ),
-                        ),
+                        // Positioned(
+                        //   right: 16,
+                        //   bottom: 20,
+                        //   child: ElevatedButton.icon(
+                        //     style: ElevatedButton.styleFrom(
+                        //       backgroundColor: Colors.black.withOpacity(0.7),
+                        //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        //     ),
+                        //     icon: const Icon(Icons.threed_rotation, color: Colors.white),
+                        //     label: const Text("360° View", style: TextStyle(color: Colors.white)),
+                        //     onPressed: () {
+                        //       final List<ImageProvider> providers =
+                        //       images.map((e) => NetworkImage(e)).toList();
+                        //
+                        //       open360Viewer(context, providers);
+                        //     },
+                        //
+                        //
+                        //   ),
+                        // ),
 
                         // Top controls
                         Positioned(

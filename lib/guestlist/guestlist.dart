@@ -25,18 +25,16 @@ class Guest {
   final String name;
   final String email;
   final String group;
-  String status;  // Pending / Accepted / Declined etc
-  final String type; // Adult/Child
-  final String menu; // Veg / Non-Veg / All etc
+  String status;
+  final String type;
+  final String menu;
   final int companions;
   final String seatNumber;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  // optional UI fields
-  String phone = '';
-
-  String? notes;
+  // NEW FIELD
+  final String phoneNumber;
 
   Guest({
     this.id,
@@ -49,33 +47,26 @@ class Guest {
     required this.menu,
     required this.companions,
     required this.seatNumber,
+    required this.phoneNumber,  // 👈 NEW
     this.createdAt,
     this.updatedAt,
   });
 
   factory Guest.fromJson(Map<String, dynamic> json) {
-    DateTime? parseDate(dynamic v) {
-      if (v == null) return null;
-      try {
-        return DateTime.parse(v.toString());
-      } catch (_) {
-        return null;
-      }
-    }
-
     return Guest(
-      id: json['id'] is int ? json['id'] : (int.tryParse(json['id']?.toString() ?? '') ?? null),
-      userId: (json['userId'] is int) ? json['userId'] : int.tryParse(json['userId']?.toString() ?? '') ?? 0,
-      name: (json['name'] ?? '').toString(),
-      email: (json['email'] ?? '').toString(),
-      group: (json['group'] ?? json['groupName'] ?? '').toString(),
-      status: (json['status'] ?? 'Pending').toString(),
-      type: (json['type'] ?? '').toString(),
-      menu: (json['menu'] ?? '').toString(),
-      companions: (json['companions'] is int) ? json['companions'] : int.tryParse(json['companions']?.toString() ?? '') ?? 0,
-      seatNumber: (json['seat_number'] ?? json['seatNumber'] ?? '').toString(),
-      createdAt: parseDate(json['createdAt']),
-      updatedAt: parseDate(json['updatedAt']),
+      id: json['id'],
+      userId: json['userId'] ?? 0,
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      group: json['group'] ?? '',
+      status: json['status'] ?? 'Pending',
+      type: json['type'] ?? '',
+      menu: json['menu'] ?? '',
+      companions: json['companions'] ?? 0,
+      seatNumber: json['seat_number'] ?? '',
+      phoneNumber: json['phone_number']?.toString() ?? '', // 👈 NEW
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 }
@@ -102,6 +93,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
   List<String> _groups = [];
 
   final List<String> _categories = ['All', 'Family', 'Friends', 'Colleagues', 'Other'];
+  String phoneNumber = "";
 
   @override
   void initState() {
@@ -391,6 +383,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
     String type = 'Adult';
     String menu = 'Veg';
     String seat = '';
+    String phoneNumber = "";
 
     showDialog(
       context: context,
@@ -428,6 +421,20 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                           return null;
                         },
                         onSaved: (v) => email = v!.trim(),
+                      ),
+                      SizedBox(height: 12),
+                      TextFormField(
+                        decoration: const InputDecoration(
+                            labelText: 'Phone Number',
+                            hintText: 'e.g., 9876543210'
+                        ),
+                        keyboardType: TextInputType.phone,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          if (v.length < 10) return 'Invalid phone';
+                          return null;
+                        },
+                        onSaved: (v) => phoneNumber = v!.trim(),
                       ),
 
 
@@ -544,6 +551,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                       "seat_number": seat,
                       "status": "Pending",
                       "type": type,
+                      "phone_number": phoneNumber,
                     };
 
                     await addGuest(payload);
@@ -1016,7 +1024,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
                 IconButton(
                   icon: const Icon(Icons.sms, color: Colors.green),
                   onPressed: () {
-                    sendWhatsApp(guest.phone ?? "");
+                    sendWhatsApp(guest.phoneNumber ?? "");
                   },
                 ),
 
@@ -1312,6 +1320,15 @@ class _GuestDetailsScreenState extends State<GuestDetailsScreen> {
                   widget.guest.email,
                   style: const TextStyle(fontSize: 15, color: Colors.white70),
                 ),
+
+
+                const SizedBox(height: 6),
+
+                Text(
+                  widget.guest.phoneNumber,
+                  style: const TextStyle(fontSize: 15, color: Colors.white70),
+                ),
+
 
                 const SizedBox(height: 20),
 

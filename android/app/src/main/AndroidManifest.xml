@@ -1,31 +1,13 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-<!--    &lt;!&ndash;  🔥 STORAGE PERMISSIONS  &ndash;&gt;-->
-<!--    &lt;!&ndash;  For Android 9 and below  &ndash;&gt;-->
-<!--    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>-->
-<!--    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>-->
-<!--    &lt;!&ndash;  🔥 For Android 10 (legacy access)  &ndash;&gt;-->
-<!--    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>-->
-<!--    &lt;!&ndash;  🔥 Android 11+ Scoped Storage  &ndash;&gt;-->
-<!--    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>-->
-<!--    &lt;!&ndash;  🔥 Android 13+ media-specific permissions  &ndash;&gt;-->
-<!--    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>-->
-<!--    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>-->
-<!--    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- FORCE REMOVE ALL FILES ACCESS added by any library -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:node="remove" />
 
-<!--    &lt;!&ndash; Android 12 and below &ndash;&gt;-->
-<!--    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"-->
-<!--        android:maxSdkVersion="32"/>-->
-
-<!--    &lt;!&ndash; Android 13+ media permissions &ndash;&gt;-->
-<!--    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>-->
-<!--    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>-->
-
-<!--    &lt;!&ndash; If your app needs location of photos (optional) &ndash;&gt;-->
-<!--    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>-->
     <application android:label="Happy Wedz"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:requestLegacyExternalStorage="true">
+        android:icon="@mipmap/ic_launcher">
         <activity android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
