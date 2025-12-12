@@ -68,6 +68,12 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   double maxPrice = 200000;
   double selectedRating = 0;
 
+  String? selectedSubCategory;
+  String? selectedVendorType;
+
+
+
+
   @override
   void initState() {
     super.initState();
@@ -141,65 +147,44 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       currentUserId = prefs.getInt('user_id')?.toString();
     });
   }
+  Future<void> fetchServices() async {
+    setState(() => isLoading = true);
 
-  Future<void> fetchServices({bool reset = true}) async {
-    if (reset) {
-      setState(() {
-        isLoading = true;
-        currentPage = 1;
-        allServices.clear();
-        services.clear();
-      });
-    }
+    Map<String, String> queryParams = {};
+
+    if (selectedCity.isNotEmpty) queryParams["city"] = selectedCity;
+    if (selectedSubCategory != null) queryParams["subCategory"] = selectedSubCategory!;
+    if (selectedVendorType != null) queryParams["vendorType"] = selectedVendorType!;
+
+    queryParams["minPrice"] = minPrice.toInt().toString();
+    queryParams["maxPrice"] = maxPrice.toInt().toString();
+    queryParams["minRating"] = selectedRating.toString();
+
+    final uri = Uri.https(
+      "happywedz.com",
+      "/api/vendor-services",
+      queryParams,
+    );
+
+    print("API URL → $uri");
 
     try {
-      final encodedSubcategory =
-      Uri.encodeComponent(widget.subcategoryName.toLowerCase());
+      final res = await http.get(uri);
 
-      final url = Uri.parse(
-          "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory&page=$currentPage&limit=9");
-
-      final response = await http.get(url, headers: {"Accept": "application/json"});
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        // final List<dynamic> list = (data['data'] ?? []) as List<dynamic>;
-        final rawData = data['data'];
-
-        List<dynamic> list = [];
-
-        if (rawData is List) {
-          list = rawData;
-        } else if (rawData is Map<String, dynamic>) {
-          list = [rawData];  // wrap single object into a list
-        } else {
-          list = [];  // null or unexpected format
-        }
-
-        final pagination = data['pagination'] ?? {};
-
-        totalPages = (pagination['totalPages'] ?? 1) is int
-            ? pagination['totalPages']
-            : int.tryParse('${pagination['totalPages']}') ?? 1;
-        hasMore = currentPage < totalPages;
-
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
         setState(() {
-          allServices.addAll(list);
+          vendorList = data["data"];
         });
-
-        _applyFiltersAndSearch();
-      } else {
-        print('API error ${response.statusCode}');
       }
-    } catch (e, st) {
-      print('fetchServices error $e');
-      print(st);
+    } catch (e) {
+      print("Error fetching services: $e");
     }
 
-    setState(() {
-      isLoading = false;
-    });
+    setState(() => isLoading = false);
   }
+
+
 
   Future<void> fetchMoreServices() async {
     if (!hasMore) return;
@@ -264,15 +249,10 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
     _applyFiltersAndSearch(); // 🔥 local filtering
   }
-  Timer? _debounce;
 
-  // void _applyFiltersAndSearch() {
-  //   if (_debounce?.isActive ?? false) _debounce!.cancel();
-  //
-  //   _debounce = Timer(const Duration(milliseconds: 400), () {
-  //     fetchVendors(searchController.text.trim());
-  //   });
-  // }
+
+
+
   void _applyFiltersAndSearch() {
     final q = searchController.text.trim().toLowerCase();
 
@@ -328,43 +308,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   }
 
 
-  // void _applyFiltersAndSearch() {
-  //   final q = searchController.text.trim().toLowerCase();
-  //
-  //   final filtered = allServices.where((s) {
-  //     final attr = s['attributes'] ?? {};
-  //     final vendor = s['vendor'] ?? {};
-  //
-  //     final name = (vendor['businessName'] ?? attr['vendor_name'] ?? '')
-  //         .toString()
-  //         .toLowerCase();
-  //     final city = (vendor['city'] ?? attr['city'] ?? '').toString().toLowerCase();
-  //
-  //     // price parsing (veg_price or non_veg_price)
-  //     double price = 0;
-  //     final veg = (attr['veg_price'] ?? attr['PriceRange'] ?? '')
-  //         .toString()
-  //         .replaceAll(',', '')
-  //         .replaceAll(RegExp(r'[^0-9.]'), '');
-  //     if (veg.isNotEmpty) price = double.tryParse(veg) ?? 0;
-  //
-  //     final ratingStr = (attr['rating'] ?? attr['averageRating'] ?? '0').toString();
-  //     final rating = double.tryParse(ratingStr.replaceAll(',', '')) ?? 0.0;
-  //
-  //     bool matchesSearch = q.isEmpty || name.contains(q) || city.contains(q);
-  //     bool matchesCity = filterCity.isEmpty || city.contains(filterCity.toLowerCase());
-  //     bool matchesPrice = price >= filterMinPrice && price <= filterMaxPrice;
-  //     bool matchesRating = rating >= filterMinRating;
-  //
-  //     return matchesSearch && matchesCity && matchesPrice && matchesRating;
-  //   }).toList();
-  //
-  //   setState(() {
-  //     services = filtered;
-  //   });
-  // }
 
-  // Toggle favourite (local + API)
   Future<void> _toggleFavourite(String vendorServiceId) async {
     if (currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -428,6 +372,19 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         builder: (_) => VendorDetailsScreen(service: {'vendor': {'id': vendorId, 'businessName': name}}),
       ),
     );
+  }
+  Set<String> allSubCategories = {};
+  Set<String> allVendorTypes = {};
+
+  void extractFilters(List vendors) {
+    for (var v in vendors) {
+      if (v["subcategory"] != null) {
+        allSubCategories.add(v["subcategory"]["name"]);
+      }
+      if (v["vendor"]?["vendorType"] != null) {
+        allVendorTypes.add(v["vendor"]["vendorType"]["name"]);
+      }
+    }
   }
 
   void _openFilterSheet() {
@@ -554,50 +511,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       },
     );
   }
-  // Future<void> applyFilters() async {
-  //   setState(() {
-  //     isLoading = true;
-  //     services.clear();
-  //   });
-  //
-  //   currentPage = 1;
-  //
-  //   final encodedSubcategory =
-  //   Uri.encodeComponent(widget.subcategoryName.toLowerCase());
-  //
-  //   final url =
-  //       "https://happywedz.com/api/vendor-services"
-  //       "?subCategory=$encodedSubcategory"
-  //       "&page=$currentPage"
-  //       "&limit=9"
-  //       "${selectedCity.isNotEmpty ? "&city=$selectedCity" : ""}"
-  //       "${selectedRating > 0 ? "&rating=$selectedRating" : ""}"
-  //       "&minPrice=$minPrice"
-  //       "&maxPrice=$maxPrice";
-  //
-  //   print("🎯 FILTER API URL: $url");
-  //
-  //   try {
-  //     final response = await http.get(Uri.parse(url));
-  //
-  //     if (response.statusCode == 200) {
-  //       final jsonData = json.decode(response.body);
-  //       final list = jsonData["data"] ?? [];
-  //       final pagination = jsonData["pagination"];
-  //
-  //       totalPages = pagination["totalPages"];
-  //       hasMore = currentPage < totalPages;
-  //
-  //       setState(() {
-  //         services = list;
-  //         isLoading = false;
-  //       });
-  //     }
-  //   } catch (e) {
-  //     print("❌ Filter error: $e");
-  //     setState(() => isLoading = false);
-  //   }
-  // }
+
 
   Widget _buildAppBar() {
     return Padding(
@@ -944,9 +858,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12.0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text('${services.length} results', style: const TextStyle(color: Colors.black54)),
+                  // Text('${services.length} results', style: const TextStyle(color: Colors.black54)),
                   TextButton.icon(onPressed: _openFilterSheet, icon: const Icon(Icons.filter_list), label: const Text('Filters'))
                 ],
               ),
@@ -955,7 +869,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
               child: RefreshIndicator(
                 color: Colors.pink,
                 onRefresh: () async {
-                  await fetchServices(reset: true);
+                  await fetchServices();
                 },
                 child: isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -967,8 +881,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                   ],
                 )
                     : isList
-                    ? _buildGridView()
-                    : _buildListView(),
+                    ? _buildListView()
+                    : _buildGridView(),
+
               ),
             ),
 

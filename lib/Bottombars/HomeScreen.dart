@@ -1631,17 +1631,34 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           ),
           const SizedBox(width: 10),
           InkWell(
-            onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()));
+            onTap: () async {
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              bool isLoggedIn = prefs.getBool("isLoggedIn") ?? false;
+
+              if (!isLoggedIn) {
+                // User NOT logged in → go to SignInScreen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SignInScreen()),
+                );
+              } else {
+                // User logged in → go to Profile Settings
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+                );
+              }
             },
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
               child: const Icon(Icons.person, color: Colors.white, size: 20),
             ),
-          ),
+          )
+
         ])
       ]),
     );
@@ -1871,11 +1888,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const TemplateListScreen(),
+                  builder: (_) => const EInvitationScreen(),
                 ),
               );
             },
-            child: _buildPlanningToolCard('Build your\nDigital E-invites', 'on app launch', Colors.purple[100]!, Icons.card_giftcard, Colors.purple),
+            child: _buildPlanningToolCard('Build your\nDigital E-invites', 'on app launch', Colors.purple[100]!, Icons.insert_invitation, Colors.purple),
           ),
         ),
         const SizedBox(width: 12),
@@ -2043,7 +2060,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
         child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all venues', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
+          Text('View all Venues', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
           SizedBox(width: 5),
           Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
         ]),
@@ -2155,7 +2172,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
         child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all photographers', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
+          Text('View all Photographers', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
           SizedBox(width: 5),
           Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
         ]),

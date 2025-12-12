@@ -126,18 +126,10 @@ class TemplateListScreen extends ConsumerWidget {
                         title: "Create Wedding Website",
                         subtitle: "Add photos, schedule, gallery & more",
                         onTap: () {
-                          // TODO open website builder
+
                         },
                       ),
-                      // const SizedBox(height: 12),
-                      // _websiteOption(
-                      //   icon: Icons.link,
-                      //   title: "My Website Links",
-                      //   subtitle: "Manage or share your wedding website",
-                      //   onTap: () {
-                      //     // TODO open website links
-                      //   },
-                      // ),
+
                     ],
                   ),
                 ),

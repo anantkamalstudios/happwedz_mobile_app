@@ -7,6 +7,8 @@ import '../InboxScreen.dart';
 import '../RealWedding/share_ur_story.dart';
 import '../Review.dart';
 import '../Wishlist/Wishlistscreen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../ai_chat_screen/ai_chat_screen.dart';
 import '../budget/budget.dart';
@@ -53,7 +55,6 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
             children: [
               // Top App Bar
                _buildAppBar(context),
-
               // Menu Items
               Expanded(
                 child: Container(
@@ -261,7 +262,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
   void _handleMenuTap(BuildContext context, String menuTitle) async {
     switch (menuTitle) {
       case 'E-Invites':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => TemplateListScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => EInvitationScreen()));
         break;
         case 'Budget':
         Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetPage()));
@@ -370,32 +371,39 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: const Text(
-            'Logout',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2D2D2D),
-            ),
-          ),
-          content: const Text(
-            'Are you sure you want to log out?',
-            style: TextStyle(color: Color(0xFF666666)),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to log out?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Color(0xFFBBBBBB)),
-              ),
+              child: const Text('Cancel'),
             ),
+
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.push(context, MaterialPageRoute(builder: (_) => SignInScreen()));
+              onPressed: () async {
+                Navigator.pop(context);
+
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+
+                // 🔥 Clear only auth-related keys (safer)
+                await prefs.remove('user_id');
+                await prefs.remove('user_name');
+                await prefs.remove('user_email');
+                await prefs.remove('user_phone');
+                await prefs.remove('auth_token');
+                await prefs.remove('user_photo');
+
+                // Google logout
+                await GoogleSignIn().signOut();
+
+                // Navigate to login screen
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SignInScreen()),
+                      (route) => false,
+                );
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Logged out successfully'),
@@ -403,16 +411,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF69B4),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text('Logout'),
             ),
           ],
         );

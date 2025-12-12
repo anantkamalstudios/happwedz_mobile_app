@@ -94,7 +94,7 @@ class MyApp extends StatelessWidget {
           ],
         );
       },
-      home: const AuthWrapper(),
+      home: const AuthCheckScreen(),
     );
   }
 }
@@ -164,6 +164,54 @@ class CountryData {
   ];
 }
 
+class AuthCheckScreen extends StatefulWidget {
+  const AuthCheckScreen({Key? key}) : super(key: key);
+
+  @override
+  _AuthCheckScreenState createState() => _AuthCheckScreenState();
+}
+
+class _AuthCheckScreenState extends State<AuthCheckScreen> {
+
+  @override
+  void initState() {
+    super.initState();
+    checkLogin();
+  }
+
+  Future<void> checkLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    final userId = prefs.getInt('user_id');
+
+    await Future.delayed(const Duration(milliseconds: 600)); // small splash effect
+
+    if (token != null && userId != null && userId > 0) {
+      // USER IS LOGGED IN → GO TO HOME
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const BottomBars()),
+      );
+    } else {
+      // USER NOT LOGGED IN → GO TO SIGN IN
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(color: Colors.pink),
+      ),
+    );
+  }
+}
+
+
 class SignInScreen extends StatefulWidget {
   const SignInScreen({Key? key}) : super(key: key);
 
@@ -219,9 +267,8 @@ class _SignInScreenState extends State<SignInScreen> {
 
           await prefs.setString('auth_token', token);
           await prefs.setString('user_photo', googleUser.photoUrl ?? '');
+          await prefs.setBool('isLoggedIn', true);
 
-          // 👇 Save login time (for 2 days expiry)
-          await prefs.setString('token_saved_at', DateTime.now().toIso8601String());
           _showSnackBar('Welcome ${user['name']}');
           print("user_id: ${user['id']}");
           Navigator.pushReplacement(

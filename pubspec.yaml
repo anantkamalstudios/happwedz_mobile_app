@@ -100,6 +100,7 @@ dependencies:
   flutter_slidable:
   flutter_riverpod:
   media_store_plus: 0.1.3
+  webview_flutter:
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -188,6 +189,13 @@ flutter:
    - assets/shadiai.mp4
    - assets/shadiai-unscreen.gif
    - assets/tryimg.png
+   - assets/invite1.jpg
+   - assets/commingsoon2.jpg
+   - assets/std3.jpg
+   - assets/index1.png
+   - assets/floral2.png
+   - assets/mordern3.png
+
 
 
   # To add assets to your application, add an assets section, like this:

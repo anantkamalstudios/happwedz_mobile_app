@@ -296,21 +296,22 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
 
   Widget _buildSearchBar() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: EdgeInsets.symmetric(horizontal: 14),
+      padding: EdgeInsets.symmetric(horizontal: 9, vertical: 3), // ↓ smaller height
       decoration: BoxDecoration(
         color: Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(16), // ↓ smaller radius
         border: Border.all(color: Colors.grey.withOpacity(0.2)),
       ),
       child: Row(
         children: [
-          Icon(Icons.search, color: Colors.grey[400], size: 20),
-          SizedBox(width: 12),
+          Icon(Icons.search, color: Colors.grey[400], size: 14), // ↓ smaller icon
+          SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: searchController,
               onChanged: (value) => _handleSearch(value),
+              style: TextStyle(fontSize: 12), // ↓ smaller text
               decoration: InputDecoration(
                 hintText: _selectedSubTabIndex == 0
                     ? 'Search Photos...'
@@ -319,7 +320,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
                     : 'Search Real Weddings...',
                 hintStyle: TextStyle(
                   color: Colors.grey[400],
-                  fontSize: 16,
+                  fontSize: 14, // ↓ smaller hint text
                 ),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
@@ -913,34 +914,52 @@ class BlogDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
+
           // ---------------------------------------------------
-          // HERO IMAGE + BACK BUTTON
+          // PREMIUM HEADER (Image + Overlay + Back Button)
           // ---------------------------------------------------
           SliverAppBar(
-            expandedHeight: 500,
+            expandedHeight: 420,
             pinned: true,
-            elevation: 0,
             backgroundColor: Colors.white,
+            elevation: 0,
+            leading: Container(
+              margin: const EdgeInsets.only(left: 8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withOpacity(0.3),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 children: [
-                  Image.network(
-                    image,
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
+                  // IMAGE
+                  Hero(
+                    tag: image,
+                    child: Image.network(
+                      image,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
                   ),
+
+                  // GRADIENT OVERLAY
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Colors.black.withOpacity(0.6),
+                          Colors.black.withOpacity(0.55),
                           Colors.transparent
                         ],
                       ),
@@ -956,209 +975,100 @@ class BlogDetailPage extends StatelessWidget {
           // ---------------------------------------------------
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+
                   // CATEGORY TAG
                   Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.pink[50],
-                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.pink.shade50,
+                      borderRadius: BorderRadius.circular(25),
                     ),
                     child: Text(
-                      category,
+                      category.toUpperCase(),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.pink[400],
-                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                        color: Colors.pink.shade400,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // TITLE
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      height: 1.3,
-                      color: Colors.black87,
                     ),
                   ),
 
                   const SizedBox(height: 14),
 
+                  // TITLE
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      height: 1.25,
+                      color: Colors.black87,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   // AUTHOR + DATE
                   Row(
                     children: [
                       CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.pink[100],
-                        child: Icon(Icons.person, color: Colors.pink[600], size: 18),
+                        radius: 18,
+                        backgroundColor: Colors.pink.shade100,
+                        child: Icon(Icons.person, size: 20, color: Colors.pink.shade600),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        author,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Icon(Icons.calendar_today,
-                          size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        date,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                        ),
+                      const SizedBox(width: 10),
+
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            author,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(
+                                date,
+                                style: const TextStyle(fontSize: 13, color: Colors.grey),
+                              ),
+                            ],
+                          )
+                        ],
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 25),
-
-                  Divider(color: Colors.grey[200]),
-                  const SizedBox(height: 18),
-
-                  // MAIN CONTENT — PREMIUM TYPOGRAPHY
-                  Text(
-                    content,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      height: 1.7,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-
                   const SizedBox(height: 30),
 
-                  // ---------------------------------------------------
-                  // ENGAGEMENT BUTTONS
-                  // ---------------------------------------------------
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.grey[200]!),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _engage(Icons.favorite_border, "Like"),
-                        _engage(Icons.bookmark_border, "Save"),
-                        _engage(Icons.share, "Share"),
-                        _engage(Icons.comment_outlined, "Comment"),
-                      ],
+                  // CONTENT
+                  Text(
+                    content,
+                    style: TextStyle(
+                      fontSize: 17,
+                      height: 1.8,
+                      color: Colors.grey.shade900,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0.2,
                     ),
                   ),
 
-                  const SizedBox(height: 40),
-
-                  // ---------------------------------------------------
-                  // YOU MAY ALSO LIKE (DUMMY)
-                  // ---------------------------------------------------
-                  // Text(
-                  //   "You may also like",
-                  //   style: TextStyle(
-                  //     fontSize: 20,
-                  //     fontWeight: FontWeight.w700,
-                  //     color: Colors.black87,
-                  //   ),
-                  // ),
-                  // const SizedBox(height: 14),
-                  //
-                  // _relatedItem(
-                  //   "Top Bridal Makeup Trends This Year",
-                  //   "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg",
-                  // ),
-                  //
-                  // const SizedBox(height: 12),
-                  //
-                  // _relatedItem(
-                  //   "Best Wedding Decor Ideas for 2025",
-                  //   "https://images.pexels.com/photos/265947/pexels-photo-265947.jpeg",
-                  // ),
-
-                  // const SizedBox(height: 50),
+                  const SizedBox(height: 50),
                 ],
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // -----------------------------------------------
-  // ENGAGEMENT BUTTON
-  // -----------------------------------------------
-  Widget _engage(IconData icon, String label) {
-    return Column(
-      children: [
-        Icon(icon, size: 24, color: Colors.pink[400]),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[700],
-          ),
-        )
-      ],
-    );
-  }
-
-  // -----------------------------------------------
-  // RELATED ARTICLE CARD
-  // -----------------------------------------------
-  Widget _relatedItem(String title, String img) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 5,
-            offset: Offset(0, 3),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              img,
-              width: 85,
-              height: 70,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          )
         ],
       ),
     );
