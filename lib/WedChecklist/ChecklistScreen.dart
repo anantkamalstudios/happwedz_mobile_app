@@ -146,6 +146,69 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   int get _totalCount => _tasks.length;
   double get _progress => _totalCount == 0 ? 0.0 : _completedCount / _totalCount;
 
+
+
+
+
+  /// ✅ Total days between start & wedding
+  int get _totalDays {
+    if (startDate == null || weddingDate == null) return 0;
+    final diff = weddingDate!.difference(startDate!).inDays;
+    return diff > 0 ? diff : 0;
+  }
+
+  /// ✅ Days per task (USER-CREATED TASKS ONLY)
+  int get _daysPerTask {
+    if (_tasks.isEmpty) return 0;
+    if (_totalDays == 0) return 0;
+
+    return (_totalDays / _tasks.length).floor();
+  }
+
+
+  /// 🔹 Distributed task data (same as React distributedTasks)
+  List<_DistributedTask> get _distributedTasks {
+    if (startDate == null || weddingDate == null || _tasks.isEmpty) return [];
+
+    final List<_DistributedTask> result = [];
+    final perTaskDays = _daysPerTask <= 0 ? 1 : _daysPerTask;
+
+    DateTime currentDate = startDate!;
+
+    for (final task in _tasks) {
+      final start = currentDate;
+      final end = currentDate.add(Duration(days: perTaskDays - 1));
+
+      result.add(
+        _DistributedTask(
+          task: task,
+          days: perTaskDays,
+          start: start,
+          end: end,
+        ),
+      );
+
+      currentDate = currentDate.add(Duration(days: perTaskDays));
+    }
+
+    return result;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // ---------------- API CALLS ----------------
 
   // Fetch vendor types + subcategories -> flatten to subcategories list
@@ -248,11 +311,13 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
         _tasks.add(
           _TaskItem(
+            id: item["id"].toString(), // 🔥 REQUIRED
             title: text,
             category: categoryName,
             done: status == "completed",
           ),
         );
+
       }
 
       print("✅ Loaded tasks count: ${_tasks.length}");
@@ -360,7 +425,11 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       orElse: () => _VendorSubcategory(id: vendorSubId, name: vendorSubId),
     );
 
-    final task = _TaskItem(title: text, category: sub.name);
+    final task = _TaskItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: text,
+      category: sub.name,
+    );
     setState(() {
       _tasks.insert(0, task);
       _listKey.currentState?.insertItem(0, duration: const Duration(milliseconds: 450));
@@ -425,19 +494,61 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     });
     print('✅ Task toggled: ${_tasks[index].title} -> ${_tasks[index].done}');
   }
+  Future<bool> _deleteChecklistOnServer(String taskId) async {
+    try {
+      final uri = Uri.parse("$baseUrl/new-checklist/delete/$taskId");
+
+      final res = await http.delete(
+        uri,
+        headers: _headers(),
+      );
+
+      print("🗑️ DELETE status: ${res.statusCode}");
+      print("🗑️ DELETE body: ${res.body}");
+
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      print("❌ Delete checklist error: $e");
+      return false;
+    }
+  }
 
 
   // Remove task
-  void _removeTask(int index) {
-    final removed = _tasks.removeAt(index);
-    _listKey.currentState?.removeItem(index, (context, animation) {
-      return SizeTransition(
+  void _removeTask(int index) async {
+    final removed = _tasks[index];
+
+    // Optimistic UI remove
+    setState(() {
+      _tasks.removeAt(index);
+    });
+
+    _listKey.currentState?.removeItem(
+      index,
+          (context, animation) => SizeTransition(
         sizeFactor: animation,
         axis: Axis.vertical,
         child: _buildTaskTile(removed, index, anim: animation),
+      ),
+      duration: const Duration(milliseconds: 380),
+    );
+
+    print('🗑️ Task removed locally: ${removed.title}');
+
+    // 🔥 DELETE FROM BACKEND
+    final ok = await _deleteChecklistOnServer(removed.id);
+
+    if (!ok) {
+      // rollback if API fails
+      setState(() {
+        _tasks.insert(index, removed);
+        _listKey.currentState?.insertItem(index);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete task. Please try again.')),
       );
-    }, duration: const Duration(milliseconds: 380));
-    print('🗑️ Task removed: ${removed.title}');
+    }
   }
 
   // Date pickers with prints
@@ -670,58 +781,58 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     );
   }
 
-  Widget _buildTimeAllocationCard() {
-    // Use startDate and weddingDate from the Wedding Timeline section
-    if (startDate == null || weddingDate == null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Text(
-          "Please select both Start and Wedding Dates to view time allocation.",
-          style: TextStyle(color: Colors.grey[700]),
-        ),
-      );
-    }
-
-    final Duration requiredDuration = const Duration(days: 2);
-    final DateTime endDate = startDate!.add(requiredDuration);
-    final int bufferDays = weddingDate!.difference(endDate).inDays;
-
-    String formatDate(DateTime d) =>
-        "${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}";
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 15),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF0F5), // light pink background
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFC0CB)), // pink border
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Time Allocation",
-            style: TextStyle(
-              color: Color(0xFFB30059),
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text("• 2 days required",
-              style: const TextStyle(color: Colors.black87, fontSize: 14)),
-          Text("• Start: ${formatDate(startDate!)}",
-              style: const TextStyle(color: Colors.black87, fontSize: 14)),
-          Text("• End: ${formatDate(endDate)}",
-              style: const TextStyle(color: Colors.black87, fontSize: 14)),
-          Text("• Remaining buffer: ${bufferDays} days",
-              style: const TextStyle(color: Colors.black87, fontSize: 14)),
-        ],
-      ),
-    );
-  }
+  // Widget _buildTimeAllocationCard() {
+  //   // Use startDate and weddingDate from the Wedding Timeline section
+  //   if (startDate == null || weddingDate == null) {
+  //     return Padding(
+  //       padding: const EdgeInsets.only(top: 10),
+  //       child: Text(
+  //         "Please select both Start and Wedding Dates to view time allocation.",
+  //         style: TextStyle(color: Colors.grey[700]),
+  //       ),
+  //     );
+  //   }
+  //
+  //   final Duration requiredDuration = const Duration(days: 2);
+  //   final DateTime endDate = startDate!.add(requiredDuration);
+  //   final int bufferDays = weddingDate!.difference(endDate).inDays;
+  //
+  //   String formatDate(DateTime d) =>
+  //       "${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}";
+  //
+  //   return Container(
+  //     width: double.infinity,
+  //     margin: const EdgeInsets.only(top: 15),
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: const Color(0xFFFFF0F5), // light pink background
+  //       borderRadius: BorderRadius.circular(12),
+  //       border: Border.all(color: const Color(0xFFFFC0CB)), // pink border
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         const Text(
+  //           "Time Allocation",
+  //           style: TextStyle(
+  //             color: Color(0xFFB30059),
+  //             fontWeight: FontWeight.bold,
+  //             fontSize: 16,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 8),
+  //         Text("• 2 days required",
+  //             style: const TextStyle(color: Colors.black87, fontSize: 14)),
+  //         Text("• Start: ${formatDate(startDate!)}",
+  //             style: const TextStyle(color: Colors.black87, fontSize: 14)),
+  //         Text("• End: ${formatDate(endDate)}",
+  //             style: const TextStyle(color: Colors.black87, fontSize: 14)),
+  //         Text("• Remaining buffer: ${bufferDays} days",
+  //             style: const TextStyle(color: Colors.black87, fontSize: 14)),
+  //       ],
+  //     ),
+  //   );
+  // }
 
 
   // Checklist card (premium)
@@ -900,7 +1011,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               const SizedBox(height: 16),
 
               // 🔹 REMAINING SAME
-              _buildTimeAllocationCard(),
+              // _buildTimeAllocationCard(),
             ],
           ),
         ),
@@ -946,10 +1057,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                 initialItemCount: _tasks.length,
                 itemBuilder: (context, index, animation) {
                   final t = _tasks[index];
-
-                  final int daysAssigned = (startDate != null && weddingDate != null)
-                      ? weddingDate!.difference(startDate!).inDays
-                      : 0;
+                  final int daysAssigned = _daysPerTask;
 
                   return SizeTransition(
                     sizeFactor: animation,
@@ -971,7 +1079,6 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // -------- Row 1: Category + Task --------
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -989,7 +1096,8 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: Colors.black87,
-                                    decoration: t.done ? TextDecoration.lineThrough : null,
+                                    decoration:
+                                    t.done ? TextDecoration.lineThrough : null,
                                   ),
                                 ),
                               ),
@@ -998,11 +1106,9 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
                           const SizedBox(height: 10),
 
-                          // -------- Row 2: Status + Days + Actions --------
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // Status toggle circle
                               GestureDetector(
                                 onTap: () => _toggleDone(index),
                                 child: Container(
@@ -1011,26 +1117,30 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(color: Colors.grey.shade300),
-                                    color: t.done ? Colors.pink.shade50 : Colors.grey.shade100,
+                                    color: t.done
+                                        ? Colors.pink.shade50
+                                        : Colors.grey.shade100,
                                   ),
                                   child: Icon(
-                                    t.done ? Icons.check : Icons.radio_button_unchecked,
-                                    color: t.done ? Colors.pink : Colors.grey.shade400,
+                                    t.done
+                                        ? Icons.check
+                                        : Icons.radio_button_unchecked,
+                                    color:
+                                    t.done ? Colors.pink : Colors.grey.shade400,
                                     size: 18,
                                   ),
                                 ),
                               ),
 
-                              // Days assigned
+                              // ✅ ONLY CALCULATION — NO AUTO TASKS
                               Text(
-                                '$daysAssigned days',
+                                daysAssigned > 0 ? '$daysAssigned days' : '--',
                                 style: const TextStyle(
                                   color: Colors.grey,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
 
-                              // Actions: edit + delete
                               Row(
                                 children: [
                                   _iconCircleButton(
@@ -1270,11 +1380,13 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
 // simple model for task item
 class _TaskItem {
+  final String id;
   String title;
   String category;
   bool done;
 
-  _TaskItem({required this.title, required this.category, this.done = false});
+  _TaskItem({    required this.id,
+    required this.title, required this.category, this.done = false});
 }
 
 // vendor subcategory model
@@ -1284,6 +1396,25 @@ class _VendorSubcategory {
 
   _VendorSubcategory({required this.id, required this.name});
 }
+
+
+class _DistributedTask {
+  final _TaskItem task;
+  final int days;
+  final DateTime start;
+  final DateTime end;
+
+  _DistributedTask({
+    required this.task,
+    required this.days,
+    required this.start,
+    required this.end,
+  });
+}
+
+
+
+
 // import 'dart:convert';
 // import 'package:flutter/material.dart';
 // import 'package:flutter/scheduler.dart';

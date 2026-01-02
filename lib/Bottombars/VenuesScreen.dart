@@ -1700,114 +1700,283 @@ class _VenuesScreenState extends State<VenuesScreen> {
   }
 
   // ----------------- UI -----------------
+
   @override
   Widget build(BuildContext context) {
     final primaryAccent = Colors.pink.shade600;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        toolbarHeight: 84,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xFFFEC5E5), Color(0xFFFFE4E1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
-          ),
-        ),
-        title: const Text('Venues', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: [
-          IconButton(icon: Icon(isList ? Icons.list : Icons.grid_view), onPressed: () => setState(() => isList = !isList)),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // search & filter row
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(25)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: _onSearchChanged,
-                              decoration: const InputDecoration(hintText: 'Search venues, city, name...', border: InputBorder.none),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(icon: const Icon(Icons.filter_list, color: Colors.pink), onPressed: _openFilterSheet),
+      body: Stack(
+        children: [
+
+          // -------- BACKGROUND GRADIENT --------
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFF69B4),
+                  Color(0xFFFFB6C1),
+                  Colors.white,
                 ],
+                stops: [0.0, 0.3, 0.6],
               ),
             ),
+          ),
 
-            // results count + clear filters
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Text('${venues.length} results', style: const TextStyle(color: Colors.black54)),
-                  Row(
+          SafeArea(
+            child: Column(
+              children: [
+
+                // -------- HEADER --------
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      if (selectedCity.isNotEmpty || minPrice != 0 || maxPrice != 200000 || selectedRating != 0)
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              selectedCity = "";
-                              minPrice = 0;
-                              maxPrice = 200000;
-                              selectedRating = 0;
-                            });
-                            _applyFiltersAndSearch();
-                          },
-                          child: const Text('Clear filters'),
+                      const Text(
+                        'Venues',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          icon: Icon(
+                            isList ? Icons.list : Icons.grid_view,
+                            color: Colors.white,
+                          ),
+                          onPressed: () => setState(() => isList = !isList),
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+
+                // -------- MAIN WHITE CONTAINER --------
+                Expanded(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    child: Column(
+                      children: [
+
+                        // -------- SEARCH & FILTER --------
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.search, color: Colors.grey),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _searchController,
+                                          onChanged: _onSearchChanged,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Search venues, city, name...',
+                                            border: InputBorder.none,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              // const SizedBox(width: 8),
+                              // IconButton(
+                              //   icon: const Icon(Icons.filter_list, color: Colors.pink),
+                              //   onPressed: _openFilterSheet,
+                              // ),
+                            ],
+                          ),
+                        ),
+
+                        // -------- CLEAR FILTERS --------
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (selectedCity.isNotEmpty ||
+                                  minPrice != 0 ||
+                                  maxPrice != 200000 ||
+                                  selectedRating != 0)
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      selectedCity = "";
+                                      minPrice = 0;
+                                      maxPrice = 200000;
+                                      selectedRating = 0;
+                                    });
+                                    _applyFiltersAndSearch();
+                                  },
+                                  child: const Text('Clear filters'),
+                                ),
+                            ],
+                          ),
+                        ),
+
+                        // -------- LIST / GRID CONTENT --------
+                        Expanded(
+                          child: isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : venues.isEmpty
+                              ? ListView(
+                            children: const [
+                              SizedBox(height: 180),
+                              Center(child: Text('No venues found')),
+                            ],
+                          )
+                              : RefreshIndicator(
+                            color: Colors.pink,
+                            onRefresh: () async {
+                              page = 1;
+                              await fetchVenues(
+                                page: 1,
+                                serverQuery: currentServerQuery,
+                              );
+                            },
+                            child: isList
+                                ? _buildList()
+                                : _buildGrid(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-
-            // main content
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : venues.isEmpty
-                  ? ListView(children: const [SizedBox(height: 180), Center(child: Text('No venues found'))])
-                  : RefreshIndicator(
-                color: Colors.pink,
-                onRefresh: () async {
-                  // refresh current search state (page 1)
-                  page = 1;
-                  await fetchVenues(page: 1, serverQuery: currentServerQuery);
-                },
-                child: isList ? _buildList() : _buildGrid(),
-              ),
-            ),
-            // floating AI button (unchanged)
-
-          ],
-
-        ),
-
+          ),
+        ],
       ),
     );
   }
+
+  // @override
+  // Widget build(BuildContext context) {
+  //   final primaryAccent = Colors.pink.shade600;
+  //
+  //   return Scaffold(
+  //     backgroundColor: Colors.grey.shade50,
+  //     appBar: AppBar(
+  //       backgroundColor: Colors.transparent,
+  //       elevation: 0,
+  //       toolbarHeight: 84,
+  //       flexibleSpace: Container(
+  //         decoration: const BoxDecoration(
+  //           gradient: LinearGradient(colors: [Color(0xFFFEC5E5), Color(0xFFFFE4E1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+  //           borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+  //         ),
+  //       ),
+  //       title: const Text('Venues', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+  //       centerTitle: true,
+  //       actions: [
+  //         IconButton(icon: Icon(isList ? Icons.list : Icons.grid_view), onPressed: () => setState(() => isList = !isList)),
+  //       ],
+  //     ),
+  //     body: SafeArea(
+  //       child: Column(
+  //         children: [
+  //           // search & filter row
+  //           Padding(
+  //             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+  //             child: Row(
+  //               children: [
+  //                 Expanded(
+  //                   child: Container(
+  //                     padding: const EdgeInsets.symmetric(horizontal: 12),
+  //                     decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(25)),
+  //                     child: Row(
+  //                       children: [
+  //                         const Icon(Icons.search, color: Colors.grey),
+  //                         const SizedBox(width: 8),
+  //                         Expanded(
+  //                           child: TextField(
+  //                             controller: _searchController,
+  //                             onChanged: _onSearchChanged,
+  //                             decoration: const InputDecoration(hintText: 'Search venues, city, name...', border: InputBorder.none),
+  //                           ),
+  //                         ),
+  //                       ],
+  //                     ),
+  //                   ),
+  //                 ),
+  //                 const SizedBox(width: 8),
+  //                 IconButton(icon: const Icon(Icons.filter_list, color: Colors.pink), onPressed: _openFilterSheet),
+  //               ],
+  //             ),
+  //           ),
+  //
+  //           // results count + clear filters
+  //           Padding(
+  //             padding: const EdgeInsets.symmetric(horizontal: 12.0),
+  //             child: Row(
+  //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //               children: [
+  //                 // Text('${venues.length} results', style: const TextStyle(color: Colors.black54)),
+  //                 Row(
+  //                   children: [
+  //                     if (selectedCity.isNotEmpty || minPrice != 0 || maxPrice != 200000 || selectedRating != 0)
+  //                       TextButton(
+  //                         onPressed: () {
+  //                           setState(() {
+  //                             selectedCity = "";
+  //                             minPrice = 0;
+  //                             maxPrice = 200000;
+  //                             selectedRating = 0;
+  //                           });
+  //                           _applyFiltersAndSearch();
+  //                         },
+  //                         child: const Text('Clear filters'),
+  //                       ),
+  //                   ],
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //
+  //           // main content
+  //           Expanded(
+  //             child: isLoading
+  //                 ? const Center(child: CircularProgressIndicator())
+  //                 : venues.isEmpty
+  //                 ? ListView(children: const [SizedBox(height: 180), Center(child: Text('No venues found'))])
+  //                 : RefreshIndicator(
+  //               color: Colors.pink,
+  //               onRefresh: () async {
+  //                 // refresh current search state (page 1)
+  //                 page = 1;
+  //                 await fetchVenues(page: 1, serverQuery: currentServerQuery);
+  //               },
+  //               child: isList ? _buildList() : _buildGrid(),
+  //             ),
+  //           ),
+  //           // floating AI button (unchanged)
+  //
+  //         ],
+  //
+  //       ),
+  //
+  //     ),
+  //   );
+  // }
 
   Widget _buildList() {
     return ListView.builder(

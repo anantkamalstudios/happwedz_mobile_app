@@ -1019,12 +1019,15 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   int completedCount = 0;
   int totalTasks = 0;
   List<String> upcomingTasks = [];
+  bool checklistLoading = false;
+
   DateTime? weddingDate;
   @override
   void initState() {
     super.initState();
     _loadInitialData();
     loadStories();
+    _loadChecklistSummary();
 
   }
   Future<void> loadStories() async {
@@ -1395,6 +1398,59 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return false;
   }
 
+  //  checklist
+  Future<void> _loadChecklistSummary() async {
+    try {
+      setState(() => checklistLoading = true);
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null || token.isEmpty) return;
+
+      final url =
+      Uri.parse("https://happywedz.com/api/new-checklist/newChecklist/user/$userId");
+
+      final res = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+      );
+
+      if (res.statusCode != 200) return;
+
+      final body = json.decode(res.body);
+      final List list = body["data"] ?? [];
+
+      int completed = 0;
+      final List<String> upcoming = [];
+
+      for (final item in list) {
+        final status = item["status"]?.toString() ?? "pending";
+        final title = item["text"]?.toString() ?? "";
+
+        if (status == "completed") {
+          completed++;
+        } else if (title.isNotEmpty) {
+          upcoming.add(title);
+        }
+      }
+
+      setState(() {
+        totalTasks = list.length;
+        completedCount = completed;
+        upcomingTasks = upcoming.take(3).toList(); // show max 3
+      });
+    } catch (e) {
+      debugPrint("❌ Checklist summary error: $e");
+    } finally {
+      setState(() => checklistLoading = false);
+    }
+  }
+
   // -------- UI BUILD --------
   @override
   Widget build(BuildContext context) {
@@ -1438,24 +1494,30 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                             completedCount: completedCount,
                             totalTasks: totalTasks,
                             upcomingTasks: upcomingTasks,
-                            onTap: () {
-                              Navigator.of(context).push(PageRouteBuilder(
-                                transitionDuration: const Duration(milliseconds: 600),
-                                pageBuilder: (_, __, ___) => const WeddingTimelinePage(),
-                                transitionsBuilder: (_, animation, __, child) {
-                                  final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
-                                  return FadeTransition(
-                                    opacity: curved,
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0, 0.1),
-                                        end: Offset.zero,
-                                      ).animate(curved),
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                              ));
+                            onTap: () async{
+                              await Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  transitionDuration: const Duration(milliseconds: 600),
+                                  pageBuilder: (_, __, ___) => const WeddingTimelinePage(),
+                                  transitionsBuilder: (_, animation, __, child) {
+                                    final curved =
+                                    CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+                                    return FadeTransition(
+                                      opacity: curved,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: const Offset(0, 0.1),
+                                          end: Offset.zero,
+                                        ).animate(curved),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+
+// 🔥 refresh summary after coming back
+                              await _loadChecklistSummary();
                             },
                           ),
                           // const SizedBox(height: 30),

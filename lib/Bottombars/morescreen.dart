@@ -112,16 +112,16 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                       //   title: 'Packages',
                       //   onTap: () => _handleMenuTap(context, 'Packages'),
                       // ),
-                      _buildMenuItem(
-                        icon: Icons.rate_review_outlined,
-                        title: 'Rate on Play Store',
-                        onTap: () => _handleMenuTap(context, 'Rate on Play Store'),
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.help_outline,
-                        title: 'Help & Support',
-                        onTap: () => _handleMenuTap(context, 'Help & Support'),
-                      ),
+                      // _buildMenuItem(
+                      //   icon: Icons.rate_review_outlined,
+                      //   title: 'Rate on Play Store',
+                      //   onTap: () => _handleMenuTap(context, 'Rate on Play Store'),
+                      // ),
+                      // _buildMenuItem(
+                      //   icon: Icons.help_outline,
+                      //   title: 'Help & Support',
+                      //   onTap: () => _handleMenuTap(context, 'Help & Support'),
+                      // ),
                       _buildMenuItem(
                         icon: Icons.share,
                         title: 'Share App',
@@ -280,7 +280,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
         Navigator.push(context, MaterialPageRoute(builder: (_) => Inboxscreen()));
         break;
       case 'Guestlist':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => GuestListScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => GuestListDashboard()));
         break;
 
       case 'Planning':

@@ -34,35 +34,57 @@ class VirtualTryOnScreennnnnnn extends StatelessWidget {
           child: Column(
             children: [
               // App Bar
+              // Padding(
+              //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              //   child: Row(
+              //     children: [
+              //
+              //       // IconButton(
+              //       //   icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              //       //   onPressed: () {
+              //       //     // Navigate back
+              //       //   },
+              //       // ),
+              //       // const Text(
+              //       //   'Nashik',
+              //       //   style: TextStyle(
+              //       //     color: Colors.white,
+              //       //     fontSize: 14,
+              //       //     fontWeight: FontWeight.w400,
+              //       //   ),
+              //       // ),
+              //       // const Spacer(),
+              //       Center(
+              //         child: const Text(
+              //           'Design Studio',
+              //           style: TextStyle(
+              //             color: Colors.white,
+              //             fontSize: 17,
+              //             fontWeight: FontWeight.w600,
+              //           ),
+              //         ),
+              //       ),
+              //       // const Spacer(),
+              //       // const SizedBox(width: 56), // Balance the back button
+              //     ],
+              //   ),
+              // ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () {
-                        // Navigate back
-                      },
-                    ),
-                    const Text(
-                      'Nashik',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'Design Studio',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
-                    const Spacer(),
-                    const Text(
-                      'Visual Design',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(width: 56), // Balance the back button
                   ],
                 ),
               ),

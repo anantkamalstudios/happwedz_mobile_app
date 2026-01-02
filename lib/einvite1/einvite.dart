@@ -793,58 +793,60 @@ class EInvitationScreen extends StatelessWidget {
 
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
 
-            _SectionHeader(
-              title: 'Choose Your Invitation Type',
-              subtitle: 'Select from our beautiful collection of invitation templates',
-            ),
-
-            const SizedBox(height: 12),
-
-            SizedBox(
-              height: 250,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: invitationTypes.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final item = invitationTypes[index];
-                  return CategoryCard(item: item);
-                },
+              _SectionHeader(
+                title: 'Choose Your Invitation Type',
+                subtitle: 'Select from our beautiful collection of invitation templates',
               ),
-            ),
 
+              const SizedBox(height: 12),
 
-
-            const SizedBox(height: 24),
-
-            /// ----------------------
-            /// SECTION 2: Wedding Website Templates
-            /// ----------------------
-            const _SectionHeader(
-              title: 'Choose Your Wedding Website Template',
-              subtitle: 'Select the perfect design to tell your love story',
-            ),
-
-            const SizedBox(height: 12),
-
-            SizedBox(
-              height: 260,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: weddingWebsiteTemplates.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final item = weddingWebsiteTemplates[index];
-                  return WeddingWebsiteCard(item: item);
-                },
+              SizedBox(
+                height: 250,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: invitationTypes.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final item = invitationTypes[index];
+                    return CategoryCard(item: item);
+                  },
+                ),
               ),
-            ),
-          ],
+
+
+
+              const SizedBox(height: 24),
+
+              /// ----------------------
+              /// SECTION 2: Wedding Website Templates
+              /// ----------------------
+              const _SectionHeader(
+                title: 'Choose Your Wedding Website Template',
+                subtitle: 'Select the perfect design to tell your love story',
+              ),
+
+              const SizedBox(height: 12),
+
+              SizedBox(
+                height: 260,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: weddingWebsiteTemplates.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final item = weddingWebsiteTemplates[index];
+                    return WeddingWebsiteCard(item: item);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
