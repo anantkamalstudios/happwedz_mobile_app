@@ -1675,7 +1675,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
   Map<String, dynamic> _serviceShapeFromVenue(Venue v) {
     return {
       "id": v.id, // service id
-      "vendor_id": v.vendorId, // ✅ THIS WAS MISSING
+      "vendor_id": v.vendorId, //
       "vendor_subcategory_id": v.vendorSubcategoryId,
       "attributes": {
         "vendor_name": v.vendorName,
