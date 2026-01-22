@@ -14,7 +14,6 @@ import '../ClaimBusiness.dart';
 import '../Review.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
 import '../chat_page_new.dart';
-import '../profile.dart';
 
 
 
@@ -1481,7 +1480,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   double apiAverageRating = 0.0;
   int apiTotalReviews = 0;
   List<Map<String, dynamic>> reviews = [];
-  bool isProfileCompleted = false;
 
 
   bool isClaimLoading = true;
@@ -2006,39 +2004,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     );
   }
 
-
-
-  Future<void> showProfilePopup() async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text("Complete Your Profile"),
-        content: const Text(
-          "To continue chatting, please complete your profile details.",
-        ),
-        actions: [
-          TextButton(
-            child: const Text("Go to Profile"),
-            onPressed: () async {
-              Navigator.pop(context);
-
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ProfileSettingsScreen(),
-                ),
-              );
-
-              // initChat(); // re-check after profile update
-
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   // ---------------------------
   // UI
   // ---------------------------
@@ -2065,7 +2030,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     print("IMAGES COUNT: ${images.length}");
     images.forEach(print);
 
-    final String vendorId = (service['id'] ?? attributes['vendor_id'] ?? '').toString();
+    final String vendorId = (vendor['id'] ?? attributes['vendor_id'] ?? '').toString();
     final String vendorSubcategoryId = (service['vendor_subcategory_id'] ?? attributes['vendor_subcategory_id'] ?? '').toString();
     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
     final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
@@ -2797,66 +2762,33 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
               // Message (chat)
               Expanded(
                 child: OutlinedButton.icon(
-                  // onPressed: () {
-                  //   if (currentUserId == null || currentUserId!.isEmpty) {
-                  //     // redirect to sign in
-                  //     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please sign in to message')));
-                  //     return;
-                  //   }
-                  //   final int uid = int.parse(currentUserId!);
-                  //   final int vendor = int.parse(vendorId);
-                  //
-                  //   Navigator.push(
-                  //     context,
-                  //     MaterialPageRoute(
-                  //       builder: (_) => ChatPage(
-                  //         currentUid: uid,
-                  //         otherUid: vendor,
-                  //         otherName: vendorName,
-                  //         vendorId: vendor,
-                  //       ),
-                  //     ),
-                  //   );
-                  //   print("Vendor ID: $vendorId");
-                  //   print(currentUserId);
-                  //   print(vendor);
-                  //   print(vendorName);
-                  //
-                  //   },
-      onPressed: ()  async{
-        // Not logged in
-        if (currentUserId == null || currentUserId!.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please sign in to message')),
-          );
-          return;
-        }
+                  onPressed: () {
+                    if (currentUserId == null || currentUserId!.isEmpty) {
+                      // redirect to sign in
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please sign in to message')));
+                      return;
+                    }
+                    final int uid = int.parse(currentUserId!);
+                    final int vendor = int.parse(vendorId);
 
-        // Profile incomplete
-        if (!isProfileCompleted) {
-          await showProfilePopup();
-          return; // ⛔ THIS FIXES YOUR ISSUE
-        }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatPage(
+                          currentUid: uid,
+                          otherUid: vendor,
+                          otherName: vendorName,
+                          vendorId: vendor,
+                        ),
+                      ),
+                    );
+                    print("Vendor ID: $vendorId");
+                    print(currentUserId);
+                    print(vendor);
+                    print(vendorName);
 
-        final int uid = int.parse(currentUserId!);
-        final int vendor = int.parse(vendorId);
+                    },
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChatPage(
-              currentUid: uid,
-              otherUid: vendor,
-              otherName: vendorName,
-              vendorId: vendor,
-            ),
-          ),
-        );
-          print("Vendor ID: $vendorId");
-          print(currentUserId);
-          print(vendor);
-          print(vendorName);
-      },
                   icon: const Icon(Icons.message, color: Colors.pink),
                   label: const Text('Message', style: TextStyle(color: Colors.pink)),
                   style: OutlinedButton.styleFrom(

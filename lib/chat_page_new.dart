@@ -1283,16 +1283,44 @@ class _ChatPageState extends State<ChatPage> {
   //----------------------------------------------------------------------
   // NORMAL SEND MESSAGE
   //----------------------------------------------------------------------
+  // Future<void> sendMsg() async {
+  //   final text = controller.text.trim();
+  //   if (text.isEmpty) return;
+  //
+  //   controller.clear();
+  //
+  //   print("➡ Sending user message: $text");
+  //
+  //   await ChatService.sendMessage(
+  //     conversationId: conversationId!,
+  //     senderId: widget.currentUid,
+  //     receiverId: widget.otherUid,
+  //     message: text,
+  //   );
+  //
+  //   fetchMessages();
+  // }
   Future<void> sendMsg() async {
     final text = controller.text.trim();
     if (text.isEmpty) return;
 
+    // 🚫 HARD STOP if conversation not ready
+    if (conversationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Chat is starting, please wait..."),
+        ),
+      );
+      return;
+    }
+
     controller.clear();
 
     print("➡ Sending user message: $text");
+    print("🧠 Using conversationId = $conversationId");
 
     await ChatService.sendMessage(
-      conversationId: conversationId!,
+      conversationId: conversationId!, // SAFE NOW
       senderId: widget.currentUid,
       receiverId: widget.otherUid,
       message: text,
