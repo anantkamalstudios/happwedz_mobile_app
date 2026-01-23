@@ -2789,7 +2789,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
                     },
 
-
                   icon: const Icon(Icons.message, color: Colors.pink),
                   label: const Text('Message', style: TextStyle(color: Colors.pink)),
                   style: OutlinedButton.styleFrom(
