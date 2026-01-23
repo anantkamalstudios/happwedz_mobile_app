@@ -1,0 +1,70 @@
+{
+  "project_info": {
+    "project_number": "5404414440",
+    "project_id": "happywedz-9e055",
+    "storage_bucket": "happywedz-9e055.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:5404414440:android:0f84bb3bfabc59c967d45d",
+        "android_client_info": {
+          "package_name": "com.happy.happy_wedz"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "5404414440-8c90od6hsuumuuf6o67gnd8acna5o3f3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.happy.happy_wedz",
+            "certificate_hash": "c3dc85cdf9307560bdb245f5bb76f8d107436e0f"
+          }
+        },
+        {
+          "client_id": "5404414440-cem4pmibedcbi2qi7h2cgoop841jeot7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.happy.happy_wedz",
+            "certificate_hash": "1cc34f4f66fbb885b5137c67ef1f0b843319f66a"
+          }
+        },
+        {
+          "client_id": "5404414440-pp0vnoedk7f2g0ao7smuu321pmuvfekp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.happy.happy_wedz",
+            "certificate_hash": "1eac3931e25ff05bb2cb16b1788f2bf0c020e71f"
+          }
+        },
+        {
+          "client_id": "5404414440-02ttfd1mvhk62e5bubrkcipdjhdrrabv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAN4dJJTZUY71vf86Dy_RdxLCU9YqCjDJM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "5404414440-02ttfd1mvhk62e5bubrkcipdjhdrrabv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "5404414440-h9lrfcs3qh4godlcn591tqqciml6a7ft.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.happy.happyWedz"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

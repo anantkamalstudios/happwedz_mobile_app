@@ -1,4 +1,4 @@
-name: h_w_a
+name: happy_wedz
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+6
 
 environment:
   sdk: ^3.8.1
@@ -34,14 +34,84 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  google_generative_ai: ^0.3.2
-  geolocator:
-  geocoding:
+  google_fonts:
+  cached_network_image:
+  carousel_slider:
+  screenshot:
+  share_plus:
+  flutter_colorpicker:
+  path_provider:
+  http:
+  csc_picker:
+  flutter_launcher_icons:
+  flutter_gcaptcha_v3:
+  shared_preferences:
+  image_picker: ^1.1.2
+  firebase_storage:
+  google_api_availability:
+  animated_text_kit: ^4.2.2
+#  file_picker: ^8.0.6
+  animations: ^2.0.0
+  flutter_quill: ^11.5.0
+  video_player:
+  flutter_staggered_grid_view:
+  photo_view:
+  panorama_viewer:
+  imageview360:
+  flutter_html: ^3.0.0-alpha.6
+  html: ^0.15.4
+  file_selector:
+
+  #  firebase_core:
+#  firebase_auth:
+#  google_sign_in: ^6.1.1
+  mailer:
+  g_recaptcha_v3:
+  intl:
+  flutter_svg:
+  firebase_app_check:
+#  truecaller_sdk: ^1.0.0
+#  flutter_facebook_auth: ^7.0.0
+#  firebase_auth:    # if you want Firebase integration
+#  firebase_core: ^3.0.0
+  before_after: ^3.2.0
+  cloud_firestore:
   url_launcher:
+#  image_gallery_saver: ^1.7.1
+  uuid:
+  hive_flutter:
+  provider: ^6.0.5
+  hive: ^2.2.3
+  csv: ^6.0.0
+#  permission_handler: ^12.0.1
+  qr_flutter: ^4.0.0
+  google_sign_in: ^6.1.1
+  firebase_auth: ^6.1.1
+  firebase_core:
+  dotted_border: ^2.1.0
+  sliding_up_panel:
+  fl_chart:
+  lottie: ^3.3.2
+  mime:
+  pdf:
+  printing:
+  open_filex:
+  connectivity_plus:
+  flutter_slidable:
+  flutter_riverpod:
+  media_store_plus: 0.1.3
+  webview_flutter:
+  geocoding:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  hive_generator: ^2.0.0
+  build_runner: ^2.4.4
 
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/hwav.webp"
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -55,113 +125,113 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
 
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
   uses-material-design: true
 
   assets:
-    - assets/images/logo.webp
-    - assets/images/logo1.webp
-    - assets/images/logo2.webp
-    - assets/images/logo3.webp
-    - assets/images/bridal_makeup.webp
-    - assets/images/dress_attire.webp
-    - assets/images/hairstyle.webp
-    - assets/images/mehendi_artist.webp
-    - assets/images/photography.webp
-    - assets/images/venue.webp
-    - assets/images/planner.webp
-    - assets/images/videography.webp
-    - assets/images/event1.webp
-    - assets/images/event2.webp
-    - assets/images/event3.webp
-    - assets/icons/google.webp
-    - assets/icons/facebook.webp
-    - assets/icons/apple.webp
-    - assets/images/VPS.webp
-    - assets/images/venue1.webp
-    - assets/images/venue2.webp
-    - assets/images/venue3.webp
-    - assets/images/venue4.webp
-    - assets/images/venue5.webp
-    - assets/images/wed1.webp
-    - assets/images/wed2.webp
-    - assets/images/wed3.webp
-    - assets/images/wed4.webp
-    - assets/images/wed5.webp
-    - assets/images/wed6.webp
-    - assets/images/p&d.webp
-    - assets/images/palace1.webp
-    - assets/images/palace2.webp
-    - assets/images/palace3.webp
-    - assets/images/palace4.webp
-    - assets/images/palace5.webp
-    - assets/images/palace6.webp
-    - assets/images/whatsapp_icon.webp
-    - assets/images/logoo.webp
-    - assets/images/decor1.webp
-    - assets/images/bride.webp
-    - assets/images/mandap.webp
-    - assets/images/ml.webp
-    - assets/images/wc1.webp
-    - assets/images/wc2.webp
-    - assets/images/wc3.webp
-    - assets/images/wc4.webp
-    - assets/images/wedding1.webp
-    - assets/images/wedding2.webp
-    - assets/images/wedding3.webp
-    - assets/images/wedding4.webp
-    - assets/images/wedding5.webp
-    - assets/images/wed_dress.webp
-    - assets/images/jewellery.webp
-    - assets/images/jewellery.webp
-    - assets/images/gift.webp
-    - assets/images/diamond_necklace.webp
-    - assets/images/wed_stage_decor.webp
-    - assets/images/bridal_lehenga.webp
-    - assets/images/ph1.webp
-    - assets/images/ph2.webp
-    - assets/images/ph3.webp
-    - assets/images/ph4.webp
-    - assets/images/ph5.webp
-    - assets/images/ph6.webp
-    - assets/images/m_a_1.webp
-    - assets/images/m_a_2.webp
-    - assets/images/m_a_3.webp
-    - assets/images/makeup1.webp
-    - assets/images/makeup2.webp
-    - assets/images/makeup3.webp
-    - assets/images/d_a1.webp
-    - assets/images/d_a2.webp
-    - assets/images/d_a3.webp
-    - assets/images/d_a4.webp
-    - assets/images/e1.webp
-    - assets/images/e2.webp
-    - assets/images/e3.webp
-    - assets/images/j1.webp
-    - assets/images/j2.webp
-    - assets/images/j3.webp
-    - assets/images/menu1.webp
-    - assets/images/menu2.webp
-    - assets/images/menu3.webp
-    - assets/images/catering_banner.webp
-    - assets/images/jewellery_banner.webp
+   - assets/homeicon.png
+   - assets/menuicon.png
+   - assets/vendor.png
+   - assets/venue.png
+   - assets/virtualstudio.jpg
+   - assets/tool1.png
+   - assets/tool2.png
+   - assets/tool3.png
+   - assets/Rectangle 20.png
+   - assets/Rectangle 22.png
+   - assets/Rectangle 23.png
+   - assets/Rectangle 24.png
+   - assets/Rectangle 25.png
+   - assets/Rectangle 26.png
+   - assets/image 4.png
+   - assets/hwav.webp
+   - assets/image.png
+   - assets/file/recaptcha_v3.html
+   - assets/google.png
+   - assets/1.webp
+   - assets/12.webp
+   - assets/13.webp
+   - assets/14.webp
+   - assets/15.webp
+   - assets/16.webp
+   - assets/17.webp
+   - assets/18.webp
+   - assets/19.webp
+   - assets/2.webp
+   - assets/21.webp
+   - assets/22.webp
+   - assets/23.webp
+   - assets/24.webp
+   - assets/25.webp
+   - assets/26.webp
+   - assets/1g.png
+   - assets/bride.png
+   - assets/groom.png
+   - assets/other.png
+   - assets/group1.png
+   - assets/group2.png
+   - assets/group3.png
+   - assets/rect.png
+   - assets/foundation.png
+   - assets/blush.png
+   - assets/eyeshadow.png
+   - assets/lipstick.png
+   - assets/logo.png
+   - assets/Splash1.png
+   - assets/Splash2.png
+   - assets/Splash3.png
+   - assets/Splash4.png
+   - assets/Splash5.png
+   - assets/Splash6.png
+   - assets/Splash7.png
+   - assets/whatsapp.png
+   - assets/shadiai.mp4
+   - assets/shadiai-unscreen.gif
+   - assets/tryimg.png
+   - assets/invite1.jpg
+   - assets/commingsoon2.jpg
+   - assets/std3.jpg
+   - assets/index1.png
+   - assets/floral2.png
+   - assets/mordern3.png
+   - assets/images/cam_moment.png
+   - assets/images/selfie.png
+   - assets/images/Arroww.png
+   - assets/images/moment_img.png
+   - assets/images/moment2.png
+   - assets/images/moment3.png
 
 
 
+  # To add assets to your application, add an assets section, like this:
+  # assets:
+  #   - images/a_dot_burr.jpeg
+  #   - images/a_dot_ham.jpeg
 
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/to/resolution-aware-images
 
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/to/asset-from-package
 
-
-
-  fonts:
-    - family: PlayfairDisplay
-      fonts:
-        - asset: assets/fonts/PlayfairDisplay-Regular.ttf
-        - asset: assets/fonts/PlayfairDisplay-Bold.ttf
-          weight: 700
-#
-#    - family: Inter
-#      fonts:
-#        - asset: assets/fonts/Inter-Regular.ttf
-#        - asset: assets/fonts/Inter-Bold.ttf
-#          weight: 700
-
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
