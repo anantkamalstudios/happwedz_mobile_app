@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'custome_theme.dart';
 
@@ -210,6 +213,42 @@ class MomentFindPhotos extends StatelessWidget {
 class MomentCaptureSelfie extends StatelessWidget {
   const MomentCaptureSelfie({super.key});
 
+  Future<void> _takeSelfie(BuildContext context) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 80,
+      );
+
+      if (image == null) return;
+
+      final File selfieFile = File(image.path);
+
+      // 🔹 Temporary preview (replace with upload / save logic)
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Selfie Preview"),
+          content: Image.file(selfieFile),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            )
+          ],
+        ),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Unable to open camera")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return _baseScreen(
@@ -217,7 +256,11 @@ class MomentCaptureSelfie extends StatelessWidget {
       title: "Capture Selfie",
       icon: Icons.camera_front,
       buttons: [
-        _actionBtn(context, "Take Selfie", () {}),
+        _actionBtn(
+          context,
+          "Take Selfie",
+              () => _takeSelfie(context),
+        ),
       ],
     );
   }
@@ -226,6 +269,39 @@ class MomentCaptureSelfie extends StatelessWidget {
 /// =======================================================
 /// UPLOAD SELFIE
 /// =======================================================
+///
+final ImagePicker _picker = ImagePicker();
+
+Future<void> pickSelfie({
+  required BuildContext context,
+  required ImageSource source,
+}) async {
+  try {
+    final XFile? image = await _picker.pickImage(
+      source: source,
+      preferredCameraDevice: CameraDevice.front,
+      imageQuality: 80,
+    );
+
+    if (image == null) return;
+
+    File file = File(image.path);
+
+    // 🔹 For now just preview
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        content: Image.file(file),
+      ),
+    );
+
+    // TODO: upload / save / pass to next screen
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Failed to pick image")),
+    );
+  }
+}
 class MomentUploadSelfie extends StatelessWidget {
   const MomentUploadSelfie({super.key});
 
@@ -236,11 +312,21 @@ class MomentUploadSelfie extends StatelessWidget {
       title: "Upload Selfie",
       icon: Icons.upload_file,
       buttons: [
-        _actionBtn(context, "Upload Selfie", () {}),
+        _actionBtn(
+          context,
+          "Upload Selfie",
+              () {
+            pickSelfie(
+              context: context,
+              source: ImageSource.gallery,
+            );
+          },
+        ),
       ],
     );
   }
 }
+
 
 /// =======================================================
 /// BASE SCREEN (REUSED)

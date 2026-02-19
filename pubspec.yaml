@@ -61,7 +61,10 @@ dependencies:
   flutter_html: ^3.0.0-alpha.6
   html: ^0.15.4
   file_selector:
-
+  shimmer:
+  dio: ^5.4.0
+  permission_handler: ^11.3.0
+#  image_gallery_saver: ^2.0.3
   #  firebase_core:
 #  firebase_auth:
 #  google_sign_in: ^6.1.1

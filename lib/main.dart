@@ -109,8 +109,6 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-
-
 class Country {
   final String name;
   final String code;
@@ -202,9 +200,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(color: Colors.pink),
-      ),
+      body:HomeShimmerOverlay()
     );
   }
 }

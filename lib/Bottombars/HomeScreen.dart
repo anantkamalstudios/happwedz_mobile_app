@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 
 import 'package:video_player/video_player.dart';
 import 'package:flutter/material.dart';
@@ -1125,18 +1126,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 // ---------- BLOG CATEGORIES ----------
   List<dynamic> blogCategories = [];
   bool isLoadingBlogCategories = true;
-  // Future<List<Map<String, dynamic>>> fetchStories() async {
-  //   final response = await http.get(Uri.parse('https://happywedz.com/api/blog-categories/all'));
-  // print(response);
-  //   if (response.statusCode == 200) {
-  //     final Map<String, dynamic> decodedJson = json.decode(response.body);
-  //     final List<dynamic> dataList = decodedJson['data'];
-  //     return dataList.cast<Map<String, dynamic>>().toList();
-  //   } else {
-  //     throw Exception('Failed to load stories');
-  //   }
-  //
-  // }
   Future<List<Map<String, dynamic>>> fetchStories() async {
     try {
       final response = await http.get(
@@ -1166,35 +1155,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-  // Future<void> fetchBlogCategories() async {
-  //   setState(() => isLoadingBlogCategories = true);
-  //
-  //   try {
-  //     final response = await http.get(
-  //       Uri.parse("https://happywedz.com/api/blog-categories/all"),
-  //       headers: {"Accept": "application/json"},
-  //     );
-  //
-  //     if (response.statusCode == 200) {
-  //       final decoded = json.decode(response.body);
-  //
-  //       final List<dynamic> data =
-  //       decoded is Map && decoded['data'] is List
-  //           ? decoded['data'] as List<dynamic>
-  //           : [];
-  //
-  //       setState(() {
-  //         blogCategories = data;
-  //         isLoadingBlogCategories = false;
-  //       });
-  //     } else {
-  //       setState(() => isLoadingBlogCategories = false);
-  //     }
-  //   } catch (e) {
-  //     debugPrint("Blog Categories Error: $e");
-  //     setState(() => isLoadingBlogCategories = false);
-  //   }
-  // }
+
 
   void _showLocationSelection(BuildContext context) async {
     if (_cities.isEmpty && !_isLoadingCities) {
@@ -1346,29 +1307,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-  // Future<void> fetchBlogPosts() async {
-  //   setState(() => isLoadingBlogPosts = true);
-  //   try {
-  //     final response = await http.get(Uri.parse("https://happywedz.com/api/blog-deatils/all"));
-  //     if (response.statusCode == 200) {
-  //       final decoded = json.decode(response.body);
-  //       // check shape — some APIs return {data: [...] } else root list
-  //       final List<dynamic> data = decoded is Map && decoded['data'] is List
-  //           ? decoded['data'] as List<dynamic>
-  //           : (decoded is List ? decoded : []);
-  //       setState(() {
-  //         blogPosts = data;
-  //         isLoadingBlogPosts = false;
-  //       });
-  //     } else {
-  //       debugPrint('fetchBlogPosts error: ${response.statusCode}');
-  //       setState(() => isLoadingBlogPosts = false);
-  //     }
-  //   } catch (e) {
-  //     debugPrint('fetchBlogPosts exception: $e');
-  //     setState(() => isLoadingBlogPosts = false);
-  //   }
-  // }
+
   Future<bool> checkUserHasFavourites() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
@@ -1520,18 +1459,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                               await _loadChecklistSummary();
                             },
                           ),
-                          // const SizedBox(height: 30),
-                          // _buildTrendingTodaySection(),
-                          // const SizedBox(height: 20),
-                          // _buildViewAllTrendingButton(),
-                          // const SizedBox(height: 30),
-                          // _buildHappyWedsServicesSection(),
-                          // const SizedBox(height: 30),
-                          // _buildWeddingIdeasSection(),
-                          // const SizedBox(height: 20),
-                          // _buildViewAllWeddingIdeasButton(),
-                          // const SizedBox(height: 30),
-                          // _buildFeaturedVideoSection(),
+
                           const SizedBox(height: 30),
                           _buildInterestingReadsSection(),
                           const SizedBox(height: 20),
@@ -1549,42 +1477,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               ),
             ),
           ),
-
-          // floating AI button (unchanged)
-          // Positioned(
-          //   bottom: 20,
-          //   right: 20,
-          //   child: GestureDetector(
-          //     onTap: () {
-          //       Navigator.push(
-          //         context,
-          //         MaterialPageRoute(builder: (_) => const AiChatScreen()),
-          //       );
-          //     },
-          //     child: AnimatedContainer(
-          //       duration: const Duration(milliseconds: 600),
-          //       curve: Curves.easeInOut,
-          //       decoration: BoxDecoration(
-          //         shape: BoxShape.circle,
-          //         gradient: const LinearGradient(
-          //           colors: [Color(0xFF6A5AE0), Color(0xFFB26BF2)],
-          //           begin: Alignment.topLeft,
-          //           end: Alignment.bottomRight,
-          //         ),
-          //         boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)],
-          //       ),
-          //       padding: const EdgeInsets.all(18),
-          //       // child: const VideoIcon(),
-          //       child: SizedBox(
-          //         height: 35,
-          //         width: 35,
-          //         child: Image.asset('assets/shadiai-unscreen.gif'),
-          //       ),
-          //
-          //       // child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
-          //     ),
-          //   ),
-          // ),
     Positioned(
     bottom: 20,
     right: 20,
@@ -1626,22 +1518,124 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     ),
 
           // global loading overlay that only hides after initial loads complete
-          if (isLoading)
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              color: Colors.white.withOpacity(0.9),
-              child: const Center(
-                child: CircularProgressIndicator(),
-                // Replace with LoadingLogo(size: 130) if you have it
-              ),
-            ),
+          // if (isLoading)
+            if (isLoading)
+              const HomeShimmerOverlay(),
+
+          // Container(
+            //   width: double.infinity,
+            //   height: double.infinity,
+            //   color: Colors.white.withOpacity(0.9),
+            //   child: const Center(
+            //     child: HomeShimmerOverlay(),
+            //     // Replace with LoadingLogo(size: 130) if you have it
+            //   ),
+            // ),
         ],
       ),
     );
   }
 
+  // floating AI button (unchanged)
+  // Positioned(
+  //   bottom: 20,
+  //   right: 20,
+  //   child: GestureDetector(
+  //     onTap: () {
+  //       Navigator.push(
+  //         context,
+  //         MaterialPageRoute(builder: (_) => const AiChatScreen()),
+  //       );
+  //     },
+  //     child: AnimatedContainer(
+  //       duration: const Duration(milliseconds: 600),
+  //       curve: Curves.easeInOut,
+  //       decoration: BoxDecoration(
+  //         shape: BoxShape.circle,
+  //         gradient: const LinearGradient(
+  //           colors: [Color(0xFF6A5AE0), Color(0xFFB26BF2)],
+  //           begin: Alignment.topLeft,
+  //           end: Alignment.bottomRight,
+  //         ),
+  //         boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)],
+  //       ),
+  //       padding: const EdgeInsets.all(18),
+  //       // child: const VideoIcon(),
+  //       child: SizedBox(
+  //         height: 35,
+  //         width: 35,
+  //         child: Image.asset('assets/shadiai-unscreen.gif'),
+  //       ),
+  //
+  //       // child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
+  //     ),
+  //   ),
+  // ),
+// const SizedBox(height: 30),
+  // _buildTrendingTodaySection(),
+  // const SizedBox(height: 20),
+  // _buildViewAllTrendingButton(),
+  // const SizedBox(height: 30),
+  // _buildHappyWedsServicesSection(),
+  // const SizedBox(height: 30),
+  // _buildWeddingIdeasSection(),
+  // const SizedBox(height: 20),
+  // _buildViewAllWeddingIdeasButton(),
+  // const SizedBox(height: 30),
+  // _buildFeaturedVideoSection(),
   // -------- HEADER & UI helper widgets (kept similar, trimmed where not needed) --------
+  // Future<void> fetchBlogPosts() async {
+  //   setState(() => isLoadingBlogPosts = true);
+  //   try {
+  //     final response = await http.get(Uri.parse("https://happywedz.com/api/blog-deatils/all"));
+  //     if (response.statusCode == 200) {
+  //       final decoded = json.decode(response.body);
+  //       // check shape — some APIs return {data: [...] } else root list
+  //       final List<dynamic> data = decoded is Map && decoded['data'] is List
+  //           ? decoded['data'] as List<dynamic>
+  //           : (decoded is List ? decoded : []);
+  //       setState(() {
+  //         blogPosts = data;
+  //         isLoadingBlogPosts = false;
+  //       });
+  //     } else {
+  //       debugPrint('fetchBlogPosts error: ${response.statusCode}');
+  //       setState(() => isLoadingBlogPosts = false);
+  //     }
+  //   } catch (e) {
+  //     debugPrint('fetchBlogPosts exception: $e');
+  //     setState(() => isLoadingBlogPosts = false);
+  //   }
+  // }
+  // Future<void> fetchBlogCategories() async {
+  //   setState(() => isLoadingBlogCategories = true);
+  //
+  //   try {
+  //     final response = await http.get(
+  //       Uri.parse("https://happywedz.com/api/blog-categories/all"),
+  //       headers: {"Accept": "application/json"},
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final decoded = json.decode(response.body);
+  //
+  //       final List<dynamic> data =
+  //       decoded is Map && decoded['data'] is List
+  //           ? decoded['data'] as List<dynamic>
+  //           : [];
+  //
+  //       setState(() {
+  //         blogCategories = data;
+  //         isLoadingBlogCategories = false;
+  //       });
+  //     } else {
+  //       setState(() => isLoadingBlogCategories = false);
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Blog Categories Error: $e");
+  //     setState(() => isLoadingBlogCategories = false);
+  //   }
+  // }
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -3114,20 +3108,6 @@ class VendorCategory {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class BottomBars extends StatefulWidget {
   const  BottomBars({super.key});
 
@@ -3480,3 +3460,112 @@ class _VideoIconState extends State<VideoIcon> {
     );
   }
 }
+class HomeShimmerOverlay extends StatelessWidget {
+  const HomeShimmerOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.white.withOpacity(0.95),
+      child: SafeArea(
+        child: Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                /// 🔹 Header placeholder
+                Container(
+                  height: 60,
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                /// 🔹 Category cards
+                Row(
+                  children: List.generate(3, (index) {
+                    return Expanded(
+                      child: Container(
+                        height: 90,
+                        margin: EdgeInsets.only(
+                          right: index == 2 ? 0 : 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+
+                const SizedBox(height: 30),
+
+                /// 🔹 Section title
+                Container(height: 16, width: 180, color: Colors.white),
+
+                const SizedBox(height: 16),
+
+                /// 🔹 Horizontal list shimmer
+                SizedBox(
+                  height: 160,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (_, __) => Container(
+                      width: 140,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    separatorBuilder: (_, __) =>
+                    const SizedBox(width: 16),
+                    itemCount: 4,
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                /// 🔹 Large card
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+
+                const SizedBox(height: 60),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Future<List<Map<String, dynamic>>> fetchStories() async {
+//   final response = await http.get(Uri.parse('https://happywedz.com/api/blog-categories/all'));
+// print(response);
+//   if (response.statusCode == 200) {
+//     final Map<String, dynamic> decodedJson = json.decode(response.body);
+//     final List<dynamic> dataList = decodedJson['data'];
+//     return dataList.cast<Map<String, dynamic>>().toList();
+//   } else {
+//     throw Exception('Failed to load stories');
+//   }
+//
+// }
