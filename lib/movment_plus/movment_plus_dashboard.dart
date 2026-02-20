@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'custome_theme.dart';
-
+//prathamesh code
 class Moment_plus_home extends StatelessWidget {
   const Moment_plus_home({super.key});
 
@@ -128,7 +127,7 @@ class Moment_plus_home extends StatelessWidget {
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Text(
-                      "Moments",
+                      "Moments plus",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
