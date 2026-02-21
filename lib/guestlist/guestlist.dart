@@ -1612,11 +1612,21 @@ class GuestListDashboard extends StatefulWidget {
 }
 
 class _GuestListDashboardState extends State<GuestListDashboard> {
-  Future<bool> ensureUserReady(BuildContext context) async {
+
+  Future<bool> isProfileComplete() async {
     final prefs = await SharedPreferences.getInstance();
 
+    final mobile = prefs.getString('user_mobile');
+    final venue = prefs.getString('wedding_venue');
+    final date = prefs.getString('wedding_date');
+
+    return mobile != null && mobile.isNotEmpty &&
+        venue != null && venue.isNotEmpty &&
+        date != null && date.isNotEmpty;
+  }
+  Future<bool> ensureUserReady(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
-    final profileDone = prefs.getBool('profile_completed') ?? false;
 
     if (token == null) {
       Navigator.pushReplacement(
@@ -1626,7 +1636,9 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
       return false;
     }
 
-    if (!profileDone) {
+    final complete = await isProfileComplete();
+
+    if (!complete) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
@@ -1634,8 +1646,32 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
       return false;
     }
 
-    return true;
+    return true; // ✅ Profile complete → proceed
   }
+  // Future<bool> ensureUserReady(BuildContext context) async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //
+  //   final token = prefs.getString('auth_token');
+  //   final profileDone = prefs.getBool('profile_completed') ?? false;
+  //
+  //   if (token == null) {
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(builder: (_) => const SignInScreen()),
+  //     );
+  //     return false;
+  //   }
+  //
+  //   if (!profileDone) {
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+  //     );
+  //     return false;
+  //   }
+  //
+  //   return true;
+  // }
 
   List<Guest> guests = [];
   bool isLoading = false;

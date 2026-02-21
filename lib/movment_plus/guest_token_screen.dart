@@ -1,9 +1,20 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import 'custome_theme.dart';
+import 'full_image_viewer.dart';
 import 'movment_plus_dashboard.dart';
-class GuestTokenScreen extends StatelessWidget {
+class GuestTokenScreen extends StatefulWidget {
   const GuestTokenScreen({super.key});
+
+  @override
+  State<GuestTokenScreen> createState() => _GuestTokenScreenState();
+}
+
+class _GuestTokenScreenState extends State<GuestTokenScreen> {
+  final TextEditingController _tokenController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +128,7 @@ class GuestTokenScreen extends StatelessWidget {
                 child: SingleChildScrollView(
                   child: Center(
                     child: Container(
-                      height: 450,
+                      height: 480,
                       width: MediaQuery.of(context).size.width * 0.9,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 22),
@@ -173,18 +184,17 @@ class GuestTokenScreen extends StatelessWidget {
                           const SizedBox(height: 6),
 
                           TextField(
+                            controller: _tokenController,
                             decoration: InputDecoration(
-                              hintText:
-                              "Enter Token (eg. ABCD5U89)",
+                              hintText: "Enter Token (eg. ABCD5U89)",
                               contentPadding:
-                              const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
+                              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                               border: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                           ),
+
 
                           const SizedBox(height: 18),
 
@@ -193,14 +203,32 @@ class GuestTokenScreen extends StatelessWidget {
                             height: 48,
                             child: ElevatedButton(
                               style: AppTheme.pinkButton(),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const MomentGalleryHome(),
-                                  ),
-                                );
+                              onPressed: () async {
+                                final token = _tokenController.text.trim();
+
+                                if (token.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Please enter access token")),
+                                  );
+                                  return;
+                                }
+
+                                try {
+                                  final galleryData = await fetchGallery(token);
+
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => MomentGalleryHome(
+                                        collections: galleryData,
+                                      ),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Invalid or expired token")),
+                                  );
+                                }
                               },
                               child: const Text("View Gallery", style: TextStyle(color: Colors.white),),
                             ),
@@ -248,6 +276,38 @@ class GuestTokenScreen extends StatelessWidget {
       ),
     );
   }
+  Future<Map<String, List<GalleryImage>>> fetchGallery(String token) async {
+    final response = await http.get(
+      Uri.parse("https://happywedz.com/api/gallery/$token"),
+    );
+
+    final data = json.decode(response.body);
+
+    if (!data['success']) {
+      throw Exception("Invalid token");
+    }
+
+    final collections = data['collections'] as Map<String, dynamic>;
+
+    return collections.map((key, value) {
+      return MapEntry(
+        key,
+        (value as List)
+            .map((img) => GalleryImage.fromJson(img))
+            .toList(),
+      );
+    });
+  }
+
+}
+class GalleryImage {
+  final String url;
+
+  GalleryImage({required this.url});
+
+  factory GalleryImage.fromJson(Map<String, dynamic> json) {
+    return GalleryImage(url: json['url']);
+  }
 }
 
 /// =======================================================
@@ -267,7 +327,7 @@ class _RecentMomentCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Container(
-        decoration: Moment_plus_home().premiumCard(),
+        decoration: AppTheme.premiumCard(), // ✅ REQUIRED
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,8 +360,15 @@ class _RecentMomentCard extends StatelessWidget {
     );
   }
 }
+
+
 class MomentGalleryHome extends StatelessWidget {
-  const MomentGalleryHome({super.key});
+  final Map<String, List<GalleryImage>> collections;
+
+  const MomentGalleryHome({
+    super.key,
+    required this.collections,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -312,6 +379,8 @@ class MomentGalleryHome extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
+
+              /// ================= APP BAR =================
               Padding(
                 padding:
                 const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -335,6 +404,8 @@ class MomentGalleryHome extends StatelessWidget {
                   ],
                 ),
               ),
+
+              /// ================= CONTENT =================
               Expanded(
                 child: ListView(
                   children: [
@@ -350,37 +421,29 @@ class MomentGalleryHome extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            /// CAMERA IMAGE
                             Image.asset(
                               "assets/images/cam_moment.png",
                               height: 78,
                               fit: BoxFit.contain,
                             ),
 
-                            /// TEXT (EXACT LIKE DESIGN)
                             Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment:
-                                CrossAxisAlignment.center, // ✅ CENTER
+                                CrossAxisAlignment.center,
                                 children: [
-                                  /// MOMENT (CENTER)
                                   const Text(
                                     "Moment+",
-                                    textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.black87,
                                     ),
                                   ),
-
                                   const SizedBox(height: 4),
-
-                                  /// SHARE YOUR PHOTOS (CENTER + HIGHLIGHT)
                                   RichText(
-                                    textAlign: TextAlign.center,
                                     text: TextSpan(
                                       style: const TextStyle(
                                         fontSize: 20,
@@ -392,10 +455,8 @@ class MomentGalleryHome extends StatelessWidget {
                                         TextSpan(
                                           text: "photos",
                                           style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 20,
-                                            color: AppTheme
-                                                .primaryColor, // #C31162
+                                            color:
+                                            AppTheme.primaryColor,
                                           ),
                                         ),
                                       ],
@@ -409,38 +470,80 @@ class MomentGalleryHome extends StatelessWidget {
                       ),
                     ),
 
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Text(
-                        "Smith & Johnson Wedding",
-                        style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        "August 15, 2024",
-                        style:
-                        TextStyle(fontSize: 12, color: Colors.black54),
-                      ),
-                    ),
-
                     const SizedBox(height: 16),
 
-                    /// ================= VERTICAL MOMENT CARDS =================
-                    const _RecentMomentCard(
-                      imageUrl: "assets/images/moment_img.png",
-                      title: "Ceremony Detail",
-                    ),
-                    const _RecentMomentCard(
-                      imageUrl: "assets/images/moment_img.png",
-                      title: "Guest Celebration",
-                    ),
-                    const _RecentMomentCard(
-                      imageUrl: "assets/images/moment_img.png",
-                      title: "Venue View",
-                    ),
+                    /// ================= API COLLECTIONS =================
+                    ...collections.entries.map((entry) {
+                      final sectionTitle = entry.key;
+                      final images = entry.value;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+
+                          /// SECTION TITLE (Haldi, Wedding, etc.)
+                          Padding(
+                            padding:
+                            const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                            child: Text(
+                              sectionTitle,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+
+                          /// IMAGE GRID
+                          Padding(
+                            padding:
+                            const EdgeInsets.symmetric(horizontal: 16),
+                            child: GridView.builder(
+                              shrinkWrap: true,
+                              physics:
+                              const NeverScrollableScrollPhysics(),
+                              itemCount: images.length,
+                              gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: 1,
+                              ),
+                              itemBuilder: (context, index) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => FullImageViewer(
+                                          imageUrl: images[index].url,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      images[index].url,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, loading) {
+                                        if (loading == null) return child;
+                                        return Container(
+                                          color: Colors.grey.shade200,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+                        ],
+                      );
+                    }).toList(),
 
                     const SizedBox(height: 30),
                   ],

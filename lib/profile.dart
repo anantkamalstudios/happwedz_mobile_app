@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
 import 'authservice.dart';
+import 'guestlist/guestlist.dart';
 import 'main.dart';
 
 
@@ -42,7 +42,17 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     super.initState();
     _loadUserData();
   }
+  Future<bool> _isProfileComplete() async {
+    final prefs = await SharedPreferences.getInstance();
 
+    final mobile = prefs.getString('user_mobile');
+    final venue = prefs.getString('wedding_venue');
+    final date = prefs.getString('wedding_date');
+
+    return mobile != null && mobile.isNotEmpty &&
+        venue != null && venue.isNotEmpty &&
+        date != null && date.isNotEmpty;
+  }
   // -----------------------------------------------------
   // LOGIN CHECK
   // -----------------------------------------------------
@@ -173,6 +183,40 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     }
   }
 
+
+
+  Future<void> fetchAndSaveUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final userId = prefs.getInt("user_id");
+    if (userId == null) return;
+
+    final url = 'https://happywedz.com/api/user/$userId';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['success'] == true) {
+          final user = data['user'];
+
+          // 🔐 SAVE EVERYTHING YOU NEED
+          prefs.setString('user_name', user['name'] ?? '');
+          prefs.setString('user_email', user['email'] ?? '');
+          prefs.setString('user_mobile', user['phone'] ?? '');
+          prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
+          prefs.setString('wedding_date', user['weddingDate'] ?? '');
+          prefs.setString('user_photo', user['profileImage'] ?? '');
+
+          print('✅ Profile fetched & saved');
+        }
+      }
+    } catch (e) {
+      print('❌ Profile fetch error: $e');
+    }
+  }
   // -----------------------------------------------------
   // UPDATE PROFILE
   // -----------------------------------------------------
@@ -212,16 +256,38 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        // if (data['success'] == true) {
+        //   final prefs = await SharedPreferences.getInstance();
+        //   final user = data['user'];
+        //
+        //   prefs.setString('user_mobile', user['phone'] ?? '');
+        //   prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
+        //   prefs.setString('wedding_date', user['weddingDate'] ?? '');
+        //
+        //   _showSnackBar('Profile updated successfully ✔️');
+        // }
         if (data['success'] == true) {
           final prefs = await SharedPreferences.getInstance();
           final user = data['user'];
 
-          prefs.setString('user_mobile', user['phone'] ?? '');
-          prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
-          prefs.setString('wedding_date', user['weddingDate'] ?? '');
+          await prefs.setString('user_mobile', user['phone'] ?? '');
+          await prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
+          await prefs.setString('wedding_date', user['weddingDate'] ?? '');
 
           _showSnackBar('Profile updated successfully ✔️');
-        } else {
+
+          // ✅ CHECK PROFILE COMPLETION
+          final complete = await _isProfileComplete();
+
+          if (complete && mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const GuestListDashboard()),
+                  (route) => false,
+            );
+          }
+        }
+        else {
           _showSnackBar('Update failed');
         }
       } else {

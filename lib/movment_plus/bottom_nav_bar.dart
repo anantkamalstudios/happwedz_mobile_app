@@ -21,7 +21,7 @@ class _CustomBottomBarState extends State<CustomBottomBar> {
     const Moment_plus_home(),
     const GuestTokenScreen(),
     const MomentPrivacyDialog(),
-    const LoginScreen(),
+    // const LoginScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -80,11 +80,11 @@ class _CustomBottomBarState extends State<CustomBottomBar> {
             activeIcon: Icon(Icons.person),
             label: 'Upload Selfie',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu),
-            activeIcon: Icon(Icons.menu),
-            label: 'Login',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.menu),
+          //   activeIcon: Icon(Icons.menu),
+          //   label: 'Login',
+          // ),
         ],
       ),
     );

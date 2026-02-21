@@ -1,7 +1,13 @@
+import 'dart:convert';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shimmer/shimmer.dart';
 import 'custome_theme.dart';
-//prathamesh code
-class Moment_plus_home extends StatelessWidget {
+
+// import 'custome_theme.dart';
+
+class Moment_plus_home extends StatefulWidget {
   const Moment_plus_home({super.key});
 
   // ===== THEME (SAME AS WISHLIST) =====
@@ -16,10 +22,13 @@ class Moment_plus_home extends StatelessWidget {
     stops: [0, 0.3, 0.6],
   );
 
+  @override
+  State<Moment_plus_home> createState() => _Moment_plus_homeState();
+
   BoxDecoration premiumCard() {
     return BoxDecoration(
       gradient: const LinearGradient(
-        colors: [cardPink, Colors.white],
+        colors: [Moment_plus_home.cardPink, Colors.white],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ),
@@ -33,11 +42,16 @@ class Moment_plus_home extends StatelessWidget {
       ],
     );
   }
+}
+
+class _Moment_plus_homeState extends State<Moment_plus_home> {
+  int _currentIndex = 0;
+  int _heroIndex = 0;
 
   BoxDecoration Card() {
     return BoxDecoration(
       gradient: const LinearGradient(
-        colors: [cardPink, Colors.white],
+        colors: [Moment_plus_home.cardPink, Colors.white],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ),
@@ -101,6 +115,13 @@ class Moment_plus_home extends StatelessWidget {
       ),
     );
   }
+  late Future<CoupleData> _coupleFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _coupleFuture = fetchCoupleSays();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +130,7 @@ class Moment_plus_home extends StatelessWidget {
     const separatorWidth = 35;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: backgroundGradient),
+        decoration: const BoxDecoration(gradient: Moment_plus_home.backgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -127,7 +148,7 @@ class Moment_plus_home extends StatelessWidget {
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Text(
-                      "Moments plus",
+                      "Moments",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -214,11 +235,52 @@ class Moment_plus_home extends StatelessWidget {
                     ),
                     // SizedBox(height: 20,),
                     /// -------- HERO IMAGE --------
-                    Image.asset(
-                      "assets/images/moment2.png",
-                      height: 220,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+                    // Image.asset(
+                    //   "assets/images/moment2.png",
+                    //   height: 220,
+                    //   width: double.infinity,
+                    //   fit: BoxFit.cover,
+                    // ),
+                    CarouselSlider(
+                      items: [
+                        "assets/images/moment2.png",
+                        "assets/images/moment2.png",
+                        "assets/images/moment2.png",
+                      ].map((image) {
+                        return Image.asset(
+                          image,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        );
+                      }).toList(),
+
+                      options: CarouselOptions(
+                        height: 220,
+                        viewportFraction: 1,
+                        autoPlay: true,
+                        onPageChanged: (index, _) {
+                          setState(() => _heroIndex = index);
+                        },
+                      ),
+                    ),
+                    SizedBox(height: 5,),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        3,
+                            (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          height: 6,
+                          width: _heroIndex == index ? 18 : 6,
+                          decoration: BoxDecoration(
+                            color: _heroIndex == index
+                                ? Colors.pink
+                                : Colors.pinkAccent.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 26),
@@ -422,7 +484,7 @@ class Moment_plus_home extends StatelessWidget {
                     margin: const EdgeInsets.all(20),
                     padding: const EdgeInsets.all(16),
                     decoration: premiumCard().copyWith(
-                      border: Border.all(color: pink),
+                      border: Border.all(color: Moment_plus_home.pink),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -467,119 +529,202 @@ class Moment_plus_home extends StatelessWidget {
                       ),
                     ),
                     /// -------- CUSTOMER REVIEW --------
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: premiumCard(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          // Padding(
+          //   padding: const EdgeInsets.all(16),
+          //   child: Container(
+          //     padding: const EdgeInsets.all(16),
+          //     decoration: premiumCard(),
+          //     child: Column(
+          //       crossAxisAlignment: CrossAxisAlignment.start,
+          //       children: [
+          //
+          //         /// 👤 USER + RATING ROW
+          //         Row(
+          //           crossAxisAlignment: CrossAxisAlignment.start,
+          //           children: [
+          //             const CircleAvatar(
+          //               radius: 18,
+          //               backgroundImage: NetworkImage(
+          //                 "https://randomuser.me/api/portraits/women/44.jpg",
+          //               ),
+          //             ),
+          //             const SizedBox(width: 10),
+          //
+          //             Expanded(
+          //               child: Column(
+          //                 crossAxisAlignment: CrossAxisAlignment.start,
+          //                 children: const [
+          //                   Text(
+          //                     "Kristin Watson",
+          //                     style: TextStyle(
+          //                       fontWeight: FontWeight.w600,
+          //                       fontSize: 14,
+          //                     ),
+          //                   ),
+          //                   SizedBox(height: 2),
+          //                   Text(
+          //                     "Pune",
+          //                     style: TextStyle(
+          //                       fontSize: 12,
+          //                       color: Colors.grey,
+          //                     ),
+          //                   ),
+          //                 ],
+          //               ),
+          //             ),
+          //
+          //             /// ⭐ STARS
+          //             Row(
+          //               children: List.generate(
+          //                 5,
+          //                     (index) => Icon(
+          //                   Icons.star,
+          //                   size: 16,
+          //                   color: index < 3 ? Colors.orange : Colors.grey.shade300,
+          //                 ),
+          //               ),
+          //             ),
+          //           ],
+          //         ),
+          //
+          //         const SizedBox(height: 12),
+          //
+          //         /// 📝 TITLE
+          //         const Text(
+          //           "A Beachside Wedding Dipped In Pastels, Sunshine & A Decade Of Love!",
+          //           style: TextStyle(
+          //             fontSize: 15,
+          //             fontWeight: FontWeight.w600,
+          //           ),
+          //         ),
+          //
+          //         const SizedBox(height: 8),
+          //
+          //         /// 📄 DESCRIPTION
+          //         const Text(
+          //           "Anisha & Harshits mehendi was nothing short of a heartwarming throwback. "
+          //               "Taking inspiration from the warmth and joy of childhood summers spent "
+          //               "at their Nani Ghar, the couple designed a celebration...",
+          //           style: TextStyle(
+          //             fontSize: 13,
+          //             color: Colors.grey,
+          //             height: 1.5,
+          //           ),
+          //         ),
+          //
+          //         const SizedBox(height: 12),
+          //
+          //         /// 👍 HELPFUL + DATE
+          //         Row(
+          //           children: const [
+          //             Text(
+          //               "Helpful?",
+          //               style: TextStyle(fontSize: 12, color: Colors.grey),
+          //             ),
+          //             SizedBox(width: 8),
+          //             Text(
+          //               "Yes (2)",
+          //               style: TextStyle(fontSize: 12),
+          //             ),
+          //             SizedBox(width: 12),
+          //             Text(
+          //               "NO (0)",
+          //               style: TextStyle(fontSize: 12),
+          //             ),
+          //             Spacer(),
+          //             Text(
+          //               "Nov 12, 2022",
+          //               style: TextStyle(fontSize: 12, color: Colors.grey),
+          //             ),
+          //           ],
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+          // ),
+                    FutureBuilder<CoupleData>(
+                      future: _coupleFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return coupleShimmerCarousel(); // 👈 shimmer here
+                        }
 
-                  /// 👤 USER + RATING ROW
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const CircleAvatar(
-                        radius: 18,
-                        backgroundImage: NetworkImage(
-                          "https://randomuser.me/api/portraits/women/44.jpg",
-                        ),
-                      ),
-                      const SizedBox(width: 10),
+                        if (!snapshot.hasData) return const SizedBox();
 
-                      Expanded(
-                        child: Column(
+                        final data = snapshot.data!;
+
+                        return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              "Kristin Watson",
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              "Pune",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                          children: [
+                            // Text(
+                            //   data.heading,
+                            //   style: const TextStyle(
+                            //     fontSize: 20,
+                            //     fontWeight: FontWeight.bold,
+                            //   ),
+                            // ),
+                            // const SizedBox(height: 4),
+                            // Text(
+                            //   data.subHeading,
+                            //   style: const TextStyle(color: Colors.grey),
+                            // ),
 
-                      /// ⭐ STARS
-                      Row(
+                            // const SizedBox(height: 16),
+
+                            // CarouselSlider(
+                            //   items: data.sections
+                            //       .map((section) => coupleSayCard(section))
+                            //       .toList(),
+                            //   options: CarouselOptions(
+                            //     height: 210,
+                            //     viewportFraction: 0.9,
+                            //     enlargeCenterPage: true,
+                            //     autoPlay: true,
+                            //   ),
+                            // ),
+                        Column(
+                        children: [
+                        CarouselSlider(
+                        items: data.sections
+                            .map((section) => coupleSayCard(context, section))
+                            .toList(),
+                        options: CarouselOptions(
+                        height: 210,
+                        autoPlay: true,
+                        enlargeCenterPage: true,
+                        onPageChanged: (index, _) {
+                        setState(() => _currentIndex = index);
+                        },
+                        ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          5,
-                              (index) => Icon(
-                            Icons.star,
-                            size: 16,
-                            color: index < 3 ? Colors.orange : Colors.grey.shade300,
-                          ),
+                        data.sections.length,
+                        (index) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        height: 8,
+                        width: _currentIndex == index ? 18 : 8,
+                        decoration: BoxDecoration(
+                        color: _currentIndex == index
+                        ? const Color(0xFFE91E63)
+                            : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
                         ),
-                      ),
-                    ],
-                  ),
+                        ),
+                        ),
+                        ),
+                        ],
+                        ),
 
-                  const SizedBox(height: 12),
-
-                  /// 📝 TITLE
-                  const Text(
-                    "A Beachside Wedding Dipped In Pastels, Sunshine & A Decade Of Love!",
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                        ],
+                        );
+                      },
                     ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  /// 📄 DESCRIPTION
-                  const Text(
-                    "Anisha & Harshits mehendi was nothing short of a heartwarming throwback. "
-                        "Taking inspiration from the warmth and joy of childhood summers spent "
-                        "at their Nani Ghar, the couple designed a celebration...",
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                      height: 1.5,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  /// 👍 HELPFUL + DATE
-                  Row(
-                    children: const [
-                      Text(
-                        "Helpful?",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        "Yes (2)",
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        "NO (0)",
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      Spacer(),
-                      Text(
-                        "Nov 12, 2022",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
 
           const SizedBox(height: 30),
                   ],
@@ -591,6 +736,247 @@ class Moment_plus_home extends StatelessWidget {
       ),
     );
   }
+
+  Widget coupleSayCard(BuildContext context, CoupleSection section) {
+    return GestureDetector(
+      onTap: () => _showFullReview(context, section),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: premiumCard(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            /// 👤 USER + RATING
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundImage: NetworkImage(section.img),
+                ),
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: Text(
+                    section.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+
+                Row(
+                  children: List.generate(
+                    5,
+                        (index) => Icon(
+                      Icons.star,
+                      size: 16,
+                      color: index < section.stars
+                          ? Colors.orange
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            /// 📝 DESCRIPTION (TRUNCATED)
+            Text(
+              section.description,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.grey,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  void _showFullReview(BuildContext context, CoupleSection section) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                /// 👤 USER HEADER
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundImage: NetworkImage(section.img),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        section.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                /// ⭐ RATING
+                Row(
+                  children: List.generate(
+                    5,
+                        (index) => Icon(
+                      Icons.star,
+                      size: 18,
+                      color: index < section.stars
+                          ? Colors.orange
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                /// 📝 FULL DESCRIPTION
+                SingleChildScrollView(
+                  child: Text(
+                    section.description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                /// ❌ CLOSE BUTTON
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Close"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<CoupleData> fetchCoupleSays() async {
+    final response = await http.get(
+      Uri.parse("https://happywedz.com/api/what-couples-says-route"),
+    );
+    print(response);
+    final jsonData = json.decode(response.body);
+    print(response.body);
+    return CoupleSayResponse.fromJson(jsonData).data;
+  }
+
+  BoxDecoration premiumCard() {
+    return BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Moment_plus_home.cardPink, Colors.white],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      // borderRadius: BorderRadius.circular(18),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.pink.withOpacity(0.15),
+          blurRadius: 10,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    );
+  }
+
+  Widget coupleShimmerCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.all(16),
+      decoration: premiumCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          /// Avatar + name + stars
+          Row(
+            children: [
+              Container(
+                height: 36,
+                width: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: Container(
+                  height: 14,
+                  color: Colors.white,
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Container(height: 14, width: 60, color: Colors.white),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          /// Description lines
+          Container(height: 12, color: Colors.white),
+          const SizedBox(height: 8),
+          Container(height: 12, color: Colors.white),
+          const SizedBox(height: 8),
+          Container(height: 12, width: 150, color: Colors.white),
+        ],
+      ),
+    );
+  }
+  Widget coupleShimmerCarousel() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: CarouselSlider(
+        items: List.generate(
+          3,
+              (_) => coupleShimmerCard(),
+        ),
+        options: CarouselOptions(
+          height: 210,
+          viewportFraction: 0.9,
+          enlargeCenterPage: true,
+          autoPlay: true,
+        ),
+      ),
+    );
+  }
+
 }
 
 /// ================= STEPS =================
@@ -736,4 +1122,62 @@ Widget cameraCorner({
       ),
     ),
   );
+}
+class CoupleSayResponse {
+  final bool success;
+  final CoupleData data;
+
+  CoupleSayResponse({required this.success, required this.data});
+
+  factory CoupleSayResponse.fromJson(Map<String, dynamic> json) {
+    return CoupleSayResponse(
+      success: json['success'],
+      data: CoupleData.fromJson(json['data']),
+    );
+  }
+}
+
+class CoupleData {
+  final String heading;
+  final String subHeading;
+  final List<CoupleSection> sections;
+
+  CoupleData({
+    required this.heading,
+    required this.subHeading,
+    required this.sections,
+  });
+
+  factory CoupleData.fromJson(Map<String, dynamic> json) {
+    return CoupleData(
+      heading: json['heading'],
+      subHeading: json['subHeading'],
+      sections: (json['sections'] as List)
+          .map((e) => CoupleSection.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class CoupleSection {
+  final String img;
+  final String title;
+  final int stars;
+  final String description;
+
+  CoupleSection({
+    required this.img,
+    required this.title,
+    required this.stars,
+    required this.description,
+  });
+
+  factory CoupleSection.fromJson(Map<String, dynamic> json) {
+    return CoupleSection(
+      img: json['img'],
+      title: json['title'],
+      stars: json['stars'],
+      description: json['description'],
+    );
+  }
 }
