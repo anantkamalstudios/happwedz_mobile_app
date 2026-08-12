@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -397,21 +399,15 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   void _addTask() async {
     final text = _taskController.text.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter task name')),
-      );
+      AppSnackbar.warning(context, 'Please enter a task name.');
       return;
     }
     if (startDate == null || weddingDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select dates')),
-      );
+      AppSnackbar.warning(context, 'Please select both dates.');
       return;
     }
     if (_selectedCategory.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select category')),
-      );
+      AppSnackbar.warning(context, 'Please select a category.');
       return;
     }
 
@@ -439,12 +435,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     _taskController.clear();
 
     // Show feedback: "Adding task..."
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Adding task...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    AppSnackbar.info(context, 'Adding task…');
 
     // Post to server
     final ok = await _createChecklistOnServer(
@@ -455,12 +446,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     );
 
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Task added successfully!'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppSnackbar.success(context, 'Task added to your checklist.');
       await _fetchChecklist(); // refresh tasks from server
     } else {
       // Remove optimistic insert if failed
@@ -477,12 +463,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
           duration: const Duration(milliseconds: 380),
         );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to add task! Please try again.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppSnackbar.error(context, "We couldn't add that task. Please try again.");
     }
   }
 
@@ -545,9 +526,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
         _listKey.currentState?.insertItem(index);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete task. Please try again.')),
-      );
+      AppSnackbar.error(context, "We couldn't delete that task. Please try again.");
     }
   }
 
@@ -588,9 +567,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     if (picked != null) {
       if (startDate != null && picked.isBefore(startDate!)) {
         // Just in case, extra safeguard
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Wedding date cannot be before start date')),
-        );
+        AppSnackbar.warning(context, 'The wedding date cannot be before the start date.');
         return;
       }
 
@@ -862,9 +839,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               IconButton(
                 tooltip: "Download",
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Download started')),
-                  );
+                  AppSnackbar.info(context, 'Download started.');
                 },
                 icon: const Icon(Icons.download_rounded, color: Colors.black87),
               ),
@@ -873,9 +848,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               IconButton(
                 tooltip: "Print",
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Print dialog opened')),
-                  );
+                  AppSnackbar.info(context, 'Opening the print dialog…');
                 },
                 icon: const Icon(Icons.print_rounded, color: Colors.black87),
               ),

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -896,8 +898,7 @@ class WeddingWebsiteCard extends StatelessWidget {
             await launchUrl(uri, mode: LaunchMode.platformDefault);
           }
         } catch (e) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text("Unable to open browser")));
+          AppSnackbar.info(context, "Unable to open browser");
         }
       },
       child: SizedBox(
@@ -1149,7 +1150,7 @@ class TemplateListByTypeScreen extends ConsumerWidget {
         ],
       ),
       body: asyncCards.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(child: Text("Error: $e")),
         data: (cards) {
           final filtered = cards.where((c) => c.cardType == cardType).toList();
@@ -1212,14 +1213,7 @@ class EInviteTemplateCard extends StatelessWidget {
         child: Column(
           children: [
             Expanded(
-              child: Image.network(
-                item.thumbnailUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.grey.shade300,
-                  child: const Icon(Icons.image_not_supported),
-                ),
-              ),
+              child: NetworkImageWidget(url: item.thumbnailUrl, fit: BoxFit.cover),
             ),
 
             Padding(
@@ -1372,8 +1366,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
     await prefs.setString("draft_${widget.card.id}", jsonData);
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text("Draft Saved")));
+    AppSnackbar.info(context, "Draft Saved");
   }
 
   void deleteField(Map field) {
@@ -1405,8 +1398,7 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   void _requireSelection() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text("Select text first")));
+    AppSnackbar.info(context, "Select text first");
   }
 
   @override
@@ -1432,10 +1424,7 @@ class _EditorScreenState extends State<EditorScreen> {
                     child: Stack(
                       children: [
                         Positioned.fill(
-                          child: Image.network(
-                            widget.card.backgroundUrl,
-                            fit: BoxFit.cover,
-                          ),
+                          child: NetworkImageWidget(url: widget.card.backgroundUrl, fit: BoxFit.cover),
                         ),
 
                         ...fields.map((field) {
@@ -1916,12 +1905,7 @@ class _DraftListScreenState extends State<DraftListScreen> {
           return Card(
             margin: EdgeInsets.all(10),
             child: ListTile(
-              leading: Image.network(
-                d["thumbnail"],
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-              ),
+              leading: NetworkImageWidget(url: d["thumbnail"], width: 60, height: 60, fit: BoxFit.cover),
 
               title: Text(d["name"]),
               subtitle: Text("Tap to edit draft"),
@@ -1954,9 +1938,7 @@ class _DraftListScreenState extends State<DraftListScreen> {
                       final file = File(d["imagePath"]);
 
                       if (!file.existsSync()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Image not found")),
-                        );
+                        AppSnackbar.info(context, "Image not found");
                         return;
                       }
 
@@ -1999,7 +1981,7 @@ class DraftEditorScreen extends StatelessWidget {
     return FutureBuilder(
       future: loadOriginalCard(templateId),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return Scaffold(body: Center(child: CircularProgressIndicator()));
+        if (!snapshot.hasData) return Scaffold(body: const AppLoader());
 
         final card = snapshot.data as EInviteCard;
 
@@ -2078,9 +2060,7 @@ class FinalPreviewScreen extends StatelessWidget {
                       final file = File("${dir.path}/invite_${cardId}.png");
                       await file.writeAsBytes(cardBytes);
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Saved Successfully")),
-                      );
+                      AppSnackbar.info(context, "Saved Successfully");
                     }),
                   ],
                 ),

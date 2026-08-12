@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
 
 class FavouritesPage extends StatefulWidget {
@@ -169,6 +170,17 @@ class _FavouritesPageState extends State<FavouritesPage> {
     }
   }
 
+  /// Resolves the card image, preserving the existing URL rules:
+  /// `/uploads/...` paths are served from the backend host, everything else is
+  /// used as-is.
+  String _resolveImage(List<String> media) {
+    if (media.isEmpty) return '';
+    final first = media[0];
+    return first.startsWith('/uploads/')
+        ? 'https://happywedzbackend.happywedz.com$first'
+        : first;
+  }
+
   // PREMIUM CARD UI
   Widget buildWishlistCard({
     required Map<String, dynamic> attributes,
@@ -179,116 +191,85 @@ class _FavouritesPageState extends State<FavouritesPage> {
   }) {
     final name = attributes['name'] ?? "Unnamed Venue";
     final city = attributes['city'] ?? "Unknown Location";
+    final imageUrl = _resolveImage(media);
 
-    final imageUrl = media.isNotEmpty
-        ? (media[0].startsWith("/uploads/")
-        ? "https://happywedzbackend.happywedz.com${media[0]}"
-        : media[0])
-        : "https://via.placeholder.com/400x300";
-
-    return GestureDetector(
+    return AppCard(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFEFF5), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.pink.withOpacity(0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 6),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // IMAGE
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(18),
-                    topRight: Radius.circular(18),
-                  ),
-                  child: Image.network(
-                    imageUrl,
-                    height: 210,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                        Container(height: 210, color: Colors.grey[300]),
-                  ),
+      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      padding: EdgeInsets.zero,
+      gradient: const LinearGradient(
+        colors: [AppColors.blush, Colors.white],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // IMAGE
+          Stack(
+            children: [
+              NetworkImageWidget(
+                url: imageUrl,
+                height: 200,
+                width: double.infinity,
+                memCacheWidth: 900,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadii.lg),
                 ),
+                scrim: true,
+              ),
 
-                // REMOVE BUTTON
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black12, blurRadius: 6),
-                      ],
+              // REMOVE BUTTON
+              Positioned(
+                top: AppSpacing.md,
+                right: AppSpacing.md,
+                child: FavoriteButton(
+                  isFavorite: true,
+                  size: 40,
+                  iconSize: 21,
+                  onTap: onRemove,
+                ),
+              ),
+            ],
+          ),
+
+          // DETAILS
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$name',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.sectionTitle,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      size: 16,
+                      color: AppColors.primary,
                     ),
-                    child: IconButton(
-                      icon: const Icon(Icons.favorite,
-                          color: Colors.pink, size: 25),
-                      onPressed: onRemove,
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        '$city',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.cardSubtitle,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-
-            // DETAILS
-            Padding(
-              padding: const EdgeInsets.all(14.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on,
-                          size: 18, color: Colors.pink),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          city,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            )
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -296,40 +277,39 @@ class _FavouritesPageState extends State<FavouritesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: [0, 0.3, 0.6],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               // TOP BAR
               Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon:
-                      const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Text(
-                      "Wishlist",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold),
+                    const AppBackButton(color: AppColors.textOnPrimary),
+                    Expanded(
+                      child: Text(
+                        'Wishlist',
+                        textAlign: TextAlign.center,
+                        style: AppText.pageTitle.copyWith(
+                          color: AppColors.textOnPrimary,
+                        ),
+                      ),
                     ),
                     IconButton(
-                      icon:
-                      const Icon(Icons.refresh, color: Colors.white),
+                      tooltip: 'Refresh',
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: AppColors.textOnPrimary,
+                      ),
                       onPressed: fetchWishlist,
                     ),
                   ],
@@ -337,61 +317,85 @@ class _FavouritesPageState extends State<FavouritesPage> {
               ),
 
               // BODY
-              Expanded(
-                child: isLoading
-                    ? const Center(
-                    child: CircularProgressIndicator(
-                        color: Color(0xFFFF69B4)))
-                    : wishlistItems.isEmpty
-                    ? const Center(
-                  child: Text(
-                    "No favourites yet.\nTap ♥ on any vendor to save it here!",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 16, color: Colors.black54),
-                  ),
-                )
-                    : ListView.builder(
-                  itemCount: wishlistItems.length,
-                  itemBuilder: (ctx, i) {
-                    final service = wishlistItems[i];
-                    final vendorServiceId =
-                        service['vendor_services_id'] ?? '';
-                    final attributes =
-                        service['attributes'] ?? {};
-                    final media = attributes['Portfolio'] != null
-                        ? attributes['Portfolio']
-                        .toString()
-                        .split('|')
-                        : [];
-
-                    return buildWishlistCard(
-                      attributes: attributes,
-                      vendorServiceId: vendorServiceId,
-                      media: List<String>.from(media),   // ✅ FIXED
-                      onRemove: () =>
-                          toggleWishlist(vendorServiceId),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => VendorDetailsScreen(
-                                service: {
-                                  'attributes': attributes,
-                                  'media': media,
-                                  'vendor_services_id':
-                                  vendorServiceId,
-                                },
-                              )),
-                        );
-                      },
-                    );
-                  },
-                ),
-              )
+              Expanded(child: _buildBody()),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (isLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Skeletons.listCards(count: 3, height: 280),
+      );
+    }
+
+    if (wishlistItems.isEmpty) {
+      return RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: fetchWishlist,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(height: MediaQuery.of(context).size.height * 0.08),
+            const EmptyState(
+              title: 'No favourites yet',
+              message: 'Tap the heart on any vendor to save it here.',
+              icon: Icons.favorite_border_rounded,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: fetchWishlist,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.xxxl,
+        ),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: wishlistItems.length,
+        itemBuilder: (ctx, i) {
+          final service = wishlistItems[i];
+          final vendorServiceId = service['vendor_services_id'] ?? '';
+          final attributes = service['attributes'] ?? {};
+          final media = attributes['Portfolio'] != null
+              ? attributes['Portfolio'].toString().split('|')
+              : [];
+
+          return FadeSlideIn(
+            delay: AppMotion.staggerFor(i),
+            child: buildWishlistCard(
+              attributes: Map<String, dynamic>.from(attributes),
+              vendorServiceId: vendorServiceId,
+              media: List<String>.from(media),
+              onRemove: () => toggleWishlist(vendorServiceId),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  AnimatedPageRoute(
+                    page: VendorDetailsScreen(
+                      service: {
+                        'attributes': attributes,
+                        'media': media,
+                        'vendor_services_id': vendorServiceId,
+                      },
+                    ),
+                    style: PageTransitionStyle.slideRight,
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }

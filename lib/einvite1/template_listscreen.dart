@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:happy_wedz/einvite1/template_provider.dart';
 import 'draftscreen.dart';
@@ -74,15 +76,7 @@ class TemplateListScreen extends ConsumerWidget {
                                     borderRadius: const BorderRadius.vertical(
                                       top: Radius.circular(8),
                                     ),
-                                    child: Image.network(
-                                      t.thumbnailUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          Container(
-                                            color: Colors.grey.shade300,
-                                            child: const Icon(Icons.broken_image, size: 40),
-                                          ),
-                                    ),
+                                    child: NetworkImageWidget(url: t.thumbnailUrl, fit: BoxFit.cover),
                                   ),
                                 ),
                                 Padding(

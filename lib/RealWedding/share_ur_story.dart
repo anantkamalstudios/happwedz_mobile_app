@@ -4,6 +4,8 @@
 //
 // import 'package:dotted_border/dotted_border.dart';
 // import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 // import 'package:image_picker/image_picker.dart';
 // import 'package:http/http.dart' as http;
 // import 'package:path/path.dart';
@@ -2291,9 +2293,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
           _outlinedButton(
             label: "Save Draft",
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Draft saved locally")),
-              );
+              AppSnackbar.info(context, "Draft saved locally");
             },
           ),
 
@@ -2436,7 +2436,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
             const SizedBox(width: 12),
             Expanded(
               child: isLoadingCountries
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoader()
                   : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
@@ -2463,7 +2463,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
         Text("Culture", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.pink.shade500)),
         const SizedBox(height: 8),
         isLoadingCultures
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppLoader()
             : DropdownButtonFormField<String>(
           value: selectedCulture,
           items: cultures.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
@@ -2517,7 +2517,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
                 return ListTile(
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(v.image, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported)),
+                    child: NetworkImageWidget(url: v.image, width: 50, height: 50, fit: BoxFit.cover),
                   ),
                   title: Text(v.name),
                   subtitle: Text(v.city),
@@ -2679,7 +2679,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
             eventVenueCtrl.clear();
             eventDescCtrl.clear();
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter event name')));
+            AppSnackbar.info(context, 'Please enter event name');
           }
         },
         child: DottedBorder(
@@ -2751,7 +2751,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
           Row(children: [
             Expanded(
               child: vendorTypes.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoader()
                   : DropdownButtonFormField<String>(
                 isExpanded: true,
                 decoration: InputDecoration(
@@ -3034,16 +3034,12 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
     if (token == null || token.isEmpty) {
       print("❌ No token found!");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please login first')),
-      );
+      AppSnackbar.info(context, 'Please login first');
       return;
     }
 
     if (titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter wedding title')),
-      );
+      AppSnackbar.info(context, 'Please enter wedding title');
       return;
     }
 
@@ -3132,27 +3128,19 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
       if (status == 200 || status == 201) {
         print("✅ Wedding story submitted successfully!");
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Wedding story submitted successfully!')),
-        );
+        AppSnackbar.info(context, 'Wedding story submitted successfully!');
         return;
       } else if (status == 401) {
         print("❌ Unauthorized token!");
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session expired. Please login again')),
-        );
+        AppSnackbar.info(context, 'Session expired. Please login again');
         return;
       } else {
         print("❌ Failed: $status");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to submit ($status): $respStr")),
-        );
+        AppSnackbar.info(context, "Failed to submit ($status): $respStr");
       }
     } catch (e, st) {
       print("🔥 ERROR: $e\n$st");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      AppSnackbar.info(context, 'Error: $e');
     } finally {
       setState(() => isSubmitting = false);
     }

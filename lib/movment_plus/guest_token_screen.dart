@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:http/http.dart' as http;
 
 import 'custome_theme.dart';
@@ -21,7 +23,7 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
     return Scaffold(
       body: Container(
         decoration:
-        const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        const BoxDecoration(gradient: MpTheme.backgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -58,7 +60,7 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
                   height: 90,
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: AppTheme.premiumCard(),
+                  decoration: MpTheme.premiumCard(),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -107,7 +109,7 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 20,
-                                      color: AppTheme.primaryColor, // #C31162
+                                      color: MpTheme.primaryColor, // #C31162
                                     ),
                                   ),
                                 ],
@@ -132,9 +134,9 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
                       width: MediaQuery.of(context).size.width * 0.9,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 22),
-                      decoration: AppTheme.premiumCard(
+                      decoration: MpTheme.premiumCard(
                         border:
-                        Border.all(color: AppTheme.pink, width: 1),
+                        Border.all(color: MpTheme.pink, width: 1),
                       ),
                       child: Column(
                         children: [
@@ -144,11 +146,11 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
                             height: 60,
                             width: 60,
                             decoration: BoxDecoration(
-                              color: AppTheme.cardPink,
+                              color: MpTheme.cardPink,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(Icons.lock,
-                                color: AppTheme.pink, size: 32),
+                                color: MpTheme.pink, size: 32),
                           ),
 
                           const SizedBox(height: 14),
@@ -202,14 +204,12 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
                             width: double.infinity,
                             height: 48,
                             child: ElevatedButton(
-                              style: AppTheme.pinkButton(),
+                              style: MpTheme.pinkButton(),
                               onPressed: () async {
                                 final token = _tokenController.text.trim();
 
                                 if (token.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Please enter access token")),
-                                  );
+                                  AppSnackbar.info(context, "Please enter access token");
                                   return;
                                 }
 
@@ -225,9 +225,7 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
                                     ),
                                   );
                                 } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Invalid or expired token")),
-                                  );
+                                  AppSnackbar.info(context, "Invalid or expired token");
                                 }
                               },
                               child: const Text("View Gallery", style: TextStyle(color: Colors.white),),
@@ -327,7 +325,7 @@ class _RecentMomentCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Container(
-        decoration: AppTheme.premiumCard(), // ✅ REQUIRED
+        decoration: MpTheme.premiumCard(), // ✅ REQUIRED
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,7 +373,7 @@ class MomentGalleryHome extends StatelessWidget {
     return Scaffold(
       body: Container(
         decoration:
-        const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        const BoxDecoration(gradient: MpTheme.backgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -417,7 +415,7 @@ class MomentGalleryHome extends StatelessWidget {
                         height: 90,
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: AppTheme.premiumCard(),
+                        decoration: MpTheme.premiumCard(),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -456,7 +454,7 @@ class MomentGalleryHome extends StatelessWidget {
                                           text: "photos",
                                           style: TextStyle(
                                             color:
-                                            AppTheme.primaryColor,
+                                            MpTheme.primaryColor,
                                           ),
                                         ),
                                       ],
@@ -524,16 +522,7 @@ class MomentGalleryHome extends StatelessWidget {
                                   },
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      images[index].url,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder: (context, child, loading) {
-                                        if (loading == null) return child;
-                                        return Container(
-                                          color: Colors.grey.shade200,
-                                        );
-                                      },
-                                    ),
+                                    child: NetworkImageWidget(url: images[index].url, fit: BoxFit.cover),
                                   ),
                                 );
                               },

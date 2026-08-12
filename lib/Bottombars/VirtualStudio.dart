@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 // import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -1182,14 +1184,7 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    AppSnackbar.info(context, message);
   }
 
   void _saveResult() {
@@ -2516,23 +2511,23 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
     return '#${hex.substring(2).toUpperCase()}';
   }
 
+  /// Routes every call site through the shared snackbar system. The [color]
+  /// argument callers already pass decides the tone, so no call site changes.
   void _showSnackBar(String message, Color color, IconData icon) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            SizedBox(width: 10),
-            Expanded(child: Text(message, style: TextStyle(fontWeight: FontWeight.w500))),
-          ],
-        ),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        margin: EdgeInsets.all(20),
-        duration: Duration(seconds: 3),
-      ),
-    );
+    if (!mounted) return;
+
+    final AppSnackType type;
+    if (color == Colors.red || color == AppColors.error) {
+      type = AppSnackType.error;
+    } else if (color == Colors.green || color == AppColors.success) {
+      type = AppSnackType.success;
+    } else if (color == Colors.orange || color == AppColors.warning) {
+      type = AppSnackType.warning;
+    } else {
+      type = AppSnackType.info;
+    }
+
+    AppSnackbar.show(context, message: message, type: type);
   }
   // Future<void> _saveResult() async {
   //   if (_resultImage == null) return;

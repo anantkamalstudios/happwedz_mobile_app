@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'core/core.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:http/http.dart' as http;
@@ -124,7 +126,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         width: double.infinity,
         height: 200,
         color: Colors.grey[300],
-        child: Center(child: CircularProgressIndicator()),
+        child: Skeletons.grid(count: 4, aspectRatio: 0.8),
       ),
       errorWidget: (context, url, error) => Container(
         width: double.infinity,
@@ -450,7 +452,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       future: _storiesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting)
-          return Center(child: CircularProgressIndicator());
+          return Skeletons.listCards(count: 3, height: 240);
         if (snapshot.hasError)
           return Center(child: Text('Error: ${snapshot.error}'));
         if (!snapshot.hasData || snapshot.data!.isEmpty)
@@ -511,7 +513,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
 //       future: _storiesFuture,
 //       builder: (context, snapshot) {
 //         if (snapshot.connectionState == ConnectionState.waiting)
-//           return Center(child: CircularProgressIndicator());
+//           return Skeletons.listCards(count: 3, height: 240);
 //         if (snapshot.hasError)
 //           return Center(child: Text('Error: ${snapshot.error}'));
 //         if (!snapshot.hasData || snapshot.data!.isEmpty)
@@ -560,7 +562,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       future: fetchRealWeddings(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
+          return Skeletons.listCards(count: 3, height: 240);
         } else if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -604,18 +606,13 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                imageUrl,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 180,
-                  color: Colors.grey[300],
-                  child: Icon(Icons.broken_image, size: 50),
-                ),
+            NetworkImageWidget(
+              url: imageUrl,
+              height: 180,
+              width: double.infinity,
+              memCacheWidth: 900,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
               ),
             ),
             Padding(
@@ -660,24 +657,13 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Cover Image
-          ClipRRect(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-            child: wedding.coverPhoto != null
-                ? Image.network(
-              wedding.coverPhoto!,
-              height: 180,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                height: 180,
-                color: Colors.grey[300],
-                child: Icon(Icons.broken_image, size: 50),
-              ),
-            )
-                : Container(
-              height: 180,
-              color: Colors.grey[300],
-              child: Icon(Icons.image, size: 50),
+          NetworkImageWidget(
+            url: wedding.coverPhoto,
+            height: 180,
+            width: double.infinity,
+            memCacheWidth: 900,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(12),
             ),
           ),
 
@@ -944,11 +930,10 @@ class BlogDetailPage extends StatelessWidget {
                   // IMAGE
                   Hero(
                     tag: image,
-                    child: Image.network(
-                      image,
+                    child: NetworkImageWidget(
+                      url: image,
                       width: double.infinity,
                       height: double.infinity,
-                      fit: BoxFit.cover,
                     ),
                   ),
 
@@ -1097,10 +1082,7 @@ class RealWeddingDetailPage extends StatelessWidget {
               ),
               background: Hero(
                 tag: wedding.coverPhoto ?? "",
-                child: Image.network(
-                  wedding.coverPhoto ?? "",
-                  fit: BoxFit.cover,
-                ),
+                child: NetworkImageWidget(url: wedding.coverPhoto ?? "", fit: BoxFit.cover),
               ),
             ),
           ),
@@ -1288,10 +1270,7 @@ class RealWeddingDetailPage extends StatelessWidget {
             tag: "img_$index",
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                images[index],
-                fit: BoxFit.cover,
-              ),
+              child: NetworkImageWidget(url: images[index], fit: BoxFit.cover),
             ),
           ),
         );

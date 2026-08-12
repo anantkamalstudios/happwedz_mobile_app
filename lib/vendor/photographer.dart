@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/core.dart';
+
 import '../Bottombars/Vendor.dart';
 
 // class PhotographerScreen extends StatefulWidget {
@@ -408,7 +410,7 @@ class _PhotographerScreenState extends State<PhotographerScreen> {
                   future: _vendorsFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const AppLoader();
                     } else if (snapshot.hasError) {
                       return Center(child: Text('Error: ${snapshot.error}'));
                     } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -616,13 +618,7 @@ class _PhotographerDetailsScreenState extends State<PhotographerDetailsScreen> w
                     },
                     itemCount: vendor.images.length,
                     itemBuilder: (context, index) {
-                      return Image.network(
-                        vendor.images[index],
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Center(
-                          child: Icon(Icons.photo_camera, size: 50, color: Colors.white54),
-                        ),
-                      );
+                      return NetworkImageWidget(url: vendor.images[index], fit: BoxFit.cover);
                     },
                   ),
                   Positioned(
@@ -679,7 +675,7 @@ class _PhotographerDetailsScreenState extends State<PhotographerDetailsScreen> w
                                 margin: const EdgeInsets.only(right: 12),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(vendor.images[index], fit: BoxFit.cover),
+                                  child: NetworkImageWidget(url: vendor.images[index], fit: BoxFit.cover),
                                 ),
                               );
                             },

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+
+import 'core/core.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -736,18 +738,14 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
 
     final vendorId = widget.vendorId.trim();
     if (vendorId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vendor ID missing!")),
-      );
+      AppSnackbar.error(context, "We couldn't identify this vendor. Please go back and try again.");
       return;
     }
 
     final prefs = await SharedPreferences.getInstance();
     final authToken = prefs.getString('auth_token');
     if (authToken == null || authToken.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("User not logged in!")),
-      );
+      AppSnackbar.info(context, 'Please sign in to post a review.');
       return;
     }
 
@@ -786,23 +784,32 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
           body: jsonEncode(body));
 
       print("📥 Response: ${res.statusCode} ${res.body}");
+      if (!mounted) return;
+
       if (res.statusCode == 200 || res.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("🎉 Review Submitted Successfully!"),
-              backgroundColor: Colors.green),
+        await SuccessPopup.show(
+          context,
+          title: 'Review submitted',
+          message: 'Thank you for sharing your experience.',
         );
+        if (!mounted) return;
         Navigator.popUntil(context, (r) => r.isFirst);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text("❌ Failed: ${res.statusCode}"),
-              backgroundColor: Colors.red),
+        await ErrorPopup.show(
+          context,
+          title: "Couldn't submit review",
+          message:
+              'Something went wrong while posting your review. Please try again.',
+          onRetry: _submitReview,
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Error: $e"), backgroundColor: Colors.red),
+      if (!mounted) return;
+      await ErrorPopup.show(
+        context,
+        title: AppErrorMessage.titleFor(e),
+        message: AppErrorMessage.bodyFor(e),
+        onRetry: _submitReview,
       );
     }
   }

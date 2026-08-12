@@ -6,6 +6,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/core.dart';
+
 class InternetService {
   /// Quick network type check + real internet lookup
   static Future<bool> hasInternet() async {
@@ -87,67 +89,97 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
       left: 0,
       right: 0,
       child: AnimatedSlide(
-        duration: const Duration(milliseconds: 350),
+        duration: AppMotion.normal,
+        curve: AppMotion.emphasized,
         offset: isOnline ? const Offset(0, -1) : Offset.zero,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Material(
-              elevation: 6,
-              borderRadius: BorderRadius.circular(12),
-              color: isOnline ? Colors.green[600] : Colors.red[600],
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                child: Row(
-                  children: [
-                    Icon(
-                      isOnline ? Icons.wifi : Icons.wifi_off,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isOnline ? 'Back online' : 'No internet connection',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            isOnline
-                                ? 'You are connected. Sync resumed.'
-                                : 'Some features may be unavailable. Check your connection.',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.95),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+        child: AnimatedOpacity(
+          duration: AppMotion.normal,
+          opacity: isOnline ? 0 : 1,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              child: Material(
+                elevation: 6,
+                shadowColor: Colors.black.withValues(alpha: 0.25),
+                borderRadius: AppRadii.rLg,
+                color: isOnline ? AppColors.successDark : AppColors.errorDark,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.md,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isOnline
+                              ? Icons.wifi_rounded
+                              : Icons.wifi_off_rounded,
+                          color: AppColors.textOnPrimary,
+                          size: 18,
+                        ),
                       ),
-                    ),
-                    if (!isOnline) ...[
-                      TextButton(
-                        onPressed: () async {
-                          await provider.retryNow();
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: Colors.white24,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              isOnline
+                                  ? 'Back online'
+                                  : AppErrorMessage.offlineTitle,
+                              style: AppText.cardTitle.copyWith(
+                                color: AppColors.textOnPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xxs),
+                            Text(
+                              isOnline
+                                  ? 'You are connected. Sync resumed.'
+                                  : 'Some features may be unavailable.',
+                              style: AppText.caption.copyWith(
+                                color: Colors.white.withValues(alpha: 0.92),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!isOnline) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        Pressable(
+                          onTap: provider.retryNow,
+                          borderRadius: AppRadii.rSm,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: AppRadii.rSm,
+                            ),
+                            child: Text(
+                              'Retry',
+                              style: AppText.buttonSm.copyWith(
+                                color: AppColors.textOnPrimary,
+                              ),
+                            ),
                           ),
                         ),
-                        child: const Text('RETRY'),
-                      ),
-                    ]
-                  ],
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -1,4 +1,6 @@
     // import 'package:flutter/material.dart';
+
+import 'core/core.dart';
 // import 'package:intl/intl.dart';
 //
 // /// Example: wire this from your button:
@@ -1296,11 +1298,7 @@ class _ChatPageState extends State<ChatPage> {
 
     // 🚫 HARD STOP if conversation not ready
     if (conversationId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Chat is starting, please wait..."),
-        ),
-      );
+      AppSnackbar.info(context, "Chat is starting, please wait...");
       return;
     }
 

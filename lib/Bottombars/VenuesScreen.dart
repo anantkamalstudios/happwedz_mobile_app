@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
+import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
 import 'dart:convert';
 
@@ -877,6 +878,88 @@ import 'package:url_launcher/url_launcher.dart';
 // Paste required imports at top of your file
 import 'dart:async';
 
+// ---------------- IMAGE HELPERS (same approach as Vendor.dart) ----------------
+// Vendor.dart images: "https://happywedz.com/api/<path>" — that endpoint serves
+// the backend /uploads/... files, so venues use exactly the same base.
+const String kApiBase = "https://happywedz.com/api";
+
+/// Local asset used when the API gives us no usable image (or the URL fails).
+const String kVenuePlaceholderAsset = "assets/venue.png";
+
+String normalizeImageUrl(String? url) {
+  if (url == null) return '';
+  final u = url.trim();
+  if (u.isEmpty) return '';
+
+  // protocol relative → https
+  if (u.startsWith('//')) return normalizeImageUrl('https:$u');
+
+  // absolute URL (S3 link from the API) → use as is, it already works
+  if (u.startsWith('http://') || u.startsWith('https://')) return u;
+
+  // backend relative path (/uploads/...) → same base as Vendor.dart
+  if (u.startsWith('/')) return '$kApiBase$u';
+
+  return '$kApiBase/$u';
+}
+
+/// Collects every usable image from an API service object.
+/// media can be a List<String>, List<Map>, a Map or null — all handled here.
+List<String> extractVenueImages(dynamic media, dynamic vendor, dynamic attributes) {
+  final List<String> images = [];
+
+  void add(dynamic raw) {
+    if (raw == null) return;
+    final u = normalizeImageUrl(raw.toString());
+    if (u.isNotEmpty && u.startsWith('http') && !images.contains(u)) {
+      images.add(u);
+    }
+  }
+
+  if (media is List) {
+    for (final item in media) {
+      if (item is String) {
+        add(item);
+      } else if (item is Map) {
+        add(item['original_url'] ?? item['url'] ?? item['image'] ?? item['thumb']);
+      }
+    }
+  } else if (media is Map) {
+    add(media['coverImage']);
+    add(media['original_url']);
+    add(media['url']);
+    if (media['gallery'] is List) {
+      for (final g in media['gallery']) {
+        add(g is Map ? (g['url'] ?? g['original_url']) : g);
+      }
+    }
+  } else if (media is String) {
+    add(media);
+  }
+
+  // portfolio fallback (pipe separated) — same as vendor screen
+  if (images.isEmpty && attributes is Map) {
+    final portfolio =
+        attributes['Portfolio'] ?? attributes['portfolio_urls'] ?? attributes['portfolio'];
+    if (portfolio is String && portfolio.isNotEmpty) {
+      for (final p in portfolio.split('|')) {
+        add(p);
+      }
+    } else if (portfolio is List) {
+      for (final p in portfolio) {
+        add(p);
+      }
+    }
+  }
+
+  // vendor profile image fallback
+  if (images.isEmpty && vendor is Map) {
+    add(vendor['profileImage']);
+  }
+
+  return images;
+}
+
 // --- VenuesScreen starts here ---
 class VenuesScreen extends StatefulWidget {
   const VenuesScreen({Key? key}) : super(key: key);
@@ -951,8 +1034,10 @@ class _VenuesScreenState extends State<VenuesScreen> {
     });
 
     try {
+      // image_exists=true → API sirf wahi venues bhejta hai jinki photo actually
+      // available hai (website bhi yahi param use karti hai)
       final url = Uri.parse(
-          "https://happywedz.com/api/vendor-services?vendorType=venue&page=$page&limit=20"
+          "https://happywedz.com/api/vendor-services?vendorType=venue&page=$page&limit=20&image_exists=true"
       );
 
       final res = await http.get(url);
@@ -1052,7 +1137,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
   // ----------------- Fetching (server aware) -----------------
   /// fetchVenues - loads a single page (appends to allVenues)
-  Future<void> fetchVenues({int page = 1, String? serverQuery}) async {
+  Future<void> fetchVenues({int page = 1, String? serverQuery, bool onlyWithImages = true}) async {
     setState(() {
       // only show main spinner for first page / full refresh
       isLoading = page == 1;
@@ -1074,6 +1159,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
       buffer.write("?vendorType=venue");
       buffer.write("&page=$page");
       buffer.write("&limit=$limit");
+      if (onlyWithImages) buffer.write("&image_exists=true"); // sirf photo wale venues
 
       if (currentServerQuery.isNotEmpty) {
         buffer.write("&search=${Uri.encodeQueryComponent(currentServerQuery)}");
@@ -1088,6 +1174,16 @@ class _VenuesScreenState extends State<VenuesScreen> {
       if (res.statusCode == 200) {
         final decoded = json.decode(res.body);
         final List<dynamic> data = (decoded['data'] ?? []) as List<dynamic>;
+
+        // Search ke sath photo-only filter lagane par kabhi kabhi 0 result aate
+        // hain — us case me bina filter ke dobara try karo taaki search na tute.
+        if (data.isEmpty &&
+            onlyWithImages &&
+            currentServerQuery.isNotEmpty &&
+            page == 1) {
+          await fetchVenues(page: 1, serverQuery: serverQuery, onlyWithImages: false);
+          return;
+        }
 
         // Determine total pages if API supplies total or pagination
         final totalItems = decoded['total'] ??
@@ -1109,75 +1205,10 @@ class _VenuesScreenState extends State<VenuesScreen> {
           else totalPages = page + 1;
         }
 
-        // parse items safely
-        // parse items safely
-        final loaded = data.map((service) {
-          final attributes = service['attributes'] ?? {};
-          final vendor = service['vendor'] ?? {};
-          final subcategory = service['subcategory'] ?? {};
-          final media = service['media'] ?? [];
-          final vendorId = service['vendor_id'];
-          final vendorSubcategoryId = service['vendor_subcategory_id'];
-
-          // ✅ 1. READ lat/lng from attributes
-          final latRaw = attributes['latitude'];
-          final lngRaw = attributes['longitude'];
-
-          double? lat;
-          double? lng;
-
-          if (latRaw is String) lat = double.tryParse(latRaw);
-          if (lngRaw is String) lng = double.tryParse(lngRaw);
-          if (latRaw is num) lat = latRaw.toDouble();
-          if (lngRaw is num) lng = lngRaw.toDouble();
-
-          debugPrint("VENUE ${service['id']} RAW LAT=$latRaw LNG=$lngRaw  =>  $lat , $lng");
-            print(lat);
-            print(lng);
-
-          // 🔹 IMAGE
-          String imageUrl = '';
-
-          if (media is List && media.isNotEmpty) {
-            final first = media.first;
-            if (first is String) {
-              imageUrl = first;
-            } else if (first is Map) {
-              imageUrl = (first['url'] ?? first['original_url'] ?? '').toString();
-            }
-          } else if (media is Map) {
-            imageUrl = (media['coverImage'] ?? media['original_url'] ?? '').toString();
-          }
-
-          if (imageUrl.startsWith('/uploads/')) {
-            imageUrl = "https://happywedzbackend.happywedz.com$imageUrl";
-          }
-          if (imageUrl.isEmpty) {
-            imageUrl = 'https://via.placeholder.com/400x300.png?text=No+Image';
-          }
-
-          // ✅ 2. PASS latitude & longitude into Venue constructor
-          return Venue(
-            id: service['id'] ?? 0,
-            vendorId: vendorId,                     // ✅ add this
-            vendorSubcategoryId: vendorSubcategoryId,
-            vendorName: attributes['vendor_name'] ?? vendor['businessName'] ?? '',
-            city: attributes['city'] ?? vendor['city'] ?? '',
-            vegPrice: attributes['veg_price']?.toString() ?? '',
-            nonVegPrice: attributes['non_veg_price']?.toString() ?? '',
-            area: attributes['area'] ?? '',
-            address: attributes['address'] ?? '',
-            rating: attributes['averageRating']?.toString() ?? '0.0',
-            reviewCount: attributes['totalReviews']?.toString() ?? '0',
-            about: attributes['about_us'] ?? '',
-            type: subcategory['name'] ?? vendor['vendorType']?['name'] ?? '',
-            image: imageUrl,
-            latitude: lat,      // 👈 important
-            longitude: lng,     // 👈 important
-            isFavourite: (service['is_favourite']?.toString() ?? '') == "1" ||
-                service['is_favourite'] == true,
-          );
-        }).toList();
+        // parse items safely — same parsing (incl. images) as fetchAllVenues
+        final loaded = data
+            .map((service) => Venue.fromJson(service as Map<String, dynamic>))
+            .toList();
 
         // final loaded = data.map((service) {
         //   final attributes = service['attributes'] ?? {};
@@ -1360,7 +1391,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
   Future<void> _toggleFavourite(Venue v) async {
     if (currentUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please sign in to manage wishlist')));
+      AppSnackbar.info(context, 'Please sign in to manage your wishlist.');
       return;
     }
 
@@ -1391,7 +1422,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
       if (res.statusCode == 200) {
         final m = jsonDecode(res.body);
         final msg = m['message'] ?? 'Wishlist updated';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        AppSnackbar.success(context, msg.toString());
       }
     } catch (e) {
       debugPrint('Wishlist API error: $e');
@@ -1693,9 +1724,12 @@ class _VenuesScreenState extends State<VenuesScreen> {
         "id": v.vendorId,
         "businessName": v.vendorName,
       },
-      "media": [
-        {"original_url": v.image}
-      ]
+      // pass every image we parsed, not just the first one
+      "image_exists": v.images.isNotEmpty,
+      "media": (v.images.isNotEmpty ? v.images : [v.image])
+          .where((e) => e.isNotEmpty)
+          .map((e) => {"original_url": e})
+          .toList(),
     };
   }
 
@@ -1703,169 +1737,217 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryAccent = Colors.pink.shade600;
+    final bool hasActiveFilters =
+        selectedCity.isNotEmpty ||
+        minPrice != 0 ||
+        maxPrice != 200000 ||
+        selectedRating != 0;
 
     return Scaffold(
-      body: Stack(
-        children: [
-
-          // -------- BACKGROUND GRADIENT --------
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFF69B4),
-                  Color(0xFFFFB6C1),
-                  Colors.white,
-                ],
-                stops: [0.0, 0.3, 0.6],
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: Column(
-              children: [
-
-                // -------- HEADER --------
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const Text(
-                        'Venues',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: IconButton(
-                          icon: Icon(
-                            isList ? Icons.list : Icons.grid_view,
-                            color: Colors.white,
-                          ),
-                          onPressed: () => setState(() => isList = !isList),
-                        ),
-                      ),
-                    ],
-                  ),
+      backgroundColor: AppColors.surface,
+      body: Container(
+        // -------- BACKGROUND GRADIENT (existing colors) --------
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // -------- HEADER --------
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
                 ),
-
-                // -------- MAIN WHITE CONTAINER --------
-                Expanded(
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 48),
+                    Expanded(
+                      child: Text(
+                        'Venues',
+                        textAlign: TextAlign.center,
+                        style: AppText.pageTitle.copyWith(
+                          color: AppColors.textOnPrimary,
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      children: [
+                    SizedBox(
+                      width: 48,
+                      child: IconButton(
+                        tooltip: isList ? 'Grid view' : 'List view',
+                        icon: AnimatedSwitcher(
+                          duration: AppMotion.fast,
+                          child: Icon(
+                            isList
+                                ? Icons.grid_view_rounded
+                                : Icons.view_agenda_outlined,
+                            key: ValueKey(isList),
+                            color: AppColors.textOnPrimary,
+                          ),
+                        ),
+                        onPressed: () => setState(() => isList = !isList),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-                        // -------- SEARCH & FILTER --------
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              // -------- MAIN WHITE SHEET --------
+              Expanded(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // -------- SEARCH --------
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.sm,
+                        ),
+                        child: Container(
+                          height: 46,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(23),
+                            border: Border.all(color: AppColors.divider),
+                          ),
                           child: Row(
                             children: [
+                              const Icon(
+                                Icons.search_rounded,
+                                color: AppColors.textTertiary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
                               Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.search, color: Colors.grey),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _searchController,
-                                          onChanged: _onSearchChanged,
-                                          decoration: const InputDecoration(
-                                            hintText: 'Search venues, city, name...',
-                                            border: InputBorder.none,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                child: TextField(
+                                  controller: _searchController,
+                                  onChanged: _onSearchChanged,
+                                  style: AppText.body,
+                                  textInputAction: TextInputAction.search,
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    hintText: 'Search venues, city, name…',
+                                    hintStyle: AppText.body.copyWith(
+                                      color: AppColors.textTertiary,
+                                    ),
+                                    border: InputBorder.none,
                                   ),
                                 ),
                               ),
-                              // const SizedBox(width: 8),
-                              // IconButton(
-                              //   icon: const Icon(Icons.filter_list, color: Colors.pink),
-                              //   onPressed: _openFilterSheet,
-                              // ),
-                            ],
-                          ),
-                        ),
-
-                        // -------- CLEAR FILTERS --------
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              if (selectedCity.isNotEmpty ||
-                                  minPrice != 0 ||
-                                  maxPrice != 200000 ||
-                                  selectedRating != 0)
-                                TextButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      selectedCity = "";
-                                      minPrice = 0;
-                                      maxPrice = 200000;
-                                      selectedRating = 0;
-                                    });
-                                    _applyFiltersAndSearch();
+                              if (_searchController.text.isNotEmpty)
+                                Pressable(
+                                  onTap: () {
+                                    _searchController.clear();
+                                    _onSearchChanged('');
                                   },
-                                  child: const Text('Clear filters'),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: AppColors.textTertiary,
+                                  ),
                                 ),
                             ],
                           ),
                         ),
+                      ),
 
-                        // -------- LIST / GRID CONTENT --------
-                        Expanded(
-                          child: isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : venues.isEmpty
-                              ? ListView(
-                            children: const [
-                              SizedBox(height: 180),
-                              Center(child: Text('No venues found')),
-                            ],
-                          )
-                              : RefreshIndicator(
-                            color: Colors.pink,
-                            onRefresh: () async {
-                              page = 1;
-                              await fetchVenues(
-                                page: 1,
-                                serverQuery: currentServerQuery,
-                              );
-                            },
-                            child: isList
-                                ? _buildList()
-                                : _buildGrid(),
+                      // -------- CLEAR FILTERS --------
+                      if (hasActiveFilters)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: PremiumButton.text(
+                              label: 'Clear filters',
+                              size: PremiumButtonSize.small,
+                              onPressed: () {
+                                setState(() {
+                                  selectedCity = "";
+                                  minPrice = 0;
+                                  maxPrice = 200000;
+                                  selectedRating = 0;
+                                });
+                                _applyFiltersAndSearch();
+                              },
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+
+                      // -------- LIST / GRID CONTENT --------
+                      Expanded(child: _buildContent(hasActiveFilters)),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _refreshVenues() async {
+    page = 1;
+    await fetchVenues(page: 1, serverQuery: currentServerQuery);
+  }
+
+  Widget _buildContent(bool hasActiveFilters) {
+    if (isLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: isList
+            ? Skeletons.listCards(count: 4, height: 260)
+            : Skeletons.grid(count: 6, aspectRatio: 0.72),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _refreshVenues,
+      child: venues.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.1),
+                EmptyState(
+                  title: 'No venues found',
+                  message: 'Try changing your search or filters.',
+                  icon: Icons.location_city_outlined,
+                  actionLabel:
+                      hasActiveFilters || _searchController.text.isNotEmpty
+                      ? 'Clear filters'
+                      : null,
+                  onAction:
+                      hasActiveFilters || _searchController.text.isNotEmpty
+                      ? () {
+                          _searchController.clear();
+                          setState(() {
+                            selectedCity = "";
+                            minPrice = 0;
+                            maxPrice = 200000;
+                            selectedRating = 0;
+                          });
+                          _applyFiltersAndSearch();
+                        }
+                      : null,
+                ),
+              ],
+            )
+          : isList
+          ? _buildList()
+          : _buildGrid(),
     );
   }
 
@@ -1979,15 +2061,28 @@ class _VenuesScreenState extends State<VenuesScreen> {
   // }
 
   Widget _buildList() {
-    return ListView.builder(
+    return ListView.separated(
       controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.xxxl,
+      ),
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: venues.length + (isLoadingMore ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, index) {
-        if (index == venues.length) {
-          return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
+        if (index >= venues.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: AppLoader(),
+          );
         }
-        return _buildVenueCard(context, venues[index]);
+        return FadeSlideIn(
+          delay: AppMotion.staggerFor(index),
+          child: _buildVenueCard(context, venues[index]),
+        );
       },
     );
   }
@@ -1995,155 +2090,292 @@ class _VenuesScreenState extends State<VenuesScreen> {
   Widget _buildGrid() {
     return GridView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.50),
-      itemCount: venues.length + (isLoadingMore ? 1 : 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.xxxl,
+      ),
+      physics: const AlwaysScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: AppSpacing.md,
+        mainAxisSpacing: AppSpacing.md,
+        // Compact card (no action row) fits comfortably at this ratio.
+        childAspectRatio: 0.72,
+      ),
+      itemCount: venues.length + (isLoadingMore ? 2 : 0),
       itemBuilder: (context, index) {
-        if (index == venues.length) {
-          return const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()));
+        if (index >= venues.length) {
+          return const SkeletonBox(height: double.infinity, radius: AppRadii.lg);
         }
-        return _buildVenueCard(context, venues[index]);
+        return FadeSlideIn(
+          delay: AppMotion.staggerFor(index),
+          child: _buildVenueCard(context, venues[index], compact: true),
+        );
       },
     );
   }
 
-  Widget _buildVenueCard(BuildContext context, Venue venue) {
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VendorDetailsScreen(service: _serviceShapeFromVenue(venue)))),
-      child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6)]),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _buildVenueCard(
+    BuildContext context,
+    Venue venue, {
+    bool compact = false,
+  }) {
+    void openDetails() => Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: VendorDetailsScreen(service: _serviceShapeFromVenue(venue)),
+        style: PageTransitionStyle.slideRight,
+      ),
+    );
+
+    final ratingText =
+        double.tryParse(venue.rating)?.toStringAsFixed(1) ?? '0.0';
+    final hasRating = (double.tryParse(venue.rating) ?? 0) > 0;
+
+    return AppCard(
+      onTap: openDetails,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
           // image + fav + overlays
-          Stack(children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-              child: Image.network(venue.image, height: 140, width: double.infinity, fit: BoxFit.cover, errorBuilder: (ctx, e, st) => Container(height: 140, color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image)))),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: InkWell(
-                onTap: () => _toggleFavourite(venue),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle),
-                  child: Icon(venue.isFavourite || favouriteVenues.contains(venue.id.toString()) ? Icons.favorite : Icons.favorite_border, color: Colors.pink, size: 20),
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadii.lg),
+                ),
+                child: _venueImage(venue, height: compact ? 118 : 168),
+              ),
+              Positioned(
+                top: AppSpacing.sm,
+                right: AppSpacing.sm,
+                child: FavoriteButton(
+                  isFavorite:
+                      venue.isFavourite ||
+                      favouriteVenues.contains(venue.id.toString()),
+                  onTap: () => _toggleFavourite(venue),
                 ),
               ),
-            ),
-            Positioned(
-              left: 8,
-              bottom: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                child: Row(children: [
-                  const Icon(Icons.location_on, color: Colors.white, size: 12),
-                  const SizedBox(width: 6),
-                  SizedBox(width: 120, child: Text(venue.city, style: const TextStyle(color: Colors.white, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                ]),
-              ),
-            ),
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.green.shade700, borderRadius: BorderRadius.circular(6)),
-                child: Row(children: [
-                  const Icon(Icons.star, color: Colors.white, size: 12),
-                  const SizedBox(width: 6),
-                  Text(double.tryParse(venue.rating)?.toStringAsFixed(1) ?? '0.0', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ]),
-              ),
-            ),
-          ]),
+              if (venue.city.trim().isNotEmpty)
+                Positioned(
+                  left: AppSpacing.sm,
+                  bottom: AppSpacing.sm,
+                  right: hasRating ? 68 : AppSpacing.sm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: AppRadii.rSm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                        const SizedBox(width: AppSpacing.xxs),
+                        Flexible(
+                          child: Text(
+                            venue.city,
+                            style: AppText.caption.copyWith(
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (hasRating)
+                Positioned(
+                  right: AppSpacing.sm,
+                  bottom: AppSpacing.sm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.successDark,
+                      borderRadius: AppRadii.rSm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          ratingText,
+                          style: AppText.caption.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
           // details
           Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(venue.vendorName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  if (venue.vegPrice.isNotEmpty) Text('Veg: ${venue.vegPrice}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  if (venue.nonVegPrice.isNotEmpty) Text('Non-veg: ${venue.nonVegPrice}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(children: [
-                const Icon(Icons.location_city, size: 14, color: Colors.grey),
-                const SizedBox(width: 6),
-                Expanded(child: Text(venue.area, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis)),
-              ]),
-              const SizedBox(height: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // TYPE
-                  Row(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  venue.vendorName,
+                  style: AppText.cardTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (venue.vegPrice.isNotEmpty ||
+                    venue.nonVegPrice.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xxs,
                     children: [
-                      const Icon(Icons.event, size: 14, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          venue.type,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                          overflow: TextOverflow.ellipsis,
+                      if (venue.vegPrice.isNotEmpty)
+                        Text(
+                          'Veg: ${venue.vegPrice}',
+                          style: AppText.priceSm,
                         ),
-                      ),
+                      if (venue.nonVegPrice.isNotEmpty)
+                        Text(
+                          'Non-veg: ${venue.nonVegPrice}',
+                          style: AppText.priceSm,
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  // ACTION BUTTONS (Wrapped to avoid overflow)
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 6,
+                ],
+                if (venue.area.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  _MetaRow(icon: Icons.location_city_rounded, text: venue.area),
+                ],
+                if (venue.type.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  _MetaRow(icon: Icons.event_rounded, text: venue.type),
+                ],
+
+                // The action row is list-only — in the grid there is no room
+                // for it without overflowing the tile.
+                if (!compact) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
                     children: [
                       _actionItem(
-                        icon: const Icon(Icons.call, color: Colors.green),
+                        icon: const Icon(
+                          Icons.call_rounded,
+                          color: AppColors.successDark,
+                          size: 18,
+                        ),
                         label: "Call",
                         onTap: () => _tryCall(""),
                       ),
+                      const SizedBox(width: AppSpacing.md),
                       _actionItem(
-                        icon: Image.asset('assets/whatsapp.png', height: 30, width: 30),
+                        icon: Image.asset(
+                          'assets/whatsapp.png',
+                          height: 20,
+                          width: 20,
+                        ),
                         label: "WhatsApp",
                         onTap: () => _tryWhatsApp(""),
                       ),
+                      const SizedBox(width: AppSpacing.md),
                       _actionItem(
-                        icon: const Icon(Icons.message, color: Colors.blue),
+                        icon: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          color: AppColors.info,
+                          size: 18,
+                        ),
                         label: "Message",
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VendorDetailsScreen(service: _serviceShapeFromVenue(venue)))),
+                        onTap: openDetails,
+                      ),
+                      const Spacer(),
+                      PremiumButton.text(
+                        label: 'View',
+                        size: PremiumButtonSize.small,
+                        onPressed: openDetails,
                       ),
                     ],
                   ),
                 ],
-              )
-            ]),
+              ],
+            ),
           ),
-        ]),
+        ],
       ),
     );
   }
 
-  Widget _actionItem({required Widget icon, required String label, required VoidCallback onTap}) {
-    return InkWell(
+  /// Venue card image — tries every URL the API gave us, and falls back to the
+  /// bundled asset if none of them load (some legacy vendor photos are gone).
+  Widget _venueImage(Venue venue, {double height = 140}) {
+    final urls = venue.images.isNotEmpty
+        ? venue.images
+        : (venue.image.isNotEmpty ? [venue.image] : const <String>[]);
+
+    if (urls.isEmpty) return _fallbackImage(height);
+
+    return _NetworkImageWithFallback(
+      urls: urls,
+      height: height,
+      fallback: _fallbackImage(height),
+    );
+  }
+
+  Widget _fallbackImage(double height) => Image.asset(
+        kVenuePlaceholderAsset,
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, e, st) => Container(
+          height: height,
+          color: Colors.grey[200],
+          child: const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
+        ),
+      );
+
+  Widget _actionItem({
+    required Widget icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Pressable(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: Colors.grey.shade200,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: icon,
+          Container(
+            height: 36,
+            width: 36,
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              shape: BoxShape.circle,
             ),
+            child: Center(child: icon),
           ),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.black54)),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(label, style: AppText.caption),
         ],
       ),
     );
@@ -2155,7 +2387,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
   Future<void> _tryCall(String phone) async {
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone not available')));
+      AppSnackbar.info(context, 'Phone number not available for this venue.');
       return;
     }
     final uri = Uri(scheme: 'tel', path: phone);
@@ -2164,7 +2396,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
   Future<void> _tryWhatsApp(String phone) async {
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('WhatsApp not available')));
+      AppSnackbar.info(context, 'WhatsApp is not available for this venue.');
       return;
     }
     final url = Uri.parse('https://wa.me/$phone');
@@ -2172,6 +2404,91 @@ class _VenuesScreenState extends State<VenuesScreen> {
   }
 }
 
+
+/// Loads [urls] one by one; if a URL fails (404/403/timeout) it automatically
+/// tries the next one, and shows [fallback] once every URL has failed.
+class _NetworkImageWithFallback extends StatefulWidget {
+  final List<String> urls;
+  final double height;
+  final Widget fallback;
+
+  const _NetworkImageWithFallback({
+    Key? key,
+    required this.urls,
+    required this.height,
+    required this.fallback,
+  }) : super(key: key);
+
+  @override
+  State<_NetworkImageWithFallback> createState() => _NetworkImageWithFallbackState();
+}
+
+class _NetworkImageWithFallbackState extends State<_NetworkImageWithFallback> {
+  int index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (index >= widget.urls.length) return widget.fallback;
+
+    return Image.network(
+      widget.urls[index],
+      height: widget.height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      // Fade the decoded frame in so cards do not pop.
+      frameBuilder: (ctx, child, frame, wasSyncLoaded) {
+        if (wasSyncLoaded) return child;
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: AppMotion.normal,
+          curve: AppMotion.standard,
+          child: child,
+        );
+      },
+      loadingBuilder: (ctx, child, progress) {
+        if (progress == null) return child;
+        return LoadingShimmer(
+          child: SkeletonBox(height: widget.height, width: double.infinity),
+        );
+      },
+      errorBuilder: (ctx, e, st) {
+        // try the next URL on the next frame
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && index < widget.urls.length) setState(() => index++);
+        });
+        return LoadingShimmer(
+          child: SkeletonBox(height: widget.height, width: double.infinity),
+        );
+      },
+    );
+  }
+}
+
+/// Small icon + muted text line used inside the venue card body.
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: AppColors.textTertiary),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: Text(
+            text,
+            style: AppText.cardSubtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 // Venue model
 class Venue {
@@ -2187,6 +2504,7 @@ class Venue {
   final String about;
   final String type;
   final String image;
+  final List<String> images;
   final String? rooms;
   final double? latitude;     // ✅
   final double? longitude;
@@ -2208,6 +2526,7 @@ class Venue {
     required this.about,
     required this.type,
     required this.image,
+    this.images = const [],
     this.rooms,
     this.latitude,
     this.longitude,
@@ -2229,31 +2548,15 @@ class Venue {
     if (latRaw is num) lat = latRaw.toDouble();
     if (lngRaw is num) lng = lngRaw.toDouble();
 
-    // IMAGE FIX
-    String image = "";
-    final media = json["media"];
-    if (media is List && media.isNotEmpty) {
-      if (media.first is String) {
-        image = media.first;
-      } else if (media.first is Map) {
-        image = media.first["url"] ?? media.first["original_url"] ?? "";
-      }
-    }
-
-    if (image.startsWith("/uploads/")) {
-      image = "https://happywedzbackend.happywedz.com$image";
-    }
-
-    // fall back
-    if (image.isEmpty) {
-      image = "https://via.placeholder.com/400x300.png?text=No+Image";
-    }
+    // IMAGE — same handling as the vendor screen
+    final List<String> images = extractVenueImages(json["media"], vendor, attr);
+    final String image = images.isNotEmpty ? images.first : "";
 
     return Venue(
       id: json["id"] ?? 0,
       vendorId: json["vendor_id"],                 // ✅ add
       vendorSubcategoryId: json["vendor_subcategory_id"], // ✅ add
-      vendorName: attr["name"] ?? vendor["businessName"] ?? "",
+      vendorName: attr["name"] ?? attr["vendor_name"] ?? vendor["businessName"] ?? "",
       city: attr["city"] ?? vendor["city"] ?? "",
       vegPrice: attr["veg_price"]?.toString() ?? "",
       nonVegPrice: attr["non_veg_price"]?.toString() ?? "",
@@ -2265,6 +2568,7 @@ class Venue {
       type: subcategory["name"]?.toString() ?? "",     // << Correct venue type
       rooms: attr["rooms"]?.toString(),
       image: image,
+      images: images,
       latitude: lat,
       longitude: lng,
       isFavourite: json["is_favourite"]?.toString() == "1",

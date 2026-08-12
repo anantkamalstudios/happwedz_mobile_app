@@ -14,25 +14,19 @@ import '../ClaimBusiness.dart';
 import '../Review.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
 import '../chat_page_new.dart';
+import '../core/core.dart';
 
-
-
-// ⬇️ Import your other screens
-
-// Updated VendorServicesScreen with rich UI, wishlist, list/grid toggle, search, filters
-// NOTE: This is a full file. Replace your existing code with this.
-
-
-// Final VendorServicesScreen — Fully integrated with pagination, grid/list toggle, search, filters,
-// wishlist toggle, phone/WhatsApp/message actions, safe image handling and no overflow.
-
-
-// Replace with your actual vendor details screen import
+// Final VendorServicesScreen — pagination, grid/list toggle, search, filters,
+// wishlist toggle, phone/WhatsApp/message actions, safe image handling.
+//
+// The API layer below is unchanged: same endpoints, same query params, same
+// response parsing. Only the presentation has been rebuilt on the design
+// system.
 
 class VendorServicesScreen extends StatefulWidget {
   final String subcategoryName;
 
-  const VendorServicesScreen({Key? key, required this.subcategoryName}) : super(key: key);
+  const VendorServicesScreen({super.key, required this.subcategoryName});
 
   @override
   State<VendorServicesScreen> createState() => _VendorServicesScreenState();
@@ -51,12 +45,15 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   bool isLoadingMore = false;
   bool hasMore = true;
 
+  /// Set when the initial load fails so an [ErrorState] can be shown.
+  Object? _loadError;
+
   String? currentUserId;
   Set<String> favouriteVendors = {};
 
-  // bool isGrid = true; // Toggle List/Grid
   final ScrollController _scrollController = ScrollController();
   bool isList = true;
+
   // Search & Filters
   final TextEditingController searchController = TextEditingController();
   String filterCity = '';
@@ -71,27 +68,32 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   String? selectedSubCategory;
   String? selectedVendorType;
 
-
-
+  /// Debounces the search field so filtering does not run on every keystroke.
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUser();
-    // fetchServices();
     fetchAllServices();
-    // setupPaginationListener();
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     searchController.dispose();
     super.dispose();
   }
+
+  // ---------------------------------------------------------------------------
+  // API — unchanged endpoints and parsing
+  // ---------------------------------------------------------------------------
+
   Future<void> fetchAllServices() async {
     setState(() {
       isLoading = true;
+      _loadError = null;
       allServices.clear();
       services.clear();
     });
@@ -100,7 +102,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       final sub = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
 
       final url = Uri.parse(
-          "https://happywedz.com/api/vendor-services?subCategory=$sub&limit=5000"
+        "https://happywedz.com/api/vendor-services?subCategory=$sub&limit=5000",
       );
 
       final response = await http.get(url);
@@ -117,23 +119,30 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           list = [raw];
         }
 
+        if (!mounted) return;
         setState(() {
           allServices.addAll(list);
         });
 
         _applyFiltersAndSearch();
+      } else {
+        if (!mounted) return;
+        setState(() => _loadError = 'HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print("Error loading ALL services: $e");
+      debugPrint("Error loading ALL services: $e");
+      if (!mounted) return;
+      setState(() => _loadError = e);
     }
 
+    if (!mounted) return;
     setState(() => isLoading = false);
   }
 
   void setupPaginationListener() {
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200 &&
+              _scrollController.position.maxScrollExtent - 200 &&
           !isLoadingMore &&
           hasMore) {
         fetchMoreServices();
@@ -143,48 +152,48 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
   Future<void> _loadCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       currentUserId = prefs.getInt('user_id')?.toString();
     });
   }
+
   Future<void> fetchServices() async {
     setState(() => isLoading = true);
 
     Map<String, String> queryParams = {};
 
     if (selectedCity.isNotEmpty) queryParams["city"] = selectedCity;
-    if (selectedSubCategory != null) queryParams["subCategory"] = selectedSubCategory!;
-    if (selectedVendorType != null) queryParams["vendorType"] = selectedVendorType!;
+    if (selectedSubCategory != null) {
+      queryParams["subCategory"] = selectedSubCategory!;
+    }
+    if (selectedVendorType != null) {
+      queryParams["vendorType"] = selectedVendorType!;
+    }
 
     queryParams["minPrice"] = minPrice.toInt().toString();
     queryParams["maxPrice"] = maxPrice.toInt().toString();
     queryParams["minRating"] = selectedRating.toString();
 
-    final uri = Uri.https(
-      "happywedz.com",
-      "/api/vendor-services",
-      queryParams,
-    );
-
-    print("API URL → $uri");
+    final uri = Uri.https("happywedz.com", "/api/vendor-services", queryParams);
 
     try {
       final res = await http.get(uri);
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+        if (!mounted) return;
         setState(() {
           vendorList = data["data"];
         });
       }
     } catch (e) {
-      print("Error fetching services: $e");
+      debugPrint("Error fetching services: $e");
     }
 
+    if (!mounted) return;
     setState(() => isLoading = false);
   }
-
-
 
   Future<void> fetchMoreServices() async {
     if (!hasMore) return;
@@ -194,17 +203,21 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     try {
       currentPage++;
 
-      final encodedSubcategory =
-      Uri.encodeComponent(widget.subcategoryName.toLowerCase());
+      final encodedSubcategory = Uri.encodeComponent(
+        widget.subcategoryName.toLowerCase(),
+      );
 
       final url = Uri.parse(
-          "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory&page=$currentPage&limit=9");
+        "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory&page=$currentPage&limit=9",
+      );
 
-      final response = await http.get(url, headers: {"Accept": "application/json"});
+      final response = await http.get(
+        url,
+        headers: {"Accept": "application/json"},
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
-        // final List<dynamic> list = (data['data'] ?? []) as List<dynamic>;
         final rawData = data['data'];
 
         List<dynamic> list = [];
@@ -212,9 +225,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         if (rawData is List) {
           list = rawData;
         } else if (rawData is Map<String, dynamic>) {
-          list = [rawData];  // wrap single object into a list
+          list = [rawData]; // wrap single object into a list
         } else {
-          list = [];  // null or unexpected format
+          list = []; // null or unexpected format
         }
 
         final pagination = data['pagination'] ?? {};
@@ -224,21 +237,24 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
             : int.tryParse('${pagination['totalPages']}') ?? totalPages;
         hasMore = currentPage < totalPages;
 
+        if (!mounted) return;
         setState(() {
           allServices.addAll(list);
         });
 
         _applyFiltersAndSearch();
       } else {
-        print('More API error ${response.statusCode}');
+        debugPrint('More API error ${response.statusCode}');
       }
     } catch (e, st) {
-      print('fetchMoreServices error $e');
-      print(st);
+      debugPrint('fetchMoreServices error $e');
+      debugPrint('$st');
     }
 
+    if (!mounted) return;
     setState(() => isLoadingMore = false);
   }
+
   Future<void> applyFilters() async {
     setState(() {
       filterCity = selectedCity;
@@ -247,11 +263,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       filterMinRating = selectedRating;
     });
 
-    _applyFiltersAndSearch(); // 🔥 local filtering
+    _applyFiltersAndSearch(); // local filtering
   }
-
-
-
 
   void _applyFiltersAndSearch() {
     final q = searchController.text.trim().toLowerCase();
@@ -260,12 +273,10 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       final attr = service['attributes'] ?? {};
       final vendor = service['vendor'] ?? {};
 
-      final name = (vendor['businessName'] ??
-          attr['vendor_name'] ??
-          attr['Name'] ??
-          '')
-          .toString()
-          .toLowerCase();
+      final name =
+          (vendor['businessName'] ?? attr['vendor_name'] ?? attr['Name'] ?? '')
+              .toString()
+              .toLowerCase();
 
       final city = (vendor['city'] ?? attr['city'] ?? '')
           .toString()
@@ -279,27 +290,22 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       if (pText.isNotEmpty) price = double.tryParse(pText) ?? 0.0;
 
       // Rating
-      final rating = double.tryParse(
-        (attr['rating'] ??
-            attr['averageRating'] ??
-            '0')
-            .toString(),
-      ) ??
+      final rating =
+          double.tryParse(
+            (attr['rating'] ?? attr['averageRating'] ?? '0').toString(),
+          ) ??
           0;
 
       return
-        // 🔎 SEARCH (name + city)
-        (q.isEmpty || name.contains(q) || city.contains(q)) &&
-
-            // 🏙 City Filter
-            (filterCity.isEmpty || city.contains(filterCity.toLowerCase())) &&
-
-            // 💰 Price Filter
-            price >= filterMinPrice &&
-            price <= filterMaxPrice &&
-
-            // ⭐ Rating Filter
-            rating >= filterMinRating;
+      // SEARCH (name + city)
+      (q.isEmpty || name.contains(q) || city.contains(q)) &&
+          // City filter
+          (filterCity.isEmpty || city.contains(filterCity.toLowerCase())) &&
+          // Price filter
+          price >= filterMinPrice &&
+          price <= filterMaxPrice &&
+          // Rating filter
+          rating >= filterMinRating;
     }).toList();
 
     setState(() {
@@ -307,19 +313,27 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     });
   }
 
-
+  /// Debounced entry point used by the search field.
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (mounted) _applyFiltersAndSearch();
+    });
+  }
 
   Future<void> _toggleFavourite(String vendorServiceId) async {
     if (currentUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please sign in to manage wishlist')));
+      AppSnackbar.info(context, 'Please sign in to manage your wishlist.');
       return;
     }
 
     final isFav = favouriteVendors.contains(vendorServiceId);
     setState(() {
-      if (isFav) favouriteVendors.remove(vendorServiceId);
-      else favouriteVendors.add(vendorServiceId);
+      if (isFav) {
+        favouriteVendors.remove(vendorServiceId);
+      } else {
+        favouriteVendors.add(vendorServiceId);
+      }
     });
 
     try {
@@ -333,21 +347,43 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         'vendor_services_id': vendorServiceId.toString(),
       });
 
-      final res = await http.post(url, headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      }, body: body);
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: body,
+      );
+
+      if (!mounted) return;
 
       if (res.statusCode == 200) {
         final m = jsonDecode(res.body);
         final msg = m['message'] ?? 'Wishlist updated';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        AppSnackbar.success(context, msg.toString());
       } else if (res.statusCode == 401) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Session expired. Please log in again.')));
+        // Roll the optimistic update back — the request did not land.
+        setState(() {
+          if (isFav) {
+            favouriteVendors.add(vendorServiceId);
+          } else {
+            favouriteVendors.remove(vendorServiceId);
+          }
+        });
+        AppSnackbar.error(context, 'Session expired. Please log in again.');
       }
     } catch (e) {
-      print('wishlist api error $e');
+      debugPrint('wishlist api error $e');
+      if (!mounted) return;
+      setState(() {
+        if (isFav) {
+          favouriteVendors.add(vendorServiceId);
+        } else {
+          favouriteVendors.remove(vendorServiceId);
+        }
+      });
+      AppSnackbar.error(context, AppErrorMessage.bodyFor(e));
     }
   }
 
@@ -365,14 +401,19 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   }
 
   Future<void> _openChat(String vendorId, String name) async {
-    // Replace with your chat page navigation
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => VendorDetailsScreen(service: {'vendor': {'id': vendorId, 'businessName': name}}),
+      AnimatedPageRoute(
+        page: VendorDetailsScreen(
+          service: {
+            'vendor': {'id': vendorId, 'businessName': name},
+          },
+        ),
+        style: PageTransitionStyle.slideRight,
       ),
     );
   }
+
   Set<String> allSubCategories = {};
   Set<String> allVendorTypes = {};
 
@@ -387,156 +428,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     }
   }
 
-  void _openFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateSheet) {
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-
-                  const Text("Filters",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      )),
-
-                  const SizedBox(height: 20),
-
-                  /// ⭐ CITY FILTER
-                  const Text("City", style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 5),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: "Enter City",
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onChanged: (value) {
-                      setStateSheet(() => selectedCity = value.trim());
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  /// ⭐ PRICE FILTER
-                  const Text("Price Range",
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  RangeSlider(
-                    values: RangeValues(minPrice, maxPrice),
-                    min: 0,
-                    max: 200000,
-                    divisions: 50,
-                    labels: RangeLabels(
-                      "₹${minPrice.toInt()}",
-                      "₹${maxPrice.toInt()}",
-                    ),
-                    onChanged: (values) {
-                      setStateSheet(() {
-                        minPrice = values.start;
-                        maxPrice = values.end;
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  /// ⭐ RATING FILTER
-                  const Text("Rating",
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  Slider(
-                    value: selectedRating,
-                    min: 0,
-                    max: 5,
-                    divisions: 5,
-                    label: selectedRating.toString(),
-                    onChanged: (value) {
-                      setStateSheet(() => selectedRating = value);
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-
-                      /// RESET BUTTON
-                      TextButton(
-                        child: const Text("Reset"),
-                        onPressed: () {
-                          setState(() {
-                            selectedCity = "";
-                            minPrice = 0;
-                            maxPrice = 200000;
-                            selectedRating = 0;
-                          });
-                          Navigator.pop(context);
-                          fetchServices();
-                        },
-                      ),
-
-                      /// APPLY BUTTON
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text("Apply",
-                            style: TextStyle(color: Colors.white)),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          applyFilters();
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-
-  Widget _buildAppBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
-            onPressed: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Text(
-              widget.subcategoryName,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-          ),
-          IconButton(
-            icon: Icon(isList ? Icons.list : Icons.grid_view),
-            onPressed: () => setState(() => isList = !isList),
-          )
-        ],
-      ),
-    );
-  }
   List<dynamic> vendorList = [];
 
   Future<void> fetchVendors(String query) async {
@@ -548,133 +439,484 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-
+      if (!mounted) return;
       setState(() {
         vendorList = data['data']; // Adjust based on API response
       });
     } else {
-      print("Error fetching vendors: ${response.statusCode}");
+      debugPrint("Error fetching vendors: ${response.statusCode}");
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------------------------
+
+  /// True when any filter differs from its default — drives the badge on the
+  /// filter button.
+  bool get _hasActiveFilters =>
+      filterCity.isNotEmpty ||
+      filterMinPrice > 0 ||
+      filterMaxPrice < 200000 ||
+      filterMinRating > 0;
+
+  void _openFilterSheet() {
+    // Work on drafts so dismissing the sheet does not mutate live filters.
+    String draftCity = selectedCity;
+    double draftMin = minPrice;
+    double draftMax = maxPrice;
+    double draftRating = selectedRating;
+
+    final cityController = TextEditingController(text: draftCity);
+
+    AppBottomSheet.show(
+      context,
+      title: 'Filters',
+      child: StatefulBuilder(
+        builder: (sheetContext, setStateSheet) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppTextField(
+                controller: cityController,
+                label: 'City',
+                hint: 'Enter city',
+                prefixIcon: Icons.location_on_outlined,
+                textInputAction: TextInputAction.done,
+                onChanged: (value) => draftCity = value.trim(),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              Text('Price range', style: AppText.formLabel),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '₹${draftMin.toInt()}  –  ₹${draftMax.toInt()}',
+                style: AppText.bodyStrong.copyWith(color: AppColors.primary),
+              ),
+              RangeSlider(
+                values: RangeValues(draftMin, draftMax),
+                min: 0,
+                max: 200000,
+                divisions: 50,
+                activeColor: AppColors.primary,
+                inactiveColor: AppColors.pinkSurface,
+                labels: RangeLabels(
+                  "₹${draftMin.toInt()}",
+                  "₹${draftMax.toInt()}",
+                ),
+                onChanged: (values) {
+                  setStateSheet(() {
+                    draftMin = values.start;
+                    draftMax = values.end;
+                  });
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              Text('Minimum rating', style: AppText.formLabel),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 18,
+                    color: AppColors.warning,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    draftRating == 0
+                        ? 'Any rating'
+                        : '${draftRating.toStringAsFixed(0)}+ stars',
+                    style: AppText.bodyStrong,
+                  ),
+                ],
+              ),
+              Slider(
+                value: draftRating,
+                min: 0,
+                max: 5,
+                divisions: 5,
+                activeColor: AppColors.primary,
+                inactiveColor: AppColors.pinkSurface,
+                label: draftRating.toStringAsFixed(0),
+                onChanged: (value) => setStateSheet(() => draftRating = value),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: PremiumButton.outlined(
+                      label: 'Reset',
+                      onPressed: () {
+                        setState(() {
+                          selectedCity = "";
+                          minPrice = 0;
+                          maxPrice = 200000;
+                          selectedRating = 0;
+                          filterCity = "";
+                          filterMinPrice = 0;
+                          filterMaxPrice = 200000;
+                          filterMinRating = 0;
+                        });
+                        Navigator.pop(sheetContext);
+                        _applyFiltersAndSearch();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: PremiumButton(
+                      label: 'Apply',
+                      onPressed: () {
+                        setState(() {
+                          selectedCity = draftCity;
+                          minPrice = draftMin;
+                          maxPrice = draftMax;
+                          selectedRating = draftRating;
+                        });
+                        Navigator.pop(sheetContext);
+                        applyFilters();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    ).whenComplete(cityController.dispose);
+  }
+
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _buildAppBar(),
+            _buildSearchBar(),
+            _buildToolbar(),
+            Expanded(child: _buildResults()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          const AppBackButton(),
+          Expanded(
+            child: Text(
+              widget.subcategoryName,
+              textAlign: TextAlign.center,
+              style: AppText.pageTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            tooltip: isList ? 'Grid view' : 'List view',
+            icon: AnimatedSwitcher(
+              duration: AppMotion.fast,
+              child: Icon(
+                isList ? Icons.grid_view_rounded : Icons.view_agenda_outlined,
+                key: ValueKey(isList),
+                color: AppColors.textSecondary,
+              ),
+            ),
+            onPressed: () => setState(() => isList = !isList),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(
         children: [
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              height: 46,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(25),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(23),
+                border: Border.all(color: AppColors.divider),
+                boxShadow: AppColors.shadowSm,
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search, color: Colors.grey),
-                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.search_rounded,
+                    color: AppColors.textTertiary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: TextField(
                       controller: searchController,
-                      decoration: const InputDecoration(
-                        hintText: 'Search vendors, city, name...',
+                      style: AppText.body,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'Search vendors, city, name…',
+                        hintStyle: AppText.body.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
                         border: InputBorder.none,
                       ),
-                      onChanged: (v) => _applyFiltersAndSearch(),
+                      onChanged: _onSearchChanged,
                     ),
                   ),
-
+                  if (searchController.text.isNotEmpty)
+                    Pressable(
+                      onTap: () {
+                        searchController.clear();
+                        _applyFiltersAndSearch();
+                      },
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 8),
-    IconButton(
-    padding: EdgeInsets.zero,
-    onPressed: () {
-    Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const AiChatScreen()),
-    );
-    },
-    icon: Container(
-    height: 40,       // Adjust size
-    width: 40,
-    decoration: BoxDecoration(
-    shape: BoxShape.circle,
-    color: Colors.pink,       // 🌸 Pink Circle Background
-    ),
-    child: Image.asset(
-    'assets/shadiai-unscreen.gif',
-    fit: BoxFit.contain,
-    ),
-    ),
-    ),
-
-
-    ],
+          const SizedBox(width: AppSpacing.sm),
+          Pressable(
+            onTap: () => Navigator.push(
+              context,
+              AnimatedPageRoute(
+                page: const AiChatScreen(),
+                style: PageTransitionStyle.slideUp,
+              ),
+            ),
+            child: Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: AppColors.brandGradientH,
+                boxShadow: AppColors.shadowBrand,
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Image.asset(
+                'assets/shadiai-unscreen.gif',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          if (!isLoading)
+            Expanded(
+              child: Text(
+                services.length == 1
+                    ? '1 result'
+                    : '${services.length} results',
+                style: AppText.labelSm,
+              ),
+            )
+          else
+            const Spacer(),
+          Pressable(
+            onTap: _openFilterSheet,
+            borderRadius: AppRadii.rPill,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: _hasActiveFilters
+                    ? AppColors.pinkSurface
+                    : AppColors.surface,
+                borderRadius: AppRadii.rPill,
+                border: Border.all(
+                  color: _hasActiveFilters
+                      ? AppColors.primary
+                      : AppColors.divider,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 16,
+                    color: _hasActiveFilters
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    'Filters',
+                    style: AppText.buttonSm.copyWith(
+                      color: _hasActiveFilters
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResults() {
+    if (isLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: isList
+            ? Skeletons.listCards(count: 4, height: 210)
+            : Skeletons.grid(count: 6, aspectRatio: 0.78),
+      );
+    }
+
+    if (_loadError != null && services.isEmpty) {
+      return ErrorState(error: _loadError, onRetry: fetchAllServices);
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: fetchAllServices,
+      child: services.isEmpty
+          ? ListView(
+              // RefreshIndicator needs a scrollable child.
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.12),
+                EmptyState(
+                  title: 'No vendors found',
+                  message: 'Try changing your search or filters.',
+                  icon: Icons.storefront_outlined,
+                  actionLabel: _hasActiveFilters || searchController.text.isNotEmpty
+                      ? 'Clear filters'
+                      : null,
+                  onAction:
+                      _hasActiveFilters || searchController.text.isNotEmpty
+                      ? () {
+                          searchController.clear();
+                          setState(() {
+                            selectedCity = '';
+                            minPrice = 0;
+                            maxPrice = 200000;
+                            selectedRating = 0;
+                            filterCity = '';
+                            filterMinPrice = 0;
+                            filterMaxPrice = 200000;
+                            filterMinRating = 0;
+                          });
+                          _applyFiltersAndSearch();
+                        }
+                      : null,
+                ),
+              ],
+            )
+          : isList
+          ? _buildListView()
+          : _buildGridView(),
     );
   }
 
   Widget _buildGridView() {
     return GridView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xxxl,
+      ),
+      physics: const AlwaysScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.72,
+        crossAxisSpacing: AppSpacing.md,
+        mainAxisSpacing: AppSpacing.md,
+        // Tuned for the compact card: 16:9 image + two text lines.
+        childAspectRatio: 0.78,
       ),
-      itemCount: services.length + (isLoadingMore ? 1 : 0),
+      itemCount: services.length + (isLoadingMore ? 2 : 0),
       itemBuilder: (context, index) {
-        if (index == services.length) {
-          return const Center(child: Padding(
-            padding: EdgeInsets.all(12),
-            child: CircularProgressIndicator(),
-          ));
+        if (index >= services.length) {
+          return const SkeletonBox(height: double.infinity, radius: AppRadii.lg);
         }
-        return _buildServiceCard(services[index]);
+        return FadeSlideIn(
+          delay: AppMotion.staggerFor(index),
+          child: _buildServiceCard(services[index], compact: true),
+        );
       },
     );
   }
 
   Widget _buildListView() {
-    return ListView.builder(
+    return ListView.separated(
       controller: _scrollController,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xxxl,
+      ),
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: services.length + (isLoadingMore ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, index) {
-        if (index == services.length) return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Center(child: CircularProgressIndicator()),
+        if (index >= services.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: AppLoader(),
+          );
+        }
+        return FadeSlideIn(
+          delay: AppMotion.staggerFor(index),
+          child: _buildServiceCard(services[index]),
         );
-        return _buildServiceCard(services[index]);
       },
     );
   }
 
-  Widget _buildServiceCard(dynamic service) {
-    final attributes = service['attributes'] ?? {};
-    final vendor = service['vendor'] ?? {};
-
-    final String vendorServiceId = (service['id'] ?? '').toString();
-    final String businessName = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['Name'] ?? '').toString();
-    final String city = (vendor['city'] ?? attributes['city'] ?? attributes['address'] ?? '').toString();
-    final String phone = (vendor['phone'] ?? attributes['Phone'] ?? '').toString();
-
-    // rating
-    final double rating = double.tryParse((attributes['rating'] ?? attributes['averageRating'] ?? '0').toString().replaceAll(',', '')) ?? 0.0;
-
-    // price parsing
-    String vegRaw = (attributes['veg_price'] ?? attributes['PriceRange'] ?? attributes['vegPrice'] ?? '').toString();
-    vegRaw = vegRaw.replaceAll(',', '').replaceAll(RegExp(r'[^0-9.]'), '');
-    final priceValue = double.tryParse(vegRaw) ?? 0.0;
-
-    String priceText = priceValue > 0 ? '₹${priceValue.toInt()} / Day' : '-';
-
-    // media handling: API sometimes returns null media; try attributes.Portfolio or media list
+  /// Resolves the first usable image for a service. Unchanged field priority —
+  /// media list → media string → media.coverImage → attributes.Portfolio.
+  String _resolveImageUrl(dynamic service, Map attributes) {
     String imageUrl = '';
     final media = service['media'];
     if (media != null) {
@@ -688,220 +930,285 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       }
     }
 
-    // fallback to attributes.Portfolio or happywedz_url
     if (imageUrl.isEmpty) {
-      final portfolio = attributes['Portfolio'] ?? attributes['portfolio_urls'] ?? attributes['portfolio'] ?? '';
+      final portfolio =
+          attributes['Portfolio'] ??
+          attributes['portfolio_urls'] ??
+          attributes['portfolio'] ??
+          '';
       if (portfolio is String && portfolio.isNotEmpty) {
         // portfolio might be pipe separated; take first
         imageUrl = portfolio.split('|').first;
       }
     }
 
-    if (imageUrl.isEmpty) imageUrl = 'https://via.placeholder.com/600x400?text=No+Image';
+    return imageUrl;
+  }
 
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VendorDetailsScreen(service: service))),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: const Offset(0, 2))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image with wishlist & rating overlay
-            ClipRRect(
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-              child: Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[200],
-                        child: const Center(child: Icon(Icons.broken_image, size: 48, color: Colors.grey)),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: GestureDetector(
-                      onTap: () => _toggleFavourite(vendorServiceId),
-                      child: CircleAvatar(
-                        backgroundColor: Colors.white.withOpacity(0.9),
-                        child: Icon(
-                          favouriteVendors.contains(vendorServiceId) ? Icons.favorite : Icons.favorite_border,
-                          color: Colors.pink,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 8,
-                    bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.location_on, color: Colors.white, size: 14),
-                          const SizedBox(width: 6),
-                          SizedBox(
-                            width: 140,
-                            child: Text(city, style: const TextStyle(color: Colors.white, fontSize: 12), overflow: TextOverflow.ellipsis),
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.green.shade700, borderRadius: BorderRadius.circular(6)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.white, size: 12),
-                          const SizedBox(width: 6),
-                          Text(rating.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  )
-                ],
-              ),
-            ),
+  Widget _buildServiceCard(dynamic service, {bool compact = false}) {
+    final attributes = service['attributes'] ?? {};
+    final vendor = service['vendor'] ?? {};
 
-            // Details
-            Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(businessName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(child: Text(city, style: const TextStyle(color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                      const SizedBox(width: 8),
-                      Text(priceText, style: const TextStyle(color: Colors.pink, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          GestureDetector(onTap: () => _launchPhone(phone), child: _smallAction(Icon(Icons.call, color: Colors.green), 'Call')),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () => _launchWhatsApp(phone),
-                            child: _smallAction(
-                              Image.asset(
-                                'assets/whatsapp.png',
-                                height: 30,
-                                width: 30,
-                              ),
-                              'WhatsApp',
-                            ),
-                          ),
+    final String vendorServiceId = (service['id'] ?? '').toString();
+    final String businessName =
+        (vendor['businessName'] ??
+                attributes['vendor_name'] ??
+                attributes['Name'] ??
+                '')
+            .toString();
+    final String city =
+        (vendor['city'] ?? attributes['city'] ?? attributes['address'] ?? '')
+            .toString();
+    final String phone = (vendor['phone'] ?? attributes['Phone'] ?? '')
+        .toString();
 
-                          const SizedBox(width: 8),
-                          GestureDetector(onTap: () => _openChat(vendor['id']?.toString() ?? '', businessName), child: _smallAction(Icon(Icons.message, color: Colors.blue), 'Message')),
-                        ],
-                      ),
-                      // ElevatedButton(
-                      //   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VendorDetailsScreen(service: service))),
-                      //   style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
-                      //   child: const Text('View'),
-                      // )
-                    ],
-                  )
-                ],
-              ),
-            )
-          ],
-        ),
+    // rating
+    final double rating =
+        double.tryParse(
+          (attributes['rating'] ?? attributes['averageRating'] ?? '0')
+              .toString()
+              .replaceAll(',', ''),
+        ) ??
+        0.0;
+
+    // price parsing
+    String vegRaw =
+        (attributes['veg_price'] ??
+                attributes['PriceRange'] ??
+                attributes['vegPrice'] ??
+                '')
+            .toString();
+    vegRaw = vegRaw.replaceAll(',', '').replaceAll(RegExp(r'[^0-9.]'), '');
+    final priceValue = double.tryParse(vegRaw) ?? 0.0;
+
+    final String priceText = priceValue > 0
+        ? '₹${priceValue.toInt()} / Day'
+        : '—';
+
+    final imageUrl = _resolveImageUrl(service, attributes);
+
+    void openDetails() => Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: VendorDetailsScreen(service: service),
+        style: PageTransitionStyle.slideRight,
       ),
     );
-  }
 
-  Widget _smallAction(Widget icon, String label) {
-    return Column(
-      children: [
-        CircleAvatar(backgroundColor: Colors.grey.shade100, child: icon),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
-      ],
-    );
-  }
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            const SizedBox(height: 8),
-            _buildSearchBar(),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // Text('${services.length} results', style: const TextStyle(color: Colors.black54)),
-                  TextButton.icon(onPressed: _openFilterSheet, icon: const Icon(Icons.filter_list), label: const Text('Filters'))
-                ],
+    return AppCard(
+      onTap: openDetails,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Image with wishlist, city and rating overlays.
+          Stack(
+            children: [
+              NetworkImageWidget(
+                url: imageUrl,
+                aspectRatio: 16 / 9,
+                width: double.infinity,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadii.lg),
+                ),
+                memCacheWidth: compact ? 420 : 720,
+                scrim: true,
               ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                color: Colors.pink,
-                onRefresh: () async {
-                  await fetchServices();
-                },
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : services.isEmpty
-                    ? ListView( // Required because RefreshIndicator needs scrollable widget
-                  children: const [
-                    SizedBox(height: 200),
-                    Center(child: Text('No services found')),
+              Positioned(
+                right: AppSpacing.sm,
+                top: AppSpacing.sm,
+                child: FavoriteButton(
+                  isFavorite: favouriteVendors.contains(vendorServiceId),
+                  onTap: () => _toggleFavourite(vendorServiceId),
+                ),
+              ),
+              if (city.trim().isNotEmpty)
+                Positioned(
+                  left: AppSpacing.sm,
+                  bottom: AppSpacing.sm,
+                  right: rating > 0 ? 72 : AppSpacing.sm,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.location_on_rounded,
+                        color: Colors.white,
+                        size: 13,
+                      ),
+                      const SizedBox(width: AppSpacing.xxs),
+                      Flexible(
+                        child: Text(
+                          city,
+                          style: AppText.caption.copyWith(color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (rating > 0)
+                Positioned(
+                  right: AppSpacing.sm,
+                  bottom: AppSpacing.sm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.successDark,
+                      borderRadius: AppRadii.rSm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: AppText.caption.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          // Details
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  businessName.isEmpty ? 'Vendor' : businessName,
+                  style: AppText.cardTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        city.isEmpty ? '—' : city,
+                        style: AppText.cardSubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      priceText,
+                      style: compact ? AppText.priceSm : AppText.price,
+                      maxLines: 1,
+                    ),
                   ],
-                )
-                    : isList
-                    ? _buildListView()
-                    : _buildGridView(),
+                ),
 
-              ),
+                // The action row is list-only: in the grid there is not enough
+                // height for it, and cramming it in caused overflow.
+                if (!compact) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      _ActionChip(
+                        icon: const Icon(
+                          Icons.call_rounded,
+                          color: AppColors.successDark,
+                          size: 18,
+                        ),
+                        label: 'Call',
+                        onTap: () => _launchPhone(phone),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      _ActionChip(
+                        icon: Image.asset(
+                          'assets/whatsapp.png',
+                          height: 20,
+                          width: 20,
+                        ),
+                        label: 'WhatsApp',
+                        onTap: () => _launchWhatsApp(phone),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      _ActionChip(
+                        icon: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          color: AppColors.info,
+                          size: 18,
+                        ),
+                        label: 'Message',
+                        onTap: () => _openChat(
+                          vendor['id']?.toString() ?? '',
+                          businessName,
+                        ),
+                      ),
+                      const Spacer(),
+                      PremiumButton.text(
+                        label: 'View',
+                        onPressed: openDetails,
+                        size: PremiumButtonSize.small,
+                      ),
+                    ],
+                  ),
+                ],
+              ],
             ),
-
-            // Expanded(
-            //   child: isLoading
-            //       ? const Center(child: CircularProgressIndicator())
-            //       : services.isEmpty
-            //       ? const Center(child: Text('No services found'))
-            //       : isList
-            //       ? _buildGridView()
-            //       : _buildListView(),
-            // )
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+
+/// Small circular icon + caption used for the call / WhatsApp / message row.
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Widget icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 36,
+            width: 36,
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              shape: BoxShape.circle,
+            ),
+            child: Center(child: icon),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(label, style: AppText.caption),
+        ],
+      ),
+    );
+  }
+}
+
 
 // class VendorServicesScreen extends StatefulWidget {
 //   final String subcategoryName;
@@ -1459,7 +1766,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
 class VendorDetailsScreen extends StatefulWidget {
   final dynamic service;
-  const VendorDetailsScreen({Key? key, required this.service}) : super(key: key);
+  final String? slug;
+  const VendorDetailsScreen({Key? key, this.service, this.slug}) : super(key: key);
 
   @override
   State<VendorDetailsScreen> createState() => _VendorDetailsScreenState();
@@ -1473,6 +1781,8 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   DateTime? _selectedDate;
   bool _isShortlisted = false;
   String? currentUserId;
+  bool isPageLoading = false;
+  dynamic fetchedService;
 
   // Reviews
   bool isReviewsLoading = false;
@@ -1495,15 +1805,142 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     super.initState();
     loadFavouritesFromLocal();
     _loadCurrentUser();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fetchReviewsFromApi();
+
+    String? serviceId;
+    if (widget.service != null) {
+      final idVal = widget.service['id'] ?? widget.service['vendor_services_id'] ?? widget.service['attributes']?['id'];
+      if (idVal != null) {
+        serviceId = idVal.toString();
+      }
+    }
+
+    if (serviceId != null && serviceId.isNotEmpty) {
+      fetchServiceById(serviceId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        fetchReviewsFromApi();
+      });
+      checkClaimStatus();
+    } else if (widget.slug != null && widget.slug!.isNotEmpty) {
+      fetchServiceBySlug(widget.slug!);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        fetchReviewsFromApi();
+      });
+      checkClaimStatus();
+    }
+  }
+
+  Future<void> fetchServiceById(String id) async {
+    final bool showFullPageLoader = widget.service == null || widget.service.isEmpty;
+
+    if (showFullPageLoader) {
+      setState(() {
+        isPageLoading = true;
+      });
+    }
+
+    try {
+      final url = Uri.parse('https://happywedz.com/api/vendor-services/$id');
+      final response = await http.get(url, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final bodyData = jsonDecode(response.body);
+        if (bodyData is Map) {
+          setState(() {
+            fetchedService = bodyData;
+          });
+          // Re-trigger review and claim check with the full fetched data
+          fetchReviewsFromApi();
+          checkClaimStatus();
+        }
+      }
+    } catch (e) {
+      print("Error fetching by ID: $e");
+    }
+
+    if (showFullPageLoader) {
+      setState(() {
+        isPageLoading = false;
+      });
+    }
+  }
+
+  Future<void> fetchServiceBySlug(String slug) async {
+    setState(() {
+      isPageLoading = true;
     });
-    checkClaimStatus();
+
+    // 1. Try to extract ID from slug (ends with -[id])
+    String? serviceId;
+    final parts = slug.split('-');
+    if (parts.isNotEmpty) {
+      final lastPart = parts.last;
+      if (int.tryParse(lastPart) != null) {
+        serviceId = lastPart;
+      }
+    }
+
+    dynamic foundService;
+
+    if (serviceId != null) {
+      try {
+        final url = Uri.parse('https://happywedz.com/api/vendor-services/$serviceId');
+        final response = await http.get(url, headers: {'Accept': 'application/json'});
+        if (response.statusCode == 200) {
+          final bodyData = jsonDecode(response.body);
+          if (bodyData is Map) {
+            foundService = bodyData;
+          }
+        }
+      } catch (e) {
+        print("Error fetching by ID: $e");
+      }
+    }
+
+    // 2. If not found, try searching by slug
+    if (foundService == null) {
+      try {
+        final url = Uri.parse('https://happywedz.com/api/vendor-services?search=$slug');
+        final response = await http.get(url, headers: {'Accept': 'application/json'});
+        if (response.statusCode == 200) {
+          final bodyData = jsonDecode(response.body);
+          final dataList = bodyData['data'];
+          if (dataList is List && dataList.isNotEmpty) {
+            // Find matching slug
+            foundService = dataList.firstWhere(
+              (element) {
+                final elemSlug = element['slug']?.toString() ?? element['attributes']?['slug']?.toString() ?? '';
+                return elemSlug.toLowerCase() == slug.toLowerCase();
+              },
+              orElse: () => dataList.first,
+            );
+          }
+        }
+      } catch (e) {
+        print("Error fetching by slug search: $e");
+      }
+    }
+
+    if (foundService != null) {
+      setState(() {
+        fetchedService = foundService;
+        isPageLoading = false;
+      });
+      // Now that the service is loaded, trigger review fetch and claim status check
+      fetchReviewsFromApi();
+      checkClaimStatus();
+    } else {
+      setState(() {
+        isPageLoading = false;
+      });
+    }
   }
   Future<void> checkClaimStatus() async {
+    final service = fetchedService ?? widget.service;
+    if (service == null || service['id'] == null) return;
+
     final url = Uri.parse(
         "https://happywedz.com/api/business/claims/check-status?"
-            "vendor_id=${widget.service['id']}&vendor_subcategory_data_id=${widget.service['vendor_subcategory_id']}"
+            "vendor_id=${service['id']}&vendor_subcategory_data_id=${service['vendor_subcategory_id']}"
     );
 
     try {
@@ -1553,7 +1990,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     return url;
   }
 
-  List<String> extractImages(dynamic media, dynamic vendor) {
+  List<String> extractImages(dynamic media, dynamic vendor, dynamic attributes, bool imageExists) {
     final Set<String> images = {};
 
     void add(String? url) {
@@ -1564,24 +2001,36 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       }
     }
 
-    // media as List
-    if (media is List) {
-      for (final item in media) {
-        if (item is String) {
-          add(item);
-        } else if (item is Map) {
-          add(item['original_url']);
-          add(item['url']);
-          add(item['thumb']);
+    if (imageExists) {
+      // media as List
+      if (media is List) {
+        for (final item in media) {
+          if (item is String) {
+            add(item);
+          } else if (item is Map) {
+            add(item['original_url']);
+            add(item['url']);
+            add(item['thumb']);
+          }
         }
       }
-    }
 
-    // media as Map
-    if (media is Map) {
-      add(media['original_url']);
-      add(media['url']);
-      add(media['coverImage']);
+      // media as Map
+      if (media is Map) {
+        add(media['original_url']);
+        add(media['url']);
+        add(media['coverImage']);
+      }
+
+      // portfolio fallback from attributes
+      if (images.isEmpty && attributes is Map) {
+        final portfolio = attributes['Portfolio'] ?? attributes['portfolio_urls'] ?? attributes['portfolio'] ?? '';
+        if (portfolio is String && portfolio.isNotEmpty) {
+          for (final item in portfolio.split('|')) {
+            add(item);
+          }
+        }
+      }
     }
 
     // fallback to vendor profile image
@@ -1634,23 +2083,20 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
   Future<void> _call(String phone) async {
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Phone not available')));
+      AppSnackbar.info(context, 'Phone number not available for this vendor.');
       return;
     }
     final uri = Uri(scheme: 'tel', path: phone);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Cannot make a call')));
+      AppSnackbar.error(context, "We couldn't start the call on this device.");
     }
   }
 
   Future<void> _launchWhatsApp(String phone, {String? text}) async {
     if (phone.isEmpty || phone == '0000000000') {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('WhatsApp not available')));
+      AppSnackbar.info(context, 'WhatsApp is not available for this vendor.');
       return;
     }
     final encoded = Uri.encodeComponent(text ?? "Hi, I'm interested in your services.");
@@ -1658,8 +2104,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Cannot open WhatsApp')));
+      AppSnackbar.error(context, "We couldn't open WhatsApp on this device.");
     }
   }
 
@@ -1668,7 +2113,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   // ---------------------------
   Future<void> fetchReviewsFromApi({int page = 1, int limit = 20}) async {
     // Try to determine vendorId from service passed in
-    final service = widget.service ?? {};
+    final service = fetchedService ?? widget.service ?? {};
     final vendorMap = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
     final String vendorId = (vendorMap['id'] ?? attributes['vendor_id'] ?? '').toString();
@@ -1875,9 +2320,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
   Future<void> toggleWishlist(String vendorServiceId) async {
     if (currentUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to manage wishlist')),
-      );
+      AppSnackbar.info(context, 'Please sign in to manage your wishlist.');
       return;
     }
 
@@ -1925,9 +2368,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       List<ImageProvider> images,
       ) {
     if (images.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('360° view not available')),
-      );
+      AppSnackbar.info(context, 'A 360° view is not available for this vendor.');
       return;
     }
 
@@ -2009,8 +2450,15 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   // ---------------------------
   @override
   Widget build(BuildContext context) {
-    final service = widget.service ?? <String, dynamic>{};
-    final String vendorServiceId = service['id'].toString();
+    if (isPageLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(child: Skeletons.detail(heroHeight: 300)),
+      );
+    }
+
+    final service = fetchedService ?? widget.service ?? <String, dynamic>{};
+    final String vendorServiceId = (service['id'] ?? '').toString();
 
     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
     final vendor = (service['vendor'] is Map) ? Map<String, dynamic>.from(service['vendor']) : <String, dynamic>{};
@@ -2026,7 +2474,9 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     //   }
     // }
     // if (images.isEmpty) images.add('https://via.placeholder.com/1200x700?text=No+Image');
-    final List<String> images = extractImages(service['media'], vendor);
+    final rawImageExists = service['image_exists'] ?? attributes['image_exists'];
+    final bool imageExists = rawImageExists != false && rawImageExists != 'false';
+    final List<String> images = extractImages(service['media'], vendor, attributes, imageExists);
     print("IMAGES COUNT: ${images.length}");
     images.forEach(print);
 
@@ -2160,29 +2610,14 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           itemCount: images.length,
                           itemBuilder: (context, index, real) {
                             final img = images[index];
-                            return ClipRRect(
+                            return NetworkImageWidget(
+                              url: img,
+                              width: double.infinity,
+                              height: 300,
+                              memCacheWidth: 1080,
                               borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(18), bottomRight: Radius.circular(18)),
-                              child: Image.network(
-                                img,
-                                width: double.infinity,
-                                height: 300,
-                                fit: BoxFit.cover,
-                                loadingBuilder: (ctx, child, prog) {
-                                  if (prog == null) return child;
-                                  return Container(
-                                    height: 300,
-                                    color: Colors.grey.shade200,
-                                    child: const Center(child: CircularProgressIndicator()),
-                                  );
-                                },
-                                errorBuilder: (ctx, e, st) {
-                                  return Container(
-                                    height: 300,
-                                    color: Colors.grey.shade300,
-                                    child: const Center(child: Icon(Icons.broken_image, size: 48)),
-                                  );
-                                },
+                                bottomLeft: Radius.circular(18),
+                                bottomRight: Radius.circular(18),
                               ),
                             );
                           },
@@ -2240,7 +2675,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                     if (shareLink.isNotEmpty) {
                                       Share.share(shareLink);
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No link to share')));
+                                      AppSnackbar.info(context, 'There is no link to share yet.');
                                     }
                                   },
                                 ),
@@ -2485,9 +2920,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           mode: LaunchMode.externalApplication,
                         );
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Location not available')),
-                        );
+                        AppSnackbar.info(context, 'Location not available for this vendor.');
                       }
                     }
                 ),
@@ -2765,7 +3198,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                   onPressed: () {
                     if (currentUserId == null || currentUserId!.isEmpty) {
                       // redirect to sign in
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please sign in to message')));
+                      AppSnackbar.info(context, 'Please sign in to send a message.');
                       return;
                     }
                     final int uid = int.parse(currentUserId!);

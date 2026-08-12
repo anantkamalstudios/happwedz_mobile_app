@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
+import '../core/core.dart';
+
 import 'package:flutter/material.dart';
 
 import 'package:intl/intl.dart';
@@ -512,9 +514,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   // CLEAR PROVIDER CHAT
                   await prov.startNewChat(existingSessionId: null);
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Started a new chat")),
-                  );
+                  AppSnackbar.info(context, "Started a new chat");
                 },
               ),
             ],
@@ -560,7 +560,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
             children: [
               Expanded(
                 child: prov.isLoading && prov.messages.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const AppLoader()
                     : ListView.builder(
                         controller: _scroll,
                         padding: const EdgeInsets.only(top: 12, bottom: 12),
@@ -705,7 +705,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
             if (snap.connectionState != ConnectionState.done) {
               return const SizedBox(
                 height: 200,
-                child: Center(child: CircularProgressIndicator()),
+                child: const AppLoader(),
               );
             }
             if (snap.hasError) {

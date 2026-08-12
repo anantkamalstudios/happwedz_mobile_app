@@ -1,5 +1,7 @@
 
 import 'package:flutter/material.dart';
+
+import 'core/core.dart';
 import 'package:flutter/services.dart';
 
 class Inboxscreen extends StatefulWidget {
@@ -54,41 +56,29 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4), // Hot Pink
-              Color(0xFFFFB6C1), // Light Pink
-              Colors.white,      // White
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
         child: SafeArea(
           child: Column(
             children: [
               // 🌸 Custom AppBar like Budget
-              Container(
-                color: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.md,
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Text(
-                      "Messages",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
+                    const AppBackButton(color: AppColors.textOnPrimary),
+                    Expanded(
+                      child: Text(
+                        'Messages',
+                        textAlign: TextAlign.center,
+                        style: AppText.pageTitle.copyWith(
+                          color: AppColors.textOnPrimary,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 48), // right-space to balance
+                    const SizedBox(width: 44), // balances the back button
                   ],
                 ),
               ),
@@ -138,50 +128,54 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      margin: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 2),
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: AppColors.divider),
+          boxShadow: AppColors.shadowSm,
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: AppText.body,
+          textInputAction: TextInputAction.search,
+          onChanged: (value) {
+            setState(() {
+              _isSearching = value.isNotEmpty;
+            });
+          },
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Search messages',
+            hintStyle: AppText.body.copyWith(color: AppColors.textTertiary),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: AppColors.textTertiary,
+              size: 20,
+            ),
+            suffixIcon: _isSearching
+                ? IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textTertiary,
+                      size: 18,
+                    ),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _isSearching = false;
+                      });
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.md,
+            ),
           ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (value) {
-          setState(() {
-            _isSearching = value.isNotEmpty;
-          });
-        },
-        decoration: InputDecoration(
-          hintText: 'Search',
-          hintStyle: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 16,
-          ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: Colors.grey[400],
-            size: 20,
-          ),
-          suffixIcon: _isSearching
-              ? IconButton(
-            icon: Icon(Icons.clear, color: Colors.grey[400], size: 20),
-            onPressed: () {
-              _searchController.clear();
-              setState(() {
-                _isSearching = false;
-              });
-            },
-          )
-              : null,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
       ),
     );
@@ -192,52 +186,12 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
       opacity: _fadeAnimation,
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Color(0xFFF8F8F8),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.chat_bubble_outline,
-                  size: 60,
-                  color: Colors.grey[300],
-                ),
-              ),
-              SizedBox(height: 24),
-              Text(
-                'No Messages in your inbox',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey[400],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              // SizedBox(height: 8),
-              // Text(
-              //   'Start a conversation with someone special',
-              //   style: TextStyle(
-              //     fontSize: 14,
-              //     color: Colors.grey[400],
-              //     fontWeight: FontWeight.w400,
-              //   ),
-              // ),
-              // SizedBox(height: 32),
-              // _buildStartChattingButton(),
-            ],
-          ),
+        child: EmptyState(
+          title: _isSearching ? 'No matching messages' : 'No messages yet',
+          message: _isSearching
+              ? 'Try a different search term.'
+              : 'Conversations with vendors will appear here.',
+          icon: Icons.chat_bubble_outline_rounded,
         ),
       ),
     );

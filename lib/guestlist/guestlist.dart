@@ -2,6 +2,8 @@
 // import 'dart:convert';
 // import 'dart:math';
 // import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 // import 'package:happy_wedz/profile.dart';
 // import 'package:http/http.dart' as http;
 // import 'package:qr_flutter/qr_flutter.dart';
@@ -1980,9 +1982,7 @@ $familyName Family
         mode: LaunchMode.externalApplication,
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Unable to open WhatsApp")),
-      );
+      AppSnackbar.error(context, "We couldn't open WhatsApp on this device.");
     }
   }
 
@@ -2016,9 +2016,7 @@ $familyName Family
     );
 
     if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Email sent")),
-      );
+      AppSnackbar.success(context, 'Email sent.');
     }
   }
   Future<void> deleteGuest(int guestId) async {
@@ -2163,7 +2161,10 @@ $familyName Family
 
       floatingActionButton: _buildAddGuestButton(),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Skeletons.listTiles(count: 6),
+            )
           : Column(
         children: [
           _buildStatsRow(),     // 👈 STATS
@@ -2178,9 +2179,7 @@ $familyName Family
   }
   Future<void>  sendBulkEmail() async {
     if (selectedGuestIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Select guests first")),
-      );
+      AppSnackbar.warning(context, 'Select at least one guest first.');
       return;
     }
 
@@ -2214,9 +2213,7 @@ $familyName Family
       }),
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Bulk email sent")),
-    );
+    AppSnackbar.success(context, 'Bulk email sent.');
   }
 
   Future<void> sendBulkWhatsApp() async {
@@ -2547,9 +2544,7 @@ class _AddGuestScreenState extends State<AddGuestScreen> {
     if (response.statusCode == 200 || response.statusCode == 201) {
       Navigator.pop(context, true); // 👈 SUCCESS
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to add guest")),
-      );
+      AppSnackbar.error(context, "We couldn't add that guest. Please try again.");
     }
   }
 

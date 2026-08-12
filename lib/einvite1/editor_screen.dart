@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:flutter/rendering.dart' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -94,7 +96,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: Image.network(bg, fit: BoxFit.cover),
+                    child: NetworkImageWidget(url: bg, fit: BoxFit.cover),
                   ),
 
                   ...fields.map((f) => _buildTextWidget(f)),
@@ -367,9 +369,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
     ref.read(draftsProvider.notifier).addDraft(draft);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Draft Saved")),
-    );
+    AppSnackbar.info(context, "Draft Saved");
   }
 
 }

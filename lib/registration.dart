@@ -3410,6 +3410,9 @@ import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
+
+import 'core/core.dart';
+
 class RecaptchaHandler {
   static Future<String?> executeV3(BuildContext context) async {
     final tokenCompleter = Completer<String?>();
@@ -3428,7 +3431,34 @@ class RecaptchaHandler {
       context: context,
       barrierDismissible: false,
       builder: (_) => Dialog(
-        child: SizedBox(width: double.infinity, height: 250, child: WebViewWidget(controller: controller)),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.rXl),
+        insetPadding: const EdgeInsets.all(AppSpacing.xxl),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Verifying you are human', style: AppText.cardTitle),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'This only takes a moment.',
+                style: AppText.caption,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              ClipRRect(
+                borderRadius: AppRadii.rMd,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 200,
+                  child: WebViewWidget(controller: controller),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
 
@@ -3481,6 +3511,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   DateTime? _selectedDate;
   String? _captchaToken;
   bool _isGoogleSignUp = false;
+
+  /// True while a registration request is in flight — drives the button's
+  /// loading state and blocks duplicate submissions.
+  bool _isSubmitting = false;
 
   final List<String> _countries = ['India', 'USA', 'UK', 'Canada', 'Australia'];
   final Map<String, List<String>> _cities = {
@@ -3552,19 +3586,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _handleSignUp() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    // Guard against duplicate submissions while a request is in flight.
+    if (_isSubmitting) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      AppSnackbar.warning(context, 'Please fill the highlighted fields.');
+      return;
+    }
 
+    FocusScope.of(context).unfocus();
+    setState(() => _isSubmitting = true);
+
+    try {
+      await _submitSignUp();
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _submitSignUp() async {
     // 1️⃣ Get real reCAPTCHA token
     String? token = await RecaptchaHandler.executeV3(context);
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Captcha token not generated")));
+      if (!mounted) return;
+      AppSnackbar.error(
+        context,
+        'We could not verify that you are human. Please try again.',
+        title: 'Verification failed',
+      );
       return;
     }
     print('Recaptcha token: $token');
     // 2️⃣ Verify server-side
     bool verified = await verifyRecaptchaServerSide(token);
     if (!verified) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Captcha verification failed")));
+      if (!mounted) return;
+      AppSnackbar.error(
+        context,
+        'Verification could not be completed. Please try again.',
+        title: 'Verification failed',
+      );
       return;
     }
   print('Recaptcha verified: $token');
@@ -3592,34 +3652,84 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await _sendWelcomeEmail(_emailController.text, _nameController.text, _passwordController.text);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Registration successful!")));
+        if (!mounted) return;
+        await SuccessPopup.show(
+          context,
+          title: 'Welcome to HappyWedz!',
+          message: 'Your account has been created successfully.',
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Registration failed")));
+        if (!mounted) return;
+        await ErrorPopup.show(
+          context,
+          title: 'Registration failed',
+          message:
+              "We couldn't create your account right now. Please check your details and try again.",
+          onRetry: _handleSignUp,
+        );
       }
     } catch (e) {
       print(e);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (!mounted) return;
+      await ErrorPopup.show(
+        context,
+        title: AppErrorMessage.titleFor(e),
+        message: AppErrorMessage.bodyFor(e),
+        onRetry: _handleSignUp,
+      );
     }
   }
 
-  Widget _buildInputField(String label, TextEditingController controller,
-      {bool isPassword = false, TextInputType type = TextInputType.text, bool readOnly = false, VoidCallback? onTap, String? Function(String?)? validator}) {
+  /// Dropdown styled to match [AppTextField].
+  Widget _buildDropdown({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    required String? Function(String?) validator,
+    IconData icon = Icons.expand_more_rounded,
+    String hint = 'Select',
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
-        SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          obscureText: isPassword,
-          keyboardType: type,
-          readOnly: readOnly,
-          onTap: onTap,
-          validator: validator,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm, left: 2),
+          child: RichText(
+            text: TextSpan(
+              text: label,
+              style: AppText.formLabel,
+              children: [
+                TextSpan(
+                  text: ' *',
+                  style: AppText.formLabel.copyWith(color: AppColors.error),
+                ),
+              ],
+            ),
           ),
+        ),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          borderRadius: AppRadii.rMd,
+          icon: Icon(icon, color: AppColors.textTertiary),
+          style: AppText.body,
+          hint: Text(
+            hint,
+            style: AppText.body.copyWith(color: AppColors.textTertiary),
+          ),
+          items: items
+              .map(
+                (c) => DropdownMenuItem<String>(
+                  value: c,
+                  child: Text(c, overflow: TextOverflow.ellipsis),
+                ),
+              )
+              .toList(),
+          onChanged: _isSubmitting ? null : onChanged,
+          validator: validator,
+          decoration: const InputDecoration(),
         ),
       ],
     );
@@ -3627,88 +3737,224 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Sign Up"), backgroundColor: Colors.pink),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _buildInputField("Full Name *", _nameController, validator: (v) => v!.isEmpty ? "Required" : null),
-              SizedBox(height: 12),
-              _buildInputField("Email *", _emailController, type: TextInputType.emailAddress, readOnly: _isGoogleSignUp,
-                  validator: (v) {
-                    if (v!.isEmpty) return "Required";
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) return "Invalid email";
-                    return null;
-                  }),
-              SizedBox(height: 12),
-              if (!_isGoogleSignUp)
-                _buildInputField("Password *", _passwordController, isPassword: true, validator: (v) {
-                  if (v!.length < 8) return "Min 8 characters";
-                  return null;
-                }),
-              SizedBox(height: 12),
-              _buildInputField("Phone *", _phoneController, type: TextInputType.phone, validator: (v) => v!.isEmpty ? "Required" : null),
-              SizedBox(height: 12),
-              _buildInputField("Wedding Venue", _venueController),
-              SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _selectedCountry,
-                items: _countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (v) => setState(() { _selectedCountry = v; _selectedCity = null; }),
-                decoration: InputDecoration(labelText: "Country *", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                validator: (v) => v == null ? "Select country" : null,
-              ),
-              SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _selectedCity,
-          items: (_selectedCountry != null ? _cities[_selectedCountry!] : <String>[])
-              ?.map<DropdownMenuItem<String>>((String c) {
-            return DropdownMenuItem<String>(
-              value: c,
-              child: Text(c),
-            );
-          }).toList(),
-          onChanged: (v) {
-            setState(() {
-              _selectedCity = v;
-            });
-          },
-          decoration: InputDecoration(
-            labelText: "City *",
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          validator: (v) => v == null ? "Select city" : null,
-        ),
-              SizedBox(height: 12),
-              _buildInputField("Wedding Date", _dateController, readOnly: true, onTap: _selectDate, validator: (v) => v!.isEmpty ? "Select date" : null),
-              SizedBox(height: 20),
-              ElevatedButton.icon(
+    final cities = _selectedCountry == null
+        ? const <String>[]
+        : (_cities[_selectedCountry!] ?? const <String>[]);
 
-                // onPressed: _handleGoogleSignUp,
-                icon: Icon(Icons.login, color: Colors.white),
-                label: Text("Continue with Gmail"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  minimumSize: Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ), onPressed: () {  },
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      // resizeToAvoidBottomInset defaults to true — the scroll view below keeps
+      // every field reachable while the keyboard is open.
+      body: Column(
+        children: [
+          GradientHeader(
+            child: Row(
+              children: [
+                if (Navigator.of(context).canPop())
+                  AppBackButton(color: Colors.white),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Create your account',
+                          style: AppText.pageTitle.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Start planning your big day in minutes',
+                          style: AppText.bodySm.copyWith(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xl + MediaQuery.viewInsetsOf(context).bottom * 0,
               ),
-              SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _handleSignUp,
-                child: Text("Sign Up"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink,
-                  minimumSize: Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Form(
+                key: _formKey,
+                child: FadeSlideIn(
+                  child: AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    radius: AppRadii.xl,
+                    shadow: AppColors.shadowMd,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppTextField(
+                          label: 'Full Name',
+                          required: true,
+                          hint: 'Enter your full name',
+                          controller: _nameController,
+                          prefixIcon: Icons.person_outline_rounded,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          enabled: !_isSubmitting,
+                          validator: (v) =>
+                              (v == null || v.isEmpty) ? "Required" : null,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AppTextField(
+                          label: 'Email',
+                          required: true,
+                          hint: 'you@example.com',
+                          controller: _emailController,
+                          prefixIcon: Icons.mail_outline_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          readOnly: _isGoogleSignUp,
+                          enabled: !_isSubmitting,
+                          autofillHints: const [AutofillHints.email],
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return "Required";
+                            if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) {
+                              return "Invalid email";
+                            }
+                            return null;
+                          },
+                        ),
+                        if (!_isGoogleSignUp) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          AppTextField(
+                            label: 'Password',
+                            required: true,
+                            hint: 'At least 8 characters',
+                            controller: _passwordController,
+                            prefixIcon: Icons.lock_outline_rounded,
+                            obscureText: true,
+                            textInputAction: TextInputAction.next,
+                            enabled: !_isSubmitting,
+                            validator: (v) {
+                              if (v == null || v.length < 8) {
+                                return "Min 8 characters";
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.lg),
+                        AppTextField(
+                          label: 'Phone',
+                          required: true,
+                          hint: 'Mobile number',
+                          controller: _phoneController,
+                          prefixIcon: Icons.phone_outlined,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.next,
+                          enabled: !_isSubmitting,
+                          validator: (v) =>
+                              (v == null || v.isEmpty) ? "Required" : null,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AppTextField(
+                          label: 'Wedding Venue',
+                          hint: 'Where is the celebration?',
+                          controller: _venueController,
+                          prefixIcon: Icons.location_on_outlined,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          enabled: !_isSubmitting,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildDropdown(
+                          label: 'Country',
+                          value: _selectedCountry,
+                          items: _countries,
+                          hint: 'Select country',
+                          onChanged: (v) => setState(() {
+                            _selectedCountry = v;
+                            _selectedCity = null;
+                          }),
+                          validator: (v) => v == null ? "Select country" : null,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildDropdown(
+                          label: 'City',
+                          value: _selectedCity,
+                          items: cities,
+                          hint: _selectedCountry == null
+                              ? 'Select a country first'
+                              : 'Select city',
+                          onChanged: (v) => setState(() => _selectedCity = v),
+                          validator: (v) => v == null ? "Select city" : null,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AppTextField(
+                          label: 'Wedding Date',
+                          hint: 'DD/MM/YYYY',
+                          controller: _dateController,
+                          prefixIcon: Icons.calendar_today_outlined,
+                          suffixIcon: Icons.edit_calendar_outlined,
+                          readOnly: true,
+                          enabled: !_isSubmitting,
+                          onTap: _isSubmitting ? null : _selectDate,
+                          onSuffixTap: _isSubmitting ? null : _selectDate,
+                          validator: (v) =>
+                              (v == null || v.isEmpty) ? "Select date" : null,
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        PremiumButton(
+                          label: 'Create Account',
+                          icon: Icons.favorite_rounded,
+                          isLoading: _isSubmitting,
+                          onPressed: _handleSignUp,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                              ),
+                              child: Text('or', style: AppText.caption),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        PremiumButton.outlined(
+                          label: 'Continue with Gmail',
+                          icon: Icons.mail_outline_rounded,
+                          enabled: !_isSubmitting,
+                          // onPressed: _handleGoogleSignUp,
+                          onPressed: () {},
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'By continuing you agree to the HappyWedz Terms of Service and Privacy Policy.',
+                          textAlign: TextAlign.center,
+                          style: AppText.caption,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

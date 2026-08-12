@@ -4,6 +4,8 @@
 // // import 'dart:typed_data';
 // //
 // // import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 // // import 'package:http/http.dart' as http;
 // // import 'package:image_picker/image_picker.dart';
 // //
@@ -4855,7 +4857,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
                           ),
                           if (_isUploading)
                             const Positioned.fill(
-                              child: Center(child: CircularProgressIndicator()),
+                              child: const AppLoader(),
                             ),
                           if (selectedShadeIndex != null)
                             Positioned(

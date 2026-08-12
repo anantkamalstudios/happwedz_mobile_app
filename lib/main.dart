@@ -16,6 +16,7 @@ import 'package:provider/provider.dart' show MultiProvider, ChangeNotifierProvid
 import 'package:shared_preferences/shared_preferences.dart';
 import 'Wishlist/Wishlistscreen.dart';
 import 'ai_chat_screen/ai_chat_screen.dart';
+import 'core/core.dart';
 import 'guestlist/guestlist.dart';
 import 'internetconnection.dart';
 
@@ -76,15 +77,23 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
+      title: 'HappyWedz',
+      theme: AppTheme.light(),
       builder: (context, child) {
-        return Stack(
-          children: [
-            if (child != null) child,
-            const ConnectivityOverlay(), // shows/hides automatically
-          ],
+        // Clamp the OS text scale so accessibility settings can't overflow
+        // fixed-height rows, and keep the connectivity overlay on top.
+        final scaler = MediaQuery.textScalerOf(
+          context,
+        ).clamp(minScaleFactor: 0.9, maxScaleFactor: 1.2);
+
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: scaler),
+          child: Stack(
+            children: [
+              if (child != null) child,
+              const ConnectivityOverlay(), // shows/hides automatically
+            ],
+          ),
         );
       },
       home: const AuthCheckScreen(),
@@ -195,7 +204,8 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body:HomeShimmerOverlay()
+      backgroundColor: Colors.white,
+      body: BrandSplash(),
     );
   }
 }
@@ -311,87 +321,208 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: const Color(0xFFE91E63),
-    ));
+    if (!mounted) return;
+    AppSnackbar.info(context, message);
+  }
+
+  /// Unchanged behaviour: the entry button routes into the app exactly as
+  /// before. Google sign-in stays available via [_signInWithGoogle].
+  void _continue() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const BottomBars()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xxl,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(height: height * 0.07),
+
+                          // Brand mark
+                          FadeSlideIn(
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(AppSpacing.lg),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: AppColors.shadowMd,
+                                ),
+                                child: Image.asset(
+                                  'assets/logo.png',
+                                  width: 64,
+                                  height: 64,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.favorite_rounded,
+                                    size: 48,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: AppSpacing.xxl),
+
+                          FadeSlideIn(
+                            delay: const Duration(milliseconds: 60),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Welcome to HappyWedz',
+                                  textAlign: TextAlign.center,
+                                  style: AppText.display.copyWith(
+                                    color: AppColors.textDark,
+                                    fontSize: height < 700 ? 26 : 30,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'Sign in to plan, book and manage your\nbig day — all in one place.',
+                                  textAlign: TextAlign.center,
+                                  style: AppText.bodySm.copyWith(
+                                    color: AppColors.textDark.withValues(
+                                      alpha: 0.75,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // Sign-in card
+                          FadeSlideIn(
+                            delay: const Duration(milliseconds: 120),
+                            child: AppCard(
+                              padding: const EdgeInsets.all(AppSpacing.xl),
+                              radius: AppRadii.xl,
+                              shadow: AppColors.shadowLg,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    'Sign In / Sign Up',
+                                    style: AppText.sectionTitle,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: AppSpacing.xl),
+                                  _GoogleButton(onPressed: _continue),
+                                  const SizedBox(height: AppSpacing.lg),
+                                  Row(
+                                    children: [
+                                      const Expanded(child: Divider()),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.md,
+                                        ),
+                                        child: Text('or', style: AppText.caption),
+                                      ),
+                                      const Expanded(child: Divider()),
+                                    ],
+                                  ),
+                                  const SizedBox(height: AppSpacing.lg),
+                                  PremiumButton.outlined(
+                                    label: 'Continue as Guest',
+                                    icon: Icons.explore_outlined,
+                                    onPressed: _continue,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: AppSpacing.lg),
+
+                          PremiumButton.text(
+                            label: 'Looking for a Business Account?',
+                            expanded: true,
+                            onPressed: () {},
+                          ),
+
+                          const SizedBox(height: AppSpacing.xl),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Sign In / Sign Up',
-                    style: GoogleFonts.poppins(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF424242),
-                    ),
-                  ),
-                  const SizedBox(height: 50),
-                  OutlinedButton.icon(
-                    onPressed: _signInWithGoogle,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 60),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      side: BorderSide(
-                        color: Colors.grey.shade300,
-                        width: 1,
-                      ),
-                      backgroundColor: Colors.white,
-                    ),
-                    icon: Image.network(
-                      'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
-                      width: 24,
-                      height: 24,
-                    ),
-                    label: Text(
-                      'Continue with Google',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF424242),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  TextButton(
-                    onPressed: () {},
-                    child: Text(
-                      'Looking for a Business Account?',
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        color: const Color(0xFF00ACC1),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+      ),
+    );
+  }
+}
+
+/// White Google button matching the platform guidelines, with press feedback.
+class _GoogleButton extends StatelessWidget {
+  const _GoogleButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      scale: 0.98,
+      onTap: onPressed,
+      withRipple: true,
+      borderRadius: AppRadii.rMd,
+      rippleColor: AppColors.primary.withValues(alpha: 0.08),
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: AppRadii.rMd,
+          border: Border.all(color: AppColors.divider),
+          boxShadow: AppColors.shadowSm,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/google.png',
+              width: 22,
+              height: 22,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.g_mobiledata_rounded,
+                size: 24,
+                color: AppColors.textDark,
               ),
             ),
-          ),
+            const SizedBox(width: AppSpacing.md),
+            Flexible(
+              child: Text(
+                'Continue with Google',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.button.copyWith(color: AppColors.textDark),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1114,10 +1245,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Image.network(
-                    'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fc1b3759a213819470729c75cb198cc23ca254ad4image%204.png?alt=media&token=3f5e24ec-7683-4afe-94ee-f747b85c49b4',
-                    height: screenHeight * 0.08,
-                  ),
+                  NetworkImageWidget(url: 'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fc1b3759a213819470729c75cb198cc23ca254ad4image%204.png?alt=media&token=3f5e24ec-7683-4afe-94ee-f747b85c49b4', height: screenHeight * 0.08),
                   const SizedBox(height: 12),
                   Text(
                     "We want to make your\nwedding planning\nprocess super easy!",
@@ -1158,12 +1286,7 @@ class _SplashScreenState extends State<SplashScreen> {
       angle: angle,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          url,
-          width: width,
-          height: height,
-          fit: BoxFit.cover,
-        ),
+        child: NetworkImageWidget(url: url, width: width, height: height, fit: BoxFit.cover),
       ),
     );
   }

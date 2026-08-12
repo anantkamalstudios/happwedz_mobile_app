@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -313,11 +315,13 @@ class _BudgetPageState extends State<BudgetPage> {
 
 
 
-  void _showSuccess(String msg) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.green));
+  void _showSuccess(String msg) {
+    if (mounted) AppSnackbar.success(context, msg);
+  }
 
-  void _showError(String msg) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  void _showError(String msg) {
+    if (mounted) AppSnackbar.error(context, msg);
+  }
 
   @override
   @override
@@ -369,9 +373,12 @@ class _BudgetPageState extends State<BudgetPage> {
               // 🌸 Body
               Expanded(
                 child: isLoading
-                    ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFFFF69B4)),
-                )
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        child: Skeletons.listCards(count: 4, height: 110),
+                      )
                     : RefreshIndicator(
                   onRefresh: _loadBudgets,
                   child: SingleChildScrollView(

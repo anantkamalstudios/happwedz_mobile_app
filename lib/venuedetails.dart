@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'core/core.dart';
+
 
 
 
@@ -95,23 +97,7 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                             ],
                           ),
                         ),
-                        child: Image.network(
-                          _images[index],
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Color(0xFFE91E63), Color(0xFFAD1457)],
-                                ),
-                              ),
-                              child: Center(
-                                child: Icon(Icons.photo_camera,
-                                    size: 50, color: Colors.white54),
-                              ),
-                            );
-                          },
-                        ),
+                        child: NetworkImageWidget(url: _images[index], fit: BoxFit.cover),
                       );
                     },
                   ),
@@ -1400,16 +1386,7 @@ class _ReviewScreenState extends State<ReviewScreen>
       });
 
       // Show snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Photo added successfully'),
-          backgroundColor: Color(0xFFFF6B9D),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      AppSnackbar.info(context, 'Photo added successfully');
     }
   }
 

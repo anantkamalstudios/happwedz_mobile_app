@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -53,7 +55,7 @@ class FullImageViewer extends StatelessWidget {
         child: InteractiveViewer(
           minScale: 1,
           maxScale: 4,
-          child: Image.network(imageUrl),
+          child: NetworkImageWidget(url: imageUrl),
         ),
       ),
     );

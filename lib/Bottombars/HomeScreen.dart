@@ -6,9 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:video_player/video_player.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:happy_wedz/login.dart';
 import 'package:happy_wedz/packages.dart';
 import 'package:happy_wedz/shop.dart';
@@ -17,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../DecorationScreen.dart';
 import '../LoadingLogo.dart';
+import '../core/core.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../Wishlist/Wishlistscreen.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
@@ -222,11 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: double.infinity,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                child: Image.network(
-                  card['image'] ?? '',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(color: Colors.grey[200]),
-                ),
+                child: NetworkImageWidget(url: card['image'] ?? '', fit: BoxFit.cover),
               ),
             ),
 
@@ -354,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           ClipRRect(
             borderRadius: const BorderRadius.horizontal(left: Radius.circular(10)),
-            child: Image.network(image, width: width * 0.36, height: 100, fit: BoxFit.cover),
+            child: NetworkImageWidget(url: image, width: width * 0.36, height: 100, fit: BoxFit.cover),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -698,11 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F1056d056a37e91a97da6758a70e2dada5d0a4f38Rectangle%20266.png?alt=media&token=36044e03-5eab-492d-8ed5-0e1fbf35dfd0',
-                      height: 140,
-                      fit: BoxFit.cover,
-                    ),
+                    child: NetworkImageWidget(url: 'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F1056d056a37e91a97da6758a70e2dada5d0a4f38Rectangle%20266.png?alt=media&token=36044e03-5eab-492d-8ed5-0e1fbf35dfd0', height: 140, fit: BoxFit.cover),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1391,147 +1381,260 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   }
 
   // -------- UI BUILD --------
+
+  /// Pull-to-refresh: re-runs exactly the same fetches as the initial load.
+  Future<void> _refreshAll() async {
+    await Future.wait([
+      _loadInitialData(),
+      loadStories(),
+      _loadChecklistSummary(),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // background + main content
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1), Colors.white],
-                stops: [0.0, 0.3, 0.6],
-              ),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
-                          _buildCategorySection(),
-                          const SizedBox(height: 10),
-                          _buildPlanningToolsSection(),
-                          const SizedBox(height: 30),
-                          _buildVenuesSection(),
-                          const SizedBox(height: 20),
-                          _buildViewAllVenuesButton(context),
-                          const SizedBox(height: 30),
-                          _buildPhotographerSection(),
-                          const SizedBox(height: 20),
-                          _buildViewAllPhotographersButton(),
-                          const SizedBox(height: 30),
-                          _buildWeddingChecklistSection(
-                            completedCount: completedCount,
-                            totalTasks: totalTasks,
-                            upcomingTasks: upcomingTasks,
-                            onTap: () async{
-                              await Navigator.of(context).push(
-                                PageRouteBuilder(
-                                  transitionDuration: const Duration(milliseconds: 600),
-                                  pageBuilder: (_, __, ___) => const WeddingTimelinePage(),
-                                  transitionsBuilder: (_, animation, __, child) {
-                                    final curved =
-                                    CurvedAnimation(parent: animation, curve: Curves.easeInOut);
-                                    return FadeTransition(
-                                      opacity: curved,
-                                      child: SlideTransition(
-                                        position: Tween<Offset>(
-                                          begin: const Offset(0, 0.1),
-                                          end: Offset.zero,
-                                        ).animate(curved),
-                                        child: child,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              );
+          Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refreshAll,
+                  color: AppColors.primary,
+                  backgroundColor: Colors.white,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildCategorySection(),
+                        const SizedBox(height: AppSpacing.sm),
+                        _buildPlanningToolsSection(),
+                        _buildVenuesSection(),
+                        Padding(
+                          padding: AppSpacing.page,
+                          child: _buildViewAllVenuesButton(context),
+                        ),
+                        _buildPhotographerSection(),
+                        Padding(
+                          padding: AppSpacing.page,
+                          child: _buildViewAllPhotographersButton(),
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _buildWeddingChecklistSection(
+                          completedCount: completedCount,
+                          totalTasks: totalTasks,
+                          upcomingTasks: upcomingTasks,
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              AnimatedPageRoute(
+                                page: const WeddingTimelinePage(),
+                              ),
+                            );
 
-// 🔥 refresh summary after coming back
-                              await _loadChecklistSummary();
-                            },
-                          ),
-
-                          const SizedBox(height: 30),
-                          _buildInterestingReadsSection(),
-                          const SizedBox(height: 20),
-                          _buildViewAllInterestingReadsButton(),
-                          const SizedBox(height: 30),
-                          _buildRealWeddingsSection(),
-                          const SizedBox(height: 20),
-                          _buildViewAllRealWeddingsButton(),
-                          const SizedBox(height: 100),
-                        ],
-                      ),
+                            // 🔥 refresh summary after coming back
+                            await _loadChecklistSummary();
+                          },
+                        ),
+                        _buildInterestingReadsSection(),
+                        Padding(
+                          padding: AppSpacing.page,
+                          child: _buildViewAllInterestingReadsButton(),
+                        ),
+                        _buildRealWeddingsSection(),
+                        Padding(
+                          padding: AppSpacing.page,
+                          child: _buildViewAllRealWeddingsButton(),
+                        ),
+                        // Clears the floating AI button and the bottom nav.
+                        const SizedBox(height: 110),
+                      ],
                     ),
                   ),
-                ],
+                ),
+              ),
+            ],
+          ),
+
+          // Floating "Shadi AI" assistant
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: Pressable(
+              scale: 0.9,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  AnimatedPageRoute(
+                    page: const AiChatScreen(),
+                    style: PageTransitionStyle.scaleFade,
+                  ),
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.4),
+                      blurRadius: 25,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+                child: Image.asset(
+                  'assets/shadiai-unscreen.gif',
+                  height: 70,
+                  width: 70,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox(
+                    height: 70,
+                    width: 70,
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-    Positioned(
-    bottom: 20,
-    right: 20,
-    child: GestureDetector(
-    onTap: () {
-    Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const AiChatScreen()),
-    );
-    },
-    child: AnimatedContainer(
-    duration: const Duration(milliseconds: 600),
-    curve: Curves.easeInOut,
-
-    decoration: BoxDecoration(
-    shape: BoxShape.circle,
-    color: Colors.pink,   // Pink background
-    boxShadow: [
-    BoxShadow(
-    color: Colors.pink.withOpacity(0.4),
-    blurRadius: 25,
-    spreadRadius: 5,
-    ),
-    ],
-    ),
-
-    // Bigger button
-    // padding: const EdgeInsets.all(20),
-
-    // ⭐ Directly increase the image size
-    child: Image.asset(
-    'assets/shadiai-unscreen.gif',
-    height: 70,     // 🔥 Increase image height
-    width: 70,      // 🔥 Increase image width
-    fit: BoxFit.contain,
-    ),
-    ),
-    ),
-    ),
-
-          // global loading overlay that only hides after initial loads complete
-          // if (isLoading)
-            if (isLoading)
-              const HomeShimmerOverlay(),
-
-          // Container(
-            //   width: double.infinity,
-            //   height: double.infinity,
-            //   color: Colors.white.withOpacity(0.9),
-            //   child: const Center(
-            //     child: HomeShimmerOverlay(),
-            //     // Replace with LoadingLogo(size: 130) if you have it
-            //   ),
-            // ),
         ],
+      ),
+    );
+  }
+
+  /// Shared "View all …" pill used at the end of each section.
+  Widget _viewAllButton(String label, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.lg),
+      child: PremiumButton.outlined(
+        label: label,
+        trailingIcon: Icons.arrow_forward_rounded,
+        size: PremiumButtonSize.medium,
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  /// Horizontal media card used by the venue and photographer rails.
+  Widget _railCard({
+    required String imageUrl,
+    required String name,
+    required String location,
+    required String price,
+    required VoidCallback onTap,
+    required int index,
+  }) {
+    return FadeSlideIn.staggered(
+      index: index,
+      offset: const Offset(0.08, 0),
+      child: SizedBox(
+        width: 210,
+        child: AppCard(
+          onTap: onTap,
+          padding: EdgeInsets.zero,
+          radius: AppRadii.lg,
+          shadow: AppColors.shadowSm,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              NetworkImageWidget(
+                url: imageUrl,
+                width: 210,
+                height: 128,
+                memCacheWidth: 520,
+                fit: BoxFit.cover,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: AppText.cardTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 13,
+                          color: AppColors.textTertiary,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            location,
+                            style: AppText.cardSubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      price,
+                      style: AppText.priceSm,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Wraps a horizontal rail with its loading / empty states.
+  Widget _rail({
+    required bool loading,
+    required bool isEmpty,
+    required String emptyTitle,
+    required String emptyMessage,
+    required double height,
+    required List<Widget> children,
+  }) {
+    if (loading) {
+      return Skeletons.cardRail(height: height, itemWidth: 210);
+    }
+    if (isEmpty) {
+      return EmptyState(
+        compact: true,
+        icon: Icons.storefront_outlined,
+        title: emptyTitle,
+        message: emptyMessage,
+      );
+    }
+    return SizedBox(
+      height: height,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: AppSpacing.page,
+        clipBehavior: Clip.none,
+        itemCount: children.length,
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+        itemBuilder: (_, i) => children[i],
       ),
     );
   }
@@ -1637,229 +1740,341 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //   }
   // }
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SizedBox(height: 20),
-          if (_showSearch)
-            Container(
-              width: 200,
+    return GradientHeader(
+      gradient: AppColors.brandGradient,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Location selector
+              Expanded(
+                child: Pressable(
+                  scale: 0.97,
+                  onTap: () => _showLocationSelection(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Your city',
+                        style: AppText.caption.copyWith(
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _getLocationDisplayText(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.sectionTitle.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _headerIcon(
+                icon: _showSearch
+                    ? Icons.close_rounded
+                    : Icons.search_rounded,
+                tooltip: _showSearch ? 'Close search' : 'Search',
+                onTap: () {
+                  setState(() {
+                    _showSearch = !_showSearch;
+                    if (!_showSearch) {
+                      _searchController.clear();
+                      _searchQuery = '';
+                    }
+                  });
+                },
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _headerIcon(
+                icon: Icons.person_outline_rounded,
+                tooltip: 'Profile',
+                onTap: () async {
+                  SharedPreferences prefs =
+                      await SharedPreferences.getInstance();
+                  bool isLoggedIn = prefs.getBool("isLoggedIn") ?? false;
+
+                  if (!mounted) return;
+                  if (!isLoggedIn) {
+                    // User NOT logged in → go to SignInScreen
+                    Navigator.push(
+                      context,
+                      AnimatedPageRoute(page: const SignInScreen()),
+                    );
+                  } else {
+                    // User logged in → go to Profile Settings
+                    Navigator.push(
+                      context,
+                      AnimatedPageRoute(page: const ProfileSettingsScreen()),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+
+          // Inline search field, animated open/closed.
+          AppExpandable(
+            expanded: _showSearch,
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
               child: TextField(
                 controller: _searchController,
                 autofocus: true,
-                onChanged: (value) {
-                  setState(() => _searchQuery = value);
-                },
-                decoration: const InputDecoration(
-                  hintText: "Search...",
-                  hintStyle: TextStyle(color: Colors.white70),
-                  border: InputBorder.none,
+                textInputAction: TextInputAction.search,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                style: AppText.body,
+                decoration: InputDecoration(
+                  hintText: 'Search venues, vendors, ideas…',
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: AppColors.textTertiary,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: const OutlineInputBorder(
+                    borderRadius: AppRadii.rPill,
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderRadius: AppRadii.rPill,
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderRadius: AppRadii.rPill,
+                    borderSide: BorderSide.none,
+                  ),
                 ),
-                style: const TextStyle(color: Colors.white),
               ),
-            )
-          else
-            Row(children: [
-              Text(
-                _getLocationDisplayText(),
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(width: 5),
-              InkWell(
-                onTap: () => _showLocationSelection(context),
-                child: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
-              ),
-            ]),
-        ]),
-        Row(children: [
-          InkWell(
-            onTap: () {
-              setState(() {
-                _showSearch = !_showSearch;
-                if (!_showSearch) {
-                  _searchController.clear();
-                  _searchQuery = '';
-                }
-              });
-            },
-            child: Container(padding: const EdgeInsets.all(8)),
-          ),
-          const SizedBox(width: 10),
-          InkWell(
-            onTap: () async {
-              SharedPreferences prefs = await SharedPreferences.getInstance();
-              bool isLoggedIn = prefs.getBool("isLoggedIn") ?? false;
-
-              if (!isLoggedIn) {
-                // User NOT logged in → go to SignInScreen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SignInScreen()),
-                );
-              } else {
-                // User logged in → go to Profile Settings
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
-                );
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 20),
             ),
-          )
-
-        ])
-      ]),
+          ),
+        ],
+      ),
     );
   }
+
+  Widget _headerIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+    String? tooltip,
+  }) {
+    final button = Pressable(
+      scale: 0.88,
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.22),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip, child: button);
+  }
   Widget _buildCategorySection() {
+    const double avatar = 68;
+    const double itemWidth = 76;
+    // Height is derived from the content, not guessed, so two-line labels can
+    // never overflow the rail.
+    const double railHeight = avatar + 8 + 32;
+
     if (isLoadingCategories) {
-      return const SizedBox(
-        height: 120,
-        child: Center(child: CircularProgressIndicator()),
+      return SizedBox(
+        height: railHeight,
+        child: LoadingShimmer(
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: AppSpacing.page,
+            itemCount: 5,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+            itemBuilder: (_, __) => const SizedBox(
+              width: itemWidth,
+              child: Column(
+                children: [
+                  SkeletonBox.circle(size: avatar),
+                  SizedBox(height: AppSpacing.sm),
+                  SkeletonBox(width: 54, height: 10),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
     }
 
     return SizedBox(
-      height: 120,
-      child: ListView.builder(
+      height: railHeight,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: horizontalCategories.length + 1, // +1 for "All Categories"
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: AppSpacing.page,
+        clipBehavior: Clip.none,
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
         itemBuilder: (context, index) {
           final isLast = index == horizontalCategories.length;
 
           if (isLast) {
             // "All Categories" button
-            return Container(
-              margin: const EdgeInsets.only(right: 0),
-              child: Column(
-                children: [
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const VendorCategoriesScreen()),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(50),
-                    child: Container(
-                      width: 70,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        border: Border.all(color: Colors.pink, width: 2),
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.pink,
-                        size: 30,
-                      ),
-                    ),
+            return FadeSlideIn.staggered(
+              index: index,
+              offset: const Offset(0.1, 0),
+              child: _categoryTile(
+                width: itemWidth,
+                label: 'All\nCategories',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    AnimatedPageRoute(page: const VendorCategoriesScreen()),
+                  );
+                },
+                avatar: Container(
+                  width: avatar,
+                  height: avatar,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(color: AppColors.primary, width: 1.6),
+                    boxShadow: AppColors.shadowSm,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'All\nCategories',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                    ),
+                  child: const Icon(
+                    Icons.grid_view_rounded,
+                    color: AppColors.primary,
+                    size: 26,
                   ),
-                ],
+                ),
               ),
             );
           }
 
           final category = horizontalCategories[index];
 
-// Fix hero image URL
+          // Fix hero image URL
           String imageUrl = '';
           if (category.heroImage.isNotEmpty) {
             imageUrl =
             "https://happywedzbackend.happywedz.com${category.heroImage}";
           }
-        print(imageUrl);
-          return Container(
-            margin: const EdgeInsets.only(right: 15),
-            child: Column(
-              children: [
-                InkWell(
-                  onTap: () {
-                    if (category.subcategories.isNotEmpty) {
-                      final subcategory = category.subcategories.first;
 
-                      final subcategoryName = subcategory["name"] ?? "";
-                      // final subcategoryName = category.subcategories.first.name;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => VendorServicesScreen(
-                            subcategoryName: subcategoryName,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(50),
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.grey[300],
-                    ),
-                    child: ClipOval(
-                      child: imageUrl.isNotEmpty
-                          ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        width: 70,
-                        height: 70,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.pink.shade100,
-                          child: const Icon(Icons.broken_image,
-                              color: Colors.white),
-                        ),
-                      )
-                          : Container(
-                        color: Colors.pink.shade100,
-                        child:
-                        const Icon(Icons.image, color: Colors.white),
+          return FadeSlideIn.staggered(
+            index: index,
+            offset: const Offset(0.1, 0),
+            child: _categoryTile(
+              width: itemWidth,
+              label: category.name,
+              onTap: () {
+                if (category.subcategories.isNotEmpty) {
+                  final subcategory = category.subcategories.first;
+
+                  final subcategoryName = subcategory["name"] ?? "";
+                  Navigator.push(
+                    context,
+                    AnimatedPageRoute(
+                      page: VendorServicesScreen(
+                        subcategoryName: subcategoryName,
                       ),
                     ),
-                  ),
+                  );
+                }
+              },
+              avatar: Container(
+                width: avatar,
+                height: avatar,
+                padding: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: AppColors.brandGradient,
+                  boxShadow: AppColors.shadowSm,
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: 70,
-                  child: Text(
-                    category.name,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                  padding: const EdgeInsets.all(2),
+                  child: ClipOval(
+                    child: NetworkImageWidget(
+                      url: imageUrl,
+                      width: avatar,
+                      height: avatar,
+                      memCacheWidth: 180,
+                      placeholderIcon: Icons.category_outlined,
+                      errorIcon: Icons.category_outlined,
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
           );
-
         },
+      ),
+    );
+  }
+
+  Widget _categoryTile({
+    required double width,
+    required String label,
+    required Widget avatar,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Pressable(
+        scale: 0.93,
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            avatar,
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.caption.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+                height: 1.25,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1934,400 +2149,476 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   // }
 
   Widget _buildPlanningToolsSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Wedding Planning tools', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-      const SizedBox(height: 15),
-      Row(children: [
-        Expanded(
-          child: InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const EInvitationScreen(),
-                ),
-              );
-            },
-            child: _buildPlanningToolCard('Build your\nDigital E-invites', 'on app launch', Colors.purple[100]!, Icons.insert_invitation, Colors.purple),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          title: 'Wedding Planning Tools',
+          subtitle: 'Everything you need, in one place',
+          accent: true,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: InkWell(
-            onTap: () async {
-              bool hasFavourites = await checkUserHasFavourites();
+        Padding(
+          padding: AppSpacing.page,
+          child: IntrinsicHeight(
+            // Keeps the three cards the same height whatever their text length,
+            // instead of letting the tallest stretch the row unevenly.
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: FadeSlideIn.staggered(
+                    index: 0,
+                    child: _buildPlanningToolCard(
+                      'Build your\nDigital E-invites',
+                      'Design & share',
+                      AppColors.blushDeep,
+                      Icons.insert_invitation_rounded,
+                      AppColors.primary,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          AnimatedPageRoute(page: const EInvitationScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: FadeSlideIn.staggered(
+                    index: 1,
+                    child: _buildPlanningToolCard(
+                      'Your shortlisted\nvendors',
+                      'Saved for later',
+                      const Color(0xFFFFF3E0),
+                      Icons.favorite_rounded,
+                      Colors.orange,
+                      onTap: () async {
+                        bool hasFavourites = await checkUserHasFavourites();
 
-              if (hasFavourites) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const FavouritesPage()),
-                );
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) =>  VendorCategoriesScreen()),
-                );
-              }
-            },
-            child: _buildPlanningToolCard(
-              'Your shortlisted\nvendor',
-              'Venue vendors',
-              Colors.orange[100]!,
-              Icons.favorite,
-              Colors.orange,
+                        if (!mounted) return;
+                        if (hasFavourites) {
+                          Navigator.push(
+                            context,
+                            AnimatedPageRoute(page: const FavouritesPage()),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            AnimatedPageRoute(page: VendorCategoriesScreen()),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: FadeSlideIn.staggered(
+                    index: 2,
+                    child: _buildPlanningToolCard(
+                      'Your favourite\nblogs',
+                      'Reads you saved',
+                      AppColors.pinkSurface,
+                      Icons.bookmark_rounded,
+                      AppColors.primaryDeep,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          AnimatedPageRoute(
+                            page: Ideas(initialSubTabIndex: 1),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Ideas(initialSubTabIndex: 1),
-                ),
-              );
-            },
-            child: _buildPlanningToolCard('Your Favourite\nblog', 'will it favourite', Colors.pink[100]!, Icons.bookmark, Colors.pink),
-          ),
-        ),
-      ])
-    ]);
-  }
-
-  Widget _buildPlanningToolCard(String title, String subtitle, Color bgColor, IconData icon, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
-        const SizedBox(height: 4),
-        Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-        const SizedBox(height: 15),
-        Align(alignment: Alignment.centerRight, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: iconColor, size: 20))),
-      ]),
+      ],
     );
   }
 
-  Widget _buildVenuesSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(_selectedCity != null ? 'Venues in $_selectedCity' : 'Venues in your city', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-      const SizedBox(height: 15),
-      isLoadingVenues
-          ? const Center(child: CircularProgressIndicator())
-          : venues.isEmpty
-          ? const Text("No venues found")
-          : SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: venues.map<Widget>((venue) {
-          final vendor = (venue is Map && venue['vendor'] is Map) ? venue['vendor'] as Map<String, dynamic> : <String, dynamic>{};
-          final attributes = (venue is Map && venue['attributes'] is Map) ? venue['attributes'] as Map<String, dynamic> : <String, dynamic>{};
-          final media = (venue is Map && venue['media'] is Map) ? venue['media'] as Map<String, dynamic> : <String, dynamic>{};
-
-          String imageUrl = 'https://via.placeholder.com/200x120';
-          if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-            final cover = media['coverImage'].toString();
-            imageUrl = cover.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$cover" : cover;
-          } else if (media['gallery'] != null && media['gallery'] is List) {
-            for (var item in media['gallery']) {
-              if (item is String && item.isNotEmpty) {
-                imageUrl = item.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$item" : item;
-                break;
-              } else if (item is Map && item['url'] != null) {
-                final url = item['url'].toString();
-                imageUrl = url.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$url" : url;
-                break;
-              }
-            }
-          } else if (attributes['url'] != null && attributes['url'].toString().isNotEmpty) {
-            imageUrl = 'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['url'])}&width=400';
-          }
-
-          final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
-          final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
-          String price = "--";
-          final veg = attributes['veg_price']?.toString() ?? "";
-          final nonVeg = attributes['non_veg_price']?.toString() ?? "";
-          if (veg.isNotEmpty || nonVeg.isNotEmpty) {
-            if (veg.isNotEmpty && nonVeg.isNotEmpty) {
-              price = "₹$veg - ₹$nonVeg";
-            } else {
-              price = "₹${veg.isNotEmpty ? veg : nonVeg}";
-            }
-            price = "Starting from $price";
-          }
-
-          return Container(
-            width: 200,
-            margin: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => VendorDetailsScreen(
-                    service: venue,
-                    ),
-                  ),
-                );
-              },
-
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(imageUrl, height: 120, width: 200, fit: BoxFit.cover, loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(height: 120, width: 200, color: Colors.grey[200], child: const Center(child: CircularProgressIndicator()));
-                  }, errorBuilder: (context, error, stackTrace) {
-                    return Container(height: 120, width: 200, color: Colors.grey[300], child: const Icon(Icons.image, size: 40, color: Colors.white));
-                  }),
+  Widget _buildPlanningToolCard(
+    String title,
+    String subtitle,
+    Color bgColor,
+    IconData icon,
+    Color iconColor, {
+    VoidCallback? onTap,
+  }) {
+    return AppCard(
+      onTap: onTap,
+      color: bgColor,
+      radius: AppRadii.md,
+      elevated: false,
+      border: Border.all(color: iconColor.withValues(alpha: 0.12)),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: AppRadii.rSm,
                 ),
-                const SizedBox(height: 8),
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(location, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(price, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          );
-        }).toList()),
+                child: Icon(icon, color: iconColor, size: 18),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.label.copyWith(
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.caption,
+              ),
+            ],
+          ),
+        ],
       ),
-    ]);
+    );
+  }
+
+  Widget  _buildVenuesSection() {
+    final cards = <Widget>[];
+    for (var i = 0; i < venues.length; i++) {
+      final venue = venues[i];
+      final vendor = (venue is Map && venue['vendor'] is Map) ? venue['vendor'] as Map<String, dynamic> : <String, dynamic>{};
+      final attributes = (venue is Map && venue['attributes'] is Map) ? venue['attributes'] as Map<String, dynamic> : <String, dynamic>{};
+      final media = (venue is Map && venue['media'] is Map) ? venue['media'] as Map<String, dynamic> : <String, dynamic>{};
+
+      String imageUrl = '';
+      if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
+        final cover = media['coverImage'].toString();
+        imageUrl = cover.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$cover" : cover;
+      } else if (media['gallery'] != null && media['gallery'] is List) {
+        for (var item in media['gallery']) {
+          if (item is String && item.isNotEmpty) {
+            imageUrl = item.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$item" : item;
+            break;
+          } else if (item is Map && item['url'] != null) {
+            final url = item['url'].toString();
+            imageUrl = url.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$url" : url;
+            break;
+          }
+        }
+      } else if (attributes['url'] != null && attributes['url'].toString().isNotEmpty) {
+        imageUrl = 'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['url'])}&width=400';
+      }
+
+      final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
+      final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
+      String price = "--";
+      final veg = attributes['veg_price']?.toString() ?? "";
+      final nonVeg = attributes['non_veg_price']?.toString() ?? "";
+      if (veg.isNotEmpty || nonVeg.isNotEmpty) {
+        if (veg.isNotEmpty && nonVeg.isNotEmpty) {
+          price = "₹$veg - ₹$nonVeg";
+        } else {
+          price = "₹${veg.isNotEmpty ? veg : nonVeg}";
+        }
+        price = "Starting from $price";
+      }
+
+      cards.add(
+        _railCard(
+          index: i,
+          imageUrl: imageUrl,
+          name: name,
+          location: location,
+          price: price,
+          onTap: () {
+            Navigator.push(
+              context,
+              AnimatedPageRoute(page: VendorDetailsScreen(service: venue)),
+            );
+          },
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: _selectedCity != null
+              ? 'Venues in $_selectedCity'
+              : 'Venues in your city',
+          subtitle: 'Handpicked spaces for your celebration',
+          accent: true,
+        ),
+        _rail(
+          loading: isLoadingVenues,
+          isEmpty: venues.isEmpty,
+          emptyTitle: 'No venues found',
+          emptyMessage: 'Try changing your city or check back soon.',
+          height: 246,
+          children: cards,
+        ),
+      ],
+    );
   }
 
   Widget _buildViewAllVenuesButton(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VendorServicesScreen(
-              subcategoryName: "venues",   // 👈 pass category name
-            ),
+    return _viewAllButton('View all Venues', () {
+      Navigator.push(
+        context,
+        AnimatedPageRoute(
+          page: VendorServicesScreen(
+            subcategoryName: "venues",   // 👈 pass category name
           ),
-        );
-      },
-
-      borderRadius: BorderRadius.circular(25),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
-        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all Venues', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
-          SizedBox(width: 5),
-          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
-        ]),
-      ),
-    );
+        ),
+      );
+    });
   }
 
   Widget _buildPhotographerSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(_selectedCity != null ? 'Photographers in $_selectedCity' : 'Photographers for you', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-      const SizedBox(height: 15),
-      isLoadingPhotographers
-          ? const Center(child: CircularProgressIndicator())
-          : photographers.isEmpty
-          ? const Text("No photographers found")
-          : SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: photographers.map<Widget>((photo) {
-          final vendor = (photo is Map && photo['vendor'] is Map)
-              ? photo['vendor'] as Map<String, dynamic>
-              : {};
+    final cards = <Widget>[];
+    for (var i = 0; i < photographers.length; i++) {
+      final photo = photographers[i];
+      final vendor = (photo is Map && photo['vendor'] is Map)
+          ? photo['vendor'] as Map<String, dynamic>
+          : {};
 
-          final attributes = (photo is Map && photo['attributes'] is Map)
-              ? photo['attributes'] as Map<String, dynamic>
-              : {};
+      final attributes = (photo is Map && photo['attributes'] is Map)
+          ? photo['attributes'] as Map<String, dynamic>
+          : {};
 
-          final media = photo['media'];
-          String imageUrl = 'https://via.placeholder.com/200x120';
+      final media = photo['media'];
+      String imageUrl = '';
 
-// FIX: media is actually a List of URLs
-          if (media != null && media is List) {
-            for (var item in media) {
-              if (item is String && item.isNotEmpty) {
-                imageUrl = item;
-                break;
-              }
-            }
+      // FIX: media is actually a List of URLs
+      if (media != null && media is List) {
+        for (var item in media) {
+          if (item is String && item.isNotEmpty) {
+            imageUrl = item;
+            break;
           }
-// Try Portfolio field
-          else if (attributes['Portfolio'] != null &&
-              attributes['Portfolio'].toString().isNotEmpty) {
-            final portfolioString = attributes['Portfolio'].toString();
-            final list = portfolioString.split("|");
-            if (list.isNotEmpty) imageUrl = list.first;
-          }
-// Thumbnail fallback
-          else if (attributes['URL'] != null &&
-              attributes['URL'].toString().isNotEmpty) {
-            imageUrl =
-            'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['URL'])}&width=400';
-          }
+        }
+      }
+      // Try Portfolio field
+      else if (attributes['Portfolio'] != null &&
+          attributes['Portfolio'].toString().isNotEmpty) {
+        final portfolioString = attributes['Portfolio'].toString();
+        final list = portfolioString.split("|");
+        if (list.isNotEmpty) imageUrl = list.first;
+      }
+      // Thumbnail fallback
+      else if (attributes['URL'] != null &&
+          attributes['URL'].toString().isNotEmpty) {
+        imageUrl =
+        'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['URL'])}&width=400';
+      }
 
+      final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
+      final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
+      String price = "--";
+      final startPrice = attributes['PriceRange']?.toString() ?? "";
+      if (startPrice.isNotEmpty) price = "Price Range ₹$startPrice";
 
-          final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
-          final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
-          String price = "--";
-          final startPrice = attributes['PriceRange']?.toString() ?? "";
-          if (startPrice.isNotEmpty) price = "Price Range ₹$startPrice";
+      cards.add(
+        _railCard(
+          index: i,
+          imageUrl: imageUrl,
+          name: name,
+          location: location,
+          price: price,
+          onTap: () {
+            Navigator.push(
+              context,
+              AnimatedPageRoute(page: VendorDetailsScreen(service: photo)),
+            );
+          },
+        ),
+      );
+    }
 
-          return Container(
-            width: 200,
-            margin: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => VendorDetailsScreen(
-                      service: photo,
-                    ),
-                  ),
-                );
-              },
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(imageUrl, height: 120, width: 200, fit: BoxFit.cover, loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(height: 120, width: 200, color: Colors.grey[200], child: const Center(child: CircularProgressIndicator()));
-                }, errorBuilder: (context, error, stackTrace) {
-                  return Container(height: 120, width: 200, color: Colors.grey[300], child: const Icon(Icons.image, size: 40, color: Colors.white));
-                })),
-                const SizedBox(height: 8),
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(location, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(price, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          );
-        }).toList()),
-      ),
-    ]);
-  }
-
-  Widget _buildViewAllPhotographersButton() {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VendorServicesScreen(
-              subcategoryName: "photographer",   // 👈 pass category name
-            ),
-          ),
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
-        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all Photographers', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
-          SizedBox(width: 5),
-          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
-        ]),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: _selectedCity != null
+              ? 'Photographers in $_selectedCity'
+              : 'Photographers for you',
+          subtitle: 'Storytellers who capture every moment',
+          accent: true,
+        ),
+        _rail(
+          loading: isLoadingPhotographers,
+          isEmpty: photographers.isEmpty,
+          emptyTitle: 'No photographers found',
+          emptyMessage: 'Try changing your city or check back soon.',
+          height: 246,
+          children: cards,
+        ),
+      ],
     );
   }
 
+  Widget _buildViewAllPhotographersButton() {
+    return _viewAllButton('View all Photographers', () {
+      Navigator.push(
+        context,
+        AnimatedPageRoute(
+          page: VendorServicesScreen(
+            subcategoryName: "photographer",   // 👈 pass category name
+          ),
+        ),
+      );
+    });
+  }
+
   Widget _buildWeddingChecklistSection({required int completedCount, required int totalTasks, required List<String> upcomingTasks, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Wedding checklist', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-        const SizedBox(height: 15),
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFE91E63), Color(0xFFFF6B35)], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(16)),
-          child: Stack(children: [
-            Positioned(top: -20, right: -20, child: Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)))),
-            Positioned(bottom: -10, right: 30, child: Container(width: 40, height: 40, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)))),
+    final progress = totalTasks == 0 ? 0.0 : completedCount / totalTasks;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          title: 'Wedding Checklist',
+          subtitle: 'Stay on top of every task',
+          accent: true,
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.md,
+          ),
+        ),
+        Padding(
+          padding: AppSpacing.page,
+          child: AppCard(
+            onTap: onTap,
+            padding: EdgeInsets.zero,
+            radius: AppRadii.lg,
+            shadow: AppColors.shadowMd,
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, Color(0xFFFF6B35)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            child: Stack(children: [
+            Positioned(top: -20, right: -20, child: Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.1)))),
+            Positioned(bottom: -10, right: 30, child: Container(width: 40, height: 40, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.1)))),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(AppSpacing.xl),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('$completedCount/$totalTasks', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                    const Text('Tasks done', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
-                  ]),
-                  Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), shape: BoxShape.circle), child: const Icon(Icons.check, color: Colors.white, size: 20)),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      checklistLoading
+                          ? const SizedBox(
+                              height: 34,
+                              width: 90,
+                              child: LoadingShimmer(
+                                child: SkeletonBox(
+                                  width: 90,
+                                  height: 26,
+                                  radius: AppRadii.sm,
+                                ),
+                              ),
+                            )
+                          : Text('$completedCount/$totalTasks', style: AppText.display.copyWith(color: Colors.white)),
+                      Text('Tasks done', style: AppText.bodyStrong.copyWith(color: Colors.white)),
+                    ]),
+                  ),
+                  Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), shape: BoxShape.circle), child: const Icon(Icons.check_rounded, color: Colors.white, size: 20)),
                 ]),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
+                // Progress bar
+                ClipRRect(
+                  borderRadius: AppRadii.rPill,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
+                    duration: AppMotion.slow,
+                    curve: AppMotion.standard,
+                    builder: (context, value, _) => LinearProgressIndicator(
+                      value: value,
+                      minHeight: 6,
+                      backgroundColor: Colors.white.withValues(alpha: 0.28),
+                      valueColor:
+                          const AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
                 Container(
-                  padding: const EdgeInsets.all(8), // reduced padding
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: AppRadii.rSm,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Upcoming tasks',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4), // reduced spacing
-                      ...upcomingTasks.map(
-                            (task) => Padding(
-                          padding: const EdgeInsets.only(bottom: 2), // reduced spacing
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 4,
-                                height: 4,
-                                margin: const EdgeInsets.only(top: 6),
-                                decoration: const BoxDecoration(
-                                  color: Colors.black87,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6), // slightly smaller
-                              Expanded(
-                                child: Text(
-                                  task,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.black87,
-                                    height: 1.1, // reduce line height
+                      Text('Upcoming tasks', style: AppText.label),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (upcomingTasks.isEmpty)
+                        Text(
+                          checklistLoading
+                              ? 'Loading your checklist…'
+                              : 'Nothing pending — you are all caught up!',
+                          style: AppText.caption,
+                        )
+                      else
+                        ...upcomingTasks.map(
+                          (task) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  margin: const EdgeInsets.only(top: 6),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    task,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppText.bodySm.copyWith(
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
-                // Container(
-                //   padding: const EdgeInsets.all(14),
-                //   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
-                //   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                //     const Text('Upcoming tasks', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
-                //     const SizedBox(height: 8),
-                //     ...upcomingTasks.map((task) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                //       Container(width: 4, height: 4, margin: const EdgeInsets.only(top: 6), decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle)),
-                //       const SizedBox(width: 8),
-                //       Expanded(child: Text(task, style: const TextStyle(fontSize: 11, color: Colors.black87, height: 1.3))),
-                //     ]))),
-                //   ]),
-                // ),
               ]),
             )
           ]),
-        )
-      ]),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2353,7 +2644,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: imagePath.startsWith("http")
-            ? Image.network(imagePath, fit: BoxFit.cover, width: double.infinity, errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.grey, size: 40))
+            ? NetworkImageWidget(url: imagePath, fit: BoxFit.cover, width: double.infinity)
             : Image.asset(imagePath, fit: BoxFit.cover, width: double.infinity, errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.grey, size: 40)),
       ),
     );
@@ -2596,145 +2887,121 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //   );
   // }
   Widget _buildInterestingReadsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Interesting reads',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 18),
+    final cards = <Widget>[];
+    for (var index = 0; index < blogPosts.length; index++) {
+      final post = blogPosts[index];
+      final img = post['image'] ?? "";
+      final title = post['title'] ?? "";
+      final shortDesc = post['shortDescription'] ?? "";
+      final author = post['author'] ?? "";
+      final date = post['date']?.toString().split("T").first ?? "";
 
-        isLoadingBlogPosts
-            ? const Center(child: CircularProgressIndicator())
-            : blogPosts.isEmpty
-            ? const Text('No blog posts found')
-            : SizedBox(
-          height: 250,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: blogPosts.length,
-            padding: const EdgeInsets.only(left: 4),
-            itemBuilder: (context, index) {
-              final post = blogPosts[index];
-              final img = post['image'] ?? "";
-              final title = post['title'] ?? "";
-              final shortDesc = post['shortDescription'] ?? "";
-              final author = post['author'] ?? "";
-              final date = post['date']?.toString().split("T")[0] ?? "";
-
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BlogDetailPage(
-                        title: post['title'] ?? '',
-                        date: post['postDate']?.toString().split("T")[0] ?? '',
-                        author: post['author'] ?? '',
-                        image: post['image'] ?? '',
-                        content: post['shortDescription'] ?? '',
-                        category: post['category']?['name'] ?? '',
-                      ),
+      cards.add(
+        FadeSlideIn.staggered(
+          index: index,
+          offset: const Offset(0.08, 0),
+          child: SizedBox(
+            width: 264,
+            child: AppCard(
+              padding: EdgeInsets.zero,
+              radius: AppRadii.lg,
+              shadow: AppColors.shadowSm,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  AnimatedPageRoute(
+                    page: BlogDetailPage(
+                      title: post['title'] ?? '',
+                      date: post['postDate']?.toString().split("T").first ?? '',
+                      author: post['author'] ?? '',
+                      image: post['image'] ?? '',
+                      content: post['shortDescription'] ?? '',
+                      category: post['category']?['name'] ?? '',
                     ),
-                  );
-                },
-                child: Container(
-                  width: 260,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  NetworkImageWidget(
+                    url: img,
+                    width: 264,
+                    height: 132,
+                    memCacheWidth: 640,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Image
                         SizedBox(
-                          height: 120,
-                          width: double.infinity,
-                          child: Image.network(
-                            img.isNotEmpty
-                                ? img
-                                : "https://via.placeholder.com/600x400",
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-
-                        // Title
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                          height: 38,
                           child: Text(
                             title,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: AppText.cardTitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-
-                        // Short Description
-                        Padding(
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 10),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          height: 34,
                           child: Text(
                             shortDesc,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.black54),
+                            style: AppText.cardSubtitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-
-                        const Spacer(),
-
-                        // Author + Date
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          child: Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
+                        const SizedBox(height: AppSpacing.sm),
+                        const Divider(height: 1),
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
                                 author,
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.blueGrey,
-                                    fontWeight: FontWeight.w600),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppText.caption.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              Text(
-                                date,
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        )
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(date, style: AppText.caption),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          title: 'Interesting Reads',
+          subtitle: 'Ideas, tips and real stories',
+          accent: true,
+        ),
+        _rail(
+          loading: isLoadingBlogPosts,
+          isEmpty: blogPosts.isEmpty,
+          emptyTitle: 'No stories yet',
+          emptyMessage: 'New reads are published regularly — check back soon.',
+          height: 282,
+          children: cards,
         ),
       ],
     );
@@ -2742,27 +3009,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
 
   Widget _buildViewAllInterestingReadsButton() {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Ideas(initialSubTabIndex: 1),
-          ),
-        );
-
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
-        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all Interesting reads', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
-          SizedBox(width: 5),
-          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
-        ]),
-      ),
-    );
+    return _viewAllButton('View all Interesting reads', () {
+      Navigator.push(
+        context,
+        AnimatedPageRoute(page: Ideas(initialSubTabIndex: 1)),
+      );
+    });
   }
   // -------- REAL WEDDINGS --------
   // Widget _buildRealWeddingsSection() {
@@ -2801,182 +3053,133 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //   ]);
   // }
   Widget _buildRealWeddingsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Real weddings we love',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 16),
+    final cards = <Widget>[];
+    for (var index = 0; index < realWeddings.length; index++) {
+      final wedding = realWeddings[index];
+      final String imageUrl = wedding['cover_photo'] ?? "";
+      final String title = wedding['title'] ?? "";
+      final String city = wedding['city'] ?? "";
+      final String date = wedding['wedding_date'] ?? "";
 
-        isLoadingRealWeddings
-            ? const Center(child: CircularProgressIndicator())
-            : realWeddings.isEmpty
-            ? const Text("No real weddings found")
-            : SizedBox(
-          height: 230,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: realWeddings.length,
-            itemBuilder: (context, index) {
-              final wedding = realWeddings[index];
-              final String imageUrl = wedding['cover_photo'] ?? "";
-              final String title = wedding['title'] ?? "";
-              final String city = wedding['city'] ?? "";
-              final String date = wedding['wedding_date'] ?? "";
-
-              return InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RealWeddingDetailPage(
-                        wedding: RealWedding.fromJson(wedding),
-                      ),
+      cards.add(
+        FadeSlideIn.staggered(
+          index: index,
+          offset: const Offset(0.08, 0),
+          child: SizedBox(
+            width: 200,
+            child: AppCard(
+              padding: EdgeInsets.zero,
+              radius: AppRadii.lg,
+              shadow: AppColors.shadowMd,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  AnimatedPageRoute(
+                    page: RealWeddingDetailPage(
+                      wedding: RealWedding.fromJson(wedding),
                     ),
-                  );
-                },
-                child: Container(
-                  width: 200,
-                  margin: EdgeInsets.only(right: 14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      )
-                    ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Stack(
+                );
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Wedding cover image + readability scrim
+                  NetworkImageWidget(
+                    url: imageUrl,
+                    fit: BoxFit.cover,
+                    memCacheWidth: 520,
+                    scrim: true,
+                    placeholderIcon: Icons.photo_camera_back_outlined,
+                  ),
+
+                  // Text bottom area
+                  Positioned(
+                    bottom: AppSpacing.md,
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Wedding cover image
-                        Positioned.fill(
-                          child: Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (c, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
-                                color: Colors.grey.shade200,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    value: progress.expectedTotalBytes != null
-                                        ? progress.cumulativeBytesLoaded /
-                                        progress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (_, __, ___) =>
-                                Container(color: Colors.grey[300]),
+                        Text(
+                          title,
+                          style: AppText.cardTitle.copyWith(
+                            color: Colors.white,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-
-                        // Gradient overlay
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Colors.black.withOpacity(0.6),
-                                  Colors.transparent,
-                                ],
-                              ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_rounded,
+                              size: 12,
+                              color: Colors.white70,
                             ),
-                          ),
-                        ),
-
-                        // Text bottom area
-                        Positioned(
-                          bottom: 10,
-                          left: 10,
-                          right: 10,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                city,
+                                style: AppText.caption.copyWith(
+                                  color: Colors.white70,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.location_on,
-                                      size: 12, color: Colors.white70),
-                                  SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      city,
-                                      style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                date,
-                                style: TextStyle(
-                                    color: Colors.white60, fontSize: 11),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
+                        if (date.isNotEmpty) ...[
+                          const SizedBox(height: 1),
+                          Text(
+                            date,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.caption.copyWith(
+                              color: Colors.white60,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          title: 'Real Weddings We Love',
+          subtitle: 'Inspiration from couples like you',
+          accent: true,
+        ),
+        _rail(
+          loading: isLoadingRealWeddings,
+          isEmpty: realWeddings.isEmpty,
+          emptyTitle: 'No real weddings yet',
+          emptyMessage: 'Beautiful stories are on their way.',
+          height: 230,
+          children: cards,
         ),
       ],
     );
   }
 
   Widget _buildViewAllRealWeddingsButton() {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Ideas(initialSubTabIndex: 2),
-          ),
-        );
-
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
-        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all Real Wedding', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
-          SizedBox(width: 5),
-          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
-        ]),
-      ),
-    );
+    return _viewAllButton('View all Real Weddings', () {
+      Navigator.push(
+        context,
+        AnimatedPageRoute(page: Ideas(initialSubTabIndex: 2)),
+      );
+    });
   }
 
   // Helper
@@ -3101,13 +3304,6 @@ class VendorCategory {
 
 
 
-
-
-
-
-
-
-
 class BottomBars extends StatefulWidget {
   const  BottomBars({super.key});
 
@@ -3157,67 +3353,170 @@ class _BottomBarsState extends State<BottomBars> {
     );
   }
 
+  static const List<_NavItem> _navItems = [
+    _NavItem(
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
+      label: 'Home',
+    ),
+    _NavItem(
+      icon: Icons.location_on_outlined,
+      activeIcon: Icons.location_on_rounded,
+      label: 'Venues',
+    ),
+    _NavItem(
+      icon: Icons.auto_awesome_outlined,
+      activeIcon: Icons.auto_awesome,
+      label: 'Studio',
+      isCenter: true,
+    ),
+    _NavItem(
+      icon: Icons.people_outline_rounded,
+      activeIcon: Icons.people_rounded,
+      label: 'Vendors',
+    ),
+    _NavItem(
+      icon: Icons.menu_rounded,
+      activeIcon: Icons.menu_open_rounded,
+      label: 'More',
+    ),
+  ];
+
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF69B4), Color(0xFFFF1493)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withOpacity(0.6),
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        // currentIndex: 0,
-        currentIndex: _selectedIndex,
-        // ✅ dynamic index
-        onTap: _onItemTapped,
-        // ✅ tap handler
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home_filled),
-            label: 'Home',
+        gradient: AppColors.brandGradient,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, -4),
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.location_on_outlined),
-            label: 'Venues',
-          ),
-          BottomNavigationBarItem(
-            icon: Container(
-              // padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: Image.asset(
-                'assets/tryimg.png',
-                width: 40,
-                height: 40,
-                fit: BoxFit.contain,
-              ),
 
-            ),
-            label: 'DesignStudio',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.people_outline),
-            label: 'Vendors',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.menu),
-            label: 'More',
-          ),
+
+
+
+
+
         ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: List.generate(_navItems.length, (index) {
+              final item = _navItems[index];
+              final selected = _selectedIndex == index;
+
+              return Expanded(
+                child: Semantics(
+                  selected: selected,
+                  button: true,
+                  label: item.label,
+                  child: InkWell(
+                    onTap: () => _onItemTapped(index),
+                    splashColor: Colors.white24,
+                    highlightColor: Colors.white10,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (item.isCenter)
+                          // Raised centre action keeps the Design Studio
+                          // prominent, as before.
+                          AnimatedScale(
+                            scale: selected ? 1.06 : 1,
+                            duration: AppMotion.fast,
+                            curve: AppMotion.standard,
+                            child: Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: AppColors.shadowSm,
+                              ),
+                              padding: const EdgeInsets.all(2),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/tryimg.png',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.auto_awesome,
+                                    color: AppColors.primary,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          AnimatedSwitcher(
+                            duration: AppMotion.fast,
+                            child: Icon(
+                              selected ? item.activeIcon : item.icon,
+                              key: ValueKey(selected),
+                              size: 23,
+                              color: selected
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.66),
+                            ),
+                          ),
+                        const SizedBox(height: 3),
+                        AnimatedDefaultTextStyle(
+                          duration: AppMotion.fast,
+                          style: AppText.caption.copyWith(
+                            fontSize: 10.5,
+                            color: selected
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.66),
+                            fontWeight:
+                                selected ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                          child: Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Active indicator
+                        AnimatedContainer(
+                          duration: AppMotion.fast,
+                          curve: AppMotion.standard,
+                          margin: const EdgeInsets.only(top: 3),
+                          height: 2.5,
+                          width: selected ? 18 : 0,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
 
+}
+
+class _NavItem {
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    this.isCenter = false,
+  });
+
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isCenter;
 }
 
 
@@ -3387,12 +3686,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
                           ClipRRect(
                             borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(12)),
-                            child: Image.network(
-                              image,
-                              height: 200,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
+                            child: NetworkImageWidget(url: image, height: 200, width: double.infinity, fit: BoxFit.cover),
                           ),
                           Padding(
                             padding: const EdgeInsets.all(12.0),

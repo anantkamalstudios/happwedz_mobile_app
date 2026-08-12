@@ -1,337 +1,383 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import '../ai_chat_screen/ai_chat_screen.dart';
+import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
-import 'GenieScreen.dart';
 
 class VendorCategoriesScreen extends StatefulWidget {
-  const VendorCategoriesScreen({Key? key}) : super(key: key);
+  const VendorCategoriesScreen({super.key});
 
   @override
   State<VendorCategoriesScreen> createState() => _VendorCategoriesScreenState();
 }
 
 class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
-  bool isVenuesExpanded = false;
-  bool isPhotographersExpanded = false;
-  bool isMakeupExpanded = false;
-  bool isPlanningExpanded = false;
-  bool isVirtualPlanningExpanded = false;
-  bool isMehndiExpanded = false;
-  bool isMusicDanceExpanded = false;
-  bool isFoodExpanded=false;
-  bool isGiftExpanded=false;
-  bool isprewedshot=false;
-  bool isbridewear=false;
-  bool isgroomwear=false;
-  bool isjewellery=false;
-  bool ispandit=false;
   List<VendorCategory> categories = [];
-  Map<int, bool> expandedState = {}; // Track expanded cards
-  bool isLoading = true;
 
+  /// Expanded/collapsed state per category id.
+  final Map<int, bool> expandedState = {};
+
+  /// Subcategory ids whose services request is currently in flight.
+  final Set<int> _loadingSubcategories = {};
+
+  bool isLoading = true;
+  Object? _error;
 
   @override
   void initState() {
     super.initState();
     fetchCategories();
   }
+
   Future<void> fetchSubcategoryServices(Subcategory subcategory) async {
+    if (_loadingSubcategories.contains(subcategory.id)) return;
+    _loadingSubcategories.add(subcategory.id);
+
     try {
       final response = await http.get(
-        Uri.parse("https://happywedz.com/api/vendor-services?subCategory=${subcategory.name.toLowerCase()}"),
+        Uri.parse(
+          "https://happywedz.com/api/vendor-services?subCategory=${subcategory.name.toLowerCase()}",
+        ),
         headers: {"Accept": "application/json"},
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
+        if (!mounted) return;
         setState(() {
           subcategory.services = data; // assign API data
         });
-        print(response);
-        print(response.body);
-        print(data);
       } else {
-        print("Error fetching ${subcategory.name} services: ${response.statusCode}");
+        debugPrint(
+          "Error fetching ${subcategory.name} services: ${response.statusCode}",
+        );
       }
     } catch (e) {
-      print("API Error for ${subcategory.name}: $e");
+      debugPrint("API Error for ${subcategory.name}: $e");
+    } finally {
+      _loadingSubcategories.remove(subcategory.id);
     }
   }
 
   Future<void> fetchCategories() async {
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+        _error = null;
+      });
+    }
+
     try {
       final response = await http.get(
-        Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
+        Uri.parse(
+          "https://happywedz.com/api/vendor-types/with-subcategories/all",
+        ),
         headers: {"Accept": "application/json"},
       );
 
-      print("Status Code: ${response.statusCode}");
-      print("Body: ${response.body}");
-
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
+        if (!mounted) return;
         setState(() {
           categories = data.map((e) => VendorCategory.fromJson(e)).toList();
-          for (var cat in categories) {
-            expandedState[cat.id] = false;
+          for (final cat in categories) {
+            expandedState.putIfAbsent(cat.id, () => false);
           }
+          isLoading = false;
         });
-        print("Status Code: ${response.statusCode}");
-        print("Body: ${response.body}");
       } else {
-        print("Error: ${response.statusCode}");
+        if (!mounted) return;
+        setState(() {
+          _error = 'HTTP ${response.statusCode}';
+          isLoading = false;
+        });
       }
     } catch (e) {
-      print("API Error: $e");
+      debugPrint("API Error: $e");
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        isLoading = false;
+      });
     }
   }
+
+  Future<void> _toggleCategory(VendorCategory cat) async {
+    final nowExpanded = !(expandedState[cat.id] ?? false);
+    setState(() => expandedState[cat.id] = nowExpanded);
+
+    if (!nowExpanded) return;
+
+    for (final sub in cat.subcategories) {
+      if (sub.services == null) {
+        await fetchSubcategoryServices(sub);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-
-          // ---------------------- MAIN SCREEN UI ----------------------
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFF69B4),
-                  Color(0xFFFFB6C1),
-                  Colors.white,
-                ],
-                stops: [0.0, 0.3, 0.6],
-              ),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-
-                  // ------------------ HEADER ------------------
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: const Center(
-                      child: Text(
-                        'Vendor Categories',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+      backgroundColor: AppColors.background,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // ------------------ HEADER ------------------
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                child: Text(
+                  'Vendor Categories',
+                  textAlign: TextAlign.center,
+                  style: AppText.pageTitle.copyWith(
+                    color: AppColors.textOnPrimary,
                   ),
-
-                  // ------------------ CATEGORY LIST ------------------
-                  Expanded(
-                    child: categories.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        children: categories.map((cat) {
-                          return Column(
-                            children: [
-                              _buildCategoryCard(
-                                title: cat.name,
-                                subtitle: cat.description ?? "",
-                                backgroundColor: const Color(0xFFE8D5E8),
-                                isExpanded: expandedState[cat.id] ?? false,
-                                onTap: () async {
-                                  setState(() {
-                                    expandedState[cat.id] =
-                                    !(expandedState[cat.id] ?? false);
-                                  });
-
-                                  for (var sub in cat.subcategories) {
-                                    if (sub.services == null) {
-                                      await fetchSubcategoryServices(sub);
-                                    }
-                                  }
-                                },
-                                image: cat.heroImage,
-                                subcategories:
-                                cat.subcategories.map((s) => s.name).toList(),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+
+              // ------------------ CATEGORY LIST ------------------
+              Expanded(child: _buildBody()),
+            ],
           ),
-
-          // ---------------------- FLOATING GENIE BUTTON ----------------------
-
-
-        ],
+        ),
       ),
-
     );
   }
 
+  Widget _buildBody() {
+    if (isLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Skeletons.listCards(count: 5, height: 108),
+      );
+    }
 
-  Widget _buildCategoryCard({
-    required String title,
-    required String subtitle,
-    required Color backgroundColor,
-    required bool isExpanded,
-    required VoidCallback onTap,
-    required String image,
-    required List<String> subcategories, // List of subcategory names
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    if (_error != null && categories.isEmpty) {
+      return ErrorState(error: _error, onRetry: fetchCategories);
+    }
+
+    if (categories.isEmpty) {
+      return EmptyState(
+        title: 'No categories yet',
+        message: 'Vendor categories will appear here once they are published.',
+        icon: Icons.storefront_outlined,
+        actionLabel: 'Refresh',
+        onAction: fetchCategories,
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: fetchCategories,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.xs,
+          AppSpacing.lg,
+          AppSpacing.xxxl,
+        ),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          return FadeSlideIn(
+            delay: AppMotion.staggerFor(index),
+            child: _CategoryCard(
+              title: cat.name,
+              subtitle: cat.description ?? '',
+              image: cat.heroImage,
+              isExpanded: expandedState[cat.id] ?? false,
+              onTap: () => _toggleCategory(cat),
+              subcategories: cat.subcategories.map((s) => s.name).toList(),
+              onSubcategoryTap: (name) {
+                Navigator.push(
+                  context,
+                  AnimatedPageRoute(
+                    // Pass the exact subcategory name as returned from API
+                    page: VendorServicesScreen(subcategoryName: name),
+                    style: PageTransitionStyle.slideRight,
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
+    );
+  }
+}
+
+/// A single expandable vendor-category tile.
+class _CategoryCard extends StatelessWidget {
+  const _CategoryCard({
+    required this.title,
+    required this.subtitle,
+    required this.image,
+    required this.isExpanded,
+    required this.onTap,
+    required this.subcategories,
+    required this.onSubcategoryTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String image;
+  final bool isExpanded;
+  final VoidCallback onTap;
+  final List<String> subcategories;
+  final ValueChanged<String> onSubcategoryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: EdgeInsets.zero,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
+          Pressable(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppRadii.rLg,
+            withRipple: true,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                title,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              color: Colors.black54,
-                              size: 20,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
                         Text(
-                          subtitle,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w400,
-                          ),
+                          title,
+                          style: AppText.sectionTitle,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
+                        if (subtitle.trim().isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            subtitle,
+                            style: AppText.cardSubtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Container(
-                    width: 80,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        "https://happywedz.com/api/$image",
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.broken_image, color: Colors.grey),
-                      ),
+                  const SizedBox(width: AppSpacing.md),
+                  NetworkImageWidget(
+                    // Existing image URL shape preserved.
+                    url: "https://happywedz.com/api/$image",
+                    width: 78,
+                    height: 62,
+                    radius: AppRadii.md,
+                    memCacheWidth: 240,
+                    backgroundColor: AppColors.pinkSurface,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: AppMotion.fast,
+                    curve: AppMotion.standard,
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.textSecondary,
+                      size: 22,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          if (isExpanded) ...[
-            const Divider(height: 1, color: Colors.grey),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                children: subcategories.map((subcategory) {
-                  if (subcategory.isEmpty) return const SizedBox(height: 8);
 
-                  return InkWell(
-                    onTap: () {
-                      // Pass the exact subcategory name as returned from API
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => VendorServicesScreen(
-                            subcategoryName: subcategory, // exact casing & spaces
+          AppExpandable(
+            expanded: isExpanded,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Divider(height: 1, color: AppColors.divider),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final sub in subcategories)
+                        if (sub.trim().isNotEmpty)
+                          _SubcategoryRow(
+                            label: sub,
+                            highlighted: sub == 'View all Venues',
+                            onTap: () => onSubcategoryTap(sub),
                           ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                      child: Text(
-                        subcategory,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: subcategory == 'View all Venues'
-                              ? const Color(0xFFE91E63)
-                              : Colors.black54,
-                          fontWeight: subcategory == 'View all Venues'
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
+}
 
+class _SubcategoryRow extends StatelessWidget {
+  const _SubcategoryRow({
+    required this.label,
+    required this.highlighted,
+    required this.onTap,
+  });
 
+  final String label;
+  final bool highlighted;
+  final VoidCallback onTap;
 
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      borderRadius: AppRadii.rSm,
+      withRipple: true,
+      scale: 0.99,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.md,
+          horizontal: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: highlighted
+                    ? AppText.bodyStrong.copyWith(color: AppColors.primary)
+                    : AppText.body.copyWith(color: AppColors.textSecondary),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: highlighted ? AppColors.primary : AppColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class VendorCategory {
@@ -367,17 +413,9 @@ class Subcategory {
   final String name;
   List<dynamic>? services; // This will hold API response for this subcategory
 
-  Subcategory({
-    required this.id,
-    required this.name,
-    this.services,
-  });
+  Subcategory({required this.id, required this.name, this.services});
 
   factory Subcategory.fromJson(Map<String, dynamic> json) {
-    return Subcategory(
-      id: json['id'],
-      name: json['name'],
-    );
+    return Subcategory(id: json['id'], name: json['name']);
   }
 }
-

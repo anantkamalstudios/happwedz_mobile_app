@@ -1350,7 +1350,7 @@ class _PrivacyPopupDialogState extends State<PrivacyPopupDialog> {
 
 
 // Color Constants
-class AppColors {
+class DsColors {
   static const Color primaryPink = Color(0xFFE91E63);
   static const Color darkPink = Color(0xFFC2185B);
   static const Color lightPink = Color(0xFFFCE4EC);
@@ -1378,7 +1378,7 @@ class AppColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [AppColors.primaryPink, AppColors.darkPink],
+// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -1424,7 +1424,7 @@ class AppColors {
 // //                         style: TextStyle(
 // //                           fontSize: 24,
 // //                           fontWeight: FontWeight.bold,
-// //                           color: AppColors.textDark,
+// //                           color: DsColors.textDark,
 // //                         ),
 // //                       ),
 // //                     ),
@@ -1435,7 +1435,7 @@ class AppColors {
 // //                         'Instantly try on makeup looks virtually before you order',
 // //                         style: TextStyle(
 // //                           fontSize: 14,
-// //                           color: AppColors.textLight,
+// //                           color: DsColors.textLight,
 // //                         ),
 // //                         textAlign: TextAlign.center,
 // //                       ),
@@ -1489,7 +1489,7 @@ class AppColors {
 // //                               style: TextStyle(
 // //                                 fontSize: 12,
 // //                                 fontWeight: FontWeight.w500,
-// //                                 color: AppColors.textDark,
+// //                                 color: DsColors.textDark,
 // //                               ),
 // //                             ),
 // //                           ),
@@ -1509,7 +1509,7 @@ class AppColors {
 // //                             child: ElevatedButton(
 // //                               onPressed: () {},
 // //                               style: ElevatedButton.styleFrom(
-// //                                 backgroundColor: AppColors.primaryPink,
+// //                                 backgroundColor: DsColors.primaryPink,
 // //                                 shape: RoundedRectangleBorder(
 // //                                   borderRadius: BorderRadius.circular(25),
 // //                                 ),
@@ -1540,7 +1540,7 @@ class AppColors {
 // //                                 );
 // //                               },
 // //                               style: ElevatedButton.styleFrom(
-// //                                 backgroundColor: AppColors.primaryPink,
+// //                                 backgroundColor: DsColors.primaryPink,
 // //                                 shape: RoundedRectangleBorder(
 // //                                   borderRadius: BorderRadius.circular(25),
 // //                                 ),
@@ -1587,7 +1587,7 @@ class AppColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [AppColors.primaryPink, AppColors.darkPink],
+// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -1630,7 +1630,7 @@ class AppColors {
 // //                       style: TextStyle(
 // //                         fontSize: 24,
 // //                         fontWeight: FontWeight.bold,
-// //                         color: AppColors.textDark,
+// //                         color: DsColors.textDark,
 // //                       ),
 // //                     ),
 // //                     const SizedBox(height: 24),
@@ -1671,7 +1671,7 @@ class AppColors {
 // //                           );
 // //                         },
 // //                         style: ElevatedButton.styleFrom(
-// //                           backgroundColor: AppColors.primaryPink,
+// //                           backgroundColor: DsColors.primaryPink,
 // //                           shape: RoundedRectangleBorder(
 // //                             borderRadius: BorderRadius.circular(25),
 // //                           ),
@@ -1728,7 +1728,7 @@ class AppColors {
 // //             text,
 // //             style: const TextStyle(
 // //               fontSize: 16,
-// //               color: AppColors.textDark,
+// //               color: DsColors.textDark,
 // //               fontWeight: FontWeight.w400,
 // //             ),
 // //           ),
@@ -1760,7 +1760,7 @@ class AppColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [AppColors.primaryPink, AppColors.darkPink],
+// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -1805,7 +1805,7 @@ class AppColors {
 // //                         color: Colors.white,
 // //                         borderRadius: BorderRadius.circular(20),
 // //                         border: Border.all(
-// //                           color: AppColors.primaryPink.withOpacity(0.3),
+// //                           color: DsColors.primaryPink.withOpacity(0.3),
 // //                           width: 2,
 // //                         ),
 // //                         boxShadow: [
@@ -1831,14 +1831,14 @@ class AppColors {
 // //                             Icon(
 // //                               Icons.person_outline,
 // //                               size: 80,
-// //                               color: AppColors.primaryPink.withOpacity(0.3),
+// //                               color: DsColors.primaryPink.withOpacity(0.3),
 // //                             ),
 // //                             const SizedBox(height: 16),
 // //                             const Text(
 // //                               'Upload your photo',
 // //                               style: TextStyle(
 // //                                 fontSize: 16,
-// //                                 color: AppColors.textLight,
+// //                                 color: DsColors.textLight,
 // //                               ),
 // //                             ),
 // //                           ],
@@ -1860,7 +1860,7 @@ class AppColors {
 // //                           style: TextStyle(
 // //                             fontSize: 14,
 // //                             fontWeight: FontWeight.w500,
-// //                             color: AppColors.textDark,
+// //                             color: DsColors.textDark,
 // //                           ),
 // //                         ),
 // //                         const SizedBox(height: 12),
@@ -1885,7 +1885,7 @@ class AppColors {
 // //                   Container(
 // //                     padding: const EdgeInsets.all(24),
 // //                     decoration: BoxDecoration(
-// //                       color: AppColors.lightPink,
+// //                       color: DsColors.lightPink,
 // //                       borderRadius: const BorderRadius.only(
 // //                         topLeft: Radius.circular(30),
 // //                         topRight: Radius.circular(30),
@@ -1901,7 +1901,7 @@ class AppColors {
 // //                               });
 // //                             },
 // //                             style: ElevatedButton.styleFrom(
-// //                               backgroundColor: AppColors.primaryPink,
+// //                               backgroundColor: DsColors.primaryPink,
 // //                               padding: const EdgeInsets.symmetric(vertical: 14),
 // //                               shape: RoundedRectangleBorder(
 // //                                 borderRadius: BorderRadius.circular(25),
@@ -1932,7 +1932,7 @@ class AppColors {
 // //                             style: OutlinedButton.styleFrom(
 // //                               padding: const EdgeInsets.symmetric(vertical: 14),
 // //                               side: const BorderSide(
-// //                                 color: AppColors.primaryPink,
+// //                                 color: DsColors.primaryPink,
 // //                                 width: 2,
 // //                               ),
 // //                               shape: RoundedRectangleBorder(
@@ -1944,7 +1944,7 @@ class AppColors {
 // //                               style: TextStyle(
 // //                                 fontSize: 15,
 // //                                 fontWeight: FontWeight.w600,
-// //                                 color: AppColors.primaryPink,
+// //                                 color: DsColors.primaryPink,
 // //                               ),
 // //                             ),
 // //                           ),
@@ -1956,7 +1956,7 @@ class AppColors {
 // //                             style: OutlinedButton.styleFrom(
 // //                               padding: const EdgeInsets.symmetric(vertical: 14),
 // //                               side: const BorderSide(
-// //                                 color: AppColors.primaryPink,
+// //                                 color: DsColors.primaryPink,
 // //                                 width: 2,
 // //                               ),
 // //                               shape: RoundedRectangleBorder(
@@ -1968,7 +1968,7 @@ class AppColors {
 // //                               style: TextStyle(
 // //                                 fontSize: 13,
 // //                                 fontWeight: FontWeight.w600,
-// //                                 color: AppColors.primaryPink,
+// //                                 color: DsColors.primaryPink,
 // //                               ),
 // //                             ),
 // //                           ),
@@ -1997,7 +1997,7 @@ class AppColors {
 // //               color: color,
 // //               shape: BoxShape.circle,
 // //               border: Border.all(
-// //                 color: AppColors.primaryPink.withOpacity(0.3),
+// //                 color: DsColors.primaryPink.withOpacity(0.3),
 // //                 width: 2,
 // //               ),
 // //               boxShadow: [
@@ -2014,7 +2014,7 @@ class AppColors {
 // //             label,
 // //             style: const TextStyle(
 // //               fontSize: 10,
-// //               color: AppColors.textLight,
+// //               color: DsColors.textLight,
 // //             ),
 // //           ),
 // //         ],
@@ -2038,7 +2038,7 @@ class AppColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [AppColors.primaryPink, AppColors.darkPink],
+// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -2233,7 +2233,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
               //   width: double.infinity,
               //   decoration: BoxDecoration(
               //     gradient: LinearGradient(
-              //       colors: [AppColors.primaryPink, AppColors.darkPink],
+              //       colors: [DsColors.primaryPink, DsColors.darkPink],
               //       begin: Alignment.topLeft,
               //       end: Alignment.bottomRight,
               //     ),
@@ -2279,7 +2279,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                       //     style: TextStyle(
                       //       fontSize: 24,
                       //       fontWeight: FontWeight.bold,
-                      //       color: AppColors.textDark,
+                      //       color: DsColors.textDark,
                       //     ),
                       //   ),
                       // ),
@@ -2290,7 +2290,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                       //     'Instantly try on makeup looks virtually before you order',
                       //     style: TextStyle(
                       //       fontSize: 14,
-                      //       color: AppColors.textLight,
+                      //       color: DsColors.textLight,
                       //     ),
                       //     textAlign: TextAlign.center,
                       //   ),
@@ -2344,7 +2344,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                           //       style: TextStyle(
                           //         fontSize: 12,
                           //         fontWeight: FontWeight.w500,
-                          //         color: AppColors.textDark,
+                          //         color: DsColors.textDark,
                           //       ),
                           //     ),
                           //   ),
@@ -2360,7 +2360,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
+                            color: DsColors.textDark,
                           ),
                         ),
                       ),
@@ -2371,7 +2371,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                           'Instantly try on makeup looks virtually before you order',
                           style: TextStyle(
                             fontSize: 14,
-                            color: AppColors.textLight,
+                            color: DsColors.textLight,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -2388,7 +2388,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                               child: ElevatedButton(
                                 onPressed: _pickFromCamera,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryPink,
+                                  backgroundColor: DsColors.primaryPink,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(25),
                                   ),
@@ -2420,7 +2420,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                                 // },
                                 onPressed: _pickFromGallery,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryPink,
+                                  backgroundColor: DsColors.primaryPink,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(25),
                                   ),

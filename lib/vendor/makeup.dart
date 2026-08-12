@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/core.dart';
+
 // class MakeupScreen extends StatelessWidget {
 //   const MakeupScreen({Key? key}) : super(key: key);
 //
@@ -341,7 +343,7 @@ class _MakeupScreenState extends State<MakeupScreen> {
               _buildSearchBar(),
               Expanded(
                 child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const AppLoader()
                     : SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -732,12 +734,7 @@ class _BridalDetailsScreenState extends State<BridalDetailsScreen> {
                     },
                     itemCount: vendor.images.length,
                     itemBuilder: (context, index) {
-                      return Image.network(
-                        vendor.images[index],
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Center(child: Icon(Icons.photo_camera, size: 50, color: Colors.white54)),
-                      );
+                      return NetworkImageWidget(url: vendor.images[index], fit: BoxFit.cover);
                     },
                   ),
                   Positioned(

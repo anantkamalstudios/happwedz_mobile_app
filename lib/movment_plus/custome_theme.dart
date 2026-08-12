@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class AppTheme {
+class MpTheme {
   static const Color pink = Color(0xFFFF69B4);
   static Color primaryColor = Color(0xFFC31162);
   static const Color lightPink = Color(0xFFFFB6C1);

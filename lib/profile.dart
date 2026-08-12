@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'authservice.dart';
+import 'core/core.dart';
 import 'guestlist/guestlist.dart';
 import 'main.dart';
 
@@ -147,7 +147,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   // CITY SEARCH
   // -----------------------------------------------------
   Future<void> _showCityPicker() async {
+    if (_isLoadingCities) return;
     if (_cities.isEmpty) await _loadCities();
+    if (!mounted) return;
 
     final selected = await showSearch<String>(
       context: context,
@@ -229,9 +231,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     });
 
     if (mobileError != null || venueError != null || weddingDateError != null) {
-      _showSnackBar("Please fix the errors before saving");
+      AppSnackbar.warning(context, 'Please fix the highlighted fields.');
       return;
     }
+
+    FocusScope.of(context).unfocus();
 
     final loggedIn = await ensureLoggedIn(context);
     if (!loggedIn) return;
@@ -274,7 +278,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           await prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
           await prefs.setString('wedding_date', user['weddingDate'] ?? '');
 
-          _showSnackBar('Profile updated successfully ✔️');
+          if (!mounted) return;
+          await SuccessPopup.show(
+            context,
+            title: 'Profile updated',
+            message: 'Your wedding details have been saved.',
+          );
 
           // ✅ CHECK PROFILE COMPLETION
           final complete = await _isProfileComplete();
@@ -282,21 +291,42 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           if (complete && mounted) {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (_) => const GuestListDashboard()),
-                  (route) => false,
+              AnimatedPageRoute(
+                page: const GuestListDashboard(),
+                style: PageTransitionStyle.fade,
+              ),
+              (route) => false,
             );
           }
-        }
-        else {
-          _showSnackBar('Update failed');
+        } else {
+          if (!mounted) return;
+          await ErrorPopup.show(
+            context,
+            title: 'Update failed',
+            message:
+                "We couldn't save your changes. Please check your details and try again.",
+            onRetry: _updateUserProfile,
+          );
         }
       } else {
-        _showSnackBar('Server error ${response.statusCode}');
+        if (!mounted) return;
+        await ErrorPopup.show(
+          context,
+          title: AppErrorMessage.serverTitle,
+          message: AppErrorMessage.serverBody,
+          onRetry: _updateUserProfile,
+        );
       }
     } catch (e) {
-      _showSnackBar('Error: $e');
+      if (!mounted) return;
+      await ErrorPopup.show(
+        context,
+        title: AppErrorMessage.titleFor(e),
+        message: AppErrorMessage.bodyFor(e),
+        onRetry: _updateUserProfile,
+      );
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -316,9 +346,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   void _showSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.pink),
-    );
+    if (mounted) AppSnackbar.info(context, msg);
   }
 
   // -----------------------------------------------------
@@ -327,255 +355,259 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
+      // Let the scroll view handle the keyboard rather than resizing the stack.
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
+          // Brand wash behind the header (existing gradient colors).
           Container(
-            height: 260,
+            height: 240,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFFF4F9A), Color(0xFFFFB7D5)],
+                colors: [AppColors.rose, AppColors.lightPink],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
             ),
           ),
-          Positioned(
-            top: 16,
-            left: 16,
-            child: SafeArea(
-              child: InkWell(
-                onTap: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const WeddingHomePage()),
-                        (route) => false,
-                  );
-                },
-                borderRadius: BorderRadius.circular(30),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    shape: BoxShape.circle,
+
+          SafeArea(
+            child: Column(
+              children: [
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.sm,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    0,
                   ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new,
-                    color: Colors.white,
-                    size: 20,
+                  child: Row(
+                    children: [
+                      AppBackButton(
+                        color: AppColors.textOnPrimary,
+                        background: Colors.white.withValues(alpha: 0.25),
+                        onTap: () {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            AnimatedPageRoute(
+                              page: const WeddingHomePage(),
+                              style: PageTransitionStyle.fade,
+                            ),
+                            (route) => false,
+                          );
+                        },
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Profile',
+                          textAlign: TextAlign.center,
+                          style: AppText.pageTitle.copyWith(
+                            color: AppColors.textOnPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 44),
+                    ],
                   ),
                 ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              physics: BouncingScrollPhysics(),
-              child: Column(
-                children: [
 
-                  const SizedBox(height: 20),
-
-                  // PROFILE CARD
-                  Container(
-                    margin: EdgeInsets.symmetric(horizontal: 16),
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 10,
-                            offset: Offset(0, 4))
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 43,
-                          backgroundImage: userPhoto.isNotEmpty
-                              ? NetworkImage(userPhoto)
-                              : NetworkImage(
-                              "https://www.wedmegood.com/images/placeholder-profile.png"),
-                        ),
-                        SizedBox(width: 20),
-                        Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(userName.isNotEmpty ? userName : "Your Name",
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700)),
-                                Text(
-                                  userEmail.isNotEmpty
-                                      ? userEmail
-                                      : "example@mail.com",
-                                  style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      color: Colors.grey[700]),
-                                )
-                              ]),
-                        )
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  // SETTINGS CONTAINER
-                  Container(
-                    margin: EdgeInsets.symmetric(horizontal: 16),
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 15,
-                            offset: Offset(0, 5))
-                      ],
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      AppSpacing.xxxl +
+                          MediaQuery.of(context).viewInsets.bottom,
                     ),
                     child: Column(
                       children: [
-                        _buildField(
-                          label: "Mobile Number",
-                          controller: mobileController,
-                          icon: Icons.phone_android,
-                          keyboard: TextInputType.phone,
-                          error: mobileError,
+                        // PROFILE CARD
+                        FadeSlideIn(
+                          child: AppCard(
+                            padding: const EdgeInsets.all(AppSpacing.xl),
+                            child: Row(
+                              children: [
+                                AppAvatar(
+                                  url: userPhoto,
+                                  name: userName,
+                                  size: 78,
+                                ),
+                                const SizedBox(width: AppSpacing.lg),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        userName.isNotEmpty
+                                            ? userName
+                                            : 'Your Name',
+                                        style: AppText.sectionTitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: AppSpacing.xxs),
+                                      Text(
+                                        userEmail.isNotEmpty
+                                            ? userEmail
+                                            : 'example@mail.com',
+                                        style: AppText.cardSubtitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
 
-                        SizedBox(height: 20),
+                        const SizedBox(height: AppSpacing.xl),
 
-                        _buildField(
-                          label: "Wedding Venue (City)",
-                          controller: weddingVenueController,
-                          icon: Icons.location_on_outlined,
-                          readOnly: true,
-                          onTap: _showCityPicker,
-                          error: venueError,
+                        // WEDDING DETAILS
+                        FadeSlideIn(
+                          delay: AppMotion.stagger,
+                          child: AppCard(
+                            padding: const EdgeInsets.all(AppSpacing.xl),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'Wedding details',
+                                  style: AppText.sectionTitle,
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+
+                                AppTextField(
+                                  label: 'Mobile Number',
+                                  hint: '10-digit mobile number',
+                                  controller: mobileController,
+                                  prefixIcon: Icons.phone_android_rounded,
+                                  keyboardType: TextInputType.phone,
+                                  textInputAction: TextInputAction.done,
+                                  errorText: mobileError,
+                                  required: true,
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+
+                                AppTextField(
+                                  label: 'Wedding Venue (City)',
+                                  hint: 'Select a city',
+                                  controller: weddingVenueController,
+                                  prefixIcon: Icons.location_on_outlined,
+                                  suffixIcon: Icons.search_rounded,
+                                  readOnly: true,
+                                  onTap: _showCityPicker,
+                                  onSuffixTap: _showCityPicker,
+                                  errorText: venueError,
+                                  required: true,
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+
+                                AppTextField(
+                                  label: 'Wedding Date',
+                                  hint: 'Pick your date',
+                                  controller: weddingDateController,
+                                  prefixIcon: Icons.calendar_today_outlined,
+                                  suffixIcon: Icons.edit_calendar_outlined,
+                                  readOnly: true,
+                                  onTap: _pickWeddingDate,
+                                  onSuffixTap: _pickWeddingDate,
+                                  errorText: weddingDateError,
+                                  required: true,
+                                ),
+
+                                const SizedBox(height: AppSpacing.xxl),
+
+                                PremiumButton(
+                                  label: 'Save Changes',
+                                  icon: Icons.check_rounded,
+                                  isLoading: _isSaving,
+                                  onPressed: _updateUserProfile,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
 
-                        SizedBox(height: 20),
+                        const SizedBox(height: AppSpacing.lg),
 
-                        _buildField(
-                          label: "Wedding Date",
-                          controller: weddingDateController,
-                          icon: Icons.calendar_today_outlined,
-                          readOnly: true,
-                          onTap: _pickWeddingDate,
-                          error: weddingDateError,
-                        ),
-
-                        const SizedBox(height: 30),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isSaving ? null : _updateUserProfile,
-                            style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.all(15),
-                              backgroundColor: _isSaving
-                                  ? Colors.grey
-                                  : Colors.pinkAccent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                        // LOGOUT
+                        FadeSlideIn(
+                          delay: AppMotion.stagger * 2,
+                          child: AppCard(
+                            padding: EdgeInsets.zero,
+                            onTap: _confirmLogout,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xl,
+                                vertical: AppSpacing.lg,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.error.withValues(
+                                        alpha: 0.10,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.logout_rounded,
+                                      color: AppColors.error,
+                                      size: 19,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: Text(
+                                      'Logout',
+                                      style: AppText.bodyStrong.copyWith(
+                                        color: AppColors.error,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: AppColors.textTertiary,
+                                    size: 20,
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Text(
-                              _isSaving ? "Saving..." : "Save Changes",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white),
-                            ),
                           ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        Divider(),
-
-                        ListTile(
-                          leading: Icon(Icons.logout, color: Colors.redAccent),
-                          title: Text(
-                            "Logout",
-                            style: GoogleFonts.poppins(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.red),
-                          ),
-                          onTap: _logout,
                         ),
                       ],
                     ),
                   ),
-
-                  SizedBox(height: 40),
-                ],
-              ),
+                ),
+              ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  // -----------------------------------------------------
-  // BEAUTIFUL INPUT FIELD WITH ERROR
-  // -----------------------------------------------------
-  Widget _buildField({
-    required String label,
-    required TextEditingController controller,
-    required IconData icon,
-    String? error,
-    TextInputType? keyboard,
-    bool readOnly = false,
-    VoidCallback? onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800])),
-
-        const SizedBox(height: 6),
-
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(12),
-            border: error != null
-                ? Border.all(color: Colors.redAccent)
-                : null,
-          ),
-          child: TextField(
-            controller: controller,
-            readOnly: readOnly,
-            keyboardType: keyboard,
-            onTap: onTap,
-            decoration: InputDecoration(
-              prefixIcon: Icon(icon, color: Colors.pinkAccent),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-        ),
-
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 4),
-            child: Text(error,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
-          ),
-      ],
+  /// Asks before signing out, then runs the unchanged [_logout] flow.
+  Future<void> _confirmLogout() async {
+    final confirmed = await ConfirmPopup.show(
+      context,
+      title: 'Log out?',
+      message: 'You will need to sign in again to access your bookings.',
+      confirmLabel: 'Log out',
+      icon: Icons.logout_rounded,
+      danger: true,
     );
+    if (confirmed) await _logout();
   }
 }
 

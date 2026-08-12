@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
@@ -108,9 +110,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
 
     await prefs.setStringList("draftList", draftList);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Draft saved successfully!')),
-    );
+    AppSnackbar.info(context, '✅ Draft saved successfully!');
   }
 
 
@@ -167,15 +167,13 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
         selectedIndex = null;
       });
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Nothing to undo')));
+      AppSnackbar.info(context, 'Nothing to undo');
     }
   }
 
   void _applyToSelected(void Function(TextInfo t) fn) {
     if (selectedIndex == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Select a text first')));
+      AppSnackbar.info(context, 'Select a text first');
       return;
     }
     _saveForUndo();
@@ -250,9 +248,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
         }
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Page '$name' deleted 🗑️")),
-      );
+      AppSnackbar.info(context, "Page '$name' deleted 🗑️");
     }
   }
 
@@ -358,17 +354,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
             _buildPageTabs(),
             Expanded(
               child: widget.templateImage.startsWith('http')
-                  ? Image.network(
-                widget.templateImage,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.image_not_supported),
-                  );
-                },
-              )
+                  ? NetworkImageWidget(url: widget.templateImage, fit: BoxFit.cover, width: double.infinity)
                   : Image.asset(
                 widget.templateImage,
                 fit: BoxFit.cover,
@@ -417,18 +403,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
           child: Stack(
             children: [
               widget.templateImage.startsWith('http')
-                  ? Image.network(
-                widget.templateImage,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.image_not_supported),
-                  );
-                },
-              )
+                  ? NetworkImageWidget(url: widget.templateImage, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
                   : Image.asset(
                 widget.templateImage,
                 fit: BoxFit.cover,
@@ -439,18 +414,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
                 children: [
                   // Template image
                   widget.templateImage.startsWith('http')
-                      ? Image.network(
-                    widget.templateImage,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.image_not_supported),
-                      );
-                    },
-                  )
+                      ? NetworkImageWidget(url: widget.templateImage, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
                       : Image.asset(
                     widget.templateImage,
                     fit: BoxFit.cover,
@@ -647,8 +611,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
 
   void _showSizeSlider() {
     if (selectedIndex == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Select a text first')));
+      AppSnackbar.info(context, 'Select a text first');
       return;
     }
     showModalBottomSheet(
@@ -715,9 +678,7 @@ class _CustomizeCardScreenState extends State<CustomizeCardScreen> {
         currentPage = newPage;
       });
     } else if (pages.containsKey(newPage)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Page name already exists ⚠️")),
-      );
+      AppSnackbar.info(context, "Page name already exists ⚠️");
     }
   }
 

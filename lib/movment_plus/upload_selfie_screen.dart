@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'custome_theme.dart';
@@ -243,9 +245,7 @@ class MomentCaptureSelfie extends StatelessWidget {
       );
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Unable to open camera")),
-      );
+      AppSnackbar.info(context, "Unable to open camera");
     }
   }
 
@@ -297,9 +297,7 @@ Future<void> pickSelfie({
 
     // TODO: upload / save / pass to next screen
   } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Failed to pick image")),
-    );
+    AppSnackbar.info(context, "Failed to pick image");
   }
 }
 class MomentUploadSelfie extends StatelessWidget {
@@ -340,7 +338,7 @@ Widget _baseScreen(
   return Scaffold(
     body: Container(
       decoration:
-      const BoxDecoration(gradient: AppTheme.backgroundGradient),
+      const BoxDecoration(gradient: MpTheme.backgroundGradient),
       child: SafeArea(
         child: Column(
           children: [
@@ -376,7 +374,7 @@ Widget _baseScreen(
                 height: 90,
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: AppTheme.premiumCard(),
+                decoration: MpTheme.premiumCard(),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -425,7 +423,7 @@ Widget _baseScreen(
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 20,
-                                    color: AppTheme.primaryColor, // #C31162
+                                    color: MpTheme.primaryColor, // #C31162
                                   ),
                                 ),
                               ],

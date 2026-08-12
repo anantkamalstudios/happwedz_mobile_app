@@ -171,7 +171,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                         height: 90,
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: AppTheme.premiumCard(),
+                        decoration: MpTheme.premiumCard(),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -219,7 +219,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 20,
-                                            color: AppTheme
+                                            color: MpTheme
                                                 .primaryColor, // #C31162
                                           ),
                                         ),
@@ -295,7 +295,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 18,
-                              color: AppTheme.primaryColor,
+                              color: MpTheme.primaryColor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -493,7 +493,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                           "Smart photo sharing powered by AI",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor
+                            color: MpTheme.primaryColor
                           ),
                         ),
                         const SizedBox(height: 12),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:google_fonts/google_fonts.dart';
 // import 'package:image_gallery_saver/image_gallery_saver.dart';
@@ -1159,12 +1161,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
             child: OutlinedButton(
               onPressed: () {
                 setState(() => isDraft = true);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Draft saved successfully!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                AppSnackbar.success(context, 'Draft saved successfully!');
               },
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.white),
@@ -1293,12 +1290,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
               // await ImageGallerySaver.saveImage(image);
               Navigator.of(context).pop();
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Card saved to gallery!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              AppSnackbar.success(context, 'Card saved to gallery!');
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF69B4),

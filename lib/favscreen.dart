@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'core/core.dart';
+
 class FavouritesScreen extends StatefulWidget {
-  const FavouritesScreen({Key? key}) : super(key: key);
+  const FavouritesScreen({super.key});
 
   @override
   State<FavouritesScreen> createState() => _FavouritesScreenState();
@@ -9,17 +11,22 @@ class FavouritesScreen extends StatefulWidget {
 
 class _FavouritesScreenState extends State<FavouritesScreen>
     with SingleTickerProviderStateMixin {
+  static const List<String> _tabs = ['Photos', 'Ideas', 'Real Weddings'];
+
   late TabController _tabController;
   int _selectedIndex = 0;
+
+  /// Currently applied sort/filter, shown in the app-bar action.
+  String _filter = 'All';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
-      setState(() {
-        _selectedIndex = _tabController.index;
-      });
+      if (_tabController.index != _selectedIndex) {
+        setState(() => _selectedIndex = _tabController.index);
+      }
     });
   }
 
@@ -32,222 +39,86 @@ class _FavouritesScreenState extends State<FavouritesScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios,
-              color: Colors.black54,
-              size: 18,
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-        title: const Text(
-          'Favourites',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        leadingWidth: 56,
+        leading: const AppBackButton(),
+        title: Text('Favourites', style: AppText.pageTitle),
         centerTitle: true,
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'By ',
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 16,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    // Show filter options
-                    _showFilterBottomSheet(context);
-                  },
-                  child: const Row(
-                    children: [
-                      Text(
-                        'All',
-                        style: TextStyle(
-                          color: Colors.pink,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.pink,
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Custom Tab Bar
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _buildTabItem('Photos', 0),
-                _buildTabItem('Ideas', 1),
-                _buildTabItem('Real Weddings', 2),
-              ],
-            ),
-          ),
-
-          // Add More Button
-          Container(
-            margin: const EdgeInsets.all(16),
-            child: GestureDetector(
-              onTap: () {
-                _showAddMoreOptions(context);
-              },
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.md),
+            child: Pressable(
+              onTap: () => _showFilterBottomSheet(context),
+              borderRadius: AppRadii.rPill,
               child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.orange,
-                    width: 1.5,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
                 ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.pinkSurface,
+                  borderRadius: AppRadii.rPill,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.add,
-                      color: Colors.orange,
-                      size: 20,
-                    ),
-                    SizedBox(width: 4),
                     Text(
-                      'Add More',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      _filter,
+                      style: AppText.buttonSm.copyWith(
+                        color: AppColors.primary,
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.orange,
-                      size: 14,
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.primary,
+                      size: 18,
                     ),
                   ],
                 ),
               ),
             ),
           ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Tab bar with an animated indicator.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Row(
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  _buildTabItem(_tabs[i], i),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.divider),
 
-          // Empty State Content
+          // Add More
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: PremiumButton.outlined(
+              label: 'Add More',
+              icon: Icons.add_rounded,
+              onPressed: () => _showAddMoreOptions(context),
+            ),
+          ),
+
           Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Animated Sad Emoji
-                  TweenAnimationBuilder(
-                    tween: Tween<double>(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 800),
-                    builder: (context, double value, child) {
-                      return Transform.scale(
-                        scale: 0.5 + (0.5 * value),
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.grey.shade200,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.shade300,
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '☹️',
-                              style: TextStyle(
-                                fontSize: 50,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Empty State Message
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: const Text(
-                      'Oops!! Looks like we don\'t seem to have\nanything related to your query right now',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 16,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Try Again Button (Additional idea)
-                  GestureDetector(
-                    onTap: () {
-                      _refreshContent();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.pink.shade50,
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: Colors.pink.shade200,
-                        ),
-                      ),
-                      child: Text(
-                        'Try Again',
-                        style: TextStyle(
-                          color: Colors.pink.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            child: EmptyState(
+              title: 'Nothing saved yet',
+              message:
+                  "We don't have anything matching your query right now. "
+                  'Browse photos and ideas to start building your favourites.',
+              icon: Icons.favorite_border_rounded,
+              actionLabel: 'Try Again',
+              onAction: _refreshContent,
+              secondaryActionLabel: 'Browse ideas',
+              onSecondaryAction: () => _showAddMoreOptions(context),
             ),
           ),
         ],
@@ -259,31 +130,31 @@ class _FavouritesScreenState extends State<FavouritesScreen>
     final isSelected = _selectedIndex == index;
 
     return Expanded(
-      child: GestureDetector(
+      child: Pressable(
+        scale: 0.98,
         onTap: () {
-          setState(() {
-            _selectedIndex = index;
-            _tabController.animateTo(index);
-          });
+          setState(() => _selectedIndex = index);
+          _tabController.animateTo(index);
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.standard,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: isSelected ? Colors.pink : Colors.transparent,
-                width: 2,
+                color: isSelected ? AppColors.primary : Colors.transparent,
+                width: 2.5,
               ),
             ),
           ),
-          child: Text(
-            title,
+          child: AnimatedDefaultTextStyle(
+            duration: AppMotion.fast,
+            style: isSelected
+                ? AppText.bodyStrong.copyWith(color: AppColors.textPrimary)
+                : AppText.body.copyWith(color: AppColors.textTertiary),
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.black87 : Colors.grey,
-              fontSize: 16,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            ),
+            child: Text(title, textAlign: TextAlign.center),
           ),
         ),
       ),
@@ -291,99 +162,107 @@ class _FavouritesScreenState extends State<FavouritesScreen>
   }
 
   void _showFilterBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Filter By',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildFilterOption('All', true),
-            _buildFilterOption('Recent', false),
-            _buildFilterOption('Most Liked', false),
-            _buildFilterOption('Oldest', false),
-            const SizedBox(height: 16),
-          ],
-        ),
+    AppBottomSheet.show(
+      context,
+      title: 'Filter by',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final option in const ['All', 'Recent', 'Most Liked', 'Oldest'])
+            _buildFilterOption(option, option == _filter),
+        ],
       ),
     );
   }
 
   Widget _buildFilterOption(String title, bool isSelected) {
-    return ListTile(
-      title: Text(title),
-      trailing: isSelected ? const Icon(Icons.check, color: Colors.pink) : null,
+    return Pressable(
       onTap: () {
+        setState(() => _filter = title);
         Navigator.pop(context);
-        // Handle filter selection
       },
-    );
-  }
-
-  void _showAddMoreOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      borderRadius: AppRadii.rMd,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.md,
+          horizontal: AppSpacing.sm,
+        ),
+        child: Row(
           children: [
-            const Text(
-              'Add to Favourites',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Text(
+                title,
+                style: isSelected
+                    ? AppText.bodyStrong.copyWith(color: AppColors.primary)
+                    : AppText.body,
               ),
             ),
-            const SizedBox(height: 24),
-            _buildAddOption(Icons.photo_library, 'Browse Photos'),
-            _buildAddOption(Icons.lightbulb_outline, 'Explore Ideas'),
-            _buildAddOption(Icons.favorite_outline, 'Real Weddings'),
-            const SizedBox(height: 16),
+            if (isSelected)
+              const Icon(
+                Icons.check_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
           ],
         ),
       ),
     );
   }
 
+  void _showAddMoreOptions(BuildContext context) {
+    AppBottomSheet.show(
+      context,
+      title: 'Add to favourites',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildAddOption(Icons.photo_library_outlined, 'Browse Photos'),
+          _buildAddOption(Icons.lightbulb_outline_rounded, 'Explore Ideas'),
+          _buildAddOption(Icons.favorite_border_rounded, 'Real Weddings'),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAddOption(IconData icon, String title) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.orange),
-      title: Text(title),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: () {
-        Navigator.pop(context);
-        // Handle navigation to respective section
-      },
+    return Pressable(
+      onTap: () => Navigator.pop(context),
+      borderRadius: AppRadii.rMd,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.md,
+          horizontal: AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: const BoxDecoration(
+                color: AppColors.pinkSurface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 19),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: Text(title, style: AppText.body)),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: AppColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   void _refreshContent() {
-    // Add refresh animation and logic
     setState(() {
-      // Simulate refresh
+      // Nothing to reload yet — this tab has no API behind it.
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Refreshing content...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AppSnackbar.info(context, 'Refreshing your favourites…');
   }
 }

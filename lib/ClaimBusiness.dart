@@ -15,6 +15,8 @@ import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+
+import 'core/core.dart';
 import 'package:happy_wedz/vendor/vendordetailsscreen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -335,9 +337,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
       final mimeType = lookupMimeType(file!.path);
       if (mimeType == null ||
           !['image/jpeg', 'image/png', 'application/pdf'].contains(mimeType)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Only JPG, PNG or PDF allowed.")),
-        );
+        AppSnackbar.warning(context, 'Only JPG, PNG or PDF files are allowed.');
         return;
       }
 
@@ -345,16 +345,9 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
         filePaths[label] = file!;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("$label selected successfully."),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
+      AppSnackbar.success(context, '$label selected.');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Unable to pick file: $e")),
-      );
+      AppSnackbar.error(context, "We couldn't open that file. Please try another one.");
     }
   }  // ======= DATE PICKER =======
   Future<void> _pickDateSigned() async {
@@ -385,9 +378,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
         for (final doc in requiredDocs) {
           if (doc.optional) continue;
           if (filePaths[doc.label] == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Please upload: ${doc.label}")),
-            );
+            AppSnackbar.warning(context, 'Please upload: ${doc.label}');
             return false;
           }
         }
@@ -927,21 +918,24 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
         //   ),
         // );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Server Error: ${response.statusCode}\n$responseBody"),
-            backgroundColor: Colors.red,
-          ),
-        );
+        debugPrint("Server error ${response.statusCode}: $responseBody");
+        if (mounted) {
+          await ErrorPopup.show(
+            context,
+            title: AppErrorMessage.serverTitle,
+            message: AppErrorMessage.serverBody,
+          );
+        }
       }
     } catch (e) {
       print("ERROR: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Failed: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        await ErrorPopup.show(
+          context,
+          title: AppErrorMessage.titleFor(e),
+          message: AppErrorMessage.bodyFor(e),
+        );
+      }
     } finally {
       setState(() => _submitting = false);
       print("====== END BUSINESS CLAIM API ======");

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:happy_wedz/einvite1/CustomizeCard.dart';
 
@@ -276,16 +278,7 @@ class _ViewAllScreenState extends State<ViewAllScreen> {
                                   Expanded(
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(
-                                        card['image']!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            color: Colors.grey[200],
-                                            child: const Icon(Icons.image_not_supported),
-                                          );
-                                        },
-                                      ),
+                                      child: NetworkImageWidget(url: card['image']!, fit: BoxFit.cover),
                                     ),
                                   ),
                                   const SizedBox(height: 5),

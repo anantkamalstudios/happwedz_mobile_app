@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 import 'package:happy_wedz/guestlist/guestlist.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -40,18 +42,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -156,8 +147,11 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
   }
 
   Widget _buildAppBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.lg,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -187,15 +181,9 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
           //   ),
           // ),
           // const Spacer(),
-          Center(
-            child: const Text(
-              'More Options',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          Text(
+            'More Options',
+            style: AppText.pageTitle.copyWith(color: AppColors.textOnPrimary),
           ),
         ],
       ),
@@ -208,60 +196,31 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
     required VoidCallback onTap,
     bool isLast = false,
   }) {
-    return Container(
-      margin: EdgeInsets.only(bottom: isLast ? 0 : 15),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(15),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+    return AppCard(
+      onTap: onTap,
+      margin: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.lg,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm + 2),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: AppColors.hotPink.withValues(alpha: 0.10),
+              borderRadius: AppRadii.rMd,
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF69B4).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: const Color(0xFFFF69B4),
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF2D2D2D),
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  color: Color(0xFFBBBBBB),
-                  size: 16,
-                ),
-              ],
-            ),
+            child: Icon(icon, color: AppColors.hotPink, size: 21),
           ),
-        ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(child: Text(title, style: AppText.bodyLg)),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.textTertiary,
+            size: 20,
+          ),
+        ],
       ),
     );
   }
@@ -324,26 +283,14 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
 
 
       case 'Rate on Play Store':
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Rate App"),
-            content: const Text("Do you want to rate this app on the Play Store?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _openPlayStore();
-                },
-                child: const Text("Rate Now"),
-              ),
-            ],
-          ),
+        final rate = await ConfirmPopup.show(
+          context,
+          title: 'Rate HappyWedz',
+          message: 'Would you like to rate this app on the Play Store?',
+          confirmLabel: 'Rate Now',
+          icon: Icons.star_rounded,
         );
+        if (rate) _openPlayStore();
         break;
 
 
@@ -376,56 +323,42 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
     );
   }
 
-  void _handleLogout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to log out?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-
-                SharedPreferences prefs = await SharedPreferences.getInstance();
-
-                // 🔥 Clear only auth-related keys (safer)
-                await prefs.remove('user_id');
-                await prefs.remove('user_name');
-                await prefs.remove('user_email');
-                await prefs.remove('user_phone');
-                await prefs.remove('auth_token');
-                await prefs.remove('user_photo');
-
-                // Google logout
-                await GoogleSignIn().signOut();
-
-                // Navigate to login screen
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SignInScreen()),
-                      (route) => false,
-                );
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Logged out successfully'),
-                    backgroundColor: Color(0xFFFF69B4),
-                  ),
-                );
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
+  Future<void> _handleLogout(BuildContext context) async {
+    final confirmed = await ConfirmPopup.show(
+      context,
+      title: 'Log out?',
+      message: 'You will need to sign in again to access your bookings.',
+      confirmLabel: 'Log out',
+      icon: Icons.logout_rounded,
+      danger: true,
     );
+    if (!confirmed) return;
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // Clear only auth-related keys (safer)
+    await prefs.remove('user_id');
+    await prefs.remove('user_name');
+    await prefs.remove('user_email');
+    await prefs.remove('user_phone');
+    await prefs.remove('auth_token');
+    await prefs.remove('user_photo');
+
+    // Google logout
+    await GoogleSignIn().signOut();
+
+    if (!mounted) return;
+
+    // Navigate to login screen
+    Navigator.pushAndRemoveUntil(
+      context,
+      AnimatedPageRoute(
+        page: const SignInScreen(),
+        style: PageTransitionStyle.fade,
+      ),
+      (route) => false,
+    );
+
+    AppSnackbar.success(context, 'You have been logged out.');
   }
 }
