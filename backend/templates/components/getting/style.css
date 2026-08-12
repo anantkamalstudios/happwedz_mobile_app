@@ -1,0 +1,28 @@
+.gta-area .heading{
+    margin-bottom: 50px;
+  }
+  .gta-area .heading-2{
+    margin-bottom: 0px;
+  }
+  
+  .gta-area .heading h4 {
+      font-size: 30px;
+      margin-bottom: 15px;
+      color: #151515;
+      font-weight: 600;
+      text-align: center;
+  }
+  .gta-content p {
+      font-size: 15px;
+      font-weight: 400;
+      color: #909090;
+      text-align: center;
+      margin-bottom: 30px;
+  }
+  .gta-img img{
+    width:100%;
+  }
+
+  .gta-area{
+      background: rgba(178,201,211,.1);
+  }

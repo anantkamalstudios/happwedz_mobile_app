@@ -1,0 +1,823 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ==========================================================
+   APP LAYOUT
+========================================================== */
+.appLayout {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    color: #1f2937;
+    background: #ffffff;
+}
+
+.mainArea {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+}
+
+/* ==========================================================
+   SIDEBAR
+========================================================== */
+.sidebar {
+    width: 280px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    border-right: 1px solid #f3f4f6;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: transform 0.3s ease, width 0.3s ease;
+    overflow: hidden;
+    z-index: 20;
+}
+
+.sidebarOpen {
+    transform: translateX(0);
+}
+
+.sidebarClosed {
+    width: 0;
+    border: none;
+    transform: translateX(-280px);
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.sidebarHeader {
+    padding: 1.2rem 1.2rem 0.8rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebarHeader h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.closeSidebar {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.closeSidebar:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.newChatBtn {
+    margin: 0.5rem 1rem;
+    padding: 0.7rem 1rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.newChatBtn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.chatListSection {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0.8rem;
+}
+
+.chatListLabel {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9ca3af;
+    font-weight: 500;
+    padding: 0.5rem 0.4rem;
+    display: block;
+}
+
+.chatList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.chatListItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.6rem 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    position: relative;
+}
+
+.chatListItem:hover {
+    background: #e5e7eb;
+}
+
+.chatListItemActive {
+    background: #e5e7eb;
+}
+
+.chatIcon {
+    color: #9ca3af;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.chatTitle {
+    flex: 1;
+    font-size: 0.85rem;
+    color: #374151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deleteChatBtn {
+    background: none;
+    border: none;
+    color: #d1d5db;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+}
+
+.chatListItem:hover .deleteChatBtn {
+    opacity: 1;
+}
+
+.deleteChatBtn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.noChats {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.menuBtn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+
+.menuBtn:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+/* ==========================================================
+   HOME SCREEN
+========================================================== */
+.homeContainer {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.homeContent {
+    width: 100%;
+    max-width: 750px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2.5rem;
+}
+
+.homeTitle {
+    font-size: 3rem;
+    font-weight: 500;
+    color: #111827;
+    margin: 0;
+    letter-spacing: -0.03em;
+}
+
+/* ==========================================================
+   INPUT AREA (PERPLEXITY STYLE)
+========================================================== */
+.inputWrapper {
+    width: 100%;
+    max-width: 750px;
+    margin: 0 auto;
+}
+
+.inputBox {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    box-shadow: 0 4px 15px -5px rgba(0, 0, 0, 0.05), 0 0 5px rgba(0, 0, 0, 0.02);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.inputBox:focus-within {
+    border-color: #d1d5db;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+}
+
+.inputBox textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    color: #111827;
+    resize: none;
+    padding: 8px 4px;
+    line-height: 1.5;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.inputBox textarea:focus {
+    outline: none;
+}
+
+.inputBox textarea::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.inputRight {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 5px;
+}
+
+.submitBtn {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.85rem;
+    cursor: not-allowed;
+    transition: all 0.2s ease;
+}
+
+.activeSubmit {
+    background: #111827 !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+}
+
+.activeSubmit:hover {
+    background: #374151 !important;
+}
+
+/* ==========================================================
+   SUGGESTION PILLS (HOME)
+========================================================== */
+.suggestionsWrapper {
+    width: 100%;
+    max-width: 750px;
+    background: #fdfdfd;
+    border: 1px solid #f3f4f6;
+    border-radius: 14px;
+    padding: 1.2rem;
+}
+
+.suggestionsHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.suggestionGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+}
+
+@media (max-width: 1024px) {
+    .suggestionGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .suggestionGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.suggestionPill {
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.suggestionPill:hover {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+}
+
+.suggestionPill span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.suggestionPill p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #9ca3af;
+    line-height: 1.3;
+}
+
+/* ==========================================================
+   CHAT LAYOUT
+========================================================== */
+.chatHeader {
+    padding: 0.8rem 1.5rem;
+    border-bottom: 1px solid #f3f4f6;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.chatHeader h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.chatMessages {
+    flex: 1;
+    padding: 2rem 1.5rem;
+    background: #ffffff;
+}
+
+.chatMessages::-webkit-scrollbar {
+    width: 5px;
+}
+.chatMessages::-webkit-scrollbar-thumb {
+    background: #e5e7eb;
+    border-radius: 10px;
+}
+
+.messagesMaxWidth {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.chatEndMarker {
+    height: 16px;
+}
+
+.chatInputWrapper {
+    padding: 1rem 1.5rem 1.5rem;
+    background: #ffffff;
+    border-top: 1px solid #f3f4f6;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+
+.chatInputMaxWidth {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* ==========================================================
+   MESSAGES
+========================================================== */
+.messageBlock {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    animation: fadeIn 0.25s ease forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.userBlock {
+    margin-bottom: -0.5rem;
+}
+
+.avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    background: #fdf2f8;
+    color: #db2777;
+    border: 1px solid #fce7f3;
+}
+
+.messageContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 2px;
+}
+
+.userText {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #111827;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+}
+
+.aiText {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #374151;
+    font-weight: 400;
+}
+
+/* ==========================================================
+   VENDOR CARDS
+========================================================== */
+.vendorsContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.8rem;
+    margin-top: 0.5rem;
+}
+
+.vendorCard {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    transition: all 0.2s ease;
+}
+
+.vendorCard:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.vendorHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.6rem;
+}
+
+.vendorHeader h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #111827;
+    font-weight: 600;
+}
+
+.vendorCategory {
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    background: #e5e7eb;
+    color: #4b5563;
+    border-radius: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.vendorDetails p {
+    margin: 5px 0;
+    font-size: 0.88rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.price {
+    font-weight: 600;
+    color: #111827 !important;
+}
+
+.starIcon {
+    color: #fbbf24;
+}
+
+.vendorWhy {
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.8rem;
+    color: #9ca3af;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+/* ==========================================================
+   BUDGET BREAKDOWN
+========================================================== */
+.budgetBreakdown {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+}
+
+.budgetTitle {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.budgetGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.8rem;
+}
+
+.budgetItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.budgetCategory {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.budgetAmount {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+/* ==========================================================
+   COMPARISONS & SUGGESTIONS
+========================================================== */
+.comparisonsContainer {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.comparisonCard {
+    background: #fdfdfd;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1.2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.comparisonGrid {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.compCol {
+    flex: 1;
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+}
+
+.compCol h4 {
+    margin: 0 0 0.8rem 0;
+    font-size: 1rem;
+    color: #111827;
+}
+
+.compCol p {
+    margin: 0.3rem 0;
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+
+.compCol p strong {
+    color: #111827;
+}
+
+.compVs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.compRecommendation {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.suggestionsContainer {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.suggestionAlert {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+/* ==========================================================
+   LOADING
+========================================================== */
+.loadingBubble {
+    padding: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    height: 30px;
+}
+
+.dotPulse {
+    position: relative;
+    left: -9999px;
+    width: 6px;
+    height: 6px;
+    border-radius: 5px;
+    background-color: #9ca3af;
+    color: #9ca3af;
+    box-shadow: 9999px 0 0 -5px;
+    animation: dotPulse 1.5s infinite linear;
+    animation-delay: 0.25s;
+}
+
+.dotPulse::before, .dotPulse::after {
+    content: '';
+    display: inline-block;
+    position: absolute;
+    top: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 5px;
+    background-color: #9ca3af;
+    color: #9ca3af;
+}
+
+.dotPulse::before {
+    box-shadow: 9984px 0 0 0;
+    animation: dotPulseBefore 1.5s infinite linear;
+    animation-delay: 0s;
+}
+
+.dotPulse::after {
+    box-shadow: 10014px 0 0 0;
+    animation: dotPulseAfter 1.5s infinite linear;
+    animation-delay: 0.5s;
+}
+
+@keyframes dotPulseBefore {
+    0% { box-shadow: 9984px 0 0 -5px; }
+    30% { box-shadow: 9984px 0 0 2px; }
+    60%, 100% { box-shadow: 9984px 0 0 -5px; }
+}
+@keyframes dotPulse {
+    0% { box-shadow: 9999px 0 0 -5px; }
+    30% { box-shadow: 9999px 0 0 2px; }
+    60%, 100% { box-shadow: 9999px 0 0 -5px; }
+}
+@keyframes dotPulseAfter {
+    0% { box-shadow: 10014px 0 0 -5px; }
+    30% { box-shadow: 10014px 0 0 2px; }
+    60%, 100% { box-shadow: 10014px 0 0 -5px; }
+}
+
+/* ==========================================================
+   RESPONSIVE
+========================================================== */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 280px;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebarClosed {
+        transform: translateX(-280px);
+    }
+
+    .homeTitle {
+        font-size: 2.2rem;
+    }
+
+    .userText {
+        font-size: 1.1rem;
+    }
+
+    .vendorsContainer {
+        grid-template-columns: 1fr;
+    }
+
+    .comparisonGrid {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .compVs {
+        padding: 0.5rem 0;
+    }
+}

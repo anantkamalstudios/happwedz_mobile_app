@@ -1,0 +1,250 @@
+.hero_5k8m3 {
+  background: linear-gradient(to bottom, #fdf6f9 0%, #fef8fb 100%);
+  min-height: calc(70vh - 80px);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.hero_wrapper_8x4n2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  width: 100%;
+  position: relative;
+}
+
+.hero_content_2n7j9 {
+  flex: 0 0 45%;
+  /* max-width: 800px; */
+  padding: 0 0 0 50px;
+  z-index: 2;
+}
+
+.hero_title_4w8p1 {
+  font-size: 50px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #1a1a1a;
+  margin-bottom: 28px;
+  width: 100%;
+}
+
+.hero_subtitle_6k2m8 {
+  font-size: 20px;
+  color: #4a4a4a;
+  margin-bottom: 36px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.cta_btn_9j4l2 {
+  background: linear-gradient(135deg, #d81b60 0%, #c2185b 100%);
+  color: white;
+  border: none;
+  padding: 20px 40px;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(216, 27, 96, 0.35);
+}
+
+.cta_btn_9j4l2:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(216, 27, 96, 0.45);
+  background: linear-gradient(135deg, #e91e63 0%, #d81b60 100%);
+}
+
+.cta_btn_9j4l2 svg {
+  transition: transform 0.3s ease;
+}
+
+.cta_btn_9j4l2:hover svg {
+  transform: translateX(5px);
+}
+
+/* Images Section */
+.hero_images_3m5k7 {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: auto;
+  flex: 1;
+  display: flex;
+  gap: 25px;
+  align-items: flex-end;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+/* Ensure images themselves are interactive if needed, though usually just visual */
+.hero_images_3m5k7 img {
+  pointer-events: auto;
+}
+
+.img_container_1_8p3k9 {
+  flex: 0 0 40%;
+  max-width: 270px;
+  transform: translateY(-30px);
+}
+
+.img_container_2_7k9m1 {
+  flex: 0 0 55%;
+  max-width: 386px;
+}
+
+.hero_img_1_5n2w4,
+.hero_img_2_3j8p6 {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 12px 45px rgba(0, 0, 0, 0.18);
+  display: block;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.hero_img_1_5n2w4 {
+  height: 400px;
+}
+
+.hero_img_2_3j8p6 {
+  height: 480px;
+}
+
+/* Responsive Breakpoints */
+
+@media (max-width: 1399px) {
+  .hero_title_4w8p1 {
+    font-size: 52px;
+  }
+
+  .hero_img_1_5n2w4 {
+    height: 360px;
+  }
+
+  .hero_img_2_3j8p6 {
+    height: 440px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .hero_wrapper_8x4n2 {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 60px;
+    padding-top: 20px;
+  }
+
+  .hero_content_2n7j9 {
+    padding-right: 0;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .hero_title_4w8p1 {
+    font-size: 48px;
+    margin-bottom: 24px;
+  }
+
+  .cta_btn_9j4l2 {
+    margin: 0 auto;
+  }
+
+  .hero_images_3m5k7 {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    justify-content: center;
+    padding: 0 20px;
+    pointer-events: auto;
+  }
+
+  .img_container_1_8p3k9 {
+    transform: translateY(20px); /* Adjust stagger for mobile */
+  }
+}
+
+@media (max-width: 991px) {
+  .hero_5k8m3 {
+    min-height: auto;
+    padding-bottom: 60px;
+  }
+
+  .hero_title_4w8p1 {
+    font-size: 42px;
+  }
+
+  .hero_img_1_5n2w4 {
+    height: 280px;
+  }
+
+  .hero_img_2_3j8p6 {
+    height: 380px;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero_title_4w8p1 {
+    font-size: 36px;
+    margin-bottom: 20px;
+  }
+
+  .hero_subtitle_6k2m8 {
+    font-size: 18px;
+    margin-bottom: 30px;
+  }
+
+  .cta_btn_9j4l2 {
+    padding: 16px 32px;
+    font-size: 16px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hero_images_3m5k7 {
+    gap: 15px;
+  }
+
+  .hero_img_1_5n2w4 {
+    height: 220px;
+  }
+
+  .hero_img_2_3j8p6 {
+    height: 300px;
+  }
+}
+
+@media (max-width: 575px) {
+  .hero_title_4w8p1 {
+    font-size: 32px;
+  }
+
+  .hero_subtitle_6k2m8 {
+    font-size: 16px;
+  }
+
+  .hero_images_3m5k7 {
+    flex-direction: row; /* Keep side by side even on small screens if possible, or stack */
+    align-items: flex-end;
+  }
+
+  /* On very small screens, maybe adjust image heights further */
+  .hero_img_1_5n2w4 {
+    height: 180px;
+  }
+
+  .hero_img_2_3j8p6 {
+    height: 250px;
+  }
+}

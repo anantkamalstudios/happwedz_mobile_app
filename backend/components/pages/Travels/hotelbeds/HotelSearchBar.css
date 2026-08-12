@@ -1,0 +1,739 @@
+/* TripJack-style Hotel Search Bar */
+
+.tripjack-search-container {
+  background: #f8f9fa;
+  padding: 16px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.tripjack-search-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.tripjack-search-bar {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 12px;
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  position: relative;
+}
+
+.tripjack-search-field {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+.tripjack-search-field:hover {
+  border-color: rgba(237, 17, 115, 0.45);
+  box-shadow: 0 0 0 1px rgba(237, 17, 115, 0.25);
+}
+
+.tripjack-search-field--location {
+  flex: 2;
+}
+
+.tripjack-search-field--date {
+  flex: 1.2;
+}
+
+.tripjack-search-field--guests {
+  flex: 1.3;
+}
+
+.tripjack-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #666;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tripjack-field-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tripjack-field-input {
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+}
+
+.tripjack-field-input::placeholder {
+  color: #999;
+  font-weight: 400;
+}
+
+.tripjack-night-badge {
+  background: #fff0f7;
+  color: #ed1173;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 45px;
+  align-self: center;
+}
+
+.tripjack-search-button {
+  background: linear-gradient(135deg, #ed1173, #f65196);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0 32px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  min-width: 120px;
+}
+
+.tripjack-search-button:hover {
+  background: #d70f6d;
+}
+
+.tripjack-search-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Location Autocomplete Dropdown */
+.tripjack-autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.tripjack-autocomplete-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tripjack-autocomplete-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.tripjack-autocomplete-clear {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.tripjack-autocomplete-list {
+  padding: 8px 0;
+}
+
+.tripjack-autocomplete-item {
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.tripjack-autocomplete-item:hover {
+  background: #f8f9fa;
+}
+
+.tripjack-autocomplete-icon {
+  color: #ed1173;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tripjack-autocomplete-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tripjack-autocomplete-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.tripjack-autocomplete-subtitle {
+  font-size: 12px;
+  color: #666;
+}
+
+.tripjack-autocomplete-loading {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Date Range Picker */
+.tripjack-datepicker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 100px;
+}
+
+.tripjack-datepicker-panel {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  padding: 24px;
+  max-width: 700px;
+  width: 90%;
+}
+
+.tripjack-datepicker-months {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.tripjack-datepicker-month {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tripjack-datepicker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.tripjack-datepicker-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.tripjack-datepicker-nav {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+
+.tripjack-datepicker-nav:hover {
+  color: #ed1173;
+}
+
+.tripjack-datepicker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tripjack-datepicker-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  padding: 8px 0;
+}
+
+.tripjack-datepicker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.tripjack-datepicker-day {
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tripjack-datepicker-day:hover:not(:disabled) {
+  background: #fff0f7;
+  color: #ed1173;
+}
+
+.tripjack-datepicker-day:disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.tripjack-datepicker-day--selected {
+  background: #ed1173;
+  color: #fff;
+  font-weight: 700;
+}
+
+.tripjack-datepicker-day--in-range {
+  background: #fff0f7;
+  color: #ed1173;
+}
+
+.tripjack-datepicker-day--empty {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Rooms & Guests Dropdown */
+.tripjack-guests-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  min-width: 380px;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.tripjack-guests-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tripjack-guests-header-icon {
+  color: #ed1173;
+}
+
+.tripjack-guests-header-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.tripjack-guests-room {
+  margin-bottom: 20px;
+}
+
+.tripjack-guests-room-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+}
+
+.tripjack-guests-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tripjack-guests-remove-room {
+  background: none;
+  border: none;
+  color: #ed1173;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 10px;
+}
+
+.tripjack-guests-remove-room:hover {
+  background: rgba(237, 17, 115, 0.08);
+}
+
+.tripjack-guests-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.tripjack-guests-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tripjack-guests-label-main {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.tripjack-guests-label-sub {
+  font-size: 12px;
+  color: #666;
+}
+
+.tripjack-guests-counter {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tripjack-guests-counter-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #666;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tripjack-guests-counter-btn:hover:not(:disabled) {
+  border-color: rgba(237, 17, 115, 0.45);
+  color: #ed1173;
+}
+
+.tripjack-guests-counter-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tripjack-guests-counter-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  min-width: 24px;
+  text-align: center;
+}
+
+.tripjack-guests-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 8px;
+}
+
+.tripjack-guests-add-room {
+  background: #fff;
+  border: 2px solid rgba(237, 17, 115, 0.4);
+  color: #ed1173;
+  border-radius: 24px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tripjack-guests-add-room:hover {
+  background: #fff0f7;
+}
+
+.tripjack-guests-apply {
+  background: linear-gradient(135deg, #ed1173, #f65196);
+  border: none;
+  color: #fff;
+  border-radius: 24px;
+  padding: 10px 32px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.tripjack-guests-apply:hover {
+  background: #d70f6d;
+}
+
+/* More Options Row */
+.tripjack-more-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 0 12px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.tripjack-more-options-link {
+  color: #ed1173;
+  font-size: 13px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tripjack-more-options-link:hover {
+  text-decoration: underline;
+}
+
+.tripjack-more-options-meta {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.tripjack-more-options-item {
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.tripjack-more-options-value {
+  color: #ed1173;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.tripjack-more-options-value:hover {
+  text-decoration: underline;
+}
+
+.tripjack-more-options-value:focus-visible {
+  color: #ed1173;
+  outline: none;
+}
+
+/* Country Dropdown */
+.tripjack-country-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  width: 320px;
+  max-height: 450px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.tripjack-country-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tripjack-country-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.tripjack-country-close {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.tripjack-country-close:hover {
+  color: #666;
+}
+
+.tripjack-country-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tripjack-country-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+.tripjack-country-list {
+  overflow-y: auto;
+  max-height: 320px;
+  padding: 8px 0;
+}
+
+.tripjack-country-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tripjack-country-list::-webkit-scrollbar-thumb {
+  background: rgba(244, 123, 32, 0.24);
+  border-radius: 999px;
+}
+
+.tripjack-country-item {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 12px 20px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.tripjack-country-item:hover {
+  background: #f8f9fa;
+}
+
+.tripjack-country-item--selected {
+  background: #fff0f7;
+}
+
+.tripjack-country-name {
+  font-size: 14px;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.tripjack-country-check {
+  color: #ed1173;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .tripjack-search-bar {
+    flex-wrap: wrap;
+  }
+
+  .tripjack-search-field--location {
+    flex: 1 1 100%;
+  }
+
+  .tripjack-search-field--date {
+    flex: 1 1 calc(50% - 24px);
+  }
+
+  .tripjack-search-field--guests {
+    flex: 1 1 calc(50% - 24px);
+  }
+
+  .tripjack-search-button {
+    flex: 1 1 100%;
+  }
+
+  .tripjack-datepicker-months {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .tripjack-search-field--date,
+  .tripjack-search-field--guests {
+    flex: 1 1 100%;
+  }
+
+  .tripjack-night-badge {
+    display: none;
+  }
+
+  .tripjack-guests-dropdown {
+    min-width: 320px;
+    right: auto;
+    left: 0;
+  }
+
+  .tripjack-more-options {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

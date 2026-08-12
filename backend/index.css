@@ -1,0 +1,26 @@
+/* Poppins/Inter are loaded from index.html as a non-blocking <link>.
+   A CSS @import here would serialise the font request behind this stylesheet
+   and block first paint. */
+
+:root {
+  --primary-color: #e83581;
+  --primary-faint-color: #fff2f8;
+}
+
+* {
+  font-family: "Poppins", sans-serif;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  /* background-color: var(--primary-faint-color) !important; */
+}
+
+.navbar {
+  background-color: var(--theme-color) !important;
+}
+
+.primary-bg {
+  background-color: var(--primary-color);
+}

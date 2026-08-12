@@ -1,0 +1,662 @@
+/* Feature Card Container */
+.featureCard {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.featureHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.featureHeader .icon {
+    font-size: 24px;
+    color: #ec4899;
+}
+
+.featureHeader h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+/* Quiz Form */
+.quizForm {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.questionRow {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #f0f0f0;
+}
+
+.questionLabel {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.answersGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.partnerCol {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.partnerLabel {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.option:hover {
+    border-color: #ec4899;
+    background: #fef2f8;
+}
+
+.option.selected {
+    border-color: #ec4899;
+    background: #fef2f8;
+    font-weight: 500;
+}
+
+.option input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.option span {
+    font-size: 13px;
+    color: #333;
+}
+
+/* Blender & Resolver Forms */
+.blenderForm,
+.resolverForm,
+.timelineForm {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.formRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.formField {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.formField label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+}
+
+.formField select,
+.formField input,
+.formField textarea {
+    padding: 10px 12px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+    background: white;
+}
+
+.formField select:focus,
+.formField input:focus,
+.formField textarea:focus {
+    outline: none;
+    border-color: #ec4899;
+}
+
+.formField textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.radioGroup {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.radioOption {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.radioOption:hover {
+    border-color: #ec4899;
+    background: #fef2f8;
+}
+
+.radioOption input[type="radio"]:checked + span {
+    font-weight: 600;
+}
+
+.radioOption input[type="radio"] {
+    cursor: pointer;
+}
+
+/* Submit Button */
+.submitBtn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #ec4899 0%, #d946a6 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.submitBtn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d946a6 0%, #c7359b 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+}
+
+.submitBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Result Cards */
+.resultCard {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 12px 0;
+}
+
+.resultHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.successIcon {
+    color: #10b981;
+    font-size: 24px;
+}
+
+.resultHeader h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.description {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+
+.traits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.trait {
+    padding: 6px 12px;
+    background: #fef2f8;
+    color: #ec4899;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.detailItem {
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+}
+
+.alert {
+    padding: 12px;
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #856404;
+}
+
+.lens {
+    padding: 16px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 8px;
+    border-left: 4px solid #0ea5e9;
+}
+
+.lens strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #0369a1;
+}
+
+.lens p {
+    margin: 0;
+    color: #555;
+    line-height: 1.6;
+}
+
+/* Ceremony Sections */
+.ceremonySection {
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.sectionHeader h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.badge {
+    padding: 4px 10px;
+    background: #ec4899;
+    color: white;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.duration {
+    padding: 4px 10px;
+    background: #e0e0e0;
+    color: #555;
+    border-radius: 12px;
+    font-size: 11px;
+}
+
+.note {
+    margin-top: 8px;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #666;
+}
+
+.suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.suggestions div {
+    font-size: 14px;
+    color: #333;
+}
+
+/* Conflict Resolver Results */
+.reframe {
+    padding: 16px;
+    background: #f0f9ff;
+    border-left: 4px solid #0ea5e9;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.reframe strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #0369a1;
+}
+
+.reframe p {
+    margin: 0;
+    color: #555;
+    line-height: 1.6;
+}
+
+.needs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.need {
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.need strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #333;
+}
+
+.optionCard {
+    padding: 16px;
+    background: white;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+}
+
+.optionCard:hover {
+    border-color: #ec4899;
+    box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1);
+}
+
+.optionCard.recommended {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+.recommendedBadge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #10b981;
+    color: white;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.optionCard h5 {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.optionCard p {
+    margin: 0 0 12px 0;
+    color: #555;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.tradeoffs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tradeoffs small {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Timeline Results */
+.timelineContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.timelineItem {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-left: 4px solid #ec4899;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.timelineItem:hover {
+    background: #f3f4f6;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.timelineWarning {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.timelineTime {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.timelineTime strong {
+    font-size: 18px;
+    color: #1a1a1a;
+    font-weight: 600;
+}
+
+.duration {
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.timelineContent {
+    flex: 1;
+}
+
+.timelineHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 12px;
+}
+
+.timelineHeader h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.timelineType {
+    padding: 4px 10px;
+    background: #e0e0e0;
+    color: #555;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.timelineNotes {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.timelineAlert {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #fef3c7;
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #92400e;
+    font-weight: 500;
+}
+
+/* Checkbox Grid */
+.checkboxGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: white;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.checkboxLabel:hover {
+    border-color: #ec4899;
+    background: #fef2f8;
+}
+
+.checkboxLabel input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #ec4899;
+}
+
+.checkboxLabel input[type="checkbox"]:checked + span {
+    font-weight: 600;
+    color: #ec4899;
+}
+
+.checkboxLabel span {
+    font-size: 14px;
+    color: #333;
+    transition: all 0.2s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .answersGrid,
+    .formRow,
+    .needs {
+        grid-template-columns: 1fr;
+    }
+
+    .featureCard {
+        padding: 16px;
+    }
+
+    .resultCard {
+        padding: 16px;
+    }
+
+    .checkboxGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .timelineItem {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .timelineTime {
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .timelineHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

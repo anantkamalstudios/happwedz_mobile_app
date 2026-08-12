@@ -1,0 +1,49 @@
+.section-tab {
+  color: black !important;
+  border: none !important;
+  background: transparent !important;
+  position: relative;
+  font-weight: 500;
+  font-size: 16px; /* Increased font size */
+  padding: 8px 14px;
+  transition: 0.2s;
+}
+
+.section-tab:hover {
+  color: #e83581 !important;
+}
+
+.section-tab.active {
+  color: #e83581 !important;
+  font-weight: 600;
+}
+
+.section-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 10%;
+  width: 80%;
+  height: 3px;
+  background: #e83581;
+  border-radius: 3px;
+}
+
+/* Sticky container below main header */
+.section-tabs-sticky {
+  position: sticky;
+  top: 0px; /* change if top header exists */
+  z-index: 100;
+  background: #fff;
+  padding: 10px 0;
+  margin-bottom: 20px; /* space below tabs */
+  border-bottom: 1px solid #eee;
+}
+
+/* Ensure scroll positions look good */
+#about,
+#FAQ,
+#reviews, 
+#map {
+  scroll-margin-top: 100px; /* adjust for sticky header */
+}

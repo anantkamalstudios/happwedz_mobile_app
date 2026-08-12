@@ -1,0 +1,16 @@
+ul.smothscroll {
+    position: fixed;
+    bottom: 0px;
+    right:30px;
+    list-style: none;
+}
+ul.smothscroll a {
+    width: 50px;
+    height: 50px;
+    background: #85aaba;
+    color: #fff;
+    display: block;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 50px;
+}

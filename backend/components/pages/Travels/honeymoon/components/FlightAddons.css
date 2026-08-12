@@ -1,0 +1,89 @@
+.addons-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f6f9ff;
+  border: 1px solid #e3ebff;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3448;
+  cursor: pointer;
+}
+
+.addons-toggle:hover {
+  border-color: #c7d6ff;
+}
+
+.addons-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.addon-pax {
+  border: 1px solid #eef1f7;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.addon-pax-name {
+  font-weight: 700;
+  color: #1f3a8a;
+  margin-bottom: 10px;
+}
+
+.addon-seg {
+  padding: 8px 0;
+  border-top: 1px solid #f2f4f9;
+}
+
+.addon-seg:first-of-type {
+  border-top: none;
+}
+
+.addon-seg-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #8c95a8;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+.addon-seg-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.addon-field {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.addon-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5f6780;
+  margin-bottom: 4px;
+}
+
+.addon-field select {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #dfe3ee;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #2d3448;
+  background: #fff;
+  cursor: pointer;
+}
+
+.addon-field select:focus {
+  outline: none;
+  border-color: #ed1173;
+}

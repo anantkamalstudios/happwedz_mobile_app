@@ -1,0 +1,103 @@
+.rsvp-wrap {
+  background: rgba(180, 216, 232, 0.5);
+  padding: 70px;
+  position: relative;
+}
+
+.contact-form input {
+  width: 100%;
+  height: 45px;
+  margin-top: 20px;
+  padding-left: 10px;
+  background: #bcdae8;
+  opacity: 1;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  outline: none;
+}
+
+.form-control {
+  margin-top: 20px;
+  font-size: 16px;
+  background: #fff;
+}
+
+select.form-control:not([size]):not([multiple]) {
+  height: 50px;
+  border-radius: 5px;
+  color: #333;
+  font-size: 14px;
+  background: #bcdae8;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  outline: none;
+  box-shadow: none;
+}
+.rsvp-area form input:focus,
+.rsvp-area form select:focus,
+.rsvp-area form textarea:focus {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+  outline: none;
+}
+.contact-textarea {
+  width: 100%;
+  height: 170px;
+  margin-top: 20px;
+  padding-left: 10px;
+  padding-top: 10px;
+  border: none;
+  border-radius: 5px;
+  background: #bcdae8;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  outline: none;
+}
+
+.contact-form button {
+  background: none;
+  border: none;
+  padding: 10px 30px;
+  background: #bcdae8;
+  color: #333;
+  border-radius: 5px;
+  margin-top: 20px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 40px;
+}
+.contact-form button:focus {
+  outline: none;
+}
+
+.contact-form button:hover {
+  background: #b2c9d3;
+}
+::-webkit-input-placeholder {
+  color: #333;
+  font-size: 14px;
+}
+::-moz-placeholder {
+  color: #333;
+  font-size: 14px;
+}
+:-ms-input-placeholder {
+  color: #333;
+  font-size: 14px;
+}
+:-moz-placeholder {
+  color: #333;
+  font-size: 14px;
+}
+option {
+  color: #333;
+}
+
+@media (max-width: 767px) {
+  .rsvp-wrap {
+    padding: 40px 10px;
+  }
+}
+
+.contact-form p {
+  color: red;
+}

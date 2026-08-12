@@ -1,0 +1,321 @@
+.gallery_page_container {
+  min-height: 100vh;
+  background-color: #f9f9f9;
+  font-family: "Poppins", sans-serif;
+}
+
+.gallery_header {
+  background-color: #fce4ec; /* Light pink background */
+  padding: 40px 20px;
+  text-align: left;
+  margin-bottom: 40px;
+}
+
+.gallery_header h1 {
+  font-size: 2.5rem;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 10px;
+}
+
+.gallery_header p {
+  font-size: 1.1rem;
+  color: #333;
+  margin: 0;
+  font-weight: 500;
+}
+
+.gallery_grid_container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+.gallery_grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+/* Folder Card Styles */
+.gallery-card.folder-card {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 32px 24px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  min-height: 140px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.gallery-card.folder-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Folder Icon Container */
+.folder-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.folder-icon-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Folder Info */
+.folder-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.folder-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+  text-transform: uppercase;
+  font-family: "Inter", sans-serif;
+}
+
+.gallery-folder-count {
+  color: #6b7280;
+  margin: 0;
+  font-weight: 400;
+  font-size: 14px;
+  font-family: "Inter", sans-serif;
+}
+
+/* Responsive Design for Folders */
+@media (max-width: 1024px) {
+  .gallery_grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .gallery-card.folder-card {
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .gallery_grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .gallery-card.folder-card {
+    padding: 20px 16px;
+    min-height: 120px;
+  }
+
+  .folder-icon-wrapper {
+    width: 40px;
+    height: 40px;
+  }
+
+  .folder-name {
+    font-size: 15px;
+  }
+
+  .gallery-folder-count {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .gallery_grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+
+  .gallery-card.folder-card {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+}
+
+.collection_card {
+  background: #fff;
+  border-radius: 8px; /* Optional: if you want rounded corners */
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+  cursor: pointer;
+  text-align: center;
+}
+
+.collection_card:hover {
+  transform: translateY(-5px);
+}
+
+.card_image_wrapper {
+  width: 100%;
+  height: 350px; /* Fixed height for consistency */
+  overflow: hidden;
+  position: relative;
+}
+
+.card_image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.collection_card:hover .card_image {
+  transform: scale(1.05);
+}
+
+.card_content {
+  padding: 25px 15px;
+}
+
+.collection_title {
+  font-size: 1.25rem;
+  color: #444;
+  margin: 0;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+/* Lightbox Styles */
+.lightbox_overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.lightbox_content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.lightbox_image {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox_close {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 2rem;
+  cursor: pointer;
+  z-index: 10000;
+  padding: 10px;
+  transition: transform 0.2s;
+}
+
+.lightbox_close:hover {
+  transform: scale(1.1);
+  color: #ccc;
+}
+
+.lightbox_nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  font-size: 2.5rem;
+  cursor: pointer;
+  z-index: 10000;
+  padding: 20px 15px;
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+
+.lightbox_nav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lightbox_nav.prev {
+  left: 30px;
+}
+
+.lightbox_nav.next {
+  right: 30px;
+}
+
+.lightbox_counter {
+  color: #fff;
+  margin-top: 15px;
+  font-size: 1rem;
+  letter-spacing: 1px;
+}
+
+.logout_btn {
+  background-color: transparent;
+  color: #fff;
+  border: 2px solid #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.logout_btn:hover {
+  background-color: #d81b60;
+  color: white;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 600px) {
+  .upload_options {
+    grid-template-columns: 1fr;
+  }
+
+  .gallery_header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .upload_btn,
+  .logout_btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
