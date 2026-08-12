@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import '../honeymoon/ui/honeymoon_home_page.dart';
 import 'package:happy_wedz/guestlist/guestlist.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -48,6 +49,11 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.only(top: 30, bottom: 20),
                     children: [
+                      _buildMenuItem(
+                        icon: Icons.card_travel_rounded,
+                        title: 'Honeymoon',
+                        onTap: () => _handleMenuTap(context, 'Honeymoon'),
+                      ),
                       _buildMenuItem(
                         icon: Icons.shopping_bag,
                         title: 'Budget',
@@ -220,6 +226,15 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
 
   void _handleMenuTap(BuildContext context, String menuTitle) async {
     switch (menuTitle) {
+      case 'Honeymoon':
+        Navigator.push(
+          context,
+          AnimatedPageRoute(
+            page: const HoneymoonHomePage(),
+            style: PageTransitionStyle.slideRight,
+          ),
+        );
+        break;
       case 'Movment Plus':
         Navigator.push(context, MaterialPageRoute(builder: (_) => CustomBottomBar()));
         break;

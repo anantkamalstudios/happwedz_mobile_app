@@ -252,6 +252,13 @@ class _SignInScreenState extends State<SignInScreen> {
       print('❌ Profile fetch error: $e');
     }
   }
+
+
+
+
+
+
+
   Future<void> _signInWithGoogle() async {
     print('🟡 Starting Google Sign-In process...');
     try {
