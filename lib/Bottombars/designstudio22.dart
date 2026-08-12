@@ -115,7 +115,7 @@ import '../core/core.dart';
 // //                         borderRadius: BorderRadius.circular(16),
 // //                         boxShadow: [
 // //                           BoxShadow(
-// //                             color: Colors.black.withOpacity(0.08),
+// //                             color: Colors.black.withValues(alpha: 0.08),
 // //                             blurRadius: 8,
 // //                             offset: const Offset(0, 4),
 // //                           ),
@@ -277,7 +277,7 @@ import '../core/core.dart';
 // //
 // //   Widget _buildBottomTabs() {
 // //     return Container(
-// //       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+// //       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)]),
 // //       child: SafeArea(
 // //         top: false,
 // //         child: Row(
@@ -676,7 +676,7 @@ import '../core/core.dart';
 // //                         color: const Color(0xFFEDEDED),
 // //                         borderRadius: BorderRadius.circular(16),
 // //                         boxShadow: [
-// //                           BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))
+// //                           BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4))
 // //                         ],
 // //                       ),
 // //                       child: Stack(
@@ -803,7 +803,7 @@ import '../core/core.dart';
 // //
 // //   Widget _buildBottomTabs() {
 // //     return Container(
-// //       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+// //       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)]),
 // //       child: SafeArea(
 // //         top: false,
 // //         child: Row(
@@ -1049,7 +1049,7 @@ import '../core/core.dart';
 // //                         color: const Color(0xFFEDEDED),
 // //                         borderRadius: BorderRadius.circular(16),
 // //                         boxShadow: [
-// //                           BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))
+// //                           BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4))
 // //                         ],
 // //                       ),
 // //                       child: Stack(
@@ -1196,7 +1196,7 @@ import '../core/core.dart';
 // //
 // //   Widget _buildBottomTabs() {
 // //     return Container(
-// //       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+// //       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)]),
 // //       child: SafeArea(
 // //         top: false,
 // //         child: Row(
@@ -1728,7 +1728,7 @@ import '../core/core.dart';
 // //                 color: selected ? const Color(0xFFFDE8EF) : Colors.white,
 // //                 borderRadius: BorderRadius.circular(12),
 // //                 border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
-// //                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+// //                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 // //               ),
 // //               child: Column(
 // //                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1788,7 +1788,7 @@ import '../core/core.dart';
 // //                       color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
 // //                       borderRadius: BorderRadius.circular(12),
 // //                       border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
-// //                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+// //                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 // //                     ),
 // //                     child: Row(
 // //                       children: [
@@ -1851,7 +1851,7 @@ import '../core/core.dart';
 // //                           color: selectedBrand.shades[i],
 // //                           shape: BoxShape.circle,
 // //                           border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
-// //                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+// //                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6)],
 // //                         ),
 // //                       ),
 // //                       const SizedBox(height: 8),
@@ -2091,7 +2091,7 @@ import '../core/core.dart';
 // // //                 color: selected ? const Color(0xFFFDE8EF) : Colors.white,
 // // //                 borderRadius: BorderRadius.circular(12),
 // // //                 border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
-// // //                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+// // //                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 // // //               ),
 // // //               child: Column(
 // // //                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2139,7 +2139,7 @@ import '../core/core.dart';
 // // //                       color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
 // // //                       borderRadius: BorderRadius.circular(12),
 // // //                       border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
-// // //                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+// // //                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 // // //                     ),
 // // //                     child: Row(
 // // //                       children: [
@@ -2203,7 +2203,7 @@ import '../core/core.dart';
 // // //                           color: selectedBrand.shades[i],
 // // //                           shape: BoxShape.circle,
 // // //                           border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
-// // //                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+// // //                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6)],
 // // //                         ),
 // // //                       ),
 // // //                       const SizedBox(height: 8),
@@ -2340,7 +2340,7 @@ import '../core/core.dart';
 // //                 child: Container(
 // //                   width: 36,
 // //                   height: 36,
-// //                   decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)]),
+// //                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)]),
 // //                   child: const Icon(Icons.drag_handle, color: Colors.black, size: 20),
 // //                 ),
 // //               ),
@@ -2419,7 +2419,7 @@ import '../core/core.dart';
 // //                   return Container(
 // //                     width: 220,
 // //                     padding: const EdgeInsets.all(10),
-// //                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)]),
+// //                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)]),
 // //                     child: Row(
 // //                       children: [
 // //                         Container(width: 64, height: 64, decoration: BoxDecoration(color: shadeColor, borderRadius: BorderRadius.circular(8))),
@@ -2682,7 +2682,7 @@ import '../core/core.dart';
 //                         color: const Color(0xFFEDEDED),
 //                         borderRadius: BorderRadius.circular(16),
 //                         boxShadow: [
-//                           BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))
+//                           BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4))
 //                         ],
 //                       ),
 //                       child: Stack(
@@ -2816,7 +2816,7 @@ import '../core/core.dart';
 //
 //   Widget _buildBottomTabs() {
 //     return Container(
-//       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+//       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)]),
 //       child: SafeArea(
 //         top: false,
 //         child: Row(
@@ -3169,7 +3169,7 @@ import '../core/core.dart';
 //                 color: selected ? const Color(0xFFFDE8EF) : Colors.white,
 //                 borderRadius: BorderRadius.circular(12),
 //                 border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
-//                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 //               ),
 //               child: Column(
 //                 mainAxisAlignment: MainAxisAlignment.center,
@@ -3223,7 +3223,7 @@ import '../core/core.dart';
 //                       color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
 //                       borderRadius: BorderRadius.circular(12),
 //                       border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
-//                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 //                     ),
 //                     child: Row(
 //                       children: [
@@ -3296,7 +3296,7 @@ import '../core/core.dart';
 //                           color: col,
 //                           shape: BoxShape.circle,
 //                           border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
-//                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+//                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6)],
 //                         ),
 //                       ),
 //                       const SizedBox(height: 8),
@@ -3443,7 +3443,7 @@ import '../core/core.dart';
 //                   width: 36,
 //                   height: 36,
 //                   decoration: BoxDecoration(
-//                     color: Colors.white.withOpacity(0.8),
+//                     color: Colors.white.withValues(alpha: 0.8),
 //                     shape: BoxShape.circle,
 //                     boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
 //                   ),
@@ -3539,7 +3539,7 @@ import '../core/core.dart';
 //                     decoration: BoxDecoration(
 //                       color: Colors.white,
 //                       borderRadius: BorderRadius.circular(12),
-//                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
+//                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
 //                     ),
 //                     child: Row(
 //                       children: [
@@ -3702,7 +3702,7 @@ import '../core/core.dart';
 //                         color: const Color(0xFFEDEDED),
 //                         borderRadius: BorderRadius.circular(16),
 //                         boxShadow: [
-//                           BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))
+//                           BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4))
 //                         ],
 //                       ),
 //                       child: Stack(
@@ -3837,7 +3837,7 @@ import '../core/core.dart';
 //
 //   Widget _buildBottomTabs() {
 //     return Container(
-//       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+//       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)]),
 //       child: SafeArea(
 //         top: false,
 //         child: Row(
@@ -4226,7 +4226,7 @@ import '../core/core.dart';
 //                 color: selected ? const Color(0xFFFDE8EF) : Colors.white,
 //                 borderRadius: BorderRadius.circular(12),
 //                 border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
-//                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 //               ),
 //               child: Column(
 //                 mainAxisAlignment: MainAxisAlignment.center,
@@ -4280,7 +4280,7 @@ import '../core/core.dart';
 //                       color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
 //                       borderRadius: BorderRadius.circular(12),
 //                       border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
-//                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 //                     ),
 //                     child: Row(
 //                       children: [
@@ -4353,7 +4353,7 @@ import '../core/core.dart';
 //                           color: col,
 //                           shape: BoxShape.circle,
 //                           border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
-//                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+//                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6)],
 //                         ),
 //                       ),
 //                       const SizedBox(height: 8),
@@ -4500,7 +4500,7 @@ import '../core/core.dart';
 //                   width: 36,
 //                   height: 36,
 //                   decoration: BoxDecoration(
-//                     color: Colors.white.withOpacity(0.8),
+//                     color: Colors.white.withValues(alpha: 0.8),
 //                     shape: BoxShape.circle,
 //                     boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
 //                   ),
@@ -4590,7 +4590,7 @@ import '../core/core.dart';
 //                     decoration: BoxDecoration(
 //                       color: Colors.white,
 //                       borderRadius: BorderRadius.circular(12),
-//                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
+//                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
 //                     ),
 //                     child: Row(
 //                       children: [
@@ -4645,7 +4645,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'dart:convert' show base64Decode;
 
 class CategoryModel {
   final int id;
@@ -4842,7 +4841,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
                         color: const Color(0xFFEDEDED),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4))
                         ],
                       ),
                       child: Stack(
@@ -5025,7 +5024,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
 
   Widget _buildBottomTabs() {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)]),
       child: SafeArea(
         top: false,
         child: Row(
@@ -5416,7 +5415,7 @@ class _ShadesScreenState extends State<ShadesScreen> {
                 color: selected ? const Color(0xFFFDE8EF) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -5470,7 +5469,7 @@ class _ShadesScreenState extends State<ShadesScreen> {
                       color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
                     ),
                     child: Row(
                       children: [
@@ -5543,7 +5542,7 @@ class _ShadesScreenState extends State<ShadesScreen> {
                           color: col,
                           shape: BoxShape.circle,
                           border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6)],
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -5694,7 +5693,7 @@ class _CompareScreenState extends State<CompareScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     shape: BoxShape.circle,
                     boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
                   ),
@@ -5783,7 +5782,7 @@ class CompleteLooksScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
                     ),
                     child: Row(
                       children: [

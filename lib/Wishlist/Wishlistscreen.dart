@@ -700,7 +700,7 @@ class _FavouritesPageState extends State<FavouritesPage> {
 //                                         child: Container(
 //                                           padding: const EdgeInsets.all(6),
 //                                           decoration: BoxDecoration(
-//                                             color: Colors.white.withOpacity(0.85),
+//                                             color: Colors.white.withValues(alpha: 0.85),
 //                                             shape: BoxShape.circle,
 //                                           ),
 //                                           child: const Icon(Icons.close, color: Colors.redAccent, size: 20),

@@ -160,7 +160,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
-                color: Colors.white.withOpacity(0.95),
+                color: Colors.white.withValues(alpha: 0.95),
                 letterSpacing: 2,
               ),
             ),
@@ -190,7 +190,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFFF69B4).withOpacity(0.2),
+            color: Color(0xFFFF69B4).withValues(alpha: 0.2),
             blurRadius: 25,
             offset: Offset(0, 12),
           ),
@@ -236,7 +236,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: Offset(0, 8),
           ),
@@ -251,7 +251,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Color(0xFFFFB6C1).withOpacity(0.2),
+                  color: Color(0xFFFFB6C1).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.camera_alt, color: Color(0xFFFF1493), size: 20),
@@ -282,12 +282,12 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                   end: Alignment.bottomRight,
                   colors: [
                     Color(0xFFFFE4E1),
-                    Color(0xFFFFB6C1).withOpacity(0.3),
+                    Color(0xFFFFB6C1).withValues(alpha: 0.3),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Color(0xFFFF69B4).withOpacity(0.4),
+                  color: Color(0xFFFF69B4).withValues(alpha: 0.4),
                   width: 2,
                 ),
               ),
@@ -306,7 +306,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0xFFFF69B4).withOpacity(0.3),
+                          color: Color(0xFFFF69B4).withValues(alpha: 0.3),
                           blurRadius: 15,
                         ),
                       ],
@@ -393,7 +393,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: Offset(0, 8),
           ),
@@ -408,7 +408,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Color(0xFFFFB6C1).withOpacity(0.2),
+                  color: Color(0xFFFFB6C1).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.palette_outlined, color: Color(0xFFFF1493), size: 20),
@@ -430,7 +430,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
             decoration: BoxDecoration(
               color: Color(0xFFFFE4E1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Color(0xFFFF69B4).withOpacity(0.3)),
+              border: Border.all(color: Color(0xFFFF69B4).withValues(alpha: 0.3)),
             ),
             child: DropdownButtonFormField<String>(
               value: _selectedDetailedCategory,
@@ -535,13 +535,13 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                         border: Border.all(
                           color: isSelected
                               ? Color(0xFFFF1493)
-                              : Color(0xFFFFB6C1).withOpacity(0.5),
+                              : Color(0xFFFFB6C1).withValues(alpha: 0.5),
                           width: 2,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: (isSelected ? Color(0xFFFF1493) : Colors.grey)
-                                .withOpacity(0.25),
+                                .withValues(alpha: 0.25),
                             blurRadius: 10,
                             offset: Offset(0, 4),
                           ),
@@ -590,7 +590,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: Offset(0, 8),
           ),
@@ -605,7 +605,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Color(0xFFFFB6C1).withOpacity(0.2),
+                  color: Color(0xFFFFB6C1).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.tune_outlined, color: Color(0xFFFF1493), size: 20),
@@ -629,7 +629,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
           _buildLancomeColorPicker('Lipstick Color', lipstickColor, (c) {
             setState(() => lipstickColor = c);
           }),
-          Divider(height: 32, color: Color(0xFFFFB6C1).withOpacity(0.3)),
+          Divider(height: 32, color: Color(0xFFFFB6C1).withValues(alpha: 0.3)),
           _buildLancomeSlider('Blush Intensity', blushIntensity, (v) {
             setState(() => blushIntensity = v);
           }),
@@ -639,18 +639,18 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
           _buildLancomeColorPicker('Blush Color', blushColor, (c) {
             setState(() => blushColor = c);
           }),
-          Divider(height: 32, color: Color(0xFFFFB6C1).withOpacity(0.3)),
+          Divider(height: 32, color: Color(0xFFFFB6C1).withValues(alpha: 0.3)),
           _buildLancomeSlider('Eyeshadow Intensity', eyeshadowIntensity, (v) {
             setState(() => eyeshadowIntensity = v);
           }),
           _buildLancomeColorPicker('Eyeshadow Color', eyeshadowColor, (c) {
             setState(() => eyeshadowColor = c);
           }),
-          Divider(height: 32, color: Color(0xFFFFB6C1).withOpacity(0.3)),
+          Divider(height: 32, color: Color(0xFFFFB6C1).withValues(alpha: 0.3)),
           _buildLancomeSlider('Foundation Intensity', foundationIntensity, (v) {
             setState(() => foundationIntensity = v);
           }),
-          Divider(height: 32, color: Color(0xFFFFB6C1).withOpacity(0.3)),
+          Divider(height: 32, color: Color(0xFFFFB6C1).withValues(alpha: 0.3)),
           _buildLancomeSlider('Bindi Size', bindiSize.toDouble(), (v) {
             setState(() => bindiSize = v.toInt());
           }, min: 1, max: 10),
@@ -684,10 +684,10 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     activeTrackColor: Color(0xFFFF1493),
-                    inactiveTrackColor: Color(0xFFFFB6C1).withOpacity(0.3),
+                    inactiveTrackColor: Color(0xFFFFB6C1).withValues(alpha: 0.3),
                     thumbColor: Color(0xFFFF1493),
                     thumbShape: RoundSliderThumbShape(enabledThumbRadius: 11),
-                    overlayColor: Color(0xFFFF69B4).withOpacity(0.3),
+                    overlayColor: Color(0xFFFF69B4).withValues(alpha: 0.3),
                     trackHeight: 5,
                   ),
                   child: Slider(
@@ -707,7 +707,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                   color: Color(0xFFFFE4E1),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Color(0xFFFF69B4).withOpacity(0.3),
+                    color: Color(0xFFFF69B4).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(
@@ -764,13 +764,13 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                     color: c,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected ? Color(0xFFFF1493) : Colors.grey.withOpacity(0.3),
+                      color: isSelected ? Color(0xFFFF1493) : Colors.grey.withValues(alpha: 0.3),
                       width: isSelected ? 3 : 1.5,
                     ),
                     boxShadow: isSelected
                         ? [
                       BoxShadow(
-                        color: Color(0xFFFF69B4).withOpacity(0.5),
+                        color: Color(0xFFFF69B4).withValues(alpha: 0.5),
                         blurRadius: 10,
                         offset: Offset(0, 3),
                       ),
@@ -808,7 +808,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
         borderRadius: BorderRadius.circular(29),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFFF1493).withOpacity(0.5),
+            color: Color(0xFFFF1493).withValues(alpha: 0.5),
             blurRadius: 20,
             offset: Offset(0, 10),
           ),
@@ -875,7 +875,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: Offset(0, 8),
           ),
@@ -889,7 +889,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Color(0xFFFFB6C1).withOpacity(0.2),
+                  color: Color(0xFFFFB6C1).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.auto_awesome_outlined, color: Color(0xFFFF1493), size: 20),
@@ -941,7 +941,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 10,
                               offset: Offset(0, 4),
                             ),
@@ -974,7 +974,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0xFFFF69B4).withOpacity(0.3),
+                              color: Color(0xFFFF69B4).withValues(alpha: 0.3),
                               blurRadius: 15,
                               offset: Offset(0, 5),
                             ),
@@ -996,7 +996,7 @@ class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Color(0xFFFF69B4).withOpacity(0.3),
+                    color: Color(0xFFFF69B4).withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: Offset(0, 8),
                   ),

@@ -451,9 +451,17 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
+          // Content scrolls, the action row stays pinned. The previous
+          // Spacer() overflowed as soon as the keyboard opened.
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               const Center(
                 child: Text("Write a Review",
                     style:
@@ -509,7 +517,11 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
                       height: 80, width: 80, fit: BoxFit.cover))
                       .toList(),
                 ),
-              const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -580,10 +592,18 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 13)),
         ),
         const SizedBox(height: 6),
-        Text(label,
-            style: TextStyle(
-                fontSize: 13,
-                color: isActive ? Colors.black : Colors.grey.shade600)),
+        // Bounded so three labels + two dividers never exceed the row.
+        SizedBox(
+          width: 76,
+          child: Text(label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.2,
+                  color: isActive ? Colors.black : Colors.grey.shade600)),
+        ),
       ],
     );
   }
@@ -613,9 +633,17 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
+          // Content scrolls, the action row stays pinned. The previous
+          // Spacer() overflowed as soon as the keyboard opened.
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               const Center(
                 child: Text("Write a Review",
                     style:
@@ -637,7 +665,11 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
                   ),
                 ],
               ),
-              const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -722,10 +754,18 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 13)),
         ),
         const SizedBox(height: 6),
-        Text(label,
-            style: TextStyle(
-                fontSize: 13,
-                color: isActive ? Colors.black : Colors.grey.shade600)),
+        // Bounded so three labels + two dividers never exceed the row.
+        SizedBox(
+          width: 76,
+          child: Text(label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.2,
+                  color: isActive ? Colors.black : Colors.grey.shade600)),
+        ),
       ],
     );
   }

@@ -1,12 +1,10 @@
 
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
-import 'package:flutter/rendering.dart' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,16 +16,7 @@ import 'editablefield.dart';
 import 'preview_screen.dart';
 
 
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:uuid/uuid.dart';
 
-import 'editablefield.dart';
-import 'preview_screen.dart';
 
 class EditorScreen extends ConsumerStatefulWidget {
   final EInviteTemplate template;

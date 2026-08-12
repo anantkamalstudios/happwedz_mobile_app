@@ -1,6 +1,4 @@
-import 'dart:ui';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class MpTheme {
@@ -27,7 +25,7 @@ class MpTheme {
       border: border,
       boxShadow: [
         BoxShadow(
-          color: Colors.pink.withOpacity(0.15),
+          color: Colors.pink.withValues(alpha: 0.15),
           blurRadius: 10,
           offset: const Offset(0, 6),
         )

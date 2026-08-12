@@ -162,7 +162,7 @@
 //               gradient: card.gradient,
 //               boxShadow: [
 //                 BoxShadow(
-//                   color: Colors.black.withOpacity(0.1),
+//                   color: Colors.black.withValues(alpha: 0.1),
 //                   blurRadius: 4,
 //                   offset: const Offset(0, 2),
 //                 ),
@@ -199,7 +199,7 @@
 //                         end: Alignment.bottomCenter,
 //                         colors: [
 //                           Colors.transparent,
-//                           Colors.black.withOpacity(0.3),
+//                           Colors.black.withValues(alpha: 0.3),
 //                         ],
 //                       ),
 //                     ),
@@ -546,7 +546,7 @@
 //   @override
 //   void paint(Canvas canvas, Size size) {
 //     final paint = Paint()
-//       ..color = Colors.white.withOpacity(0.2)
+//       ..color = Colors.white.withValues(alpha: 0.2)
 //       ..style = PaintingStyle.stroke
 //       ..strokeWidth = 1;
 //

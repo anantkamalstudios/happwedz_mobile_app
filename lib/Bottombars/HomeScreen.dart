@@ -6,35 +6,20 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:video_player/video_player.dart';
-import 'package:happy_wedz/login.dart';
-import 'package:happy_wedz/packages.dart';
-import 'package:happy_wedz/shop.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../DecorationScreen.dart';
-import '../LoadingLogo.dart';
 import '../core/core.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../Wishlist/Wishlistscreen.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
-import '../designstudio.dart';
 import '../einvite1/einvite.dart';
-import '../einvite1/template_listscreen.dart';
-import '../favscreen.dart';
-import '../fetch_location.dart';
 import '../ideas.dart';
 import '../main.dart';
-import '../mkp.dart';
 import '../profile.dart';
-import '../vendor/makeup.dart';
-import '../vendor/photographer.dart';
 import '../vendor/vendordetailsscreen.dart';
-import '../venuedetails.dart';
-import 'GenieScreen.dart';
 import 'Vendor.dart';
 import 'VenuesScreen.dart';
-import 'VirtualStudio.dart';
 import 'designstudio1.dart';
 import 'morescreen.dart';
 
@@ -541,7 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                   width: 3,
                                 ),
                               ),
@@ -574,7 +559,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: Colors.black.withValues(alpha: 0.08),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -668,7 +653,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     gradient: LinearGradient(
-                      colors: [Colors.black.withOpacity(0.35), Colors.transparent],
+                      colors: [Colors.black.withValues(alpha: 0.35), Colors.transparent],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
@@ -1660,7 +1645,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //           begin: Alignment.topLeft,
   //           end: Alignment.bottomRight,
   //         ),
-  //         boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)],
+  //         boxShadow: [BoxShadow(color: Colors.pink.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5)],
   //       ),
   //       padding: const EdgeInsets.all(18),
   //       // child: const VideoIcon(),
@@ -2675,13 +2660,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         Container(
           width: double.infinity,
           height: 120,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: Offset(0, 2))]),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: Offset(0, 2))]),
           child: Stack(children: [
             ClipRRect(borderRadius: BorderRadius.circular(12), child: Container(width: double.infinity, height: double.infinity, color: Colors.brown[200], child: const Center(child: Icon(Icons.image, color: Colors.brown, size: 40)))),
             Container(
               width: double.infinity,
               height: double.infinity,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(colors: [Colors.black.withOpacity(0.3), Colors.transparent, Colors.black.withOpacity(0.3)], begin: Alignment.centerLeft, end: Alignment.centerRight)),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(colors: [Colors.black.withValues(alpha: 0.3), Colors.transparent, Colors.black.withValues(alpha: 0.3)], begin: Alignment.centerLeft, end: Alignment.centerRight)),
               child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('Myshrä', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), Text('Find your perfect match in seconds', style: TextStyle(color: Colors.white, fontSize: 12))])),
             )
           ]),
@@ -2700,13 +2685,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return Container(
       height: 100,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: Offset(0, 2))]),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: Offset(0, 2))]),
       child: Stack(children: [
         ClipRRect(borderRadius: BorderRadius.circular(12), child: Container(width: double.infinity, height: double.infinity, color: bgColor, child: Image.asset(imagePath, fit: BoxFit.cover))),
         Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(colors: [Colors.black.withOpacity(0.4), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter)),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter)),
           padding: const EdgeInsets.all(8),
           child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
@@ -2734,7 +2719,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   Widget _buildWeddingIdeaCard(String title, String imagePath) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 2))]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: Offset(0, 2))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(height: 140, decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(12))), child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: Image.asset(imagePath, fit: BoxFit.cover, width: double.infinity))),
         Padding(padding: const EdgeInsets.all(12), child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87))),
@@ -2762,9 +2747,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('Featured video', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
       const SizedBox(height: 15),
-      Container(width: double.infinity, height: 180, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: Offset(0, 2))]), child: Stack(children: [
+      Container(width: double.infinity, height: 180, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: Offset(0, 2))]), child: Stack(children: [
         ClipRRect(borderRadius: BorderRadius.circular(12), child: Container(width: double.infinity, height: double.infinity, color: Colors.green[200], child: const Center(child: Icon(Icons.image, color: Colors.green, size: 50)))),
-        Container(width: double.infinity, height: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.black.withOpacity(0.3)), child: Center(child: Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.play_arrow, color: Colors.pink, size: 30))))
+        Container(width: double.infinity, height: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.black.withValues(alpha: 0.3)), child: Center(child: Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.play_arrow, color: Colors.pink, size: 30))))
       ]))
     ]);
   }
@@ -2823,7 +2808,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //                           decoration: BoxDecoration(
   //                             gradient: LinearGradient(
   //                               colors: [
-  //                                 Colors.black.withOpacity(0.4),
+  //                                 Colors.black.withValues(alpha: 0.4),
   //                                 Colors.transparent
   //                               ],
   //                               begin: Alignment.bottomCenter,
@@ -3674,7 +3659,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -3762,7 +3747,7 @@ class HomeShimmerOverlay extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: Colors.white.withOpacity(0.95),
+      color: Colors.white.withValues(alpha: 0.95),
       child: SafeArea(
         child: Shimmer.fromColors(
           baseColor: Colors.grey.shade300,

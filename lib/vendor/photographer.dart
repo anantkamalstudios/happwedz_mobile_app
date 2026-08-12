@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/core.dart';
 
-import '../Bottombars/Vendor.dart';
 
 // class PhotographerScreen extends StatefulWidget {
 //
@@ -90,7 +89,7 @@ import '../Bottombars/Vendor.dart';
 //       child: Container(
 //         padding: const EdgeInsets.symmetric(horizontal: 16.0),
 //         decoration: BoxDecoration(
-//           color: Colors.white.withOpacity(0.9),
+//           color: Colors.white.withValues(alpha: 0.9),
 //           borderRadius: BorderRadius.circular(25),
 //         ),
 //         child: const TextField(
@@ -115,7 +114,7 @@ import '../Bottombars/Vendor.dart';
 //             borderRadius: BorderRadius.circular(12),
 //             boxShadow: [
 //               BoxShadow(
-//                 color: Colors.black.withOpacity(0.1),
+//                 color: Colors.black.withValues(alpha: 0.1),
 //                 blurRadius: 8,
 //                 offset: const Offset(0, 2),
 //               ),
@@ -453,7 +452,7 @@ class _PhotographerScreenState extends State<PhotographerScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,7 +509,7 @@ class _PhotographerScreenState extends State<PhotographerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(25)),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(25)),
         child: const TextField(
           decoration: InputDecoration(
             hintText: 'Search wedding photographers...',

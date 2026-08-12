@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:http/http.dart' as http;
 import 'package:imageview360/imageview360.dart';
-import 'package:panorama_viewer/panorama_viewer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1354,7 +1353,7 @@ class _ActionChip extends StatelessWidget {
 //       child: Container(
 //         padding: const EdgeInsets.symmetric(horizontal: 16.0),
 //         decoration: BoxDecoration(
-//           color: Colors.white.withOpacity(0.9),
+//           color: Colors.white.withValues(alpha: 0.9),
 //           borderRadius: BorderRadius.circular(25),
 //         ),
 //         child: const TextField(
@@ -1440,7 +1439,7 @@ class _ActionChip extends StatelessWidget {
 //           borderRadius: BorderRadius.circular(8),
 //           boxShadow: [
 //             BoxShadow(
-//               color: Colors.black.withOpacity(0.08),
+//               color: Colors.black.withValues(alpha: 0.08),
 //               blurRadius: 8,
 //               offset: const Offset(0, 2),
 //             ),
@@ -1476,7 +1475,7 @@ class _ActionChip extends StatelessWidget {
 //                     padding:
 //                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
 //                     decoration: BoxDecoration(
-//                       color: Colors.black.withOpacity(0.6),
+//                       color: Colors.black.withValues(alpha: 0.6),
 //                       borderRadius: BorderRadius.circular(4),
 //                     ),
 //                     child: Row(
@@ -1534,7 +1533,7 @@ class _ActionChip extends StatelessWidget {
 //                     child: Container(
 //                       padding: const EdgeInsets.all(6),
 //                       decoration: BoxDecoration(
-//                         color: Colors.white.withOpacity(0.85),
+//                         color: Colors.white.withValues(alpha: 0.85),
 //                         shape: BoxShape.circle,
 //                       ),
 //                       child: Icon(
@@ -2633,7 +2632,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                         //   bottom: 20,
                         //   child: ElevatedButton.icon(
                         //     style: ElevatedButton.styleFrom(
-                        //       backgroundColor: Colors.black.withOpacity(0.7),
+                        //       backgroundColor: Colors.black.withValues(alpha: 0.7),
                         //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                         //     ),
                         //     icon: const Icon(Icons.threed_rotation, color: Colors.white),
@@ -2657,7 +2656,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           child: Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: Colors.black.withOpacity(0.45),
+                                backgroundColor: Colors.black.withValues(alpha: 0.45),
                                 child: IconButton(
                                   icon: const Icon(Icons.arrow_back_ios, size: 18, color: Colors.white),
                                   onPressed: () => Navigator.pop(context),
@@ -2667,7 +2666,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                               // Share
                               CircleAvatar(
                                 radius: 20,
-                                backgroundColor: Colors.black.withOpacity(0.45),
+                                backgroundColor: Colors.black.withValues(alpha: 0.45),
                                 child: IconButton(
                                   icon: const Icon(Icons.share, color: Colors.white, size: 20),
                                   onPressed: () {
@@ -2699,7 +2698,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                               // Wishlist toggle
                               CircleAvatar(
                                 radius: 20,
-                                backgroundColor: Colors.white.withOpacity(0.85),
+                                backgroundColor: Colors.white.withValues(alpha: 0.85),
                                 child: IconButton(
                                   icon: Icon(
                                     favouriteVendors.contains(vendorServiceId)
@@ -2722,7 +2721,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.45),
+                              color: Colors.black.withValues(alpha: 0.45),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -2738,7 +2737,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                     const SizedBox(height: 2),
                                     Row(
                                       children: [
-                                        Icon(Icons.location_on, color: Colors.white.withOpacity(0.85), size: 14),
+                                        Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.85), size: 14),
                                         const SizedBox(width: 4),
                                         SizedBox(
                                           width: 180,
@@ -2837,7 +2836,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(10),
-                                        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)],
+                                        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)],
                                       ),
                                       child: Column(
                                         children: [
@@ -3259,7 +3258,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [
-        BoxShadow(color: Colors.grey.withOpacity(0.06), blurRadius: 6),
+        BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 6),
       ]),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 14, color: Colors.grey.shade800),

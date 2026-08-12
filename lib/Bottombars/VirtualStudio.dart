@@ -216,7 +216,7 @@ import 'package:http/http.dart' as http;
 //
 //           if (isLoading)
 //             Container(
-//               color: Colors.black.withOpacity(0.4),
+//               color: Colors.black.withValues(alpha: 0.4),
 //               child: const Center(
 //                 child: CircularProgressIndicator(),
 //               ),
@@ -230,31 +230,12 @@ import 'package:http/http.dart' as http;
 
 
 
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 
 
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:share_plus/share_plus.dart';
 
 class MakeupTryOnScreen extends StatefulWidget {
   @override
@@ -1524,7 +1505,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w300,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -1552,7 +1533,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFE91E63).withOpacity(0.1),
+            color: Color(0xFFE91E63).withValues(alpha: 0.1),
             blurRadius: 20,
             offset: Offset(0, 10),
           ),
@@ -1591,7 +1572,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: Offset(0, 10),
           ),
@@ -1629,13 +1610,13 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
                   end: Alignment.bottomRight,
                   colors: [
                     Color(0xFFFCE4EC),
-                    Color(0xFFF8BBD9).withOpacity(0.3),
+                    Color(0xFFF8BBD9).withValues(alpha: 0.3),
                     Color(0xFFFCE4EC),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Color(0xFFE91E63).withOpacity(0.3),
+                  color: Color(0xFFE91E63).withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
@@ -1650,7 +1631,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
                   Container(
                     padding: EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Color(0xFFE91E63).withOpacity(0.1),
+                      color: Color(0xFFE91E63).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -1730,7 +1711,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: Offset(0, 10),
           ),
@@ -1758,8 +1739,8 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Color(0xFFE91E63).withOpacity(0.3)),
-              color: Color(0xFFFCE4EC).withOpacity(0.3),
+              border: Border.all(color: Color(0xFFE91E63).withValues(alpha: 0.3)),
+              color: Color(0xFFFCE4EC).withValues(alpha: 0.3),
             ),
             child: DropdownButtonFormField<String>(
               value: _selectedDetailedCategory,
@@ -1848,12 +1829,12 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
                         ),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
-                          color: isSelected ? Color(0xFFE91E63) : Colors.grey.withOpacity(0.3),
+                          color: isSelected ? Color(0xFFE91E63) : Colors.grey.withValues(alpha: 0.3),
                           width: 2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: (isSelected ? Color(0xFFE91E63) : Colors.grey).withOpacity(0.2),
+                            color: (isSelected ? Color(0xFFE91E63) : Colors.grey).withValues(alpha: 0.2),
                             blurRadius: 8,
                             offset: Offset(0, 4),
                           ),
@@ -1902,7 +1883,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: Offset(0, 10),
           ),
@@ -1996,10 +1977,10 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     activeTrackColor: Color(0xFFE91E63),
-                    inactiveTrackColor: Color(0xFFE91E63).withOpacity(0.2),
+                    inactiveTrackColor: Color(0xFFE91E63).withValues(alpha: 0.2),
                     thumbColor: Color(0xFFE91E63),
                     thumbShape: RoundSliderThumbShape(enabledThumbRadius: 10),
-                    overlayColor: Color(0xFFE91E63).withOpacity(0.2),
+                    overlayColor: Color(0xFFE91E63).withValues(alpha: 0.2),
                     trackHeight: 6,
                   ),
                   child: Slider(
@@ -2073,12 +2054,12 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
                     color: c,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected ? Color(0xFFD81B60) : Colors.grey.withOpacity(0.3),
+                      color: isSelected ? Color(0xFFD81B60) : Colors.grey.withValues(alpha: 0.3),
                       width: isSelected ? 3 : 1,
                     ),
                     boxShadow: isSelected ? [
                       BoxShadow(
-                        color: Color(0xFFE91E63).withOpacity(0.4),
+                        color: Color(0xFFE91E63).withValues(alpha: 0.4),
                         blurRadius: 8,
                         offset: Offset(0, 2),
                       ),
@@ -2104,7 +2085,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFE91E63).withOpacity(0.4),
+            color: Color(0xFFE91E63).withValues(alpha: 0.4),
             blurRadius: 15,
             offset: Offset(0, 8),
           ),
@@ -2161,7 +2142,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: Offset(0, 10),
           ),
@@ -2190,7 +2171,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Color(0xFFE91E63).withOpacity(0.2),
+                  color: Color(0xFFE91E63).withValues(alpha: 0.2),
                   blurRadius: 15,
                   offset: Offset(0, 8),
                 ),
@@ -2719,7 +2700,7 @@ class Product {
 //                                   end: Alignment.bottomCenter,
 //                                   colors: [
 //                                     Colors.transparent,
-//                                     Colors.pink.withOpacity(0.3),
+//                                     Colors.pink.withValues(alpha: 0.3),
 //                                   ],
 //                                 ),
 //                               ),
@@ -3109,7 +3090,7 @@ class Product {
 //                   // Loading Overlay
 //                   if (isLoading)
 //                     Container(
-//                       color: Colors.pink.withOpacity(0.7),
+//                       color: Colors.pink.withValues(alpha: 0.7),
 //                       child: const Center(
 //                         child: Column(
 //                           mainAxisSize: MainAxisSize.min,
@@ -3339,7 +3320,7 @@ class Product {
 //                               shape: BoxShape.circle,
 //                               boxShadow: [
 //                                 BoxShadow(
-//                                   color: Colors.black.withOpacity(0.2),
+//                                   color: Colors.black.withValues(alpha: 0.2),
 //                                   blurRadius: 4,
 //                                   spreadRadius: 1,
 //                                 ),
@@ -3472,7 +3453,7 @@ class Product {
 //               margin: const EdgeInsets.symmetric(horizontal: 20),
 //               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
 //               decoration: BoxDecoration(
-//                 color: Colors.pink.withOpacity(0.8),
+//                 color: Colors.pink.withValues(alpha: 0.8),
 //                 borderRadius: BorderRadius.circular(20),
 //               ),
 //               child: const Row(

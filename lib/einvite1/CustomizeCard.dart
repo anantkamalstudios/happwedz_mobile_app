@@ -5,7 +5,6 @@ import '../core/core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
-import 'ViewAllScreen.dart';
 
 class CustomizeCardScreen extends StatefulWidget {
   final String templateImage;

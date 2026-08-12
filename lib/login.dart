@@ -62,7 +62,7 @@
 //         animation: _backgroundAnimation,
 //         builder: (context, child) {
 //           return Container(
-//             color: Colors.black.withOpacity(0.5 * _backgroundAnimation.value),
+//             color: Colors.black.withValues(alpha: 0.5 * _backgroundAnimation.value),
 //             child: Center(
 //               child: ScaleTransition(
 //                 scale: _dialogAnimation,
@@ -83,7 +83,7 @@
 //         borderRadius: BorderRadius.circular(20),
 //         boxShadow: [
 //           BoxShadow(
-//             color: Colors.black.withOpacity(0.1),
+//             color: Colors.black.withValues(alpha: 0.1),
 //             blurRadius: 20,
 //             offset: Offset(0, 10),
 //           ),
@@ -208,7 +208,7 @@
 //           borderRadius: BorderRadius.circular(25),
 //           boxShadow: isOutlined ? [] : [
 //             BoxShadow(
-//               color: Color(0xFFE91E63).withOpacity(0.3),
+//               color: Color(0xFFE91E63).withValues(alpha: 0.3),
 //               blurRadius: 8,
 //               offset: Offset(0, 4),
 //             ),
@@ -598,7 +598,7 @@
 // //         borderRadius: BorderRadius.circular(25),
 // //         boxShadow: [
 // //           BoxShadow(
-// //             color: Color(0xFFE91E63).withOpacity(0.3),
+// //             color: Color(0xFFE91E63).withValues(alpha: 0.3),
 // //             blurRadius: 15,
 // //             offset: Offset(0, 8),
 // //           ),
@@ -667,7 +667,7 @@
 // //         border: Border.all(color: Color(0xFFE9ECEF)),
 // //         boxShadow: [
 // //           BoxShadow(
-// //             color: Colors.black.withOpacity(0.05),
+// //             color: Colors.black.withValues(alpha: 0.05),
 // //             blurRadius: 10,
 // //             offset: Offset(0, 2),
 // //           ),

@@ -7,25 +7,18 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../InboxScreen.dart';
 import '../RealWedding/share_ur_story.dart';
-import '../Review.dart';
 import '../Wishlist/Wishlistscreen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../ai_chat_screen/ai_chat_screen.dart';
 import '../budget/budget.dart';
-import '../einvite/einvite.dart';
 import '../einvite1/einvite.dart';
-import '../einvite1/template_listscreen.dart';
 import '../ideas.dart';
-import '../login.dart';
 import '../main.dart';
 import '../movment_plus/bottom_nav_bar.dart';
-import '../movment_plus/movment_plus_dashboard.dart';
 import '../my_bookings/my_bookings.dart';
 import '../packages.dart';
 import '../planning.dart';
-import '../shop.dart';
 
 class MoreOptionsScreen extends StatefulWidget {
   const MoreOptionsScreen({super.key});
@@ -161,7 +154,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
           //   child: Container(
           //     padding: const EdgeInsets.all(8),
           //     decoration: BoxDecoration(
-          //       color: Colors.white.withOpacity(0.2),
+          //       color: Colors.white.withValues(alpha: 0.2),
           //       borderRadius: BorderRadius.circular(8),
           //     ),
           //     child: const Icon(

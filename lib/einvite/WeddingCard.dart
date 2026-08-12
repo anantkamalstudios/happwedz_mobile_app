@@ -151,7 +151,7 @@ class _WeddingCardsScreenState extends State<WeddingCardsScreen> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(8),
             ),
             child: IconButton(
@@ -208,7 +208,7 @@ class _WeddingCardsScreenState extends State<WeddingCardsScreen> {
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7),
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
           ),
@@ -241,7 +241,7 @@ class _WeddingCardsScreenState extends State<WeddingCardsScreen> {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -308,7 +308,7 @@ class _WeddingCardsScreenState extends State<WeddingCardsScreen> {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -348,7 +348,7 @@ class _WeddingCardsScreenState extends State<WeddingCardsScreen> {
                               Container(
                                 height: 1,
                                 width: 40,
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withValues(alpha: 0.8),
                               ),
                               const SizedBox(height: 8),
                               const Text(
@@ -420,7 +420,7 @@ class _WeddingCardsScreenState extends State<WeddingCardsScreen> {
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  Colors.white.withOpacity(0.6),
+                  Colors.white.withValues(alpha: 0.6),
                   Colors.transparent,
                 ],
               ),
@@ -693,7 +693,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     blurRadius: 10,
                     spreadRadius: 2,
                   ),
@@ -744,7 +744,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                                 fontWeight: FontWeight.w600,
                                 shadows: [
                                   Shadow(
-                                    color: Colors.black.withOpacity(0.3),
+                                    color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: blur,
                                   ),
                                 ],
@@ -754,7 +754,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                             Container(
                               height: 2,
                               width: 60,
-                              color: textColor.withOpacity(0.8),
+                              color: textColor.withValues(alpha: 0.8),
                             ),
                             const SizedBox(height: 15),
                             Text(
@@ -765,7 +765,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                                 fontWeight: FontWeight.bold,
                                 shadows: [
                                   Shadow(
-                                    color: Colors.black.withOpacity(0.3),
+                                    color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: blur,
                                   ),
                                 ],
@@ -775,11 +775,11 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                             Text(
                               eventDate,
                               style: TextStyle(
-                                color: textColor.withOpacity(0.9),
+                                color: textColor.withValues(alpha: 0.9),
                                 fontSize: fontSize - 4,
                                 shadows: [
                                   Shadow(
-                                    color: Colors.black.withOpacity(0.3),
+                                    color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: blur,
                                   ),
                                 ],
@@ -1261,7 +1261,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  Colors.white.withOpacity(0.6),
+                  Colors.white.withValues(alpha: 0.6),
                   Colors.transparent,
                 ],
               ),
@@ -1311,7 +1311,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             blurRadius: 10,
             spreadRadius: 2,
           ),
@@ -1354,7 +1354,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                         fontWeight: FontWeight.w600,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: blur,
                           ),
                         ],
@@ -1364,7 +1364,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                     Container(
                       height: 2,
                       width: 60,
-                      color: textColor.withOpacity(0.8),
+                      color: textColor.withValues(alpha: 0.8),
                     ),
                     const SizedBox(height: 15),
                     Text(
@@ -1375,7 +1375,7 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                         fontWeight: FontWeight.bold,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: blur,
                           ),
                         ],
@@ -1385,11 +1385,11 @@ class _CardCustomizationScreenState extends State<CardCustomizationScreen> {
                     Text(
                       eventDate,
                       style: TextStyle(
-                        color: textColor.withOpacity(0.9),
+                        color: textColor.withValues(alpha: 0.9),
                         fontSize: fontSize - 4,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: blur,
                           ),
                         ],

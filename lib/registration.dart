@@ -780,7 +780,7 @@
 // // //             border: Border.all(color: Color(0xFFE9ECEF)),
 // // //             boxShadow: [
 // // //               BoxShadow(
-// // //                 color: Colors.black.withOpacity(0.02),
+// // //                 color: Colors.black.withValues(alpha: 0.02),
 // // //                 blurRadius: 4,
 // // //                 offset: Offset(0, 2),
 // // //               ),
@@ -910,7 +910,7 @@
 // // //             border: Border.all(color: Color(0xFFE9ECEF)),
 // // //             boxShadow: [
 // // //               BoxShadow(
-// // //                 color: Colors.black.withOpacity(0.02),
+// // //                 color: Colors.black.withValues(alpha: 0.02),
 // // //                 blurRadius: 4,
 // // //                 offset: Offset(0, 2),
 // // //               ),
@@ -970,7 +970,7 @@
 // // //             border: Border.all(color: Color(0xFFE9ECEF)),
 // // //             boxShadow: [
 // // //               BoxShadow(
-// // //                 color: Colors.black.withOpacity(0.02),
+// // //                 color: Colors.black.withValues(alpha: 0.02),
 // // //                 blurRadius: 4,
 // // //                 offset: Offset(0, 2),
 // // //               ),
@@ -1038,7 +1038,7 @@
 // // //             border: Border.all(color: Color(0xFFE9ECEF)),
 // // //             boxShadow: [
 // // //               BoxShadow(
-// // //                 color: Colors.black.withOpacity(0.02),
+// // //                 color: Colors.black.withValues(alpha: 0.02),
 // // //                 blurRadius: 4,
 // // //                 offset: Offset(0, 2),
 // // //               ),
@@ -1091,7 +1091,7 @@
 // // //             ),
 // // //             boxShadow: [
 // // //               BoxShadow(
-// // //                 color: Colors.black.withOpacity(0.02),
+// // //                 color: Colors.black.withValues(alpha: 0.02),
 // // //                 blurRadius: 4,
 // // //                 offset: Offset(0, 2),
 // // //               ),
@@ -1144,7 +1144,7 @@
 // // //         borderRadius: BorderRadius.circular(25),
 // // //         boxShadow: [
 // // //           BoxShadow(
-// // //             color: Color(0xFFE91E63).withOpacity(0.3),
+// // //             color: Color(0xFFE91E63).withValues(alpha: 0.3),
 // // //             blurRadius: 15,
 // // //             offset: Offset(0, 8),
 // // //           ),
@@ -1210,7 +1210,7 @@
 // // //         border: Border.all(color: Color(0xFFE9ECEF)),
 // // //         boxShadow: [
 // // //           BoxShadow(
-// // //             color: Colors.black.withOpacity(0.05),
+// // //             color: Colors.black.withValues(alpha: 0.05),
 // // //             blurRadius: 10,
 // // //             offset: Offset(0, 2),
 // // //           ),
@@ -2674,7 +2674,7 @@
 // // //             border: Border.all(color: Color(0xFFE9ECEF)),
 // // //             boxShadow: [
 // // //               BoxShadow(
-// // //                 color: Colors.black.withOpacity(0.02),
+// // //                 color: Colors.black.withValues(alpha: 0.02),
 // // //                 blurRadius: 4,
 // // //                 offset: Offset(0, 2),
 // // //               ),
@@ -2780,7 +2780,7 @@
 // // //             border: Border.all(color: Color(0xFFE9ECEF)),
 // // //             boxShadow: [
 // // //               BoxShadow(
-// // //                 color: Colors.black.withOpacity(0.02),
+// // //                 color: Colors.black.withValues(alpha: 0.02),
 // // //                 blurRadius: 4,
 // // //                 offset: Offset(0, 2),
 // // //               ),
@@ -2826,7 +2826,7 @@
 // // //         borderRadius: BorderRadius.circular(25),
 // // //         boxShadow: [
 // // //           BoxShadow(
-// // //             color: Color(0xFFE91E63).withOpacity(0.3),
+// // //             color: Color(0xFFE91E63).withValues(alpha: 0.3),
 // // //             blurRadius: 15,
 // // //             offset: Offset(0, 8),
 // // //           ),
@@ -2894,7 +2894,7 @@
 // // //         border: Border.all(color: Color(0xFFE9ECEF)),
 // // //         boxShadow: [
 // // //           BoxShadow(
-// // //             color: Colors.black.withOpacity(0.05),
+// // //             color: Colors.black.withValues(alpha: 0.05),
 // // //             blurRadius: 10,
 // // //             offset: Offset(0, 2),
 // // //           ),
@@ -2955,7 +2955,7 @@
 // // //                 width: 80,
 // // //                 height: 80,
 // // //                 decoration: BoxDecoration(
-// // //                   color: Color(0xFFE91E63).withOpacity(0.1),
+// // //                   color: Color(0xFFE91E63).withValues(alpha: 0.1),
 // // //                   shape: BoxShape.circle,
 // // //                 ),
 // // //                 child: Icon(
@@ -3403,11 +3403,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_gcaptcha_v3/recaptca_config.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
 

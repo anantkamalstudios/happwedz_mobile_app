@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import 'core/core.dart';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -303,7 +302,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(16), // ↓ smaller radius
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -379,7 +378,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.15),
+            color: Colors.grey.withValues(alpha: 0.15),
             spreadRadius: 1,
             blurRadius: 8,
             offset: Offset(0, 2),
@@ -410,7 +409,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.7),
+                      Colors.black.withValues(alpha: 0.7),
                     ],
                   ),
                 ),
@@ -430,7 +429,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
               child: Container(
                 padding: EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -601,7 +600,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 8)],
+          boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), spreadRadius: 1, blurRadius: 8)],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,7 +645,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 8,
             offset: Offset(0, 2),
@@ -759,7 +758,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 8,
             offset: Offset(0, 2),
@@ -787,7 +786,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 8,
             offset: Offset(0, -2),
@@ -811,7 +810,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Color(0xFFE91E63).withOpacity(0.3),
+                  color: Color(0xFFE91E63).withValues(alpha: 0.3),
                   spreadRadius: 2,
                   blurRadius: 8,
                   offset: Offset(0, 4),
@@ -916,7 +915,7 @@ class BlogDetailPage extends StatelessWidget {
               margin: const EdgeInsets.only(left: 8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
               ),
               child: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -944,7 +943,7 @@ class BlogDetailPage extends StatelessWidget {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Colors.black.withOpacity(0.55),
+                          Colors.black.withValues(alpha: 0.55),
                           Colors.transparent
                         ],
                       ),

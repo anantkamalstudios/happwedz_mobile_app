@@ -735,7 +735,7 @@ import '../core/core.dart';
 //       decoration: BoxDecoration(
 //         gradient: const LinearGradient(colors: [Color(0xFFFF69B4), Color(0xFF9B7EF5)], begin: Alignment.topLeft, end: Alignment.bottomRight),
 //         borderRadius: BorderRadius.circular(16),
-//         boxShadow: [BoxShadow(color: const Color(0xFFFF69B4).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+//         boxShadow: [BoxShadow(color: const Color(0xFFFF69B4).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
 //       ),
 //       child: Row(
 //         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -771,7 +771,7 @@ import '../core/core.dart';
 //                 borderRadius: BorderRadius.circular(12),
 //                 boxShadow: [
 //                   BoxShadow(
-//                     color: Colors.black.withOpacity(0.05),
+//                     color: Colors.black.withValues(alpha: 0.05),
 //                     blurRadius: 8,
 //                     offset: const Offset(0, 2),
 //                   )
@@ -883,7 +883,7 @@ import '../core/core.dart';
 //         borderRadius: BorderRadius.circular(12),
 //         boxShadow: [
 //           BoxShadow(
-//             color: Colors.black.withOpacity(0.05),
+//             color: Colors.black.withValues(alpha: 0.05),
 //             blurRadius: 8,
 //             offset: const Offset(0, 2),
 //           ),
@@ -907,7 +907,7 @@ import '../core/core.dart';
 //         // Avatar
 //         // ---------------------------------------------
 //         leading: CircleAvatar(
-//           backgroundColor: const Color(0xFFFF69B4).withOpacity(0.12),
+//           backgroundColor: const Color(0xFFFF69B4).withValues(alpha: 0.12),
 //           child: Text(
 //             guest.name.isNotEmpty ? guest.name[0].toUpperCase() : '?',
 //             style: const TextStyle(
@@ -931,7 +931,7 @@ import '../core/core.dart';
 //             Container(
 //               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
 //               decoration: BoxDecoration(
-//                 color: statusColor.withOpacity(0.1),
+//                 color: statusColor.withValues(alpha: 0.1),
 //                 borderRadius: BorderRadius.circular(12),
 //               ),
 //               child: Row(
@@ -982,7 +982,7 @@ import '../core/core.dart';
 //                 Container(
 //                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
 //                   decoration: BoxDecoration(
-//                     color: Colors.blue.withOpacity(0.1),
+//                     color: Colors.blue.withValues(alpha: 0.1),
 //                     borderRadius: BorderRadius.circular(8),
 //                   ),
 //                   child: Text(
@@ -998,7 +998,7 @@ import '../core/core.dart';
 //                 Container(
 //                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
 //                   decoration: BoxDecoration(
-//                     color: Colors.pink.withOpacity(0.1),
+//                     color: Colors.pink.withValues(alpha: 0.1),
 //                     borderRadius: BorderRadius.circular(8),
 //                   ),
 //                   child: Text(
@@ -1338,7 +1338,7 @@ import '../core/core.dart';
 //                 // Avatar
 //                 CircleAvatar(
 //                   radius: 50,
-//                   backgroundColor: Colors.white.withOpacity(0.3),
+//                   backgroundColor: Colors.white.withValues(alpha: 0.3),
 //                   child: Text(
 //                     widget.guest.name.isNotEmpty
 //                         ? widget.guest.name[0].toUpperCase()
@@ -1389,7 +1389,7 @@ import '../core/core.dart';
 //                     borderRadius: BorderRadius.circular(18),
 //                     boxShadow: [
 //                       BoxShadow(
-//                         color: Colors.black.withOpacity(0.08),
+//                         color: Colors.black.withValues(alpha: 0.08),
 //                         blurRadius: 10,
 //                         offset: const Offset(0, 4),
 //                       ),
@@ -1511,7 +1511,7 @@ import '../core/core.dart';
 //           Container(
 //             padding: const EdgeInsets.all(12),
 //             decoration: BoxDecoration(
-//               color: Colors.pink.withOpacity(0.15),
+//               color: Colors.pink.withValues(alpha: 0.15),
 //               borderRadius: BorderRadius.circular(12),
 //             ),
 //             child: Icon(icon, color: Colors.pink, size: 22),
@@ -1705,7 +1705,7 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -1729,7 +1729,7 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: Colors.pink.withOpacity(0.15),
+                backgroundColor: Colors.pink.withValues(alpha: 0.15),
                 child: Text(
                   guest.name[0].toUpperCase(),
                   style: const TextStyle(
@@ -1748,7 +1748,7 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
                 padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
+                  color: statusColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -2321,7 +2321,7 @@ $familyName Family
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 8,
             ),
           ],
@@ -2366,7 +2366,7 @@ $familyName Family
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
           ),
         ],

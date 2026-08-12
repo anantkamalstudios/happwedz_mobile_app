@@ -68,7 +68,7 @@ class _LancomeMakeupTryOnScreen13State extends State<LancomeMakeupTryOnScreen13>
               ? LinearGradient(colors: [Color(0xFFFCE4EC), Color(0xFFF8BBD9)])
               : null,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Color(0xFFE91E63).withOpacity(0.3), width: 2),
+          border: Border.all(color: Color(0xFFE91E63).withValues(alpha: 0.3), width: 2),
         ),
         child: _selectedImage != null
             ? ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.file(_selectedImage!, fit: BoxFit.cover))
@@ -107,8 +107,8 @@ class _LancomeMakeupTryOnScreen13State extends State<LancomeMakeupTryOnScreen13>
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 10, offset: Offset(0, 5))],
-                  border: Border.all(color: isSelected ? Color(0xFFD81B60) : Colors.grey.withOpacity(0.3), width: 2),
+                  boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.2), blurRadius: 10, offset: Offset(0, 5))],
+                  border: Border.all(color: isSelected ? Color(0xFFD81B60) : Colors.grey.withValues(alpha: 0.3), width: 2),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -141,7 +141,7 @@ class _LancomeMakeupTryOnScreen13State extends State<LancomeMakeupTryOnScreen13>
                                 decoration: BoxDecoration(
                                   color: color,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: isColorSelected ? Color(0xFFD81B60) : Colors.grey.withOpacity(0.3), width: isColorSelected ? 3 : 1),
+                                  border: Border.all(color: isColorSelected ? Color(0xFFD81B60) : Colors.grey.withValues(alpha: 0.3), width: isColorSelected ? 3 : 1),
                                 ),
                               ),
                             );

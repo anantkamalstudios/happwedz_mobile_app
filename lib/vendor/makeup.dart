@@ -82,7 +82,7 @@ import '../core/core.dart';
 //       child: Container(
 //         padding: const EdgeInsets.symmetric(horizontal: 16.0),
 //         decoration: BoxDecoration(
-//           color: Colors.white.withOpacity(0.9),
+//           color: Colors.white.withValues(alpha: 0.9),
 //           borderRadius: BorderRadius.circular(25),
 //         ),
 //         child: const TextField(
@@ -104,7 +104,7 @@ import '../core/core.dart';
 //         borderRadius: BorderRadius.circular(12),
 //         boxShadow: [
 //           BoxShadow(
-//             color: Colors.black.withOpacity(0.1),
+//             color: Colors.black.withValues(alpha: 0.1),
 //             blurRadius: 8,
 //             offset: const Offset(0, 2),
 //           ),
@@ -274,7 +274,6 @@ import '../core/core.dart';
 
 
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class MakeupScreen extends StatefulWidget {
@@ -396,7 +395,7 @@ class _MakeupScreenState extends State<MakeupScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
+          color: Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(25),
         ),
         child: const TextField(
@@ -446,7 +445,7 @@ class _MakeupScreenState extends State<MakeupScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

@@ -1,21 +1,13 @@
-import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 
 import 'dart:convert';
-import 'dart:math' as math;
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 
 
 
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// A self-contained, single-file Chat screen inspired by ChatGPT for the
 /// HappyWedz AI backend. It handles:
@@ -344,7 +336,7 @@ class _GenieScreenState extends State<GenieScreen> with TickerProviderStateMixin
               topRight: Radius.circular(18),
               bottomLeft: Radius.circular(18),
             ),
-            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 8)],
+            boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.12), blurRadius: 8)],
           ),
           child: Text(msg.text, style: const TextStyle(fontSize: 15)),
         ),
@@ -374,7 +366,7 @@ class _GenieScreenState extends State<GenieScreen> with TickerProviderStateMixin
                   topRight: Radius.circular(18),
                   bottomRight: Radius.circular(18),
                 ),
-                boxShadow: [BoxShadow(color: Colors.pinkAccent.withOpacity(0.08), blurRadius: 10)],
+                boxShadow: [BoxShadow(color: Colors.pinkAccent.withValues(alpha: 0.08), blurRadius: 10)],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -792,7 +784,7 @@ class _HistoryPanel extends StatelessWidget {
 //                 ),
 //                 boxShadow: [
 //                   BoxShadow(
-//                     color: Colors.pinkAccent.withOpacity(0.15),
+//                     color: Colors.pinkAccent.withValues(alpha: 0.15),
 //                     blurRadius: 12,
 //                     offset: const Offset(0, 6),
 //                   ),
@@ -823,7 +815,7 @@ class _HistoryPanel extends StatelessWidget {
 //           ),
 //           boxShadow: [
 //             BoxShadow(
-//               color: Colors.grey.withOpacity(0.15),
+//               color: Colors.grey.withValues(alpha: 0.15),
 //               blurRadius: 8,
 //               offset: const Offset(0, 4),
 //             ),
@@ -1223,7 +1215,7 @@ class _HistoryPanel extends StatelessWidget {
 //                     ),
 //                     boxShadow: [
 //                       BoxShadow(
-//                         color: Colors.pinkAccent.withOpacity(0.15),
+//                         color: Colors.pinkAccent.withValues(alpha: 0.15),
 //                         blurRadius: 12,
 //                         offset: const Offset(0, 6),
 //                       ),
@@ -1288,7 +1280,7 @@ class _HistoryPanel extends StatelessWidget {
 //           ),
 //           boxShadow: [
 //             BoxShadow(
-//               color: Colors.grey.withOpacity(0.15),
+//               color: Colors.grey.withValues(alpha: 0.15),
 //               blurRadius: 8,
 //               offset: const Offset(0, 4),
 //             ),
@@ -1319,7 +1311,7 @@ class _HistoryPanel extends StatelessWidget {
 //           borderRadius: BorderRadius.circular(18),
 //           boxShadow: [
 //             BoxShadow(
-//               color: Colors.pink.shade100.withOpacity(0.3),
+//               color: Colors.pink.shade100.withValues(alpha: 0.3),
 //               blurRadius: 8,
 //               offset: const Offset(0, 4),
 //             ),
@@ -1384,7 +1376,7 @@ class _HistoryPanel extends StatelessWidget {
 //                   border: Border.all(color: Colors.pink.shade50, width: 1.5),
 //                   boxShadow: [
 //                     BoxShadow(
-//                       color: Colors.grey.withOpacity(0.08),
+//                       color: Colors.grey.withValues(alpha: 0.08),
 //                       blurRadius: 6,
 //                       offset: const Offset(0, 3),
 //                     ),
@@ -1423,7 +1415,7 @@ class _HistoryPanel extends StatelessWidget {
 //                     boxShadow: [
 //                       BoxShadow(
 //                         color:
-//                         Colors.pinkAccent.withOpacity(0.3 * normalized),
+//                         Colors.pinkAccent.withValues(alpha: 0.3 * normalized),
 //                         blurRadius: 8 + (6 * normalized),
 //                         spreadRadius: 1,
 //                       ),

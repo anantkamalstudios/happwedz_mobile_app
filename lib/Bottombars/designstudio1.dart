@@ -323,7 +323,7 @@ class FrameBracketsPainter extends CustomPainter {
 //                 //         borderRadius: BorderRadius.circular(16),
 //                 //         boxShadow: [
 //                 //           BoxShadow(
-//                 //             color: Colors.black.withOpacity(0.08),
+//                 //             color: Colors.black.withValues(alpha: 0.08),
 //                 //             blurRadius: 8,
 //                 //             offset: const Offset(0, 4),
 //                 //           ),
@@ -381,7 +381,7 @@ class FrameBracketsPainter extends CustomPainter {
 //                         borderRadius: BorderRadius.circular(16),
 //                         boxShadow: [
 //                           BoxShadow(
-//                             color: Colors.black.withOpacity(0.08),
+//                             color: Colors.black.withValues(alpha: 0.08),
 //                             blurRadius: 8,
 //                             offset: const Offset(0, 4),
 //                           ),
@@ -461,7 +461,7 @@ class FrameBracketsPainter extends CustomPainter {
 //                   image: widget.userImage != null
 //                       ? Image.file(widget.userImage!, fit: BoxFit.cover).image
 //                       : _placeholderImage,
-//                   // overlayColor: Colors.pink.withOpacity(0.5), // virtual makeup effect
+//                   // overlayColor: Colors.pink.withValues(alpha: 0.5), // virtual makeup effect
 //                 ),
 //
 //                 // ✅ Complete Looks tab: just content
@@ -525,7 +525,7 @@ class FrameBracketsPainter extends CustomPainter {
 //     return Container(
 //       decoration: BoxDecoration(
 //         color: Colors.white,
-//         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)],
+//         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)],
 //       ),
 //       child: SafeArea(
 //         top: false,
@@ -763,7 +763,7 @@ class VirtualDesignChooseScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -797,7 +797,7 @@ class VirtualDesignChooseScreen extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.7),
+                      Colors.black.withValues(alpha: 0.7),
                     ],
                     stops: const [0.5, 1.0],
                   ),
@@ -1036,7 +1036,7 @@ class VirtualDesignBrideScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -1295,7 +1295,7 @@ class _PrivacyPopupDialogState extends State<PrivacyPopupDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFD81B60),
                     disabledBackgroundColor:
-                    const Color(0xFFD81B60).withOpacity(0.4),
+                    const Color(0xFFD81B60).withValues(alpha: 0.4),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -1453,7 +1453,7 @@ class DsColors {
 // //                             borderRadius: BorderRadius.circular(20),
 // //                             boxShadow: [
 // //                               BoxShadow(
-// //                                 color: Colors.black.withOpacity(0.1),
+// //                                 color: Colors.black.withValues(alpha: 0.1),
 // //                                 blurRadius: 10,
 // //                                 offset: const Offset(0, 5),
 // //                               ),
@@ -1475,11 +1475,11 @@ class DsColors {
 // //                               vertical: 8,
 // //                             ),
 // //                             decoration: BoxDecoration(
-// //                               color: Colors.white.withOpacity(0.9),
+// //                               color: Colors.white.withValues(alpha: 0.9),
 // //                               borderRadius: BorderRadius.circular(20),
 // //                               boxShadow: [
 // //                                 BoxShadow(
-// //                                   color: Colors.black.withOpacity(0.1),
+// //                                   color: Colors.black.withValues(alpha: 0.1),
 // //                                   blurRadius: 8,
 // //                                 ),
 // //                               ],
@@ -1708,7 +1708,7 @@ class DsColors {
 // //             borderRadius: BorderRadius.circular(10),
 // //             boxShadow: [
 // //               BoxShadow(
-// //                 color: Colors.black.withOpacity(0.1),
+// //                 color: Colors.black.withValues(alpha: 0.1),
 // //                 blurRadius: 5,
 // //                 offset: const Offset(0, 2),
 // //               ),
@@ -1805,12 +1805,12 @@ class DsColors {
 // //                         color: Colors.white,
 // //                         borderRadius: BorderRadius.circular(20),
 // //                         border: Border.all(
-// //                           color: DsColors.primaryPink.withOpacity(0.3),
+// //                           color: DsColors.primaryPink.withValues(alpha: 0.3),
 // //                           width: 2,
 // //                         ),
 // //                         boxShadow: [
 // //                           BoxShadow(
-// //                             color: Colors.black.withOpacity(0.05),
+// //                             color: Colors.black.withValues(alpha: 0.05),
 // //                             blurRadius: 10,
 // //                             offset: const Offset(0, 5),
 // //                           ),
@@ -1831,7 +1831,7 @@ class DsColors {
 // //                             Icon(
 // //                               Icons.person_outline,
 // //                               size: 80,
-// //                               color: DsColors.primaryPink.withOpacity(0.3),
+// //                               color: DsColors.primaryPink.withValues(alpha: 0.3),
 // //                             ),
 // //                             const SizedBox(height: 16),
 // //                             const Text(
@@ -1997,12 +1997,12 @@ class DsColors {
 // //               color: color,
 // //               shape: BoxShape.circle,
 // //               border: Border.all(
-// //                 color: DsColors.primaryPink.withOpacity(0.3),
+// //                 color: DsColors.primaryPink.withValues(alpha: 0.3),
 // //                 width: 2,
 // //               ),
 // //               boxShadow: [
 // //                 BoxShadow(
-// //                   color: Colors.black.withOpacity(0.1),
+// //                   color: Colors.black.withValues(alpha: 0.1),
 // //                   blurRadius: 5,
 // //                   offset: const Offset(0, 2),
 // //                 ),
@@ -2110,7 +2110,7 @@ class DsColors {
 // //         borderRadius: BorderRadius.circular(15),
 // //         boxShadow: [
 // //           BoxShadow(
-// //             color: Colors.black.withOpacity(0.08),
+// //             color: Colors.black.withValues(alpha: 0.08),
 // //             blurRadius: 8,
 // //             offset: const Offset(0, 4),
 // //           ),
@@ -2308,7 +2308,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 10,
                                   offset: const Offset(0, 5),
                                 ),
@@ -2330,11 +2330,11 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
                           //       vertical: 8,
                           //     ),
                           //     decoration: BoxDecoration(
-                          //       color: Colors.white.withOpacity(0.9),
+                          //       color: Colors.white.withValues(alpha: 0.9),
                           //       borderRadius: BorderRadius.circular(20),
                           //       boxShadow: [
                           //         BoxShadow(
-                          //           color: Colors.black.withOpacity(0.1),
+                          //           color: Colors.black.withValues(alpha: 0.1),
                           //           blurRadius: 8,
                           //         ),
                           //       ],
@@ -2563,7 +2563,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                 color: selected ? const Color(0xFFFDE8EF) : Colors.white,
 //                 borderRadius: BorderRadius.circular(12),
 //                 border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
-//                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 //               ),
 //               child: Column(
 //                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2610,7 +2610,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                       color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
 //                       borderRadius: BorderRadius.circular(12),
 //                       border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
-//                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+//                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
 //                     ),
 //                     child: Row(
 //                       children: [
@@ -2677,7 +2677,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                           color: selectedBrand.shades[i],
 //                           shape: BoxShape.circle,
 //                           border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
-//                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+//                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6)],
 //                         ),
 //                       ),
 //                       const SizedBox(height: 8),
@@ -2838,7 +2838,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                   width: 36,
 //                   height: 36,
 //                   decoration: BoxDecoration(
-//                     color: Colors.white.withOpacity(0.8),
+//                     color: Colors.white.withValues(alpha: 0.8),
 //                     shape: BoxShape.circle,
 //                     boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
 //                   ),
@@ -2924,7 +2924,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                   return Container(
 //                     width: 220,
 //                     padding: const EdgeInsets.all(10),
-//                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)]),
+//                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)]),
 //                     child: Row(
 //                       children: [
 //                         Container(width: 64, height: 64, decoration: BoxDecoration(color: shadeColor, borderRadius: BorderRadius.circular(8))),
@@ -3054,8 +3054,8 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 // //                   begin: Alignment.topCenter,
 // //                   end: Alignment.bottomCenter,
 // //                   colors: [
-// //                     Colors.black.withOpacity(0.3),
-// //                     Colors.black.withOpacity(0.6),
+// //                     Colors.black.withValues(alpha: 0.3),
+// //                     Colors.black.withValues(alpha: 0.6),
 // //                   ],
 // //                 ),
 // //               ),
@@ -3117,7 +3117,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 // //                                 vertical: 60, horizontal: 20),
 // //                             decoration: BoxDecoration(
 // //                               borderRadius: BorderRadius.circular(20),
-// //                               color: Colors.white.withOpacity(0.1),
+// //                               color: Colors.white.withValues(alpha: 0.1),
 // //                             ),
 // //                             child: Column(
 // //                               mainAxisSize: MainAxisSize.min,
@@ -3136,7 +3136,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 // //                                 Text(
 // //                                   'Instantly try on makeup looks and find your perfect shades.',
 // //                                   style: TextStyle(
-// //                                     color: Colors.white.withOpacity(0.9),
+// //                                     color: Colors.white.withValues(alpha: 0.9),
 // //                                     fontSize: 14,
 // //                                     fontWeight: FontWeight.w400,
 // //                                     height: 1.4,
@@ -3792,7 +3792,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                                   borderRadius: BorderRadius.circular(16),
 //                                   boxShadow: [
 //                                     BoxShadow(
-//                                       color: Colors.black.withOpacity(0.1),
+//                                       color: Colors.black.withValues(alpha: 0.1),
 //                                       blurRadius: 10,
 //                                       offset: const Offset(0, 4),
 //                                     ),
@@ -3826,7 +3826,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                                             end: Alignment.bottomCenter,
 //                                             colors: [
 //                                               Colors.transparent,
-//                                               Colors.black.withOpacity(0.5),
+//                                               Colors.black.withValues(alpha: 0.5),
 //                                             ],
 //                                           ),
 //                                         ),
@@ -3866,7 +3866,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                                   borderRadius: BorderRadius.circular(16),
 //                                   boxShadow: [
 //                                     BoxShadow(
-//                                       color: Colors.black.withOpacity(0.1),
+//                                       color: Colors.black.withValues(alpha: 0.1),
 //                                       blurRadius: 10,
 //                                       offset: const Offset(0, 4),
 //                                     ),
@@ -3896,7 +3896,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                                             end: Alignment.bottomCenter,
 //                                             colors: [
 //                                               Colors.transparent,
-//                                               Colors.black.withOpacity(0.5),
+//                                               Colors.black.withValues(alpha: 0.5),
 //                                             ],
 //                                           ),
 //                                         ),
@@ -3937,7 +3937,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                                   borderRadius: BorderRadius.circular(16),
 //                                   boxShadow: [
 //                                     BoxShadow(
-//                                       color: Colors.black.withOpacity(0.1),
+//                                       color: Colors.black.withValues(alpha: 0.1),
 //                                       blurRadius: 10,
 //                                       offset: const Offset(0, 4),
 //                                     ),
@@ -3967,7 +3967,7 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
 //                                             end: Alignment.bottomCenter,
 //                                             colors: [
 //                                               Colors.transparent,
-//                                               Colors.black.withOpacity(0.5),
+//                                               Colors.black.withValues(alpha: 0.5),
 //                                             ],
 //                                           ),
 //                                         ),

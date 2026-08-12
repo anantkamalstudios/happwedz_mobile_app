@@ -335,10 +335,10 @@
 //           width: 60,
 //           height: 60,
 //           decoration: BoxDecoration(
-//             color: color.withOpacity(0.1),
+//             color: color.withValues(alpha: 0.1),
 //             shape: BoxShape.circle,
 //             border: Border.all(
-//               color: color.withOpacity(0.3),
+//               color: color.withValues(alpha: 0.3),
 //               width: 2,
 //             ),
 //           ),
@@ -468,7 +468,7 @@
 //                     boxShadow: widget.isSelected
 //                         ? [
 //                       BoxShadow(
-//                         color: Color(0xFFFF6B9D).withOpacity(0.3),
+//                         color: Color(0xFFFF6B9D).withValues(alpha: 0.3),
 //                         blurRadius: 10,
 //                         offset: Offset(0, 5),
 //                       ),
@@ -616,7 +616,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Icon(Icons.search, color: Colors.white, size: 22),
@@ -691,7 +691,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.3),
+                              color: Colors.grey.withValues(alpha: 0.3),
                               blurRadius: 15,
                               offset: Offset(0, 5),
                             ),
@@ -707,8 +707,8 @@ class _ShopScreenState extends State<ShopScreen> {
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      Colors.pink[100]!.withOpacity(0.7),
-                                      Colors.orange[100]!.withOpacity(0.7),
+                                      Colors.pink[100]!.withValues(alpha: 0.7),
+                                      Colors.orange[100]!.withValues(alpha: 0.7),
                                     ],
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
@@ -732,7 +732,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                       shadows: [
                                         Shadow(
                                           blurRadius: 10,
-                                          color: Colors.black.withOpacity(0.5),
+                                          color: Colors.black.withValues(alpha: 0.5),
                                         ),
                                       ],
                                     ),
@@ -741,12 +741,12 @@ class _ShopScreenState extends State<ShopScreen> {
                                   Text(
                                     'Browse our new collection of lehengas',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(alpha: 0.9),
                                       fontSize: 16,
                                       shadows: [
                                         Shadow(
                                           blurRadius: 8,
-                                          color: Colors.black.withOpacity(0.3),
+                                          color: Colors.black.withValues(alpha: 0.3),
                                         ),
                                       ],
                                     ),
@@ -807,7 +807,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.orange.withOpacity(0.3),
+                              color: Colors.orange.withValues(alpha: 0.3),
                               blurRadius: 15,
                               offset: Offset(0, 5),
                             ),
@@ -831,7 +831,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                       shadows: [
                                         Shadow(
                                           blurRadius: 10,
-                                          color: Colors.black.withOpacity(0.5),
+                                          color: Colors.black.withValues(alpha: 0.5),
                                         ),
                                       ],
                                     ),
@@ -840,12 +840,12 @@ class _ShopScreenState extends State<ShopScreen> {
                                   Text(
                                     'A little bling never hurt',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(alpha: 0.9),
                                       fontSize: 16,
                                       shadows: [
                                         Shadow(
                                           blurRadius: 8,
-                                          color: Colors.black.withOpacity(0.3),
+                                          color: Colors.black.withValues(alpha: 0.3),
                                         ),
                                       ],
                                     ),
@@ -906,7 +906,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.pink.withOpacity(0.3),
+                              color: Colors.pink.withValues(alpha: 0.3),
                               blurRadius: 15,
                               offset: Offset(0, 5),
                             ),
@@ -930,7 +930,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                       shadows: [
                                         Shadow(
                                           blurRadius: 10,
-                                          color: Colors.black.withOpacity(0.5),
+                                          color: Colors.black.withValues(alpha: 0.5),
                                         ),
                                       ],
                                     ),
@@ -939,12 +939,12 @@ class _ShopScreenState extends State<ShopScreen> {
                                   Text(
                                     'Best steal choices to create a complete bridal makeup',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(alpha: 0.9),
                                       fontSize: 15,
                                       shadows: [
                                         Shadow(
                                           blurRadius: 8,
-                                          color: Colors.black.withOpacity(0.3),
+                                          color: Colors.black.withValues(alpha: 0.3),
                                         ),
                                       ],
                                     ),
@@ -996,7 +996,7 @@ class _ShopScreenState extends State<ShopScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withValues(alpha: 0.2),
                   blurRadius: 8,
                   offset: Offset(0, 4),
                 ),
@@ -1036,7 +1036,7 @@ class _ShopScreenState extends State<ShopScreen> {
               borderRadius: BorderRadius.circular(27.5),
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.4),
+                  color: color.withValues(alpha: 0.4),
                   blurRadius: 8,
                   offset: Offset(0, 4),
                 ),

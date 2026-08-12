@@ -79,7 +79,7 @@ import 'core/core.dart';
 // //         .format((data['timestamp'] as Timestamp).toDate())
 // //         : '';
 // //     final radius = const Radius.circular(12);
-// //     final bubbleColor = isMe ? accent.withOpacity(0.95) : Colors.grey.shade200;
+// //     final bubbleColor = isMe ? accent.withValues(alpha: 0.95) : Colors.grey.shade200;
 // //     final textColor = isMe ? Colors.white : Colors.black87;
 // //
 // //     return Container(
@@ -104,7 +104,7 @@ import 'core/core.dart';
 // //           children: [
 // //             Text(data['text'] ?? '', style: TextStyle(color: textColor, fontSize: 15)),
 // //             const SizedBox(height: 6),
-// //             Text(time, style: TextStyle(color: textColor.withOpacity(0.8), fontSize: 11)),
+// //             Text(time, style: TextStyle(color: textColor.withValues(alpha: 0.8), fontSize: 11)),
 // //           ],
 // //         ),
 // //       ),
@@ -387,7 +387,7 @@ import 'core/core.dart';
 //               timeStr,
 //               style: TextStyle(
 //                   color:
-//                   (isMe ? Colors.white : Colors.black87).withOpacity(0.8),
+//                   (isMe ? Colors.white : Colors.black87).withValues(alpha: 0.8),
 //                   fontSize: 11),
 //             ),
 //           ],

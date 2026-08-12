@@ -17,7 +17,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import 'core/core.dart';
-import 'package:happy_wedz/vendor/vendordetailsscreen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -29,9 +28,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
 // PDF + Printing
-import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import 'Bottombars/HomeScreen.dart';
 
@@ -760,7 +757,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.pink.shade50.withOpacity(0.6), blurRadius: 10, offset: const Offset(0, 6))],
+          boxShadow: [BoxShadow(color: Colors.pink.shade50.withValues(alpha: 0.6), blurRadius: 10, offset: const Offset(0, 6))],
         ),
         child: child,
       ),

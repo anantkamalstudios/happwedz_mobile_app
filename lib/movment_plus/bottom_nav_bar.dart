@@ -1,10 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:happy_wedz/movment_plus/upload_selfie_screen.dart';
 
-import '../Bottombars/HomeScreen.dart';
 import 'guest_token_screen.dart';
-import 'login_screen.dart';
 import 'movment_plus_dashboard.dart';
 
 class CustomBottomBar extends StatefulWidget {
@@ -61,7 +58,7 @@ class _CustomBottomBarState extends State<CustomBottomBar> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withOpacity(0.7),
+        unselectedItemColor: Colors.white.withValues(alpha: 0.7),
         selectedFontSize: 12,
         unselectedFontSize: 12,
         items: const [

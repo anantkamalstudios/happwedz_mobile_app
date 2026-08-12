@@ -208,7 +208,7 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFE91E63).withOpacity(0.3),
+            color: Color(0xFFE91E63).withValues(alpha: 0.3),
             blurRadius: 15,
             offset: Offset(0, 8),
           ),
@@ -256,7 +256,7 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFE91E63).withOpacity(0.4),
+            color: Color(0xFFE91E63).withValues(alpha: 0.4),
             blurRadius: 15,
             offset: Offset(0, 8),
           ),
@@ -361,7 +361,7 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
               leading: Container(
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Color(0xFFE91E63).withOpacity(0.1),
+                  color: Color(0xFFE91E63).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(Icons.person_add, color: Color(0xFFE91E63)),
@@ -374,7 +374,7 @@ class _InboxscreenState extends State<Inboxscreen> with TickerProviderStateMixin
               leading: Container(
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Color(0xFFE91E63).withOpacity(0.1),
+                  color: Color(0xFFE91E63).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(Icons.qr_code_scanner, color: Color(0xFFE91E63)),

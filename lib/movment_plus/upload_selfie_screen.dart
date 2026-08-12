@@ -15,7 +15,7 @@ class MomentPrivacyDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.45),
+      backgroundColor: Colors.black.withValues(alpha: 0.45),
       body: SafeArea(
         child: Center(
           child: Container(
@@ -28,7 +28,7 @@ class MomentPrivacyDialog extends StatelessWidget {
               border: Border.all(color: primary, width: 1),
               boxShadow: [
                 BoxShadow(
-                  color: primary.withOpacity(0.18),
+                  color: primary.withValues(alpha: 0.18),
                   blurRadius: 12,
                   offset: const Offset(0, 6),
                 )

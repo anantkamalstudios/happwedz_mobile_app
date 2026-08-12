@@ -105,7 +105,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 10,
                             offset: Offset(0, 4),
                           ),
@@ -139,7 +139,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                                           center: Alignment.topRight,
                                           radius: 1.0,
                                           colors: [
-                                            Colors.white.withOpacity(0.3),
+                                            Colors.white.withValues(alpha: 0.3),
                                             Colors.transparent,
                                           ],
                                         ),
@@ -156,7 +156,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                                         height: 20 + (index * 5.0) % 30,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: Colors.white.withOpacity(0.2 + (index * 0.1) % 0.3),
+                                          color: Colors.white.withValues(alpha: 0.2 + (index * 0.1) % 0.3),
                                         ),
                                       ),
                                     );
@@ -178,7 +178,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                                     width: 60,
                                     height: 80,
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
+                                      color: Colors.black.withValues(alpha: 0.6),
                                       borderRadius: BorderRadius.circular(30),
                                     ),
                                   ),
@@ -188,7 +188,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                                     width: 65,
                                     height: 85,
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
+                                      color: Colors.black.withValues(alpha: 0.6),
                                       borderRadius: BorderRadius.circular(32),
                                     ),
                                   ),
@@ -213,7 +213,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                                         Shadow(
                                           offset: Offset(0, 2),
                                           blurRadius: 4,
-                                          color: Colors.black.withOpacity(0.3),
+                                          color: Colors.black.withValues(alpha: 0.3),
                                         ),
                                       ],
                                     ),
@@ -222,7 +222,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                                   Container(
                                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.3),
+                                      color: Colors.black.withValues(alpha: 0.3),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
@@ -251,7 +251,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: Offset(0, 2),
                           ),

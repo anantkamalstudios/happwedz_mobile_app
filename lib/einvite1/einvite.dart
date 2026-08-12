@@ -8,7 +8,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:happy_wedz/einvite1/CustomizeCard.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -16,14 +15,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import 'ViewAllScreen.dart';
 
-import 'dart:ui' as ui;
 import 'dart:typed_data';
-import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 
 
 
@@ -486,7 +480,7 @@ import 'package:path_provider/path_provider.dart';
 //                 color: Colors.white,
 //                 boxShadow: [
 //                   BoxShadow(
-//                     color: Colors.black.withOpacity(0.1),
+//                     color: Colors.black.withValues(alpha: 0.1),
 //                     blurRadius: 6,
 //                     offset: const Offset(0, 3),
 //                   ),
@@ -551,7 +545,6 @@ import 'package:path_provider/path_provider.dart';
 
 
 
-import 'package:flutter/material.dart';
 
 // Rich_EInvitation_UI.dart
 // A single-file Flutter screen that implements a rich & professional UI
@@ -707,7 +700,7 @@ import 'package:flutter/material.dart';
 //                     gradient: LinearGradient(
 //                       begin: Alignment.topCenter,
 //                       end: Alignment.bottomCenter,
-//                       colors: [Colors.transparent, Colors.black45.withOpacity(0.6)],
+//                       colors: [Colors.transparent, Colors.black45.withValues(alpha: 0.6)],
 //                     ),
 //                   ),
 //                 ),
@@ -957,7 +950,7 @@ class WeddingWebsiteCard extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(

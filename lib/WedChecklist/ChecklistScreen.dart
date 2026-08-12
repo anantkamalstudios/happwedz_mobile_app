@@ -693,7 +693,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               // small circular icon
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
                 child: const Icon(Icons.check, color: Colors.white),
               ),
             ],
@@ -871,7 +871,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
             border: Border.all(color: Colors.pink.shade100),
             boxShadow: [
               BoxShadow(
-                color: Colors.pink.shade100.withOpacity(0.3),
+                color: Colors.pink.shade100.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -969,7 +969,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.pink.shade200.withOpacity(0.35),
+                        color: Colors.pink.shade200.withValues(alpha: 0.35),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -999,7 +999,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -1043,7 +1043,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 6,
                             offset: const Offset(0, 3),
                           )
@@ -1160,7 +1160,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
           border: Border.all(color: Colors.pink.shade100),
           boxShadow: [
             BoxShadow(
-              color: Colors.pink.shade100.withOpacity(0.25),
+              color: Colors.pink.shade100.withValues(alpha: 0.25),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -1299,7 +1299,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       decoration: BoxDecoration(
         color: Colors.pinkAccent.shade100,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
@@ -1314,7 +1314,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   // small reusable card wrapper with gradient header (keeps existing look)
   Widget _cardWrapper({required Widget child, required String title}) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 6))]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 6))]),
       child: Column(
         children: [
           // header gradient
@@ -1998,7 +1998,7 @@ class _DistributedTask {
 //               // small circular icon
 //               Container(
 //                 padding: const EdgeInsets.all(10),
-//                 decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+//                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
 //                 child: const Icon(Icons.check, color: Colors.white),
 //               ),
 //             ],
@@ -2173,7 +2173,7 @@ class _DistributedTask {
 //             border: Border.all(color: Colors.pink.shade100),
 //             boxShadow: [
 //               BoxShadow(
-//                 color: Colors.pink.shade100.withOpacity(0.3),
+//                 color: Colors.pink.shade100.withValues(alpha: 0.3),
 //                 blurRadius: 8,
 //                 offset: const Offset(0, 4),
 //               ),
@@ -2268,7 +2268,7 @@ class _DistributedTask {
 //                     ),
 //                     boxShadow: [
 //                       BoxShadow(
-//                         color: Colors.pink.shade200.withOpacity(0.35),
+//                         color: Colors.pink.shade200.withValues(alpha: 0.35),
 //                         blurRadius: 8,
 //                         offset: const Offset(0, 4),
 //                       ),
@@ -2298,7 +2298,7 @@ class _DistributedTask {
 //             borderRadius: BorderRadius.circular(14),
 //             boxShadow: [
 //               BoxShadow(
-//                 color: Colors.black.withOpacity(0.04),
+//                 color: Colors.black.withValues(alpha: 0.04),
 //                 blurRadius: 8,
 //                 offset: const Offset(0, 4),
 //               ),
@@ -2347,7 +2347,7 @@ class _DistributedTask {
 //                         borderRadius: BorderRadius.circular(12),
 //                         boxShadow: [
 //                           BoxShadow(
-//                             color: Colors.black.withOpacity(0.05),
+//                             color: Colors.black.withValues(alpha: 0.05),
 //                             blurRadius: 6,
 //                             offset: const Offset(0, 3),
 //                           )
@@ -2458,7 +2458,7 @@ class _DistributedTask {
 //           border: Border.all(color: Colors.pink.shade100),
 //           boxShadow: [
 //             BoxShadow(
-//               color: Colors.pink.shade100.withOpacity(0.25),
+//               color: Colors.pink.shade100.withValues(alpha: 0.25),
 //               blurRadius: 6,
 //               offset: const Offset(0, 3),
 //             ),
@@ -2613,7 +2613,7 @@ class _DistributedTask {
 //   // small reusable card wrapper with gradient header (keeps existing look)
 //   Widget _cardWrapper({required Widget child, required String title}) {
 //     return Container(
-//       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 6))]),
+//       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 6))]),
 //       child: Column(
 //         children: [
 //           // header gradient
@@ -2755,7 +2755,7 @@ class _DistributedTask {
 //                                     decoration: BoxDecoration(
 //                                       gradient: const LinearGradient(colors: [Color(0xFFE91E63), Color(0xFFF06292)], begin: Alignment.centerLeft, end: Alignment.centerRight),
 //                                       borderRadius: BorderRadius.circular(6),
-//                                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4, offset: const Offset(0, 2))],
+//                                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4, offset: const Offset(0, 2))],
 //                                     ),
 //                                   ),
 //                                 ),

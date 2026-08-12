@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../ai_chat_screen/ai_chat_screen.dart';
 import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'GenieScreen.dart';
 
 // class VenuesScreen extends StatefulWidget {
 //   const VenuesScreen({Key? key}) : super(key: key);
@@ -260,7 +257,7 @@ import 'GenieScreen.dart';
 //                   ),
 //                   boxShadow: [
 //                     BoxShadow(
-//                       color: Colors.purple.withOpacity(0.5),
+//                       color: Colors.purple.withValues(alpha: 0.5),
 //                       blurRadius: 20,
 //                       spreadRadius: 5,
 //                     ),
@@ -321,7 +318,7 @@ import 'GenieScreen.dart';
 //       child: Container(
 //         padding: const EdgeInsets.symmetric(horizontal: 16.0),
 //         decoration: BoxDecoration(
-//           color: Colors.white.withOpacity(0.9),
+//           color: Colors.white.withValues(alpha: 0.9),
 //           borderRadius: BorderRadius.circular(25),
 //         ),
 //         child: TextField(
@@ -411,7 +408,7 @@ import 'GenieScreen.dart';
 //           borderRadius: BorderRadius.circular(12),
 //           boxShadow: [
 //             BoxShadow(
-//               color: Colors.black.withOpacity(0.08),
+//               color: Colors.black.withValues(alpha: 0.08),
 //               blurRadius: 8,
 //               offset: const Offset(0, 2),
 //             ),
@@ -505,7 +502,7 @@ import 'GenieScreen.dart';
 //                         child: Container(
 //                           padding: const EdgeInsets.all(6),
 //                           decoration: BoxDecoration(
-//                             color: Colors.white.withOpacity(0.85),
+//                             color: Colors.white.withValues(alpha: 0.85),
 //                             shape: BoxShape.circle,
 //                           ),
 //                           child: Icon(
@@ -637,7 +634,7 @@ import 'GenieScreen.dart';
 //   //         borderRadius: BorderRadius.circular(12),
 //   //         boxShadow: [
 //   //           BoxShadow(
-//   //             color: Colors.black.withOpacity(0.1),
+//   //             color: Colors.black.withValues(alpha: 0.1),
 //   //             blurRadius: 8,
 //   //             offset: const Offset(0, 2),
 //   //           ),
@@ -738,7 +735,7 @@ import 'GenieScreen.dart';
 //   //                       child: Container(
 //   //                         padding: const EdgeInsets.all(6),
 //   //                         decoration: BoxDecoration(
-//   //                           color: Colors.white.withOpacity(0.85),
+//   //                           color: Colors.white.withValues(alpha: 0.85),
 //   //                           shape: BoxShape.circle,
 //   //                         ),
 //   //                         child: Icon(

@@ -35,7 +35,7 @@ class Moment_plus_home extends StatefulWidget {
       // borderRadius: BorderRadius.circular(18),
       boxShadow: [
         BoxShadow(
-          color: Colors.pink.withOpacity(0.15),
+          color: Colors.pink.withValues(alpha: 0.15),
           blurRadius: 10,
           offset: const Offset(0, 6),
         ),
@@ -58,7 +58,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
       borderRadius: BorderRadius.circular(10),
       boxShadow: [
         BoxShadow(
-          color: Colors.pink.withOpacity(0.15),
+          color: Colors.pink.withValues(alpha: 0.15),
           blurRadius: 10,
           offset: const Offset(0, 6),
         ),
@@ -276,7 +276,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                           decoration: BoxDecoration(
                             color: _heroIndex == index
                                 ? Colors.pink
-                                : Colors.pinkAccent.withOpacity(0.4),
+                                : Colors.pinkAccent.withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
@@ -903,7 +903,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
       // borderRadius: BorderRadius.circular(18),
       boxShadow: [
         BoxShadow(
-          color: Colors.pink.withOpacity(0.15),
+          color: Colors.pink.withValues(alpha: 0.15),
           blurRadius: 10,
           offset: const Offset(0, 6),
         ),

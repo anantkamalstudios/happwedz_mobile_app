@@ -350,7 +350,7 @@ class Venue {
 //                         right: 0,
 //                         child: Container(
 //                           height: 3,
-//                           color: const Color(0xFFE91E63).withOpacity(0.4),
+//                           color: const Color(0xFFE91E63).withValues(alpha: 0.4),
 //                         ),
 //                       ),
 //
@@ -2062,7 +2062,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
             border: Border.all(color: Colors.pink.shade50),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               )
@@ -2083,7 +2083,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.pink.withOpacity(0.12),
+                      color: Colors.pink.withValues(alpha: 0.12),
                       blurRadius: 10,
                       offset: const Offset(0, 6),
                     )
@@ -2179,7 +2179,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
                         boxShadow: [
                           if (isActive)
                             BoxShadow(
-                              color: Colors.pink.withOpacity(0.16),
+                              color: Colors.pink.withValues(alpha: 0.16),
                               blurRadius: 12,
                               offset: const Offset(0, 6),
                             ),
@@ -2253,12 +2253,12 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
+        color: Colors.white.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.6)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 24,
             offset: const Offset(0, 12),
           )

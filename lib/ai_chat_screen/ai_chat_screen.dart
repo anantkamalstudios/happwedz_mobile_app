@@ -1,18 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
 
-import 'package:flutter/material.dart';
 
 import 'package:intl/intl.dart';
-import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../main.dart';
 
 class VendorAi {
   final String location;

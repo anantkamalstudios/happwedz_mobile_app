@@ -21,7 +21,7 @@ class PackagesScreen extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.pink.withOpacity(0.3),
+                    color: Colors.pink.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: Offset(0, 2),
                   ),
@@ -128,7 +128,7 @@ class PackagesScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: Offset(0, 4),
             ),
@@ -215,7 +215,7 @@ class DestinationWeddingScreen extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.pink.withOpacity(0.3),
+                    color: Colors.pink.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: Offset(0, 2),
                   ),
@@ -306,7 +306,7 @@ class DestinationWeddingScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: Colors.grey.withValues(alpha: 0.1),
                             blurRadius: 8,
                             offset: Offset(0, 2),
                           ),
@@ -366,7 +366,7 @@ class DestinationWeddingScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0xFF25D366).withOpacity(0.3),
+                      color: Color(0xFF25D366).withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: Offset(0, 4),
                     ),
@@ -396,7 +396,7 @@ class DestinationWeddingScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: Offset(0, 2),
             ),
@@ -511,7 +511,7 @@ class PackageDetailScreen extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.pink.withOpacity(0.3),
+                    color: Colors.pink.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: Offset(0, 2),
                   ),
@@ -578,7 +578,7 @@ class PackageDetailScreen extends StatelessWidget {
                                     width: 8,
                                     height: 8,
                                     decoration: BoxDecoration(
-                                      color: index == 0 ? Colors.white : Colors.white.withOpacity(0.5),
+                                      color: index == 0 ? Colors.white : Colors.white.withValues(alpha: 0.5),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                   ),
@@ -690,7 +690,7 @@ class PackageDetailScreen extends StatelessWidget {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: Offset(0, -2),
                   ),
@@ -727,7 +727,7 @@ class PackageDetailScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0xFF25D366).withOpacity(0.3),
+                          color: Color(0xFF25D366).withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: Offset(0, 2),
                         ),

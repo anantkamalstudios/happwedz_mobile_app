@@ -92,8 +92,8 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.pink.withOpacity(0.3),
-                              Colors.pink.withOpacity(0.7),
+                              Colors.pink.withValues(alpha: 0.3),
+                              Colors.pink.withValues(alpha: 0.7),
                             ],
                           ),
                         ),
@@ -319,7 +319,7 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Color(0xFFE91E63).withOpacity(0.3),
+                                    color: Color(0xFFE91E63).withValues(alpha: 0.3),
                                     blurRadius: 8,
                                     offset: Offset(0, 4),
                                   ),
@@ -376,7 +376,7 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Color(0xFFE91E63).withOpacity(0.3),
+                                color: Color(0xFFE91E63).withValues(alpha: 0.3),
                                 blurRadius: 12,
                                 offset: Offset(0, 6),
                               ),
@@ -407,7 +407,7 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.green.withOpacity(0.3),
+                              color: Colors.green.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: Offset(0, 4),
                             ),
@@ -550,7 +550,7 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: Offset(0, 4),
                         ),
@@ -702,7 +702,7 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                   //           borderRadius: BorderRadius.circular(12),
                   //           boxShadow: [
                   //             BoxShadow(
-                  //               color: Color(0xFFE91E63).withOpacity(0.3),
+                  //               color: Color(0xFFE91E63).withValues(alpha: 0.3),
                   //               blurRadius: 12,
                   //               offset: Offset(0, 6),
                   //             ),
@@ -733,7 +733,7 @@ class _VenueDetailsScreenState extends State<VenueDetailsScreen> with SingleTick
                   //         borderRadius: BorderRadius.circular(12),
                   //         boxShadow: [
                   //           BoxShadow(
-                  //             color: Colors.green.withOpacity(0.3),
+                  //             color: Colors.green.withValues(alpha: 0.3),
                   //             blurRadius: 8,
                   //             offset: Offset(0, 4),
                   //           ),
@@ -935,7 +935,7 @@ class _ReviewScreenState extends State<ReviewScreen>
             child: Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -969,7 +969,7 @@ class _ReviewScreenState extends State<ReviewScreen>
       decoration: BoxDecoration(
         color: Color(0xFFFFF5F7),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Color(0xFFFF6B9D).withOpacity(0.2)),
+        border: Border.all(color: Color(0xFFFF6B9D).withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -1233,7 +1233,7 @@ class _ReviewScreenState extends State<ReviewScreen>
           color: Color(0xFFF8F9FA),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Color(0xFFFF6B9D).withOpacity(0.3),
+            color: Color(0xFFFF6B9D).withValues(alpha: 0.3),
             style: BorderStyle.solid,
             width: 2,
           ),
@@ -1331,7 +1331,7 @@ class _ReviewScreenState extends State<ReviewScreen>
           boxShadow: isValid
               ? [
             BoxShadow(
-              color: Color(0xFFFF6B9D).withOpacity(0.3),
+              color: Color(0xFFFF6B9D).withValues(alpha: 0.3),
               blurRadius: 10,
               offset: Offset(0, 5),
             ),
