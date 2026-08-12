@@ -4644,7 +4644,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 
 class CategoryModel {
   final int id;
@@ -4707,8 +4706,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
   bool _isApplying = false;
   Uint8List? _processedImageBytes;
 
-  final ImagePicker _picker = ImagePicker();
-
+  Object? _productsError;
   List<CategoryModel> apiCategories = [];
   List<List<Brand>> apiBrandsByCategory = [];
 
@@ -4824,7 +4822,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       body: Column(
         children: [
           _buildTopBar(),
@@ -4832,146 +4830,139 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
             child: IndexedStack(
               index: _currentTab,
               children: [
-                Column(
-                  children: [
-                    Container(
-                      height: 525,
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEDEDED),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4))
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: _processedImageBytes != null
-                                ? Image.memory(_processedImageBytes!, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
-                                : widget.userImage != null
-                                ? Image.file(widget.userImage!, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
-                                : Image(image: _placeholderImage, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
+                // ---------------- SHADES TAB ----------------
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    // The preview used to be a fixed 525px, which overflowed
+                    // on shorter phones. Give it a share of the real height
+                    // and leave the rest for the picker.
+                    final previewHeight = (constraints.maxHeight * 0.62)
+                        .clamp(240.0, 525.0);
+
+                    return Column(
+                      children: [
+                        Container(
+                          height: previewHeight,
+                          margin: const EdgeInsets.all(AppSpacing.lg),
+                          decoration: BoxDecoration(
+                            color: AppColors.shimmerBase,
+                            borderRadius: AppRadii.rLg,
+                            boxShadow: AppColors.shadowMd,
                           ),
-                          if (_isUploading)
-                            const Positioned.fill(
-                              child: const AppLoader(),
-                            ),
-                          if (selectedShadeIndex != null)
-                            Positioned(
-                              top: 50,
-                              bottom: 50,
-                              right: 8,
-                              child: RotatedBox(
-                                quarterTurns: -1,
-                                child: Slider(
-                                  value: (selections[selectedCategory]?['intensity']?.toDouble() ?? 1.0),
-                                  min: 0.0,
-                                  max: 1.0,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      selections[selectedCategory]?['intensity'] = val;
-                                    });
-                                    // Debounce apply so slider scrubs don't spam the API.
-                                    _scheduleApplyDebounced(500);
-                                  },
-                                  activeColor: Colors.pink,
-                                  inactiveColor: Colors.grey[300],
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: AppRadii.rLg,
+                                child: SizedBox.expand(
+                                  child: _processedImageBytes != null
+                                      ? Image.memory(
+                                          _processedImageBytes!,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : widget.userImage != null
+                                      ? Image.file(
+                                          widget.userImage!,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image(
+                                          image: _placeholderImage,
+                                          fit: BoxFit.cover,
+                                        ),
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ShadesScreen(
-                        selectedCategory: selectedCategory,
-                        selectedBrandIndex: selectedBrandIndex,
-                        selectedShadeIndex: selectedShadeIndex,
-                        onCategorySelected: (catIdx) {
-                          setState(() {
-                            selectedCategory = catIdx;
-                            selectedBrandIndex = null;
-                            selectedShadeIndex = null;
-                          });
-                        },
-                        onBrandSelected: (brandIdx) {
-                          setState(() {
-                            selectedBrandIndex = brandIdx;
-                            selectedShadeIndex = null;
 
-                            // store selected product_id for this category immediately
-                            if (selectedCategory < apiBrandsByCategory.length &&
-                                brandIdx >= 0 &&
-                                brandIdx < apiBrandsByCategory[selectedCategory].length) {
-                              final productId = apiBrandsByCategory[selectedCategory][brandIdx].id;
-                              selections[selectedCategory] = {
-                                'brand': brandIdx,
-                                'product_id': productId,
-                                'shade': selections[selectedCategory]?['shade'],
-                                'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
-                                'color': selections[selectedCategory]?['color'],
-                              };
-                            } else {
-                              // ensure map exists
-                              selections[selectedCategory] = selections[selectedCategory] ?? {
-                                'brand': brandIdx,
-                                'product_id': 0,
-                                'shade': selections[selectedCategory]?['shade'],
-                                'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
-                                'color': selections[selectedCategory]?['color'],
-                              };
-                            }
-                          });
-                        },
-                        onShadeSelected: (shadeIdx) async {
-                          setState(() {
-                            selectedShadeIndex = shadeIdx;
-                            // store current selection (brand may be null if not yet set)
-                            final productId = (selectedCategory < apiBrandsByCategory.length &&
-                                (selectedBrandIndex ?? 0) < apiBrandsByCategory[selectedCategory].length)
-                                ? apiBrandsByCategory[selectedCategory][selectedBrandIndex ?? 0].id
-                                : 0;
+                              // Upload / apply progress
+                              if (_isUploading || _isApplying)
+                                Positioned.fill(
+                                  child: ClipRRect(
+                                    borderRadius: AppRadii.rLg,
+                                    child: ColoredBox(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const AppLoader(color: Colors.white),
+                                          const SizedBox(height: AppSpacing.md),
+                                          Text(
+                                            _isUploading
+                                                ? 'Uploading your photo…'
+                                                : 'Applying your look…',
+                                            style: AppText.labelSm.copyWith(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
 
-                            String? hex;
-                            try {
-                              final brand = (selectedCategory < apiBrandsByCategory.length &&
-                                  (selectedBrandIndex ?? 0) < apiBrandsByCategory[selectedCategory].length)
-                                  ? apiBrandsByCategory[selectedCategory][selectedBrandIndex ?? 0]
-                                  : null;
-                              if (brand != null && brand.shades.isNotEmpty && shadeIdx < brand.shades.length) {
-                                hex = _colorToHex(brand.shades[shadeIdx]);
-                              } else if (brand != null && brand.productColors.isNotEmpty) {
-                                hex = brand.productColors.first;
-                              }
-                            } catch (_) {
-                              hex = null;
-                            }
-
-                            selections[selectedCategory] = {
-                              'brand': selectedBrandIndex ?? 0,
-                              'product_id': productId,
-                              'shade': shadeIdx,
-                              'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
-                              'color': hex,
-                            };
-                          });
-
-                          // Immediately apply for the new selection
-                          await _maybeApplyMakeupForSelections();
-                        },
-                        brandsByCategory: apiBrandsByCategory,
-                        categories: apiCategories.isNotEmpty ? apiCategories.map((c) => c.name).toList() : null,
-                      ),
-                    ),
-                  ],
+                              // Intensity slider
+                              if (selectedShadeIndex != null)
+                                Positioned(
+                                  top: 50,
+                                  bottom: 50,
+                                  right: AppSpacing.sm,
+                                  child: RotatedBox(
+                                    quarterTurns: -1,
+                                    child: Slider(
+                                      value:
+                                          (selections[selectedCategory]?['intensity']
+                                                  ?.toDouble() ??
+                                              1.0),
+                                      min: 0.0,
+                                      max: 1.0,
+                                      activeColor: AppColors.primary,
+                                      inactiveColor: Colors.white54,
+                                      onChanged: (val) {
+                                        setState(() {
+                                          selections[selectedCategory]?['intensity'] =
+                                              val;
+                                        });
+                                        // Debounce apply so slider scrubs
+                                        // don't spam the API.
+                                        _scheduleApplyDebounced(500);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: apiCategories.isEmpty
+                              ? _buildProductsPlaceholder()
+                              : ShadesScreen(
+                                  selectedCategory: selectedCategory,
+                                  selectedBrandIndex: selectedBrandIndex,
+                                  selectedShadeIndex: selectedShadeIndex,
+                                  onCategorySelected: _onCategorySelected,
+                                  onBrandSelected: _onBrandSelected,
+                                  onShadeSelected: _onShadeSelected,
+                                  brandsByCategory: apiBrandsByCategory,
+                                  categories: apiCategories
+                                      .map((c) => c.name)
+                                      .toList(),
+                                ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
+
                 // Compare tab: LEFT original, RIGHT processed
                 CompareScreen(
-                  originalImage: widget.userImage != null ? FileImage(widget.userImage!) : _placeholderImage,
-                  processedImage: _processedImageBytes != null ? MemoryImage(_processedImageBytes!) : null,
+                  originalImage: widget.userImage != null
+                      ? FileImage(widget.userImage!)
+                      : _placeholderImage,
+                  processedImage: _processedImageBytes != null
+                      ? MemoryImage(_processedImageBytes!)
+                      : null,
                 ),
+
                 CompleteLooksScreen(
                   userImageProvider: _processedImageBytes != null
                       ? MemoryImage(_processedImageBytes!)
@@ -4991,32 +4982,126 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
     );
   }
 
+  /// Shown while the product catalogue is loading, or when it failed.
+  Widget _buildProductsPlaceholder() {
+    if (_productsError != null) {
+      return ErrorState(
+        compact: true,
+        error: _productsError,
+        onRetry: _fetchProducts,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Skeletons.cardRail(count: 4, itemWidth: 130, height: 92),
+    );
+  }
+
+  void _onCategorySelected(int catIdx) {
+    setState(() {
+      selectedCategory = catIdx;
+      selectedBrandIndex = null;
+      selectedShadeIndex = null;
+    });
+  }
+
+  void _onBrandSelected(int brandIdx) {
+    setState(() {
+      selectedBrandIndex = brandIdx;
+      selectedShadeIndex = null;
+
+      // store selected product_id for this category immediately
+      if (selectedCategory < apiBrandsByCategory.length &&
+          brandIdx >= 0 &&
+          brandIdx < apiBrandsByCategory[selectedCategory].length) {
+        final productId = apiBrandsByCategory[selectedCategory][brandIdx].id;
+        selections[selectedCategory] = {
+          'brand': brandIdx,
+          'product_id': productId,
+          'shade': selections[selectedCategory]?['shade'],
+          'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
+          'color': selections[selectedCategory]?['color'],
+        };
+      } else {
+        // ensure map exists
+        selections[selectedCategory] =
+            selections[selectedCategory] ??
+            {
+              'brand': brandIdx,
+              'product_id': 0,
+              'shade': selections[selectedCategory]?['shade'],
+              'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
+              'color': selections[selectedCategory]?['color'],
+            };
+      }
+    });
+  }
+
+  Future<void> _onShadeSelected(int shadeIdx) async {
+    setState(() {
+      selectedShadeIndex = shadeIdx;
+      // store current selection (brand may be null if not yet set)
+      final productId =
+          (selectedCategory < apiBrandsByCategory.length &&
+              (selectedBrandIndex ?? 0) <
+                  apiBrandsByCategory[selectedCategory].length)
+          ? apiBrandsByCategory[selectedCategory][selectedBrandIndex ?? 0].id
+          : 0;
+
+      String? hex;
+      try {
+        final brand =
+            (selectedCategory < apiBrandsByCategory.length &&
+                (selectedBrandIndex ?? 0) <
+                    apiBrandsByCategory[selectedCategory].length)
+            ? apiBrandsByCategory[selectedCategory][selectedBrandIndex ?? 0]
+            : null;
+        if (brand != null &&
+            brand.shades.isNotEmpty &&
+            shadeIdx < brand.shades.length) {
+          hex = _colorToHex(brand.shades[shadeIdx]);
+        } else if (brand != null && brand.productColors.isNotEmpty) {
+          hex = brand.productColors.first;
+        }
+      } catch (_) {
+        hex = null;
+      }
+
+      selections[selectedCategory] = {
+        'brand': selectedBrandIndex ?? 0,
+        'product_id': productId,
+        'shade': shadeIdx,
+        'intensity': selections[selectedCategory]?['intensity'] ?? 1.0,
+        'color': hex,
+      };
+    });
+
+    // Immediately apply for the new selection
+    await _maybeApplyMakeupForSelections();
+  }
+
   Widget _buildTopBar() {
     return Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFFEC1E79), Color(0xFFEF6AA9)]),
-      ),
+      decoration: const BoxDecoration(gradient: AppColors.brandGradientH),
       child: SafeArea(
         bottom: false,
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Center(
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              const AppBackButton(color: AppColors.textOnPrimary),
+              Expanded(
                 child: Text(
                   'Visual Design',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+                  textAlign: TextAlign.center,
+                  style: AppText.pageTitle.copyWith(
+                    color: AppColors.textOnPrimary,
+                  ),
                 ),
               ),
-            ),
-            IconButton(icon: const Icon(Icons.location_on, color: Colors.white), onPressed: () {}),
-          ],
+              const SizedBox(width: 44),
+            ],
+          ),
         ),
       ),
     );
@@ -5024,7 +5109,11 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
 
   Widget _buildBottomTabs() {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)]),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: const Border(top: BorderSide(color: AppColors.divider)),
+        boxShadow: AppColors.shadowSm,
+      ),
       child: SafeArea(
         top: false,
         child: Row(
@@ -5041,27 +5130,38 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
   Widget _bottomTabButton(String label, int index) {
     final isSelected = index == _currentTab;
     return Expanded(
-      child: InkWell(
+      child: Pressable(
+        scale: 0.98,
+        withRipple: true,
         onTap: () async {
           if (index == 2) {
-            // apply makeup before showing Complete Looks to ensure final image available
+            // apply makeup before showing Complete Looks to ensure final
+            // image available
             await _maybeApplyMakeupForSelections();
           }
-          setState(() => _currentTab = index);
+          if (mounted) setState(() => _currentTab = index);
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.standard,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: isSelected ? Colors.pink : Colors.transparent, width: 3)),
-            color: isSelected ? const Color(0xFFFFF1F6) : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isSelected ? AppColors.primary : Colors.transparent,
+                width: 3,
+              ),
+            ),
+            color: isSelected ? AppColors.blush : AppColors.surface,
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.pink : Colors.black54,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
-            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: isSelected
+                ? AppText.buttonSm.copyWith(color: AppColors.primary)
+                : AppText.labelSm,
           ),
         ),
       ),
@@ -5120,12 +5220,17 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
           apiBrandsByCategory.add(brands);
         }
 
-        setState(() {});
+        if (!mounted) return;
+        setState(() => _productsError = null);
       } else {
-        print('Failed to load products: ${resp.statusCode}');
+        debugPrint('Failed to load products: ${resp.statusCode}');
+        if (!mounted) return;
+        setState(() => _productsError = 'HTTP ${resp.statusCode}');
       }
     } catch (e) {
-      print('Error fetching products: $e');
+      debugPrint('Error fetching products: $e');
+      if (!mounted) return;
+      setState(() => _productsError = e);
     }
   }
 
@@ -5200,11 +5305,8 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
 
     // For every category selection, map to API fields
     selections.forEach((catIndex, map) {
-      final brandIndex = map['brand'];
-      final shadeIndex = map['shade'];
       final sliderVal = (map['intensity'] ?? 1.0).toDouble();
       final colorHex = map['color'] as String?;
-      final pid = map['product_id'] as int?;
 
       // category name
       final catNameLower = (catIndex < apiCategories.length) ? apiCategories[catIndex].name.toLowerCase() : '';
@@ -5244,7 +5346,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
       if (!keys.containsKey('color') && colorHex != null) {
         payload['product_color_${catIndex}'] = colorHex;
       }
-      if (!keys.containsKey('intensity') && mappedIntensity != null) {
+      if (!keys.containsKey('intensity')) {
         payload['product_intensity_${catIndex}'] = mappedIntensity;
       }
 
@@ -5397,42 +5499,59 @@ class _ShadesScreenState extends State<ShadesScreen> {
 
   Widget _buildCategoriesBar() {
     return SizedBox(
-      height: 100,
+      height: 104,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         scrollDirection: Axis.horizontal,
         itemCount: effectiveCategories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
         itemBuilder: (context, i) {
-          final selected = i == _categoryIndex && _stage == BarStage.categories;
+          final selected =
+              i == _categoryIndex && _stage == BarStage.categories;
           final label = effectiveCategories[i];
-          return GestureDetector(
+          return Pressable(
             onTap: () => _goToBrands(i),
+            borderRadius: AppRadii.rMd,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 130,
-              margin: const EdgeInsets.symmetric(vertical: 10),
+              duration: AppMotion.normal,
+              curve: AppMotion.standard,
+              width: 124,
+              margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               decoration: BoxDecoration(
-                color: selected ? const Color(0xFFFDE8EF) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: selected ? Colors.pink : Colors.transparent, width: 2),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
+                color: selected ? AppColors.blushDeep : AppColors.surface,
+                borderRadius: AppRadii.rMd,
+                border: Border.all(
+                  color: selected ? AppColors.primary : AppColors.divider,
+                  width: selected ? 2 : 1,
+                ),
+                boxShadow: selected ? AppColors.shadowSm : null,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.palette,
-                    size: 36,
-                    color: selected ? Colors.pink : Colors.grey[700],
+                    Icons.palette_rounded,
+                    size: 32,
+                    color: selected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
                   ),
-                  const SizedBox(height: 6),
-                  Text(label, style: TextStyle(color: selected ? Colors.pink : Colors.black87)),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: selected
+                        ? AppText.labelSm.copyWith(color: AppColors.primary)
+                        : AppText.labelSm,
+                  ),
                 ],
               ),
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
       ),
     );
   }
@@ -5441,64 +5560,80 @@ class _ShadesScreenState extends State<ShadesScreen> {
     final brands = (_categoryIndex < effectiveBrandsByCategory.length)
         ? effectiveBrandsByCategory[_categoryIndex]
         : <Brand>[];
+
+    if (brands.isEmpty) {
+      return const SizedBox(
+        height: 104,
+        child: EmptyState(
+          compact: true,
+          title: 'No brands here yet',
+          message: 'Try another category.',
+          icon: Icons.storefront_outlined,
+          padding: EdgeInsets.zero,
+        ),
+      );
+    }
+
     return SizedBox(
-      height: 100,
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              setState(() => _stage = BarStage.categories);
-            },
-          ),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              scrollDirection: Axis.horizontal,
-              itemCount: brands.length,
-              itemBuilder: (context, i) {
-                final isSel = i == _brandIndex && _stage == BarStage.brands;
-                final brand = brands[i];
-                return GestureDetector(
-                  onTap: () => _goToShades(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: 160,
-                    margin: const EdgeInsets.symmetric(vertical: 10),
+      height: 104,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        scrollDirection: Axis.horizontal,
+        itemCount: brands.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+        itemBuilder: (context, i) {
+          final isSel = i == _brandIndex && _stage == BarStage.brands;
+          final brand = brands[i];
+          return Pressable(
+            onTap: () => _goToShades(i),
+            borderRadius: AppRadii.rMd,
+            child: AnimatedContainer(
+              duration: AppMotion.normal,
+              curve: AppMotion.standard,
+              width: 168,
+              margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: isSel ? AppColors.blush : AppColors.surface,
+                borderRadius: AppRadii.rMd,
+                border: Border.all(
+                  color: isSel ? AppColors.primary : AppColors.divider,
+                  width: isSel ? 2 : 1,
+                ),
+                boxShadow: isSel ? AppColors.shadowSm : null,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
                     decoration: BoxDecoration(
-                      color: isSel ? const Color(0xFFFFF1F6) : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isSel ? Colors.pink : Colors.transparent, width: 2),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
+                      color: AppColors.background,
+                      borderRadius: AppRadii.rSm,
                     ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 58,
-                          height: 58,
-                          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(10)),
-                          child: brand.productImageDataUri != null
-                              ? _maybeShowBase64(brand.productImageDataUri!)
-                              : const Icon(Icons.image, color: Colors.grey),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            brand.name,
-                            style: TextStyle(fontWeight: isSel ? FontWeight.w700 : FontWeight.normal),
+                    child: brand.productImageDataUri != null
+                        ? _maybeShowBase64(brand.productImageDataUri!)
+                        : const Icon(
+                            Icons.image_outlined,
+                            color: AppColors.textTertiary,
                           ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      brand.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: isSel
+                          ? AppText.label.copyWith(color: AppColors.primary)
+                          : AppText.labelSm,
                     ),
                   ),
-                );
-              },
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+                ],
+              ),
             ),
-          ),
-          IconButton(icon: const Icon(Icons.chevron_right), onPressed: () {}),
-        ],
+          );
+        },
       ),
     );
   }
@@ -5507,59 +5642,68 @@ class _ShadesScreenState extends State<ShadesScreen> {
     final brands = (_categoryIndex < effectiveBrandsByCategory.length)
         ? effectiveBrandsByCategory[_categoryIndex]
         : <Brand>[];
-    final selectedBrand =
-    (brands.isNotEmpty && _brandIndex < brands.length) ? brands[_brandIndex] : Brand(id: 0, name: 'Brand');
+    final selectedBrand = (brands.isNotEmpty && _brandIndex < brands.length)
+        ? brands[_brandIndex]
+        : Brand(id: 0, name: 'Brand');
+
+    if (selectedBrand.shades.isEmpty) {
+      return const SizedBox(
+        height: 116,
+        child: EmptyState(
+          compact: true,
+          title: 'No shades listed',
+          message: 'This product has no colours yet.',
+          icon: Icons.color_lens_outlined,
+          padding: EdgeInsets.zero,
+        ),
+      );
+    }
 
     return SizedBox(
-      height: 120,
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              setState(() => _stage = BarStage.brands);
-            },
-          ),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              scrollDirection: Axis.horizontal,
-              itemCount: selectedBrand.shades.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 18),
-              itemBuilder: (context, i) {
-                final isSel = i == _shadeIndex && _stage == BarStage.shades;
-                final col = selectedBrand.shades[i];
-                return GestureDetector(
-                  onTap: () => _selectShade(i),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: isSel ? 72 : 56,
-                        height: isSel ? 72 : 56,
-                        decoration: BoxDecoration(
-                          color: col,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: isSel ? Colors.pink : Colors.white, width: isSel ? 4 : 2),
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6)],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (isSel)
-                        Container(
-                          width: 44,
-                          height: 6,
-                          decoration: BoxDecoration(color: Colors.pink, borderRadius: BorderRadius.circular(3)),
-                        ),
-                    ],
+      height: 116,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+        scrollDirection: Axis.horizontal,
+        itemCount: selectedBrand.shades.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.lg),
+        itemBuilder: (context, i) {
+          final isSel = i == _shadeIndex && _stage == BarStage.shades;
+          final col = selectedBrand.shades[i];
+          return Pressable(
+            onTap: () => _selectShade(i),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: AppMotion.fast,
+                  curve: AppMotion.standard,
+                  width: isSel ? 68 : 54,
+                  height: isSel ? 68 : 54,
+                  decoration: BoxDecoration(
+                    color: col,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSel ? AppColors.primary : Colors.white,
+                      width: isSel ? 4 : 2,
+                    ),
+                    boxShadow: AppColors.shadowSm,
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AnimatedContainer(
+                  duration: AppMotion.fast,
+                  width: isSel ? 40 : 0,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
             ),
-          ),
-          IconButton(icon: const Icon(Icons.chevron_right), onPressed: () {}),
-        ],
+          );
+        },
       ),
     );
   }
@@ -5586,7 +5730,6 @@ class _ShadesScreenState extends State<ShadesScreen> {
         child = _buildBrandsBar();
         break;
       case BarStage.shades:
-      default:
         child = _buildShadesBar();
         break;
     }
@@ -5596,43 +5739,65 @@ class _ShadesScreenState extends State<ShadesScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
             child: Row(
               children: [
                 if (_stage != BarStage.categories)
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (_stage == BarStage.shades) _stage = BarStage.brands;
-                        else _stage = BarStage.categories;
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.all(8),
-                      child: const Icon(Icons.arrow_back, color: Colors.pink),
+                  Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.md),
+                    child: Pressable(
+                      onTap: () {
+                        setState(() {
+                          _stage = _stage == BarStage.shades
+                              ? BarStage.brands
+                              : BarStage.categories;
+                        });
+                      },
+                      borderRadius: AppRadii.rSm,
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: AppRadii.rSm,
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                      ),
                     ),
                   ),
-                const SizedBox(width: 12),
                 Text(
                   _stage == BarStage.categories
                       ? 'Products'
                       : _stage == BarStage.brands
                       ? 'Brands'
                       : 'Shades',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: AppText.sectionTitle,
                 ),
               ],
             ),
           ),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
+            duration: AppMotion.normal,
             transitionBuilder: (child, anim) {
-              final offsetAnim = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(anim);
-              return SlideTransition(position: offsetAnim, child: FadeTransition(opacity: anim, child: child));
+              final offsetAnim = Tween<Offset>(
+                begin: const Offset(0, 0.2),
+                end: Offset.zero,
+              ).animate(anim);
+              return SlideTransition(
+                position: offsetAnim,
+                child: FadeTransition(opacity: anim, child: child),
+              );
             },
             child: SizedBox(key: ValueKey(_stage), child: child),
           ),
+          const SizedBox(height: AppSpacing.md),
         ],
       ),
     );
@@ -5655,18 +5820,14 @@ class _CompareScreenState extends State<CompareScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 700,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: GestureDetector(
-        onHorizontalDragUpdate: (details) {
-          final box = context.findRenderObject() as RenderBox;
-          final local = box.globalToLocal(details.globalPosition);
-          setState(() {
-            _dividerPosition = (local.dx / box.size.width).clamp(0.0, 1.0);
-          });
-        },
-        child: LayoutBuilder(builder: (context, constraints) {
+    return Padding(
+      // The old fixed 700px height overflowed inside the tab's bounded box.
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
           final w = constraints.maxWidth;
           final h = constraints.maxHeight;
           final clipWidth = w * _dividerPosition;
@@ -5674,35 +5835,110 @@ class _CompareScreenState extends State<CompareScreen> {
           // right image = processed (if available) otherwise original
           final rightImage = widget.processedImage ?? widget.originalImage;
 
-          return Stack(
-            children: [
-              ClipRRect(borderRadius: BorderRadius.circular(16), child: Image(image: rightImage, width: w, height: h, fit: BoxFit.cover)),
-              Positioned(
-                left: 0,
-                top: 0,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(width: clipWidth, height: h, child: Image(image: widget.originalImage, fit: BoxFit.cover)),
-                ),
-              ),
-              Positioned(left: clipWidth - 1, top: 0, bottom: 0, child: Container(width: 2, color: Colors.white)),
-              Positioned(
-                left: clipWidth - 18,
-                top: (h / 2) - 18,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
+          return GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              final box = context.findRenderObject() as RenderBox?;
+              if (box == null) return;
+              final local = box.globalToLocal(details.globalPosition);
+              setState(() {
+                _dividerPosition = (local.dx / box.size.width).clamp(0.0, 1.0);
+              });
+            },
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: AppRadii.rLg,
+                  child: Image(
+                    image: rightImage,
+                    width: w,
+                    height: h,
+                    fit: BoxFit.cover,
                   ),
-                  child: const Icon(Icons.drag_handle, color: Colors.black, size: 20),
                 ),
-              ),
-            ],
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  child: ClipRRect(
+                    borderRadius: AppRadii.rLg,
+                    child: SizedBox(
+                      width: clipWidth,
+                      height: h,
+                      child: Image(
+                        image: widget.originalImage,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: clipWidth - 1,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(width: 2, color: Colors.white),
+                ),
+                Positioned(
+                  left: clipWidth - 20,
+                  top: (h / 2) - 20,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: AppColors.shadowMd,
+                    ),
+                    child: const Icon(
+                      Icons.drag_handle_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                // Labels so it is obvious which half is which.
+                Positioned(
+                  left: AppSpacing.md,
+                  top: AppSpacing.md,
+                  child: _CompareTag(label: 'Before'),
+                ),
+                Positioned(
+                  right: AppSpacing.md,
+                  top: AppSpacing.md,
+                  child: _CompareTag(
+                    label: widget.processedImage == null
+                        ? 'No look applied'
+                        : 'After',
+                  ),
+                ),
+              ],
+            ),
           );
-        }),
+        },
+      ),
+    );
+  }
+}
+
+/// Small translucent caption used on the compare slider.
+class _CompareTag extends StatelessWidget {
+  const _CompareTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: AppRadii.rPill,
+      ),
+      child: Text(
+        label,
+        style: AppText.caption.copyWith(color: Colors.white),
       ),
     );
   }
@@ -5728,100 +5964,132 @@ class CompleteLooksScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final selectedEntries = selections.entries.toList();
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              height: 525,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-              child: ClipRRect(borderRadius: BorderRadius.circular(12), child: Image(image: userImageProvider, fit: BoxFit.cover)),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 140,
-              child: selectedEntries.isEmpty
-                  ? const Center(child: Text('No products selected yet'))
-                  : ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: selectedEntries.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, i) {
-                  final catIndex = selectedEntries[i].key;
-                  final map = selectedEntries[i].value;
-                  final brandIndex = map['brand'] ?? 0;
-                  final shadeIndex = map['shade'] ?? 0;
-                  final intensity = (map['intensity'] ?? 1.0).toDouble();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final previewHeight = (constraints.maxHeight * 0.66)
+            .clamp(240.0, 525.0);
 
-                  // safe reads
-                  final catName = (catIndex < categories.length) ? categories[catIndex].name : 'Product';
-                  String brandName = 'Brand';
-                  Color shadeColor = Colors.grey;
-
-                  if (catIndex < brandsByCategory.length) {
-                    final brands = brandsByCategory[catIndex];
-                    if (brandIndex is int && brandIndex >= 0 && brandIndex < brands.length) {
-                      brandName = brands[brandIndex].name;
-                      final b = brands[brandIndex];
-                      if (b.shades.isNotEmpty && shadeIndex >= 0 && shadeIndex < b.shades.length) {
-                        shadeColor = b.shades[shadeIndex];
-                      } else if (b.productColors.isNotEmpty) {
-                        try {
-                          final h = b.productColors.first.replaceFirst('#', '');
-                          final parsed = h.length == 6 ? Color(int.parse('FF$h', radix: 16)) : Color(int.parse(h, radix: 16));
-                          shadeColor = parsed;
-                        } catch (_) {}
-                      }
-                    }
-                  }
-
-                  return Container(
-                    width: 260,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(width: 64, height: 64, decoration: BoxDecoration(color: shadeColor, borderRadius: BorderRadius.circular(8))),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(catName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 6),
-                              Text(brandName, style: const TextStyle(fontSize: 12)),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 18,
-                                    height: 18,
-                                    decoration: BoxDecoration(color: shadeColor, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1)),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text('Shade ${shadeIndex + 1}', style: const TextStyle(fontSize: 12)),
-                                  const SizedBox(width: 8),
-                                  Text(' • Intensity ${(intensity * 100).round()}%', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                                ],
-                              )
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: AppRadii.rLg,
+                child: SizedBox(
+                  height: previewHeight,
+                  width: double.infinity,
+                  child: Image(image: userImageProvider, fit: BoxFit.cover),
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: AppSpacing.lg),
+
+              if (selectedEntries.isEmpty)
+                const EmptyState(
+                  compact: true,
+                  title: 'No products selected yet',
+                  message: 'Pick a shade to build your look.',
+                  icon: Icons.brush_outlined,
+                )
+              else
+                SizedBox(
+                  height: 104,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: selectedEntries.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: AppSpacing.md),
+                    itemBuilder: (context, i) {
+                      final catIndex = selectedEntries[i].key;
+                      final map = selectedEntries[i].value;
+                      final brandIndex = map['brand'] ?? 0;
+                      final shadeIndex = map['shade'] ?? 0;
+                      final intensity = (map['intensity'] ?? 1.0).toDouble();
+
+                      // safe reads
+                      final catName = (catIndex < categories.length)
+                          ? categories[catIndex].name
+                          : 'Product';
+                      String brandName = 'Brand';
+                      Color shadeColor = AppColors.textTertiary;
+
+                      if (catIndex < brandsByCategory.length) {
+                        final brands = brandsByCategory[catIndex];
+                        if (brandIndex is int &&
+                            brandIndex >= 0 &&
+                            brandIndex < brands.length) {
+                          brandName = brands[brandIndex].name;
+                          final b = brands[brandIndex];
+                          if (b.shades.isNotEmpty &&
+                              shadeIndex >= 0 &&
+                              shadeIndex < b.shades.length) {
+                            shadeColor = b.shades[shadeIndex];
+                          } else if (b.productColors.isNotEmpty) {
+                            try {
+                              final h = b.productColors.first.replaceFirst(
+                                '#',
+                                '',
+                              );
+                              shadeColor = h.length == 6
+                                  ? Color(int.parse('FF$h', radix: 16))
+                                  : Color(int.parse(h, radix: 16));
+                            } catch (_) {}
+                          }
+                        }
+                      }
+
+                      return AppCard(
+                        width: 250,
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 58,
+                              height: 58,
+                              decoration: BoxDecoration(
+                                color: shadeColor,
+                                borderRadius: AppRadii.rSm,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    catName,
+                                    style: AppText.cardTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    brandName,
+                                    style: AppText.cardSubtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxs),
+                                  Text(
+                                    'Shade ${shadeIndex + 1} · '
+                                    '${(intensity * 100).round()}%',
+                                    style: AppText.caption,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

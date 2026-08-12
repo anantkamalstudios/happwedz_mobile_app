@@ -1,6 +1,8 @@
 import 'dart:io';
 //
 // import 'package:flutter/material.dart';
+
+import '../core/core.dart';
 //
 //
 import 'package:flutter/material.dart';
@@ -12,188 +14,119 @@ import 'designstudio22.dart';
 // import 'package:image_picker/image_picker.dart';
 //
 class VirtualTryOnScreennnnnnn extends StatelessWidget {
-  const VirtualTryOnScreennnnnnn({Key? key}) : super(key: key);
+  const VirtualTryOnScreennnnnnn({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
         child: SafeArea(
           child: Column(
             children: [
-              // App Bar
-              // Padding(
-              //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              //   child: Row(
-              //     children: [
-              //
-              //       // IconButton(
-              //       //   icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-              //       //   onPressed: () {
-              //       //     // Navigate back
-              //       //   },
-              //       // ),
-              //       // const Text(
-              //       //   'Nashik',
-              //       //   style: TextStyle(
-              //       //     color: Colors.white,
-              //       //     fontSize: 14,
-              //       //     fontWeight: FontWeight.w400,
-              //       //   ),
-              //       // ),
-              //       // const Spacer(),
-              //       Center(
-              //         child: const Text(
-              //           'Design Studio',
-              //           style: TextStyle(
-              //             color: Colors.white,
-              //             fontSize: 17,
-              //             fontWeight: FontWeight.w600,
-              //           ),
-              //         ),
-              //       ),
-              //       // const Spacer(),
-              //       // const SizedBox(width: 56), // Balance the back button
-              //     ],
-              //   ),
-              // ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          'Design Studio',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.md,
+                ),
+                child: Text(
+                  'Design Studio',
+                  style: AppText.pageTitle.copyWith(
+                    color: AppColors.textOnPrimary,
+                  ),
                 ),
               ),
 
-              // Main Content
+              // Hero frame
               Expanded(
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    // Background image with camera frame
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black,
-                        child: Stack(
-                          children: [
-                            // Placeholder for camera/image
-                            Center(
-                              child: Container(
-                                width: double.infinity,
-                                height: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[900],
-                                ),
-                                child: Image.asset(
-                                  'assets/1g.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: Colors.grey[800],
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            // Corner brackets overlay
-                            CustomPaint(
-                              size: Size.infinite,
-                              painter: FrameBracketsPainter(),
-                            ),
-                          ],
-                        ),
+                    Container(
+                      color: Colors.black,
+                      child: Image.asset(
+                        'assets/1g.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(color: Colors.grey[850]),
                       ),
                     ),
 
-                    // Content overlay - positioned inside the frame
-// Content overlay - positioned inside the frame
+                    // Scrim keeps the copy readable over any photo.
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0x33000000),
+                            Color(0x99000000),
+                          ],
+                        ),
+                      ),
+                      child: SizedBox.expand(),
+                    ),
+
+                    CustomPaint(
+                      size: Size.infinite,
+                      painter: FrameBracketsPainter(),
+                    ),
+
+                    // Copy + CTA
                     Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 100), // Push content down
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xxl,
+                          vertical: AppSpacing.xxl,
+                        ),
+                        child: FadeSlideIn(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
+                              Text(
                                 'VIRTUAL TRY-ON',
-                                style: TextStyle(
+                                textAlign: TextAlign.center,
+                                style: AppText.display.copyWith(
                                   color: Colors.white,
-                                  fontSize: 32, // Larger font
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2.0, // More spacing
+                                  fontSize: 30,
+                                  letterSpacing: 2,
                                 ),
-                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 20), // More space
-                              const Text(
-                                'Wedding fit is an innovative idea that helps you find your perfect clothes.',
-                                style: TextStyle(
-                                  color: Colors.white70, // Slightly transparent
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.5,
+                              const SizedBox(height: AppSpacing.md),
+                              Text(
+                                'Wedding fit is an innovative idea that helps '
+                                'you find your perfect clothes.',
+                                textAlign: TextAlign.center,
+                                style: AppText.body.copyWith(
+                                  color: Colors.white70,
                                 ),
-                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 20),
-
-                              // Get Started button
+                              const SizedBox(height: AppSpacing.xxl),
                               SizedBox(
-                                width: 180, // Adjusted width
-                                child: ElevatedButton(
+                                width: 200,
+                                child: PremiumButton(
+                                  label: 'Get Started',
+                                  trailingIcon: Icons.arrow_forward_rounded,
                                   onPressed: () {
                                     Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => const VirtualDesignChooseScreen()),
-                                      );
+                                      context,
+                                      AnimatedPageRoute(
+                                        page:
+                                            const VirtualDesignChooseScreen(),
+                                        style:
+                                            PageTransitionStyle.slideRight,
+                                      ),
+                                    );
                                   },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFFF4081),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(25),
-                                    ),
-                                    elevation: 2,
-                                  ),
-                                  child: const Text(
-                                    'Get Started',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ),                  ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -202,7 +135,6 @@ class VirtualTryOnScreennnnnnn extends StatelessWidget {
       ),
     );
   }
-
 }
 
 // Custom painter for corner brackets
@@ -580,167 +512,81 @@ class Brand {
 
 
 class VirtualDesignChooseScreen extends StatelessWidget {
-  const VirtualDesignChooseScreen({Key? key}) : super(key: key);
+  const VirtualDesignChooseScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
         child: SafeArea(
           child: Column(
             children: [
-              // App Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const Text(
-                      'Nashik',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const Spacer(),
-                    const Text(
-                      'Visual Design',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(width: 56),
-                  ],
-                ),
-              ),
+              const _StudioAppBar(title: 'Visual Design'),
 
-              // const SizedBox(height: 20),
-
-              // Main Content
               Expanded(
                 child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        // Header with close icon
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.center,
-                        //   children: [
-                        //     const Spacer(),
-                        //     Image.asset(
-                        //       'assets/logo.png', // Your logo
-                        //       height: 40,
-                        //       errorBuilder: (context, error, stackTrace) {
-                        //         return const Icon(
-                        //           Icons.celebration,
-                        //           size: 40,
-                        //           color: Color(0xFFFF4081),
-                        //         );
-                        //       },
-                        //     ),
-                        //     const Spacer(),
-                        //     IconButton(
-                        //       icon: const Icon(Icons.close, color: Colors.grey),
-                        //       onPressed: () {
-                        //         Navigator.pop(context);
-                        //       },
-                        //     ),
-                        //   ],
-                        // ),
-                        //
-                        // const SizedBox(height: 10),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xxxl,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'CHOOSE ONE',
+                        textAlign: TextAlign.center,
+                        style: AppText.display.copyWith(
+                          fontSize: 24,
+                          color: AppColors.magenta,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Completely fill the screen with a single person photo',
+                        textAlign: TextAlign.center,
+                        style: AppText.bodySm,
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
 
-                        // Title
-                        const Text(
-                          'CHOOSE ONE',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFF4081),
-                            letterSpacing: 1.2,
+                      for (final option in const [
+                        ('Bride', 'assets/bride.png'),
+                        ('Groom', 'assets/groom.png'),
+                        ('Others', 'assets/other.png'),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.xl,
+                          ),
+                          child: _buildOptionCard(
+                            context,
+                            option.$1,
+                            option.$2,
+                            () {
+                              if (option.$1 == 'Bride') {
+                                Navigator.push(
+                                  context,
+                                  AnimatedPageRoute(
+                                    page: const VirtualDesignBrideScreen(),
+                                    style: PageTransitionStyle.slideRight,
+                                  ),
+                                );
+                              } else {
+                                AppSnackbar.info(
+                                  context,
+                                  '${option.$1} try-on is coming soon.',
+                                );
+                              }
+                            },
                           ),
                         ),
-
-                        const SizedBox(height: 8),
-
-                        // Subtitle
-                        const Text(
-                          'Completely fill the screen with a single person photo',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-
-                        const SizedBox(height: 30),
-// Vertical list of options (like Figma)
-                        Column(
-                          children: [
-                            _buildOptionCard(
-                              context,
-                              'Bride',
-                              'assets/bride.png',
-                                  () {
-                                // Navigate to bride selection
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => const VirtualDesignBrideScreen()),
-                                    );
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            _buildOptionCard(
-                              context,
-                              'Groom',
-                              'assets/groom.png',
-                                  () {
-                                // Navigate to groom selection
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            _buildOptionCard(
-                              context,
-                              'Others',
-                              'assets/other.png',
-                                  () {
-                                // Navigate to others selection
-                              },
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),
-
-
             ],
           ),
         ),
@@ -748,73 +594,49 @@ class VirtualDesignChooseScreen extends StatelessWidget {
     );
   }
 
+  /// Full-bleed option tile. Width follows the viewport — the previous fixed
+  /// 377px overflowed on anything narrower than a large phone.
   Widget _buildOptionCard(
-      BuildContext context,
-      String title,
-      String imagePath,
-      VoidCallback onTap,
-      ) {
-    return GestureDetector(
+    BuildContext context,
+    String title,
+    String imagePath,
+    VoidCallback onTap,
+  ) {
+    return Pressable(
       onTap: onTap,
-      child: Container(
-        width: 377, // Figma width
-        height: 310, // Figma height
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
+      borderRadius: AppRadii.rLg,
+      child: ClipRRect(
+        borderRadius: AppRadii.rLg,
+        child: AspectRatio(
+          aspectRatio: 377 / 310,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Image
               Image.asset(
                 imagePath,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[300],
-                    child: const Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Colors.grey,
-                    ),
-                  );
-                },
-              ),
-              // Gradient overlay
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                    ],
-                    stops: const [0.5, 1.0],
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: AppColors.pinkSurface,
+                  child: const Icon(
+                    Icons.person_rounded,
+                    size: 56,
+                    color: AppColors.textTertiary,
                   ),
                 ),
               ),
-              // Title at bottom
+              const DecoratedBox(
+                decoration: BoxDecoration(gradient: AppColors.imageScrim),
+                child: SizedBox.expand(),
+              ),
               Positioned(
-                bottom: 20,
-                left: 0,
-                right: 0,
+                bottom: AppSpacing.xl,
+                left: AppSpacing.lg,
+                right: AppSpacing.lg,
                 child: Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: AppText.sectionTitle.copyWith(
                     color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
                     letterSpacing: 1.3,
                   ),
                 ),
@@ -825,195 +647,110 @@ class VirtualDesignChooseScreen extends StatelessWidget {
       ),
     );
   }
-
 }
 
+/// Shared translucent app bar for the studio flow.
+class _StudioAppBar extends StatelessWidget {
+  const _StudioAppBar({required this.title});
 
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          const AppBackButton(color: AppColors.textOnPrimary),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppText.pageTitle.copyWith(
+                color: AppColors.textOnPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 44),
+        ],
+      ),
+    );
+  }
+}
 
 class VirtualDesignBrideScreen extends StatelessWidget {
-  const VirtualDesignBrideScreen({Key? key}) : super(key: key);
+  const VirtualDesignBrideScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF69B4),
-              Color(0xFFFFB6C1),
-              Colors.white,
-            ],
-            stops: [0.0, 0.3, 0.6],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
         child: SafeArea(
           child: Column(
             children: [
-              // App Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const Text(
-                      'Nashik',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const Spacer(),
-                    const Text(
-                      'Visual Design',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(width: 56),
-                  ],
-                ),
-              ),
+              const _StudioAppBar(title: 'Visual Design'),
 
-              const SizedBox(height: 20),
-
-              // Main Content
               Expanded(
                 child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        // Logo/Icon with close button
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.center,
-                        //   children: [
-                        //     const Spacer(),
-                        //     Image.asset(
-                        //       'assets/logo.png',
-                        //       height: 50,
-                        //       errorBuilder: (context, error, stackTrace) {
-                        //         return const Icon(
-                        //           Icons.celebration,
-                        //           size: 50,
-                        //           color: Color(0xFFFF4081),
-                        //         );
-                        //       },
-                        //     ),
-                        //     const Spacer(),
-                        //     IconButton(
-                        //       icon: const Icon(Icons.close, color: Colors.grey),
-                        //       onPressed: () {
-                        //         Navigator.pop(context);
-                        //       },
-                        //     ),
-                        //   ],
-                        // ),
-                        //
-                        // const SizedBox(height: 15),
-
-                        // Title
-                        const Text(
-                          'Choose one',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFF4081),
-                          ),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                    AppSpacing.xxxl,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Choose one',
+                        textAlign: TextAlign.center,
+                        style: AppText.display.copyWith(
+                          fontSize: 22,
+                          color: AppColors.magenta,
                         ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Completely fill the screen with a single person photo',
+                        textAlign: TextAlign.center,
+                        style: AppText.bodySm,
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
 
-                        const SizedBox(height: 8),
-
-                        // Subtitle
-                        const Text(
-                          'Completely fill the screen with a single person photo',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-
-                        const SizedBox(height: 25),
-
-                        // Main Image Card with "MAKEUP TRY ON" button
-                        GestureDetector(
-                          onTap: (){
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const PrivacyPopupDialog()));
-                          },
-                          child: _buildImageCard(
-                            context,
-                            'assets/group3.png',
-                            'MAKEUP TRY ON',
-                            width: 430,
-                            height: 400,
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Second Image Card with "JEWELLERY TRY ON" button
-                        _buildImageCard(
+                      _buildImageCard(
+                        context,
+                        'assets/group3.png',
+                        'MAKEUP TRY ON',
+                        onTap: () => _openConsent(context),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      _buildImageCard(
+                        context,
+                        'assets/group2.png',
+                        'JEWELLERY TRY ON',
+                        onTap: () => AppSnackbar.info(
                           context,
-                          'assets/group2.png',
-                          'JEWELLERY TRY ON',
-                          width: 430,
-                          height: 400,
+                          'Jewellery try-on is coming soon.',
                         ),
-
-                        const SizedBox(height: 20),
-
-                        // Third Image Card with "OUTFIT TRY ON" button
-                        _buildImageCard(
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      _buildImageCard(
+                        context,
+                        'assets/group1.png',
+                        'OUTFIT TRY ON',
+                        onTap: () => AppSnackbar.info(
                           context,
-                          'assets/group1.png',
-                          'OUTFIT TRY ON',
-                          width: 430,
-                          height: 400,
+                          'Outfit try-on is coming soon.',
                         ),
-
-                        const SizedBox(height: 30),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-
-              // // Bottom Navigation Bar
-              // Container(
-              //   decoration: const BoxDecoration(
-              //     color: Color(0xFFFF4081),
-              //     borderRadius: BorderRadius.only(
-              //       topLeft: Radius.circular(20),
-              //       topRight: Radius.circular(20),
-              //     ),
-              //   ),
-              //   padding: const EdgeInsets.symmetric(vertical: 10),
-              //   child: Row(
-              //     mainAxisAlignment: MainAxisAlignment.spaceAround,
-              //     children: [
-              //       _buildNavItem(Icons.home, 'Home', false),
-              //       _buildNavItem(Icons.photo_library, 'Wardrobe', false),
-              //       _buildNavItem(Icons.camera_alt, '', false, isCenter: true),
-              //       _buildNavItem(Icons.bookmark, 'Saved', false),
-              //       _buildNavItem(Icons.person, 'Profile', false),
-              //     ],
-              //   ),
-              // ),
             ],
           ),
         ),
@@ -1021,126 +758,69 @@ class VirtualDesignBrideScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildImageCard(
-      BuildContext context,
-      String imagePath,
-      String buttonText, {
-        required double width,
-        required double height,
-      }) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(15),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Background Image
-            Image.asset(
-              imagePath,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey[800],
-                  child: const Center(
-                    child: Icon(
-                      Icons.person,
-                      size: 80,
-                      color: Colors.grey,
-                    ),
-                  ),
-                );
-              },
-            ),
-
-            // Corner brackets overlay
-            // CustomPaint(
-            //   size: Size.infinite,
-            //   painter: CornerBracketsPainter(),
-            // ),
-
-            // Button at bottom
-            Positioned(
-                bottom: 25,
-                left: 60,   // increased padding
-                right: 60,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Navigate to try-on screen
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF4081),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  buttonText,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+  /// Consent gate. Presented as a real modal — it used to be pushed as an
+  /// opaque page route, which rendered the dialog on a bare background.
+  void _openConsent(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      builder: (_) => const PrivacyPopupDialog(),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive,
-      {bool isCenter = false}) {
-    if (isCenter) {
-      return Container(
-        width: 56,
-        height: 56,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          color: const Color(0xFFFF4081),
-          size: 30,
-        ),
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isActive ? Colors.white : Colors.white70,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.white70,
-            fontSize: 11,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+  /// Try-on tile. Height follows the viewport instead of a fixed 430x400,
+  /// which overflowed horizontally on standard phones.
+  Widget _buildImageCard(
+    BuildContext context,
+    String imagePath,
+    String buttonText, {
+    required VoidCallback onTap,
+  }) {
+    return Pressable(
+      onTap: onTap,
+      borderRadius: AppRadii.rLg,
+      child: ClipRRect(
+        borderRadius: AppRadii.rLg,
+        child: AspectRatio(
+          aspectRatio: 430 / 400,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                color: Colors.black,
+                child: Image.asset(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[850],
+                    child: const Center(
+                      child: Icon(
+                        Icons.person_rounded,
+                        size: 72,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(gradient: AppColors.imageScrim),
+                child: SizedBox.expand(),
+              ),
+              Positioned(
+                bottom: AppSpacing.xxl,
+                left: AppSpacing.xxxl,
+                right: AppSpacing.xxxl,
+                child: PremiumButton(
+                  label: buttonText,
+                  size: PremiumButtonSize.medium,
+                  onPressed: onTap,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -1349,16 +1029,8 @@ class _PrivacyPopupDialogState extends State<PrivacyPopupDialog> {
 
 
 
-// Color Constants
-class DsColors {
-  static const Color primaryPink = Color(0xFFE91E63);
-  static const Color darkPink = Color(0xFFC2185B);
-  static const Color lightPink = Color(0xFFFCE4EC);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color textDark = Color(0xFF212121);
-  static const Color textLight = Color(0xFF757575);
-  static const Color backgroundColor = Color(0xFFF5F5F5);
-}
+// Colours now come from AppColors (lib/core/theme/app_colors.dart) — the
+// values are identical, they just live in one place now.
 
 
 //
@@ -1378,7 +1050,7 @@ class DsColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
+// //                   colors: [AppColors.primary, AppColors.primaryDeep],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -1424,7 +1096,7 @@ class DsColors {
 // //                         style: TextStyle(
 // //                           fontSize: 24,
 // //                           fontWeight: FontWeight.bold,
-// //                           color: DsColors.textDark,
+// //                           color: AppColors.textPrimary,
 // //                         ),
 // //                       ),
 // //                     ),
@@ -1435,7 +1107,7 @@ class DsColors {
 // //                         'Instantly try on makeup looks virtually before you order',
 // //                         style: TextStyle(
 // //                           fontSize: 14,
-// //                           color: DsColors.textLight,
+// //                           color: AppColors.textSecondary,
 // //                         ),
 // //                         textAlign: TextAlign.center,
 // //                       ),
@@ -1489,7 +1161,7 @@ class DsColors {
 // //                               style: TextStyle(
 // //                                 fontSize: 12,
 // //                                 fontWeight: FontWeight.w500,
-// //                                 color: DsColors.textDark,
+// //                                 color: AppColors.textPrimary,
 // //                               ),
 // //                             ),
 // //                           ),
@@ -1509,7 +1181,7 @@ class DsColors {
 // //                             child: ElevatedButton(
 // //                               onPressed: () {},
 // //                               style: ElevatedButton.styleFrom(
-// //                                 backgroundColor: DsColors.primaryPink,
+// //                                 backgroundColor: AppColors.primary,
 // //                                 shape: RoundedRectangleBorder(
 // //                                   borderRadius: BorderRadius.circular(25),
 // //                                 ),
@@ -1540,7 +1212,7 @@ class DsColors {
 // //                                 );
 // //                               },
 // //                               style: ElevatedButton.styleFrom(
-// //                                 backgroundColor: DsColors.primaryPink,
+// //                                 backgroundColor: AppColors.primary,
 // //                                 shape: RoundedRectangleBorder(
 // //                                   borderRadius: BorderRadius.circular(25),
 // //                                 ),
@@ -1587,7 +1259,7 @@ class DsColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
+// //                   colors: [AppColors.primary, AppColors.primaryDeep],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -1630,7 +1302,7 @@ class DsColors {
 // //                       style: TextStyle(
 // //                         fontSize: 24,
 // //                         fontWeight: FontWeight.bold,
-// //                         color: DsColors.textDark,
+// //                         color: AppColors.textPrimary,
 // //                       ),
 // //                     ),
 // //                     const SizedBox(height: 24),
@@ -1671,7 +1343,7 @@ class DsColors {
 // //                           );
 // //                         },
 // //                         style: ElevatedButton.styleFrom(
-// //                           backgroundColor: DsColors.primaryPink,
+// //                           backgroundColor: AppColors.primary,
 // //                           shape: RoundedRectangleBorder(
 // //                             borderRadius: BorderRadius.circular(25),
 // //                           ),
@@ -1728,7 +1400,7 @@ class DsColors {
 // //             text,
 // //             style: const TextStyle(
 // //               fontSize: 16,
-// //               color: DsColors.textDark,
+// //               color: AppColors.textPrimary,
 // //               fontWeight: FontWeight.w400,
 // //             ),
 // //           ),
@@ -1760,7 +1432,7 @@ class DsColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
+// //                   colors: [AppColors.primary, AppColors.primaryDeep],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -1805,7 +1477,7 @@ class DsColors {
 // //                         color: Colors.white,
 // //                         borderRadius: BorderRadius.circular(20),
 // //                         border: Border.all(
-// //                           color: DsColors.primaryPink.withValues(alpha: 0.3),
+// //                           color: AppColors.primary.withValues(alpha: 0.3),
 // //                           width: 2,
 // //                         ),
 // //                         boxShadow: [
@@ -1831,14 +1503,14 @@ class DsColors {
 // //                             Icon(
 // //                               Icons.person_outline,
 // //                               size: 80,
-// //                               color: DsColors.primaryPink.withValues(alpha: 0.3),
+// //                               color: AppColors.primary.withValues(alpha: 0.3),
 // //                             ),
 // //                             const SizedBox(height: 16),
 // //                             const Text(
 // //                               'Upload your photo',
 // //                               style: TextStyle(
 // //                                 fontSize: 16,
-// //                                 color: DsColors.textLight,
+// //                                 color: AppColors.textSecondary,
 // //                               ),
 // //                             ),
 // //                           ],
@@ -1860,7 +1532,7 @@ class DsColors {
 // //                           style: TextStyle(
 // //                             fontSize: 14,
 // //                             fontWeight: FontWeight.w500,
-// //                             color: DsColors.textDark,
+// //                             color: AppColors.textPrimary,
 // //                           ),
 // //                         ),
 // //                         const SizedBox(height: 12),
@@ -1885,7 +1557,7 @@ class DsColors {
 // //                   Container(
 // //                     padding: const EdgeInsets.all(24),
 // //                     decoration: BoxDecoration(
-// //                       color: DsColors.lightPink,
+// //                       color: AppColors.pinkSurface,
 // //                       borderRadius: const BorderRadius.only(
 // //                         topLeft: Radius.circular(30),
 // //                         topRight: Radius.circular(30),
@@ -1901,7 +1573,7 @@ class DsColors {
 // //                               });
 // //                             },
 // //                             style: ElevatedButton.styleFrom(
-// //                               backgroundColor: DsColors.primaryPink,
+// //                               backgroundColor: AppColors.primary,
 // //                               padding: const EdgeInsets.symmetric(vertical: 14),
 // //                               shape: RoundedRectangleBorder(
 // //                                 borderRadius: BorderRadius.circular(25),
@@ -1932,7 +1604,7 @@ class DsColors {
 // //                             style: OutlinedButton.styleFrom(
 // //                               padding: const EdgeInsets.symmetric(vertical: 14),
 // //                               side: const BorderSide(
-// //                                 color: DsColors.primaryPink,
+// //                                 color: AppColors.primary,
 // //                                 width: 2,
 // //                               ),
 // //                               shape: RoundedRectangleBorder(
@@ -1944,7 +1616,7 @@ class DsColors {
 // //                               style: TextStyle(
 // //                                 fontSize: 15,
 // //                                 fontWeight: FontWeight.w600,
-// //                                 color: DsColors.primaryPink,
+// //                                 color: AppColors.primary,
 // //                               ),
 // //                             ),
 // //                           ),
@@ -1956,7 +1628,7 @@ class DsColors {
 // //                             style: OutlinedButton.styleFrom(
 // //                               padding: const EdgeInsets.symmetric(vertical: 14),
 // //                               side: const BorderSide(
-// //                                 color: DsColors.primaryPink,
+// //                                 color: AppColors.primary,
 // //                                 width: 2,
 // //                               ),
 // //                               shape: RoundedRectangleBorder(
@@ -1968,7 +1640,7 @@ class DsColors {
 // //                               style: TextStyle(
 // //                                 fontSize: 13,
 // //                                 fontWeight: FontWeight.w600,
-// //                                 color: DsColors.primaryPink,
+// //                                 color: AppColors.primary,
 // //                               ),
 // //                             ),
 // //                           ),
@@ -1997,7 +1669,7 @@ class DsColors {
 // //               color: color,
 // //               shape: BoxShape.circle,
 // //               border: Border.all(
-// //                 color: DsColors.primaryPink.withValues(alpha: 0.3),
+// //                 color: AppColors.primary.withValues(alpha: 0.3),
 // //                 width: 2,
 // //               ),
 // //               boxShadow: [
@@ -2014,7 +1686,7 @@ class DsColors {
 // //             label,
 // //             style: const TextStyle(
 // //               fontSize: 10,
-// //               color: DsColors.textLight,
+// //               color: AppColors.textSecondary,
 // //             ),
 // //           ),
 // //         ],
@@ -2038,7 +1710,7 @@ class DsColors {
 // //               width: double.infinity,
 // //               decoration: BoxDecoration(
 // //                 gradient: LinearGradient(
-// //                   colors: [DsColors.primaryPink, DsColors.darkPink],
+// //                   colors: [AppColors.primary, AppColors.primaryDeep],
 // //                   begin: Alignment.topLeft,
 // //                   end: Alignment.bottomRight,
 // //                 ),
@@ -2135,26 +1807,12 @@ class DsColors {
 class GradientBackground extends StatelessWidget {
   final Widget child;
 
-  const GradientBackground({
-    Key? key,
-    required this.child,
-  }) : super(key: key);
+  const GradientBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFF69B4),
-            Color(0xFFFFB6C1),
-            Colors.white,
-          ],
-          stops: [0.0, 0.3, 0.6],
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: AppColors.headerGradient),
       child: child,
     );
   }
@@ -2171,276 +1829,123 @@ class MakeupTryOnScreen123 extends StatefulWidget {
 class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
   final ImagePicker _picker = ImagePicker();
 
-  // 📸 Open Camera
-  Future<void> _pickFromCamera() async {
-    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-    if (photo != null) {
+  /// True while the picker is open, so a double-tap can't push two routes.
+  bool _picking = false;
+
+  Future<void> _pick(ImageSource source) async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final XFile? file = await _picker.pickImage(source: source);
+      if (file == null || !mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => VisualDesignScreen(userImage: File(photo.path)),
+        AnimatedPageRoute(
+          page: VisualDesignScreen(userImage: File(file.path)),
+          style: PageTransitionStyle.slideRight,
         ),
       );
+    } catch (e) {
+      debugPrint('Image pick error: $e');
+      if (!mounted) return;
+      AppSnackbar.error(
+        context,
+        source == ImageSource.camera
+            ? "We couldn't open the camera. Please check permissions."
+            : "We couldn't open your gallery. Please check permissions.",
+      );
+    } finally {
+      if (mounted) setState(() => _picking = false);
     }
   }
 
+  // 📸 Open Camera
+  Future<void> _pickFromCamera() => _pick(ImageSource.camera);
+
   // 🖼️ Open Gallery
-  Future<void> _pickFromGallery() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VisualDesignScreen(userImage: File(image.path)),
-        ),
-      );
-    }
-  }
+  Future<void> _pickFromGallery() => _pick(ImageSource.gallery);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       body: GradientBackground(
         child: SafeArea(
           child: Column(
             children: [
-              SizedBox(height: 15,),
-                Row(
-                  children: [
-                    // IconButton(
-                    //   icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    //   onPressed: () {},
-                    // ),
-                    const Expanded(
-                      child: Text(
-                        'Visual Design',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    // IconButton(
-                    //   icon: const Icon(Icons.info_outline, color: Colors.white),
-                    //   onPressed: () {},
-                    // ),
-                  ],
-                ),
-              Divider(),
-              // Header
-              // Container(
-              //   width: double.infinity,
-              //   decoration: BoxDecoration(
-              //     gradient: LinearGradient(
-              //       colors: [DsColors.primaryPink, DsColors.darkPink],
-              //       begin: Alignment.topLeft,
-              //       end: Alignment.bottomRight,
-              //     ),
-              //   ),
-              //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              //   child: Row(
-              //     children: [
-              //       IconButton(
-              //         icon: const Icon(Icons.arrow_back, color: Colors.white),
-              //         onPressed: () {},
-              //       ),
-              //       const Expanded(
-              //         child: Text(
-              //           'Visual Design',
-              //           style: TextStyle(
-              //             color: Colors.white,
-              //             fontSize: 18,
-              //             fontWeight: FontWeight.w500,
-              //           ),
-              //           textAlign: TextAlign.center,
-              //         ),
-              //       ),
-              //       IconButton(
-              //         icon: const Icon(Icons.info_outline, color: Colors.white),
-              //         onPressed: () {},
-              //       ),
-              //     ],
-              //   ),
-              // ),
+              const _StudioAppBar(title: 'Visual Design'),
 
-              // Main Content
               Expanded(
                 child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
                   child: Column(
                     children: [
-                      // const SizedBox(height: 16),
-
-                      // // Title Section
-                      // const Padding(
-                      //   padding: EdgeInsets.symmetric(horizontal: 24),
-                      //   child: Text(
-                      //     'Virtual Try - On',
-                      //     style: TextStyle(
-                      //       fontSize: 24,
-                      //       fontWeight: FontWeight.bold,
-                      //       color: DsColors.textDark,
-                      //     ),
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 8),
-                      // const Padding(
-                      //   padding: EdgeInsets.symmetric(horizontal: 24),
-                      //   child: Text(
-                      //     'Instantly try on makeup looks virtually before you order',
-                      //     style: TextStyle(
-                      //       fontSize: 14,
-                      //       color: DsColors.textLight,
-                      //     ),
-                      //     textAlign: TextAlign.center,
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 24),
-
-                      // Model Image with Try On Text
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: MediaQuery.of(context).size.width * 0.95,
-                            height: 400,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Image.asset(
-                                'assets/rect.png',
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          // Positioned(
-                          //   top: 20,
-                          //   child: Container(
-                          //     padding: const EdgeInsets.symmetric(
-                          //       horizontal: 16,
-                          //       vertical: 8,
-                          //     ),
-                          //     decoration: BoxDecoration(
-                          //       color: Colors.white.withValues(alpha: 0.9),
-                          //       borderRadius: BorderRadius.circular(20),
-                          //       boxShadow: [
-                          //         BoxShadow(
-                          //           color: Colors.black.withValues(alpha: 0.1),
-                          //           blurRadius: 8,
-                          //         ),
-                          //       ],
-                          //     ),
-                          //     child: const Text(
-                          //       'Instantly try on makeup',
-                          //       style: TextStyle(
-                          //         fontSize: 12,
-                          //         fontWeight: FontWeight.w500,
-                          //         color: DsColors.textDark,
-                          //       ),
-                          //     ),
-                          //   ),
-                          // ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      // Title Section
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          'Virtual Try - On',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: DsColors.textDark,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          'Instantly try on makeup looks virtually before you order',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: DsColors.textLight,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Action Buttons
+                      // Preview
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: AppRadii.rXl,
+                          child: AspectRatio(
+                            aspectRatio: 0.92,
+                            child: Image.asset(
+                              'assets/rect.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: AppColors.pinkSurface,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.face_retouching_natural_rounded,
+                                        size: 64,
+                                        color: AppColors.textTertiary,
+                                      ),
+                                    ),
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: AppSpacing.xxl),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xxl,
+                        ),
                         child: Column(
                           children: [
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                onPressed: _pickFromCamera,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: DsColors.primaryPink,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  elevation: 3,
-                                ),
-                                child: const Text(
-                                  'SELFIE MODE',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ),
+                            Text(
+                              'Virtual Try-On',
+                              textAlign: TextAlign.center,
+                              style: AppText.display.copyWith(fontSize: 24),
                             ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                // onPressed: () {
-                                //   Navigator.push(
-                                //     context,
-                                //     MaterialPageRoute(
-                                //       builder: (context) => const VisualDesignScreen(),
-                                //     ),
-                                //   );
-                                // },
-                                onPressed: _pickFromGallery,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: DsColors.primaryPink,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  elevation: 3,
-                                ),
-                                child: const Text(
-                                  'UPLOAD PHOTO',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'Instantly try on makeup looks virtually '
+                              'before you order',
+                              textAlign: TextAlign.center,
+                              style: AppText.bodySm,
+                            ),
+                            const SizedBox(height: AppSpacing.xxl),
+
+                            PremiumButton(
+                              label: 'SELFIE MODE',
+                              icon: Icons.photo_camera_rounded,
+                              isLoading: _picking,
+                              onPressed: _pickFromCamera,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            PremiumButton.outlined(
+                              label: 'UPLOAD PHOTO',
+                              icon: Icons.photo_library_outlined,
+                              enabled: !_picking,
+                              onPressed: _pickFromGallery,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
                     ],
                   ),
                 ),

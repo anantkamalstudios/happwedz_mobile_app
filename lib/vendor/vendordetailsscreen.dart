@@ -1777,8 +1777,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   final CarouselSliderController _controller = CarouselSliderController();
   int _currentCarouselIndex = 0;
   bool _aboutExpanded = false;
-  DateTime? _selectedDate;
-  bool _isShortlisted = false;
   String? currentUserId;
   bool isPageLoading = false;
   dynamic fetchedService;
@@ -2049,7 +2047,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
   List<Map<String, String>> parseArea(String areaRaw) {
     final parts = <String>[];
-    if (areaRaw == null) return [];
     if (areaRaw.trim().isEmpty) return [];
     for (var p in areaRaw.split(RegExp(r',\s*'))) {
       final cleaned = p.trim();
@@ -2177,120 +2174,80 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       debugPrint("Reviews API error: $e");
     }
   }
+  /// Claim CTA. The four states (loading / approved / pending / rejected /
+  /// unclaimed) and their navigation targets are unchanged — only the
+  /// presentation moved onto the design system.
   Widget claimButton(String vendorId, String vendorSubcategoryId) {
     if (isClaimLoading) {
-      return ElevatedButton(
-        onPressed: () {},
-        child: SizedBox(
-          height: 16,
-          width: 16,
-          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey,
-          padding: EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      return const PremiumButton(
+        label: 'Checking…',
+        isLoading: true,
+        onPressed: null,
       );
     }
 
     // APPROVED
     if (claimStatus == "approved") {
-      return ElevatedButton.icon(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: Text("Business Claim Approved"),
-              content: Text("Your claim is approved. You cannot submit again."),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text("OK"))
-              ],
-            ),
-          );
-        },
-        icon: Icon(Icons.check_circle, color: Colors.white),
-        label: Text("Approved",style: TextStyle(color: Colors.white),),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          padding: EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      return _ClaimStatusButton(
+        icon: Icons.verified_rounded,
+        label: 'Approved',
+        color: AppColors.successDark,
+        onTap: () => SuccessPopup.show(
+          context,
+          title: 'Business claim approved',
+          message: 'This business is already claimed and verified.',
         ),
       );
     }
 
     // PENDING
     if (claimStatus == "pending") {
-      return ElevatedButton.icon(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: Text("Pending Review"),
-              content: Text("Your claim is under review."),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text("OK"))
-              ],
-            ),
-          );
-        },
-        icon: Icon(Icons.hourglass_top, color: Colors.white),
-        label: Text("Pending",style: TextStyle(color: Colors.white),),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange,
-          padding: EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      return _ClaimStatusButton(
+        icon: Icons.hourglass_top_rounded,
+        label: 'Pending',
+        color: AppColors.warning,
+        onTap: () => SuccessPopup.show(
+          context,
+          title: 'Claim under review',
+          message:
+              'We are reviewing your claim. You will hear from us shortly.',
         ),
       );
     }
 
     // REJECTED
     if (claimStatus == "rejected") {
-      return ElevatedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => BusinessClaimForm(
-                vendorId: vendorId,
-                vendorSubcategoryId: vendorSubcategoryId,
-              ),
+      return _ClaimStatusButton(
+        icon: Icons.refresh_rounded,
+        label: 'Resubmit claim',
+        color: AppColors.error,
+        onTap: () => Navigator.push(
+          context,
+          AnimatedPageRoute(
+            page: BusinessClaimForm(
+              vendorId: vendorId,
+              vendorSubcategoryId: vendorSubcategoryId,
             ),
-          );
-        },
-        icon: Icon(Icons.cancel, color: Colors.white),
-        label: Text("Rejected – Resubmit",style: TextStyle(color: Colors.white),),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-          padding: EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            style: PageTransitionStyle.slideUp,
+          ),
         ),
       );
     }
 
     // DEFAULT — SHOW CLAIM FORM BUTTON
-    return ElevatedButton.icon(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BusinessClaimForm(
-              vendorId: vendorId,
-              vendorSubcategoryId: vendorSubcategoryId,
-            ),
+    return PremiumButton(
+      label: 'Claim Your Business',
+      icon: Icons.business_center_outlined,
+      size: PremiumButtonSize.medium,
+      onPressed: () => Navigator.push(
+        context,
+        AnimatedPageRoute(
+          page: BusinessClaimForm(
+            vendorId: vendorId,
+            vendorSubcategoryId: vendorSubcategoryId,
           ),
-        );
-      },
-      icon: Icon(Icons.business_center_outlined, color: Colors.white),
-      label: Text("Claim Your Business",style: TextStyle(color: Colors.white),),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.pink,
-        padding: EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          style: PageTransitionStyle.slideUp,
+        ),
       ),
     );
   }
@@ -2355,9 +2312,41 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         },
         body: body,
       );
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        AppSnackbar.success(
+          context,
+          isFav ? 'Removed from your wishlist.' : 'Saved to your wishlist.',
+        );
+      } else {
+        _revertFavourite(vendorServiceId, wasFavourite: isFav);
+        AppSnackbar.error(
+          context,
+          res.statusCode == 401
+              ? 'Session expired. Please log in again.'
+              : "We couldn't update your wishlist. Please try again.",
+        );
+      }
     } catch (e) {
-      print("Wishlist API error: $e");
+      debugPrint("Wishlist API error: $e");
+      if (!mounted) return;
+      _revertFavourite(vendorServiceId, wasFavourite: isFav);
+      AppSnackbar.error(context, AppErrorMessage.bodyFor(e));
     }
+  }
+
+  /// Undoes an optimistic wishlist toggle when the request did not land.
+  void _revertFavourite(String vendorServiceId, {required bool wasFavourite}) {
+    setState(() {
+      if (wasFavourite) {
+        favouriteVendors.add(vendorServiceId);
+      } else {
+        favouriteVendors.remove(vendorServiceId);
+      }
+    });
+    saveFavouritesToLocal();
   }
 
 
@@ -2492,7 +2481,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     print("Vendor Subcategory ID: $vendorSubcategoryId");
     final double rating =
         double.tryParse((vendor['rating'] ?? attributes['rating'] ?? apiAverageRating ?? '0').toString()) ?? apiAverageRating;
-    final int reviewCount = int.tryParse((vendor['review_count'] ?? attributes['review_count'] ?? apiTotalReviews ?? '0').toString()) ?? apiTotalReviews;
     final String vendorType = (vendor['vendorType']?['name'] ?? attributes['vendor_type'] ?? '').toString();
 
     final String vegPrice = (attributes['veg_price'] ?? '').toString();
@@ -2500,8 +2488,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
     final seatingList = parseArea((attributes['area'] ?? ''));
 
-    // Visual theme colors
-    final primaryAccent = Colors.pink.shade600;
 
     // // Parse lat & lng carefully (they might be num or String)
     // dynamic latRaw = attributes['latitude'] ?? attributes['lat'] ?? attributes['Latitude'] ?? attributes['LATITUDE'];
@@ -2584,8 +2570,6 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         await launchUrl(webUrl, mode: LaunchMode.externalApplication);
       }
     }
-    final String? panoramaImage = attributes['panorama_image'] as String?;
-    final bool hasPanorama = panoramaImage != null && panoramaImage.isNotEmpty;
 
 
 
@@ -2595,15 +2579,13 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
+              child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top bar overlay on carousel
-                    Stack(
+                slivers: [
+                  // ---------------- HERO ----------------
+                  SliverToBoxAdapter(
+                    child: Stack(
                       children: [
-                        // Carousel
                         CarouselSlider.builder(
                           carouselController: _controller,
                           itemCount: images.length,
@@ -2614,9 +2596,10 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                               width: double.infinity,
                               height: 300,
                               memCacheWidth: 1080,
+                              scrim: true,
                               borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(18),
-                                bottomRight: Radius.circular(18),
+                                bottomLeft: Radius.circular(22),
+                                bottomRight: Radius.circular(22),
                               ),
                             );
                           },
@@ -2624,557 +2607,578 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                             height: 300,
                             viewportFraction: 1,
                             autoPlay: images.length > 1,
-                            onPageChanged: (i, r) => setState(() => _currentCarouselIndex = i),
+                            onPageChanged: (i, r) =>
+                                setState(() => _currentCarouselIndex = i),
                           ),
                         ),
-                        // Positioned(
-                        //   right: 16,
-                        //   bottom: 20,
-                        //   child: ElevatedButton.icon(
-                        //     style: ElevatedButton.styleFrom(
-                        //       backgroundColor: Colors.black.withValues(alpha: 0.7),
-                        //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        //     ),
-                        //     icon: const Icon(Icons.threed_rotation, color: Colors.white),
-                        //     label: const Text("360° View", style: TextStyle(color: Colors.white)),
-                        //     onPressed: () {
-                        //       final List<ImageProvider> providers =
-                        //       images.map((e) => NetworkImage(e)).toList();
-                        //
-                        //       open360Viewer(context, providers);
-                        //     },
-                        //
-                        //
-                        //   ),
-                        // ),
 
                         // Top controls
                         Positioned(
-                          top: 8,
-                          left: 6,
-                          right: 6,
+                          top: AppSpacing.sm,
+                          left: AppSpacing.sm,
+                          right: AppSpacing.md,
                           child: Row(
                             children: [
-                              CircleAvatar(
-                                backgroundColor: Colors.black.withValues(alpha: 0.45),
-                                child: IconButton(
-                                  icon: const Icon(Icons.arrow_back_ios, size: 18, color: Colors.white),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
+                              _GlassIconButton(
+                                icon: Icons.arrow_back_ios_new_rounded,
+                                onTap: () => Navigator.pop(context),
                               ),
                               const Spacer(),
-                              // Share
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: Colors.black.withValues(alpha: 0.45),
-                                child: IconButton(
-                                  icon: const Icon(Icons.share, color: Colors.white, size: 20),
-                                  onPressed: () {
-                                    final shareLink = attributes['URL']?.toString() ?? attributes['url']?.toString() ?? '';
-                                    if (shareLink.isNotEmpty) {
-                                      Share.share(shareLink);
-                                    } else {
-                                      AppSnackbar.info(context, 'There is no link to share yet.');
-                                    }
-                                  },
-                                ),
+                              _GlassIconButton(
+                                icon: Icons.share_rounded,
+                                onTap: () {
+                                  final shareLink =
+                                      attributes['URL']?.toString() ??
+                                      attributes['url']?.toString() ??
+                                      '';
+                                  if (shareLink.isNotEmpty) {
+                                    Share.share(shareLink);
+                                  } else {
+                                    AppSnackbar.info(
+                                      context,
+                                      'There is no link to share yet.',
+                                    );
+                                  }
+                                },
                               ),
-                              const SizedBox(width: 8),
-                              // WhatsApp icon (asset fallback to Icon)
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: Colors.green.shade600,
-                                child: IconButton(
-                                  icon: Image.asset(
-                                    'assets/icons/whatsapp.png',
-                                    width: 20,
-                                    height: 20,
-                                    errorBuilder: (ctx, e, st) => const Icon(Icons.sms, color: Colors.white),
+                              const SizedBox(width: AppSpacing.sm),
+                              _GlassIconButton(
+                                background: AppColors.successDark,
+                                iconWidget: Image.asset(
+                                  'assets/icons/whatsapp.png',
+                                  width: 18,
+                                  height: 18,
+                                  errorBuilder: (ctx, e, st) => const Icon(
+                                    Icons.chat_rounded,
+                                    color: Colors.white,
+                                    size: 18,
                                   ),
-                                  onPressed: () => _launchWhatsApp(phone),
                                 ),
+                                onTap: () => _launchWhatsApp(phone),
                               ),
-                              const SizedBox(width: 8),
-                              // Wishlist toggle
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: Colors.white.withValues(alpha: 0.85),
-                                child: IconButton(
-                                  icon: Icon(
-                                    favouriteVendors.contains(vendorServiceId)
-                                        ? Icons.bookmark
-                                        : Icons.bookmark_border,
-                                    color: primaryAccent,
-                                  ),
-                                  onPressed: () => toggleWishlist(vendorServiceId),
-                                ),
-
+                              const SizedBox(width: AppSpacing.sm),
+                              _GlassIconButton(
+                                background: Colors.white,
+                                iconColor: AppColors.primary,
+                                icon: favouriteVendors.contains(vendorServiceId)
+                                    ? Icons.bookmark_rounded
+                                    : Icons.bookmark_border_rounded,
+                                onTap: () => toggleWishlist(vendorServiceId),
                               ),
                             ],
                           ),
                         ),
 
-                        // bottom-left overlay info
+                        // Name / city / rating overlay
                         Positioned(
-                          left: 16,
-                          bottom: 16,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      vendorName,
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.85), size: 14),
-                                        const SizedBox(width: 4),
-                                        SizedBox(
-                                          width: 180,
-                                          child: Text(
-                                            city,
-                                            style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.star, color: Colors.orange.shade700, size: 16),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        rating > 0 ? rating.toStringAsFixed(1) : (apiAverageRating > 0 ? apiAverageRating.toStringAsFixed(1) : '—'),
-                                        style: const TextStyle(fontWeight: FontWeight.w700),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // dots indicator
-                    if (images.length > 1)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
+                          left: AppSpacing.lg,
+                          right: AppSpacing.lg,
+                          bottom: AppSpacing.lg,
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: images.asMap().entries.map((e) {
-                              final active = _currentCarouselIndex == e.key;
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                height: 8,
-                                width: active ? 26 : 8,
-                                decoration: BoxDecoration(
-                                  color: active ? Colors.black87 : Colors.grey.shade400,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-
-                    // Main content card
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // name + actions row
-                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(vendorName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.location_on, size: 16, color: Colors.grey.shade700),
-                                        const SizedBox(width: 6),
-                                        Expanded(child: Text('$city ${address.isNotEmpty ? "· $address" : ""}', style: TextStyle(color: Colors.grey.shade700))),
-                                      ],
-                                    )
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Column(
-                                children: [
-                                  // Price preview
-                                  if (_hasValue(vegPrice) || _hasValue(nonVegPrice))
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
+                                    Text(
+                                      vendorName,
+                                      style: AppText.sectionTitle.copyWith(
                                         color: Colors.white,
-                                        borderRadius: BorderRadius.circular(10),
-                                        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)],
                                       ),
-                                      child: Column(
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (city.trim().isNotEmpty) ...[
+                                      const SizedBox(height: AppSpacing.xxs),
+                                      Row(
                                         children: [
-                                          Text(_hasValue(vegPrice) ? '₹$vegPrice' : _hasValue(nonVegPrice) ? '₹$nonVegPrice' : '--',
-                                              style: const TextStyle(fontWeight: FontWeight.w800)),
-                                          const SizedBox(height: 4),
-                                          const Text('Per plate', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                          const Icon(
+                                            Icons.location_on_rounded,
+                                            color: Colors.white70,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(
+                                            width: AppSpacing.xxs,
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              city,
+                                              style: AppText.caption.copyWith(
+                                                color: Colors.white70,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
                                         ],
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 14),
-
-                          // chips / quick info
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _infoChip(vendorType, Icons.business),
-                              if (_hasValue(vegPrice)) _infoChip('₹$vegPrice / plate', Icons.restaurant),
-                              if (_hasValue(nonVegPrice)) _infoChip('Non-veg ₹$nonVegPrice', Icons.fastfood),
-                              if (seatingList.isNotEmpty) _infoChip('${seatingList.length} spaces', Icons.people),
-                            ],
-                          ),
-
-                          const SizedBox(height: 14),
-
-                          // Claim / contact actions
-                          Row(
-                            children: [
-                              Expanded(child: claimButton(vendorId, vendorSubcategoryId)),
-
-                              // Expanded(
-                              //   child:
-                              //   ElevatedButton.icon(
-                              //
-                              //     onPressed: () {
-                              //       // claim
-                              //       Navigator.push(
-                              //         context,
-                              //         MaterialPageRoute(
-                              //           builder: (_) => BusinessClaimForm(
-                              //             vendorId: vendorId,
-                              //             vendorSubcategoryId: vendorSubcategoryId,
-                              //
-                              //           ),
-                              //         ),
-                              //       );
-                              //
-                              //     },
-                              //     icon: const Icon(Icons.business_center_outlined,color: Colors.white,),
-                              //     label: const Text('Claim Your Business',style: TextStyle(color: Colors.white),),
-                              //     style: ElevatedButton.styleFrom(
-                              //       backgroundColor: primaryAccent,
-                              //       padding: const EdgeInsets.symmetric(vertical: 12),
-                              //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              //     ),
-                              //   ),
-                              // ),
-                              const SizedBox(width: 12),
-              Container(
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
-                child: IconButton(
-                  tooltip: 'View on map',
-                  icon: const Icon(Icons.location_on_sharp),
-                    onPressed: () async {
-                      if (latitude != null && longitude != null) {
-                        await openMap(latitude!, longitude!);
-                      } else if (address.isNotEmpty || city.isNotEmpty) {
-                        final query = Uri.encodeComponent("$vendorName $address $city");
-                        final fallback = Uri.parse(
-                          "geo:0,0?q=$query",
-                        );
-                        await launchUrl(
-                          fallback,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      } else {
-                        AppSnackbar.info(context, 'Location not available for this vendor.');
-                      }
-                    }
-                ),
-              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Pricing card
-                          if (_hasValue(vegPrice) || _hasValue(nonVegPrice))
-                            Card(
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  children: [
-                                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      const Text('Pricing', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                                      const SizedBox(height: 6),
-                                      if (_hasValue(vegPrice)) Text('Veg: ₹$vegPrice / plate', style: const TextStyle(color: Colors.grey)),
-                                      if (_hasValue(nonVegPrice)) Text('Non-veg: ₹$nonVegPrice / plate', style: const TextStyle(color: Colors.grey)),
-                                    ]),
-                                    // const Spacer(),
-                                    // ElevatedButton(
-                                    //   onPressed: () async {
-                                    //     final picked = await showDatePicker(
-                                    //       context: context,
-                                    //       initialDate: _selectedDate ?? DateTime.now(),
-                                    //       firstDate: DateTime.now(),
-                                    //       lastDate: DateTime(DateTime.now().year + 2),
-                                    //     );
-                                    //     if (picked != null) {
-                                    //       setState(() => _selectedDate = picked);
-                                    //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Checked availability: ${picked.day}/${picked.month}/${picked.year}')));
-                                    //     }
-                                    //   },
-                                    //   child: const Text('Check availability',style: TextStyle(color: Colors.white),),
-                                    //   style: ElevatedButton.styleFrom(
-                                    //     backgroundColor: primaryAccent,
-                                    //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    //   ),
-                                    // )
+                                    ],
                                   ],
                                 ),
                               ),
-                            ),
-
-                          const SizedBox(height: 12),
-
-                          // Portfolio (thumbnails)
-                          if (images.isNotEmpty)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Portfolio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                SizedBox(
-                                  height: 110,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: images.length,
-                                    itemBuilder: (ctx, idx) {
-                                      return Container(
-                                        width: 150,
-                                        margin: EdgeInsets.only(right: idx == images.length - 1 ? 0 : 10),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(10),
-                                          image: DecorationImage(image: NetworkImage(images[idx]), fit: BoxFit.cover),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.sm,
+                                  vertical: AppSpacing.xs,
                                 ),
-                              ],
-                            ),
-
-                          const SizedBox(height: 16),
-
-                          // About
-                          if (_hasValue(about))
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('About', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                AnimatedCrossFade(
-                                  firstChild: SizedBox(
-                                    height: 140,
-                                    child: SingleChildScrollView(
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      child: Html(
-                                        data: about,
-                                        style: {
-                                          "body": Style(margin: Margins.zero, padding: HtmlPaddings.zero, fontSize: FontSize(15), color: Colors.black87),
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                  secondChild: Html(data: about),
-                                  crossFadeState: _aboutExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-                                  duration: const Duration(milliseconds: 250),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: AppRadii.rSm,
                                 ),
-                                if ((about.length) > 250)
-                                  TextButton(onPressed: () => setState(() => _aboutExpanded = !_aboutExpanded), child: Text(_aboutExpanded ? 'Read less' : 'Read more')),
-                              ],
-                            ),
-
-                          const SizedBox(height: 16),
-
-                          // Policies (if any)
-                          if (_hasValue(attributes['decor_policy']) || _hasValue(attributes['catering_policy']))
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Policies', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                if (_hasValue(attributes['decor_policy'])) Text('• Decor: ${attributes['decor_policy']}', style: const TextStyle(height: 1.4)),
-                                if (_hasValue(attributes['catering_policy'])) Text('• Catering: ${attributes['catering_policy']}', style: const TextStyle(height: 1.4)),
-                              ],
-                            ),
-
-                          const SizedBox(height: 18),
-                          Container(
-                            decoration: BoxDecoration(
-                                color: Colors.white, borderRadius: BorderRadius.circular(10)),
-                            child: IconButton(
-                              tooltip: 'Write a review',
-                              icon: const Icon(Icons.rate_review_outlined),
-                              onPressed: ()  {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => RecommendVendorScreen(
-                                      vendorId: vendorId,
-                                      vendorName: vendorName,
-                                      vendorImage: images.isNotEmpty ? images[0] : null,
-                                      currentUserId: currentUserId,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      color: AppColors.warning,
+                                      size: 16,
                                     ),
-                                  ),
-                                );
-                                print('Reviews');
-                                print("Vendor ID: $vendorId");
-                                  print(currentUserId);
-                                  print(vendorName);
+                                    const SizedBox(width: AppSpacing.xxs),
+                                    Text(
+                                      rating > 0
+                                          ? rating.toStringAsFixed(1)
+                                          : (apiAverageRating > 0
+                                                ? apiAverageRating
+                                                      .toStringAsFixed(1)
+                                                : '—'),
+                                      style: AppText.label,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                              },
-                            ),
-                          )
-
-
-
-                          // Ratings summary + call to fetch reviews
-                          // Card(
-                          //   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          //   child: Padding(
-                          //     padding: const EdgeInsets.all(12),
-                          //     child: Column(
-                          //       children: [
-                          //         Row(
-                          //           children: [
-                          //             Column(
-                          //               crossAxisAlignment: CrossAxisAlignment.start,
-                          //               children: [
-                          //                 Text(
-                          //                   apiAverageRating > 0 ? apiAverageRating.toStringAsFixed(1) : rating > 0 ? rating.toStringAsFixed(1) : '—',
-                          //                   style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.pink),
-                          //                 ),
-                          //                 Row(
-                          //                   children: [
-                          //                     Icon(Icons.star, color: Colors.pink.shade400),
-                          //                     const SizedBox(width: 6),
-                          //                     Text('${apiTotalReviews > 0 ? apiTotalReviews : reviewCount} Reviews', style: const TextStyle(color: Colors.black54)),
-                          //                   ],
-                          //                 ),
-                          //               ],
-                          //             ),
-                          //             const Spacer(),
-                          //             ElevatedButton(
-                          //               onPressed: () {
-                          //                 fetchReviewsFromApi();
-                          //                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refreshing reviews...')));
-                          //               },
-                          //               child: const Text('Refresh reviews'),
-                          //               style: ElevatedButton.styleFrom(backgroundColor: primaryAccent),
-                          //             )
-                          //           ],
-                          //         ),
-                          //         const SizedBox(height: 12),
-                          //         if (isReviewsLoading)
-                          //           const Center(child: CircularProgressIndicator())
-                          //         else if (reviewsError)
-                          //           Center(child: Text('Failed to load reviews', style: TextStyle(color: Colors.red.shade400)))
-                          //         else if (reviews.isEmpty)
-                          //             const Center(child: Text('No reviews yet'))
-                          //           else
-                          //             Column(
-                          //               children: reviews.take(3).map((r) {
-                          //                 final rRating = double.tryParse(r['rating']?.toString() ?? '0') ?? 0.0;
-                          //                 final rName = r['userName'] ?? 'Guest';
-                          //                 final rComment = r['comment'] ?? '';
-                          //                 final rDate = r['createdAt'] ?? '';
-                          //                 return ListTile(
-                          //                   contentPadding: EdgeInsets.zero,
-                          //                   leading: CircleAvatar(child: Text(rName.isNotEmpty ? rName[0].toUpperCase() : 'G')),
-                          //                   title: Row(
-                          //                     children: [
-                          //                       Text(rName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          //                       const SizedBox(width: 8),
-                          //                       Container(
-                          //                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          //                         decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                          //                         child: Row(
-                          //                           children: [
-                          //                             Icon(Icons.star, size: 14, color: Colors.orange.shade700),
-                          //                             const SizedBox(width: 4),
-                          //                             Text(rRating.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.w600)),
-                          //                           ],
-                          //                         ),
-                          //                       )
-                          //                     ],
-                          //                   ),
-                          //                   subtitle: Column(
-                          //                     crossAxisAlignment: CrossAxisAlignment.start,
-                          //                     children: [
-                          //                       const SizedBox(height: 6),
-                          //                       Text(rComment, maxLines: 2, overflow: TextOverflow.ellipsis),
-                          //                       const SizedBox(height: 6),
-                          //                       Text(rDate, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          //                     ],
-                          //                   ),
-                          //                 );
-                          //               }).toList(),
-                          //             ),
-                          //
-                          //         // 'View all reviews' button
-                          //         if (!isReviewsLoading && reviews.isNotEmpty)
-                          //           TextButton(
-                          //             onPressed: () {
-                          //               // navigate to full reviews screen if you have one
-                          //             },
-                          //             child: const Text('View all reviews'),
-                          //           )
-                          //       ],
-                          //     ),
-                          //   ),
-                          // ),
-                          //
-                          // const SizedBox(height: 80), // space for bottom bar
-                        ],
+                  // ---------------- CAROUSEL DOTS ----------------
+                  if (images.length > 1)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (var i = 0;
+                                i < (images.length > 8 ? 8 : images.length);
+                                i++)
+                              AnimatedContainer(
+                                duration: AppMotion.fast,
+                                curve: AppMotion.standard,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                ),
+                                height: 7,
+                                width: _currentCarouselIndex == i ? 22 : 7,
+                                decoration: BoxDecoration(
+                                  color: _currentCarouselIndex == i
+                                      ? AppColors.primary
+                                      : AppColors.divider,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
+
+                  // ---------------- BODY ----------------
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.sm,
+                      AppSpacing.lg,
+                      AppSpacing.xl,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        // --- Title + price ---
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    vendorName,
+                                    style: AppText.display.copyWith(
+                                      fontSize: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.location_on_rounded,
+                                        size: 15,
+                                        color: AppColors.textTertiary,
+                                      ),
+                                      const SizedBox(width: AppSpacing.xs),
+                                      Expanded(
+                                        child: Text(
+                                          '$city${address.isNotEmpty ? " · $address" : ""}',
+                                          style: AppText.bodySm,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_hasValue(vegPrice) ||
+                                _hasValue(nonVegPrice)) ...[
+                              const SizedBox(width: AppSpacing.md),
+                              AppCard(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md,
+                                  vertical: AppSpacing.sm,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _hasValue(vegPrice)
+                                          ? '₹$vegPrice'
+                                          : '₹$nonVegPrice',
+                                      style: AppText.price,
+                                    ),
+                                    Text('Per plate', style: AppText.caption),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // --- Quick info chips ---
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: [
+                            if (_hasValue(vendorType))
+                              _infoChip(vendorType, Icons.business_rounded),
+                            if (_hasValue(vegPrice))
+                              _infoChip(
+                                '₹$vegPrice / plate',
+                                Icons.restaurant_rounded,
+                              ),
+                            if (_hasValue(nonVegPrice))
+                              _infoChip(
+                                'Non-veg ₹$nonVegPrice',
+                                Icons.lunch_dining_rounded,
+                              ),
+                            if (seatingList.isNotEmpty)
+                              _infoChip(
+                                '${seatingList.length} spaces',
+                                Icons.people_alt_rounded,
+                              ),
+                          ],
+                        ),
+
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // --- Claim + map ---
+                        Row(
+                          children: [
+                            Expanded(
+                              child: claimButton(vendorId, vendorSubcategoryId),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            _SquareIconButton(
+                              icon: Icons.map_outlined,
+                              tooltip: 'View on map',
+                              onTap: () async {
+                                if (latitude != null && longitude != null) {
+                                  await openMap(latitude, longitude);
+                                } else if (address.isNotEmpty ||
+                                    city.isNotEmpty) {
+                                  final query = Uri.encodeComponent(
+                                    "$vendorName $address $city",
+                                  );
+                                  final fallback = Uri.parse("geo:0,0?q=$query");
+                                  await launchUrl(
+                                    fallback,
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                } else {
+                                  if (!mounted) return;
+                                  AppSnackbar.info(
+                                    context,
+                                    'Location not available for this vendor.',
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            _SquareIconButton(
+                              icon: Icons.rate_review_outlined,
+                              tooltip: 'Write a review',
+                              onTap: () => Navigator.push(
+                                context,
+                                AnimatedPageRoute(
+                                  page: RecommendVendorScreen(
+                                    vendorId: vendorId,
+                                    vendorName: vendorName,
+                                    vendorImage: images.isNotEmpty
+                                        ? images[0]
+                                        : null,
+                                    currentUserId: currentUserId,
+                                  ),
+                                  style: PageTransitionStyle.slideUp,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // --- Pricing ---
+                        if (_hasValue(vegPrice) || _hasValue(nonVegPrice)) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Pricing',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          AppCard.outlined(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_hasValue(vegPrice))
+                                  _PriceRow(
+                                    icon: Icons.eco_rounded,
+                                    color: AppColors.successDark,
+                                    label: 'Veg',
+                                    value: '₹$vegPrice / plate',
+                                  ),
+                                if (_hasValue(vegPrice) &&
+                                    _hasValue(nonVegPrice))
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: AppSpacing.sm,
+                                    ),
+                                    child: Divider(
+                                      height: 1,
+                                      color: AppColors.divider,
+                                    ),
+                                  ),
+                                if (_hasValue(nonVegPrice))
+                                  _PriceRow(
+                                    icon: Icons.lunch_dining_rounded,
+                                    color: AppColors.error,
+                                    label: 'Non-veg',
+                                    value: '₹$nonVegPrice / plate',
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // --- Spaces / seating ---
+                        if (seatingList.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Spaces',
+                            subtitle:
+                                '${seatingList.length} available at this venue',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
+                            children: [
+                              for (final space in seatingList)
+                                AppCard.outlined(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md,
+                                    vertical: AppSpacing.sm,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        space['name'] ?? 'Space',
+                                        style: AppText.label,
+                                      ),
+                                      if ((space['capacity'] ?? '')
+                                          .toString()
+                                          .isNotEmpty)
+                                        Text(
+                                          space['capacity']!,
+                                          style: AppText.caption,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+
+                        // --- Portfolio ---
+                        if (images.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Portfolio',
+                            subtitle: '${images.length} photos',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          SizedBox(
+                            height: 112,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: images.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: AppSpacing.md),
+                              itemBuilder: (ctx, idx) {
+                                return Pressable(
+                                  onTap: () => _openGallery(images, idx),
+                                  borderRadius: AppRadii.rMd,
+                                  child: NetworkImageWidget(
+                                    url: images[idx],
+                                    width: 150,
+                                    height: 112,
+                                    radius: AppRadii.md,
+                                    memCacheWidth: 420,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+
+                        // --- About ---
+                        if (_hasValue(about)) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'About',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          AnimatedCrossFade(
+                            firstChild: SizedBox(
+                              height: 140,
+                              child: SingleChildScrollView(
+                                physics: const NeverScrollableScrollPhysics(),
+                                child: Html(
+                                  data: about,
+                                  style: _htmlStyle,
+                                ),
+                              ),
+                            ),
+                            secondChild: Html(data: about, style: _htmlStyle),
+                            crossFadeState: _aboutExpanded
+                                ? CrossFadeState.showSecond
+                                : CrossFadeState.showFirst,
+                            duration: AppMotion.normal,
+                          ),
+                          if (about.length > 250)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: PremiumButton.text(
+                                label: _aboutExpanded
+                                    ? 'Read less'
+                                    : 'Read more',
+                                trailingIcon: _aboutExpanded
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
+                                size: PremiumButtonSize.small,
+                                onPressed: () => setState(
+                                  () => _aboutExpanded = !_aboutExpanded,
+                                ),
+                              ),
+                            ),
+                        ],
+
+                        // --- Policies ---
+                        if (_hasValue(attributes['decor_policy']) ||
+                            _hasValue(attributes['catering_policy'])) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Policies',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          AppCard.outlined(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_hasValue(attributes['decor_policy']))
+                                  _PolicyRow(
+                                    icon: Icons.celebration_outlined,
+                                    label: 'Decor',
+                                    value: '${attributes['decor_policy']}',
+                                  ),
+                                if (_hasValue(attributes['decor_policy']) &&
+                                    _hasValue(attributes['catering_policy']))
+                                  const SizedBox(height: AppSpacing.md),
+                                if (_hasValue(attributes['catering_policy']))
+                                  _PolicyRow(
+                                    icon: Icons.restaurant_menu_rounded,
+                                    label: 'Catering',
+                                    value: '${attributes['catering_policy']}',
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // --- Reviews ---
+                        const SizedBox(height: AppSpacing.xxl),
+                        SectionHeader(
+                          title: 'Reviews',
+                          subtitle: apiTotalReviews > 0
+                              ? '$apiTotalReviews from real couples'
+                              : null,
+                          accent: true,
+                          padding: EdgeInsets.zero,
+                          actionLabel: 'Write one',
+                          onAction: () => Navigator.push(
+                            context,
+                            AnimatedPageRoute(
+                              page: RecommendVendorScreen(
+                                vendorId: vendorId,
+                                vendorName: vendorName,
+                                vendorImage: images.isNotEmpty
+                                    ? images[0]
+                                    : null,
+                                currentUserId: currentUserId,
+                              ),
+                              style: PageTransitionStyle.slideUp,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _buildReviewsSection(),
+
+                        // Breathing room above the sticky bar.
+                        const SizedBox(height: AppSpacing.xl),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -3183,66 +3187,65 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
       // Sticky bottom bar
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.divider)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.md,
+        ),
         child: SafeArea(
+          top: false,
           child: Row(
             children: [
               // Message (chat)
               Expanded(
-                child: OutlinedButton.icon(
+                child: PremiumButton.outlined(
+                  label: 'Message',
+                  icon: Icons.chat_bubble_outline_rounded,
                   onPressed: () {
                     if (currentUserId == null || currentUserId!.isEmpty) {
-                      // redirect to sign in
-                      AppSnackbar.info(context, 'Please sign in to send a message.');
+                      AppSnackbar.info(
+                        context,
+                        'Please sign in to send a message.',
+                      );
                       return;
                     }
-                    final int uid = int.parse(currentUserId!);
-                    final int vendor = int.parse(vendorId);
+                    final int? uid = int.tryParse(currentUserId!);
+                    final int? vendor = int.tryParse(vendorId);
+                    if (uid == null || vendor == null) {
+                      AppSnackbar.error(
+                        context,
+                        "We couldn't open this chat. Please try again.",
+                      );
+                      return;
+                    }
 
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatPage(
+                      AnimatedPageRoute(
+                        page: ChatPage(
                           currentUid: uid,
                           otherUid: vendor,
                           otherName: vendorName,
                           vendorId: vendor,
                         ),
+                        style: PageTransitionStyle.slideRight,
                       ),
                     );
-                    print("Vendor ID: $vendorId");
-                    print(currentUserId);
-                    print(vendor);
-                    print(vendorName);
-
-                    },
-
-                  icon: const Icon(Icons.message, color: Colors.pink),
-                  label: const Text('Message', style: TextStyle(color: Colors.pink)),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.pink.shade200),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
+                  },
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               // Call now (primary)
-              SizedBox(
-                width: 120,
-                child: ElevatedButton.icon(
+              Expanded(
+                child: PremiumButton(
+                  label: 'Call',
+                  icon: Icons.phone_rounded,
                   onPressed: () => _call(phone),
-                  icon: const Icon(Icons.phone),
-                  label: const Text('Call'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
                 ),
               ),
             ],
@@ -3252,21 +3255,490 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     );
   }
 
+  /// Shared HTML styling for the About block so both crossfade children match.
+  Map<String, Style> get _htmlStyle => {
+    "body": Style(
+      margin: Margins.zero,
+      padding: HtmlPaddings.zero,
+      fontSize: FontSize(14.5),
+      lineHeight: const LineHeight(1.55),
+      color: AppColors.textSecondary,
+      fontFamily: 'Poppins',
+    ),
+  };
+
+  /// Full-screen swipeable gallery opened from a portfolio thumbnail.
+  void _openGallery(List<String> images, int initialIndex) {
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        style: PageTransitionStyle.fade,
+        page: _GalleryViewer(images: images, initialIndex: initialIndex),
+      ),
+    );
+  }
+
+  /// Reviews list: shimmer while loading, friendly error with retry, empty
+  /// state, otherwise the first three reviews. Uses the existing
+  /// [fetchReviewsFromApi] data — no new endpoint.
+  Widget _buildReviewsSection() {
+    if (isReviewsLoading) {
+      return Skeletons.listTiles(count: 2);
+    }
+
+    if (reviewsError) {
+      return AppCard.outlined(
+        child: ErrorState(
+          compact: true,
+          title: "Couldn't load reviews",
+          message: 'Please try again in a moment.',
+          onRetry: fetchReviewsFromApi,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        ),
+      );
+    }
+
+    if (reviews.isEmpty) {
+      return AppCard.outlined(
+        child: EmptyState(
+          compact: true,
+          title: 'No reviews yet',
+          message: 'Be the first to share your experience.',
+          icon: Icons.rate_review_outlined,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        ),
+      );
+    }
+
+    final shown = reviews.take(3).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Rating summary
+        AppCard.outlined(
+          child: Row(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    apiAverageRating > 0
+                        ? apiAverageRating.toStringAsFixed(1)
+                        : '—',
+                    style: AppText.display.copyWith(color: AppColors.primary),
+                  ),
+                  Text(
+                    '$apiTotalReviews review${apiTotalReviews == 1 ? '' : 's'}',
+                    style: AppText.caption,
+                  ),
+                ],
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (var i = 1; i <= 5; i++)
+                      Icon(
+                        i <= apiAverageRating.round()
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 20,
+                        color: AppColors.warning,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        for (var i = 0; i < shown.length; i++)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: i == shown.length - 1 ? 0 : AppSpacing.md,
+            ),
+            child: FadeSlideIn(
+              delay: AppMotion.staggerFor(i),
+              child: _ReviewTile(review: shown[i]),
+            ),
+          ),
+      ],
+    );
+  }
 
   // small helper chip used in UI
   Widget _infoChip(String text, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [
-        BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 6),
-      ]),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 14, color: Colors.grey.shade800),
-        const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontSize: 12)),
-      ]),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadii.rPill,
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.primary),
+          const SizedBox(width: AppSpacing.xs),
+          Text(text, style: AppText.labelSm),
+        ],
+      ),
     );
   }
 }
 
+// ---------------------------------------------------------------------------
+// Presentational helpers for the detail page
+// ---------------------------------------------------------------------------
 
+/// Translucent circular control overlaid on the hero carousel.
+class _GlassIconButton extends StatelessWidget {
+  const _GlassIconButton({
+    this.icon,
+    this.iconWidget,
+    required this.onTap,
+    this.background,
+    this.iconColor,
+  });
+
+  final IconData? icon;
+  final Widget? iconWidget;
+  final VoidCallback onTap;
+  final Color? background;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      scale: 0.9,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: background ?? Colors.black.withValues(alpha: 0.42),
+        ),
+        child: Center(
+          child:
+              iconWidget ??
+              Icon(icon, size: 18, color: iconColor ?? Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bordered square icon action used beside the claim button.
+class _SquareIconButton extends StatelessWidget {
+  const _SquareIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Pressable(
+      onTap: onTap,
+      borderRadius: AppRadii.rMd,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadii.rMd,
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Icon(icon, size: 20, color: AppColors.primary),
+      ),
+    );
+    return tooltip == null
+        ? button
+        : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+/// Coloured status pill used for approved / pending / rejected claims.
+class _ClaimStatusButton extends StatelessWidget {
+  const _ClaimStatusButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      borderRadius: AppRadii.rMd,
+      child: Container(
+        height: 46,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: AppRadii.rMd,
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: AppSpacing.sm),
+            Flexible(
+              child: Text(
+                label,
+                style: AppText.button.copyWith(color: color),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PriceRow extends StatelessWidget {
+  const _PriceRow({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(child: Text(label, style: AppText.body)),
+        Text(value, style: AppText.priceSm),
+      ],
+    );
+  }
+}
+
+class _PolicyRow extends StatelessWidget {
+  const _PolicyRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.primary),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: AppText.label),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(value, style: AppText.bodySm),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One review card. Field names match the normalised shape produced by
+/// [_VendorDetailsScreenState.fetchReviewsFromApi].
+class _ReviewTile extends StatelessWidget {
+  const _ReviewTile({required this.review});
+
+  final Map<String, dynamic> review;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = (review['userName'] ?? 'Guest').toString();
+    final comment = (review['comment'] ?? '').toString();
+    final title = (review['title'] ?? '').toString();
+    final ratingValue =
+        double.tryParse(review['rating']?.toString() ?? '0') ?? 0.0;
+
+    return AppCard.outlined(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              AppAvatar(name: name, size: 36),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  name,
+                  style: AppText.cardTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.pinkSurface,
+                  borderRadius: AppRadii.rSm,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.star_rounded,
+                      size: 13,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      ratingValue.toStringAsFixed(1),
+                      style: AppText.caption.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (title.trim().isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(title, style: AppText.bodyStrong),
+          ],
+          if (comment.trim().isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              comment,
+              style: AppText.bodySm,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-screen pinch-to-zoom gallery for the portfolio thumbnails.
+class _GalleryViewer extends StatefulWidget {
+  const _GalleryViewer({required this.images, required this.initialIndex});
+
+  final List<String> images;
+  final int initialIndex;
+
+  @override
+  State<_GalleryViewer> createState() => _GalleryViewerState();
+}
+
+class _GalleryViewerState extends State<_GalleryViewer> {
+  late final PageController _pageController;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.images.length,
+            onPageChanged: (i) => setState(() => _index = i),
+            itemBuilder: (context, i) => InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Center(
+                child: NetworkImageWidget(
+                  url: widget.images[i],
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  backgroundColor: Colors.black,
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  _GlassIconButton(
+                    icon: Icons.close_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.42),
+                      borderRadius: AppRadii.rPill,
+                    ),
+                    child: Text(
+                      '${_index + 1} / ${widget.images.length}',
+                      style: AppText.labelSm.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
