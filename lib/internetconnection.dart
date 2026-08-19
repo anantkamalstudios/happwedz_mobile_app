@@ -11,8 +11,18 @@ import 'core/core.dart';
 class InternetService {
   /// Quick network type check + real internet lookup
   static Future<bool> hasInternet() async {
+    // AUDIT FIX: `checkConnectivity()` returns a *List* of results in
+    // connectivity_plus 7 (a device can be on Wi-Fi and mobile at once), so
+    // `connectivity == ConnectivityResult.none` compared a List to an enum and
+    // was ALWAYS false. The cheap offline short-circuit therefore never fired:
+    // in airplane mode every check fell through to the DNS lookup below and
+    // had to wait out its 5-second timeout, so the offline banner appeared
+    // seconds late on every connectivity change.
     final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity == ConnectivityResult.none) return false;
+    final hasTransport = connectivity.any(
+      (result) => result != ConnectivityResult.none,
+    );
+    if (!hasTransport) return false;
 
     try {
       final result = await InternetAddress.lookup('google.com').timeout(const Duration(seconds: 5));

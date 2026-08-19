@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../core/core.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -48,17 +49,17 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> _loadSubcategories() async {
     setState(() => isSubcatLoading = true);
-    print('🔄 Fetching vendor types and subcategories...');
+    debugPrint('🔄 Fetching vendor types and subcategories...');
 
     try {
       final response = await http.get(
         Uri.parse('https://happywedz.com/api/vendor-types/with-subcategories/all'),
       );
-      print('🌐 Status Code: ${response.statusCode}');
+      debugPrint('🌐 Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
 
-        print('✅ Found ${data.length} vendor types from API');
+        debugPrint('✅ Found ${data.length} vendor types from API');
         final List<BudgetCategory> tempCategories = [];
         final Map<int, List<SubCategory>> tempMap = {};
 
@@ -71,7 +72,7 @@ class _BudgetPageState extends State<BudgetPage> {
           tempMap[vendorTypeId] = subcats;
           tempCategories.add(BudgetCategory(name: name, vendorTypeId: vendorTypeId));
 
-          print('📂 $name ($vendorTypeId) → ${subcats.length} subcategories');
+          debugPrint('📂 $name ($vendorTypeId) → ${subcats.length} subcategories');
         }
 
         setState(() {
@@ -79,17 +80,17 @@ class _BudgetPageState extends State<BudgetPage> {
           subcategoriesMap = tempMap;
         });
 
-        print('✅ Categories loaded: ${categories.length}');
-        print('✅ Subcategories Map Keys: ${subcategoriesMap.keys.toList()}');
+        debugPrint('✅ Categories loaded: ${categories.length}');
+        debugPrint('✅ Subcategories Map Keys: ${subcategoriesMap.keys.toList()}');
       } else {
-        print('❌ Failed with status: ${response.statusCode}');
+        debugPrint('❌ Failed with status: ${response.statusCode}');
       }
     } catch (e) {
-      print('💥 Error while loading vendor types: $e');
+      debugPrint('💥 Error while loading vendor types: $e');
     }
 
     setState(() => isSubcatLoading = false);
-    print('✅ Finished loading all vendor types');
+    debugPrint('✅ Finished loading all vendor types');
   }
 
 
@@ -124,8 +125,10 @@ class _BudgetPageState extends State<BudgetPage> {
         },
       );
 
-      print('🔹 GET $baseUrl/user/$userId -> ${response.statusCode}');
-      print('Response body: ${response.body}');
+      debugPrint('🔹 GET $baseUrl/user/$userId -> ${response.statusCode}');
+      // AUDIT FIX (security): response bodies carry user data and are readable
+      // via `adb logcat` in a release build — debug only.
+      if (kDebugMode) debugPrint('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -165,7 +168,7 @@ class _BudgetPageState extends State<BudgetPage> {
         setState(() => isLoading = false);
       }
     } catch (e) {
-      print('❌ Error loading budgets: $e');
+      debugPrint('❌ Error loading budgets: $e');
       _showError('Failed to load budgets');
       setState(() => isLoading = false);
     }
@@ -173,7 +176,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> _createBudget(Expense e) async {
     if (userId == null) {
-      print('⚠️ userId is null – cannot create budget');
+      debugPrint('⚠️ userId is null – cannot create budget');
       _showError('User ID not found');
       return;
     }
@@ -192,14 +195,16 @@ class _BudgetPageState extends State<BudgetPage> {
       final token = prefs.getString('auth_token');
 
       if (token == null) {
-        print('⚠️ No auth token found');
+        debugPrint('⚠️ No auth token found');
         _showError('Please log in again');
         return;
       }
 
-      print('🔹 POST $baseUrl');
-      print('🔹 Headers: Authorization: Bearer $token');
-      print('🔹 Body: $body');
+      // AUDIT FIX (security): the bearer token used to be printed in full
+      // here. Release logs are readable via `adb logcat`, so this handed the
+      // user's session to anything that could read the device log.
+      debugPrint('🔹 POST $baseUrl');
+      debugPrint('🔹 Body: $body');
 
       final response = await http.post(
         Uri.parse(baseUrl),
@@ -210,7 +215,7 @@ class _BudgetPageState extends State<BudgetPage> {
         body: body,
       );
 
-      print('Response: ${response.statusCode}, Body: ${response.body}');
+      if (kDebugMode) debugPrint('Response: ${response.statusCode}, Body: ${response.body}');
       final data = json.decode(response.body);
 
       if ((response.statusCode == 200 || response.statusCode == 201) &&
@@ -224,7 +229,7 @@ class _BudgetPageState extends State<BudgetPage> {
         _showError(data['message'] ?? 'Failed to create budget');
       }
     } catch (e) {
-      print('❌ Error creating budget: $e');
+      debugPrint('❌ Error creating budget: $e');
       _showError('Failed to create budget');
     }
   }
@@ -235,7 +240,7 @@ class _BudgetPageState extends State<BudgetPage> {
       final token = prefs.getString('auth_token');
 
       if (token == null) {
-        print('⚠️ No auth token found');
+        debugPrint('⚠️ No auth token found');
         _showError('Please log in again');
         return;
       }
@@ -248,9 +253,9 @@ class _BudgetPageState extends State<BudgetPage> {
         'paid_amount': e.paid,
       });
 
-      print('🔹 PUT $baseUrl/${e.id}');
-      print('🔹 Headers: Authorization: Bearer $token');
-      print('🔹 Body: $body');
+      // AUDIT FIX (security): bearer token no longer logged — see _createBudget.
+      debugPrint('🔹 PUT $baseUrl/${e.id}');
+      debugPrint('🔹 Body: $body');
 
       final response = await http.put(
         Uri.parse('$baseUrl/${e.id}'),
@@ -261,7 +266,7 @@ class _BudgetPageState extends State<BudgetPage> {
         body: body,
       );
 
-      print('Response: ${response.statusCode}, Body: ${response.body}');
+      if (kDebugMode) debugPrint('Response: ${response.statusCode}, Body: ${response.body}');
       final data = json.decode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
@@ -271,7 +276,7 @@ class _BudgetPageState extends State<BudgetPage> {
         _showError(data['message'] ?? 'Failed to update budget');
       }
     } catch (e) {
-      print('❌ Error updating budget: $e');
+      debugPrint('❌ Error updating budget: $e');
       _showError('Failed to update budget');
     }
   }
@@ -282,13 +287,13 @@ class _BudgetPageState extends State<BudgetPage> {
       final token = prefs.getString('auth_token');
 
       if (token == null) {
-        print('⚠️ No auth token found');
+        debugPrint('⚠️ No auth token found');
         _showError('Please log in again');
         return;
       }
 
-      print('🗑 DELETE $baseUrl/$id');
-      print('🔹 Headers: Authorization: Bearer $token');
+      // AUDIT FIX (security): bearer token no longer logged — see _createBudget.
+      debugPrint('🗑 DELETE $baseUrl/$id');
 
       final response = await http.delete(
         Uri.parse('$baseUrl/$id'),
@@ -298,7 +303,7 @@ class _BudgetPageState extends State<BudgetPage> {
         },
       );
 
-      print('DELETE Response: ${response.statusCode}, Body: ${response.body}');
+      if (kDebugMode) debugPrint('DELETE Response: ${response.statusCode}, Body: ${response.body}');
       final data = json.decode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
@@ -308,7 +313,7 @@ class _BudgetPageState extends State<BudgetPage> {
         _showError(data['message'] ?? 'Failed to delete');
       }
     } catch (e) {
-      print('❌ Error deleting budget: $e');
+      debugPrint('❌ Error deleting budget: $e');
       _showError('Failed to delete');
     }
   }
@@ -553,10 +558,10 @@ class _BudgetPageState extends State<BudgetPage> {
   );
 
   void _showAddExpenseDialog() {
-    print('🟢 Opening Add Expense Dialog');
-    print('   → subcategoriesMap keys: ${subcategoriesMap.keys.toList()}');
+    debugPrint('🟢 Opening Add Expense Dialog');
+    debugPrint('   → subcategoriesMap keys: ${subcategoriesMap.keys.toList()}');
     if (isSubcatLoading) {
-      print('⚠️ Tried to open while subcategories are still loading');
+      debugPrint('⚠️ Tried to open while subcategories are still loading');
       _showError('Please wait, loading categories...');
       return;
     }
@@ -583,7 +588,7 @@ class _BudgetPageState extends State<BudgetPage> {
     List<SubCategory> getSubcatsForSelectedCat() {
       if (selectedCat < 0 || selectedCat >= categories.length) return [];
       final vendorTypeId = categories[selectedCat].vendorTypeId;
-      print('🔎 Getting subcategories for vendorTypeId: $vendorTypeId');
+      debugPrint('🔎 Getting subcategories for vendorTypeId: $vendorTypeId');
       return subcategoriesMap[vendorTypeId] ?? [];
     }
 
@@ -610,8 +615,8 @@ class _BudgetPageState extends State<BudgetPage> {
                       selectedCat = v!;
                       selectedSubcatId = null;
                     });
-                    print('📍 Category changed → ${categories[selectedCat].name} (vendorTypeId: ${categories[selectedCat].vendorTypeId})');
-                    print('📦 Available subcats for this: ${subcategoriesMap[categories[selectedCat].vendorTypeId]?.length ?? 0}');
+                    debugPrint('📍 Category changed → ${categories[selectedCat].name} (vendorTypeId: ${categories[selectedCat].vendorTypeId})');
+                    debugPrint('📦 Available subcats for this: ${subcategoriesMap[categories[selectedCat].vendorTypeId]?.length ?? 0}');
                   },
 
 
@@ -624,7 +629,7 @@ class _BudgetPageState extends State<BudgetPage> {
                 Builder(
                   builder: (context) {
                     final subcats = getSubcatsForSelectedCat();
-                    print('🟣 Building Subcategory Dropdown → ${subcats.length} found');
+                    debugPrint('🟣 Building Subcategory Dropdown → ${subcats.length} found');
                     if (isSubcatLoading) {
                       return const Center(child: CircularProgressIndicator());
                     }
@@ -637,7 +642,7 @@ class _BudgetPageState extends State<BudgetPage> {
                           ? null
                           : (v) => setState(() {
                         selectedSubcatId = v;
-                        print('✅ Subcategory selected: $v');
+                        debugPrint('✅ Subcategory selected: $v');
                       }),
                       decoration: const InputDecoration(labelText: 'Subcategory'),
                       hint: const Text('Select Subcategory'),

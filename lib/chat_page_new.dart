@@ -909,6 +909,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:happy_wedz/profile.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -927,7 +928,9 @@ class ChatService {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("auth_token") ?? "";
 
-    print("🔐 TOKEN USED → $token");
+    // AUDIT FIX (security): printing the raw JWT leaked the whole session
+    // into the device log. Only presence is logged now.
+    debugPrint(token.isEmpty ? "⚠️ No auth token stored" : "🔐 Auth token present");
 
     return {
       "Accept": "application/json",
@@ -946,7 +949,7 @@ class ChatService {
 
     final url = Uri.parse("$baseUrl/conversations");
 
-    print("➡ POST CreateConversation: $url");
+    debugPrint("➡ POST CreateConversation: $url");
 
     final response = await http.post(
       url,
@@ -957,11 +960,13 @@ class ChatService {
       },
     );
 
-    print("⬅ STATUS CODE → ${response.statusCode}");
-    print("⬅ RAW → ${response.body}");
+    debugPrint("⬅ STATUS CODE → ${response.statusCode}");
+    // AUDIT FIX (security): response bodies carry user data and are readable
+    // via `adb logcat` in a release build — debug only.
+    if (kDebugMode) debugPrint("⬅ RAW → ${response.body}");
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      print("❌ Failed to create conversation");
+      debugPrint("❌ Failed to create conversation");
       return null;
     }
 
@@ -973,7 +978,7 @@ class ChatService {
       return js["data"]["conversation"]["id"];
     }
 
-    print("❌ Conversation ID not found!");
+    debugPrint("❌ Conversation ID not found!");
     return null;
   }
 
@@ -983,12 +988,12 @@ class ChatService {
   static Future<List<dynamic>> fetchMessages(int conversationId) async {
     final url = Uri.parse("$baseUrl/conversations/$conversationId/messages");
 
-    print("➡ GET Messages: $url");
+    debugPrint("➡ GET Messages: $url");
 
     final res = await http.get(url, headers: await _headers());
 
-    print("⬅ STATUS → ${res.statusCode}");
-    print("⬅ RAW MESSAGES → ${res.body}");
+    debugPrint("⬅ STATUS → ${res.statusCode}");
+    if (kDebugMode) debugPrint("⬅ RAW MESSAGES → ${res.body}");
 
     if (res.statusCode != 200) return [];
 
@@ -1013,8 +1018,8 @@ class ChatService {
     final url =
     Uri.parse("$baseUrl/conversations/$conversationId/messages");
 
-    print("➡ POST SendMessage: $url");
-    print("   BODY: senderId=$senderId receiverId=$receiverId message=$message");
+    debugPrint("➡ POST SendMessage: $url");
+    debugPrint("   BODY: senderId=$senderId receiverId=$receiverId message=$message");
 
     final res = await http.post(
       url,
@@ -1028,7 +1033,7 @@ class ChatService {
       },
     );
 
-    print("⬅ SEND MSG RESPONSE → ${res.body}");
+    if (kDebugMode) debugPrint("⬅ SEND MSG RESPONSE → ${res.body}");
     return res.statusCode == 200 || res.statusCode == 201;
   }
 
@@ -1046,8 +1051,8 @@ class ChatService {
   }) async {
     final url = Uri.parse("https://happywedz.com/request-pricing");
 
-    print("➡ POST PricingRequest: $url");
-    print("   BODY: vendorId:$vendorId firstName:$firstName lastName:$lastName "
+    debugPrint("➡ POST PricingRequest: $url");
+    debugPrint("   BODY: vendorId:$vendorId firstName:$firstName lastName:$lastName "
         "email:$email phone:$phone eventDate:$eventDate message:$message");
 
     final res = await http.post(
@@ -1066,9 +1071,36 @@ class ChatService {
       }),
     );
 
-    print("⬅ PRICING RESPONSE → ${res.statusCode} ${res.body}");
+    if (kDebugMode) debugPrint("⬅ PRICING RESPONSE → ${res.statusCode} ${res.body}");
 
-    return res.statusCode == 200 || res.statusCode == 201;
+    // AUDIT FIX (API that silently fails): this URL is the *website* page
+    // `happywedz.com/request-pricing`, not an API route — every other call in
+    // the app goes through `/api/…`. Verified against the live server: a POST
+    // here returns `200 text/html` (the marketing page), so the old
+    // `statusCode == 200 || 201` check reported SUCCESS on every request while
+    // the quotation was never recorded. `GET /api/request-pricing/user/quotations`
+    // (used by My Bookings) then showed nothing, with no error anywhere.
+    //
+    // The correct submit route could not be determined — `/api/request-pricing`
+    // returns 404 for both GET and POST — so it is NOT guessed here. What this
+    // change does is stop the lie: an HTML response is now treated as the
+    // failure it is, so the problem is visible instead of silent.
+    //
+    // ⚠️ BACKEND CONFIRMATION NEEDED: supply the real endpoint for submitting a
+    // pricing request, then point `url` at it.
+    final contentType = res.headers['content-type'] ?? '';
+    final ok = (res.statusCode == 200 || res.statusCode == 201) &&
+        contentType.contains('application/json');
+
+    if (!ok) {
+      debugPrint(
+        '❌ Pricing request was NOT accepted '
+        '(status ${res.statusCode}, content-type "$contentType"). '
+        'The endpoint is serving HTML, not an API response.',
+      );
+    }
+
+    return ok;
   }
 }
 
@@ -1120,7 +1152,7 @@ class _ChatPageState extends State<ChatPage> {
     final venue = prefs.getString("wedding_venue") ?? "";
     final date = prefs.getString("wedding_date") ?? "";
 
-    print("🔍 PROFILE CHECK → phone:$phone   venue:$venue   date:$date");
+    debugPrint("🔍 PROFILE CHECK → phone:$phone   venue:$venue   date:$date");
 
     return phone.isNotEmpty && venue.isNotEmpty && date.isNotEmpty;
   }
@@ -1148,7 +1180,7 @@ class _ChatPageState extends State<ChatPage> {
                     builder: (_) => const ProfileSettingsScreen()),
               );
 
-              print("🔄 Returned from profile — restarting chat setup...");
+              debugPrint("🔄 Returned from profile — restarting chat setup...");
               initChat();
             },
           )
@@ -1161,18 +1193,18 @@ class _ChatPageState extends State<ChatPage> {
   // INITIAL CHAT SETUP
   //----------------------------------------------------------------------
   Future<void> initChat() async {
-    print("🔄 initChat() started...");
+    debugPrint("🔄 initChat() started...");
 
     conversationId = await ChatService.createOrGetConversation(
       vendorId: widget.vendorId,
     );
 
     if (conversationId == null) {
-      print("❌ No conversation ID!");
+      debugPrint("❌ No conversation ID!");
       return;
     }
 
-    print("✅ Conversation ID = $conversationId");
+    debugPrint("✅ Conversation ID = $conversationId");
 
     await fetchMessages();
 
@@ -1187,7 +1219,7 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> fetchMessages() async {
     if (conversationId == null) return;
 
-    print("🔄 fetchMessages() conversationId=$conversationId");
+    debugPrint("🔄 fetchMessages() conversationId=$conversationId");
 
     final result = await ChatService.fetchMessages(conversationId!);
 
@@ -1200,7 +1232,7 @@ class _ChatPageState extends State<ChatPage> {
     //-------------------------------------------------------------
     if (isFirstTimeChat && !firstTimeCheckDone) {
       firstTimeCheckDone = true;
-      print("✨ First-time chat detected");
+      debugPrint("✨ First-time chat detected");
 
       final complete = await isProfileComplete();
       if (!complete) {
@@ -1241,9 +1273,15 @@ class _ChatPageState extends State<ChatPage> {
     final lastName =
     fullName.split(" ").length > 1 ? fullName.split(" ").last : "";
 
-    print("📩 Sending FIRST-TIME pricing request...");
+    debugPrint("📩 Sending FIRST-TIME pricing request...");
 
-    await ChatService.sendPricingRequest(
+    // AUDIT NOTE: the result was discarded, so a rejected pricing request left
+    // no trace at all. It is now at least recorded — a user-facing message is
+    // deliberately NOT added here because the endpoint itself is broken (see
+    // `ChatService.sendPricingRequest`); telling the user "that failed" on
+    // every single send would be worse than the current silence until the
+    // backend route is confirmed.
+    final pricingAccepted = await ChatService.sendPricingRequest(
       vendorId: widget.vendorId,
       firstName: firstName,
       lastName: lastName,
@@ -1252,6 +1290,9 @@ class _ChatPageState extends State<ChatPage> {
       eventDate: date,
       message: "Looking for pricing and availability for event in $venue on $date.",
     );
+    if (!pricingAccepted) {
+      debugPrint('⚠️ Pricing request was not recorded by the server.');
+    }
 
     //-------------------------------------------------------------
     // PUT TEMPLATE INSIDE TEXT BOX (USER CAN EDIT + SEND)
@@ -1268,7 +1309,7 @@ class _ChatPageState extends State<ChatPage> {
       TextPosition(offset: controller.text.length),
     );
 
-    print("⌨️ Template with line breaks loaded in typing box.");
+    debugPrint("⌨️ Template with line breaks loaded in typing box.");
 
   }
 
@@ -1304,8 +1345,8 @@ class _ChatPageState extends State<ChatPage> {
 
     controller.clear();
 
-    print("➡ Sending user message: $text");
-    print("🧠 Using conversationId = $conversationId");
+    debugPrint("➡ Sending user message: $text");
+    debugPrint("🧠 Using conversationId = $conversationId");
 
     await ChatService.sendMessage(
       conversationId: conversationId!, // SAFE NOW

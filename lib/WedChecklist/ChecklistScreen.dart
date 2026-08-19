@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/core.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -101,16 +102,16 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
     if (uid != null) {
       _userId = uid.toString();
-      print('🔐 Loaded user_id from prefs: $_userId');
+      debugPrint('🔐 Loaded user_id from prefs: $_userId');
     } else {
-      print('⚠️ No user_id found in SharedPreferences (key: user_id)');
+      debugPrint('⚠️ No user_id found in SharedPreferences (key: user_id)');
     }
 
     if (token != null && token.isNotEmpty) {
       _authToken = token;
-      print('🔐 Loaded auth_token (length ${token.length}) from prefs');
+      debugPrint('🔐 Loaded auth_token (length ${token.length}) from prefs');
     } else {
-      print('⚠️ No auth_token found in SharedPreferences (key: auth_token)');
+      debugPrint('⚠️ No auth_token found in SharedPreferences (key: auth_token)');
     }
 
     // fetch categories and checklist (they will gracefully handle missing token/user)
@@ -217,12 +218,14 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   Future<void> _fetchCategories() async {
     try {
       final uri = Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all");
-      print('📡 GET categories -> $uri');
+      debugPrint('📡 GET categories -> $uri');
 
       final res = await http.get(uri, headers: _headers());
 
-      print('GET categories response status: ${res.statusCode}');
-      print('GET categories response body: ${res.body}');
+      debugPrint('GET categories response status: ${res.statusCode}');
+      // AUDIT FIX (security): response bodies carry user data and are readable
+      // via `adb logcat` in a release build — debug only.
+      if (kDebugMode) debugPrint('GET categories response body: ${res.body}');
 
       if (res.statusCode == 200) {
         final List data = json.decode(res.body);
@@ -242,16 +245,17 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
           }
         }
 
+        if (!mounted) return;
         setState(() {
           if (_subcategories.isNotEmpty) {
             _selectedCategory = _subcategories.first.id;
           }
         });
       } else {
-        print("❌ Category fetch failed ${res.statusCode}");
+        debugPrint("❌ Category fetch failed ${res.statusCode}");
       }
     } catch (e) {
-      print("❌ Category fetch error: $e");
+      debugPrint("❌ Category fetch error: $e");
     }
   }
 
@@ -259,22 +263,22 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   // Fetch checklist for the user
   Future<void> _fetchChecklist() async {
     try {
-      print("🔎 Fetching checklist…");
+      debugPrint("🔎 Fetching checklist…");
 
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("auth_token") ?? "";
       final userId = prefs.getInt("user_id");
 
-      print("🔐 Loaded user_id: $userId");
-      print("🔐 Token length: ${token.length}");
+      debugPrint("🔐 Loaded user_id: $userId");
+      debugPrint("🔐 Token length: ${token.length}");
 
       if (userId == null) {
-        print("❌ No user ID found");
+        debugPrint("❌ No user ID found");
         return;
       }
 
       final url = "$baseUrl/new-checklist/newChecklist/user/$userId";
-      print("📡 GET → $url");
+      debugPrint("📡 GET → $url");
 
       final response = await http.get(
         Uri.parse(url),
@@ -284,11 +288,11 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
         },
       );
 
-      print("✅ GET status: ${response.statusCode}");
-      print("📦 GET body: ${response.body}");
+      debugPrint("✅ GET status: ${response.statusCode}");
+      if (kDebugMode) debugPrint("📦 GET body: ${response.body}");
 
       if (response.statusCode != 200) {
-        print("❌ Failed GET checklist");
+        debugPrint("❌ Failed GET checklist");
         return;
       }
 
@@ -322,12 +326,14 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
       }
 
-      print("✅ Loaded tasks count: ${_tasks.length}");
+      debugPrint("✅ Loaded tasks count: ${_tasks.length}");
 
+      // Guarded: the user can leave the checklist while the request runs.
+      if (!mounted) return;
       setState(() {});
 
     } catch (e) {
-      print("❌ Checklist fetch error: $e");
+      debugPrint("❌ Checklist fetch error: $e");
     }
   }
 
@@ -344,8 +350,8 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
     await prefs.setInt('user_id', userId);
-    print("✅ Token saved: $token");
-    print("✅ UserID saved: $userId");
+    debugPrint("✅ Token saved: $token");
+    debugPrint("✅ UserID saved: $userId");
   }
 
 
@@ -359,7 +365,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   }) async {
     try {
       if (_userId == null) {
-        print('❌ Cannot create checklist: userId null');
+        debugPrint('❌ Cannot create checklist: userId null');
         return false;
       }
 
@@ -373,7 +379,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       };
 
 
-      print("📤 POST BODY → ${json.encode(body)}");
+      debugPrint("📤 POST BODY → ${json.encode(body)}");
 
       final uri = Uri.parse("$baseUrl/new-checklist/create");
       final res = await http.post(
@@ -383,12 +389,12 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       );
 
 
-      print("✅ CREATE RESPONSE status: ${res.statusCode}");
-      print("✅ CREATE RESPONSE body: ${res.body}");
+      debugPrint("✅ CREATE RESPONSE status: ${res.statusCode}");
+      if (kDebugMode) debugPrint("✅ CREATE RESPONSE body: ${res.body}");
 
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (e) {
-      print("❌ Create checklist error: $e");
+      debugPrint("❌ Create checklist error: $e");
       return false;
     }
   }
@@ -473,7 +479,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     setState(() {
       _tasks[index].done = !_tasks[index].done;
     });
-    print('✅ Task toggled: ${_tasks[index].title} -> ${_tasks[index].done}');
+    debugPrint('✅ Task toggled: ${_tasks[index].title} -> ${_tasks[index].done}');
   }
   Future<bool> _deleteChecklistOnServer(String taskId) async {
     try {
@@ -484,12 +490,12 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
         headers: _headers(),
       );
 
-      print("🗑️ DELETE status: ${res.statusCode}");
-      print("🗑️ DELETE body: ${res.body}");
+      debugPrint("🗑️ DELETE status: ${res.statusCode}");
+      if (kDebugMode) debugPrint("🗑️ DELETE body: ${res.body}");
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
-      print("❌ Delete checklist error: $e");
+      debugPrint("❌ Delete checklist error: $e");
       return false;
     }
   }
@@ -514,7 +520,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       duration: const Duration(milliseconds: 380),
     );
 
-    print('🗑️ Task removed locally: ${removed.title}');
+    debugPrint('🗑️ Task removed locally: ${removed.title}');
 
     // 🔥 DELETE FROM BACKEND
     final ok = await _deleteChecklistOnServer(removed.id);
@@ -544,7 +550,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     );
     if (picked != null) {
       setState(() => startDate = picked);
-      print('📅 Start Date set: $picked');
+      debugPrint('📅 Start Date set: $picked');
       // animate days box re-bounce
       _daysController.forward(from: 0.0);
     }
@@ -572,7 +578,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       }
 
       setState(() => weddingDate = picked);
-      print('💍 Wedding Date set: $picked');
+      debugPrint('💍 Wedding Date set: $picked');
       _daysController.forward(from: 0.0);
     }
   }
@@ -1291,7 +1297,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       }
     }
 
-    print('📏 Days difference computed: $days ($message)');
+    debugPrint('📏 Days difference computed: $days ($message)');
 
     return Container(
       width: double.infinity,

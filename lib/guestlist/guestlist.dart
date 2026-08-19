@@ -1627,16 +1627,9 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
         date != null && date.isNotEmpty;
   }
   Future<bool> ensureUserReady(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    if (token == null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SignInScreen()),
-      );
-      return false;
-    }
+    // Session first — AuthGate takes over and shows login if it has gone.
+    if (!await ensureLoggedIn(context)) return false;
+    if (!context.mounted) return false;
 
     final complete = await isProfileComplete();
 
@@ -1677,6 +1670,11 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
 
   List<Guest> guests = [];
   bool isLoading = false;
+
+  /// AUDIT FIX: holds the last failure from [fetchGuests] so the body can show
+  /// a real error with a retry instead of the misleading "No guests found".
+  Object? _loadError;
+
   Set<int> selectedGuestIds = {};
   Future<Map<String, String>> _getWeddingDetails() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1885,27 +1883,47 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
     fetchGuests();
   }
 
+  /// AUDIT FIX (infinite loader + no error state): this method had **no
+  /// try/catch at all**. `http.get` throws on a dropped connection, a DNS
+  /// failure or a timeout, and that exception escaped past the final
+  /// `setState(() => isLoading = false)` — so `isLoading` stayed `true` and the
+  /// guest list sat on its shimmer forever, with no message and no way to
+  /// retry. A non-200 response was equally silent: the screen fell through to
+  /// "No guests found", telling the user their guest list was empty when the
+  /// request had actually failed.
+  ///
+  /// The request itself, its URL, headers and parsing are unchanged.
   Future<void> fetchGuests() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    final userId = prefs.getInt("user_id");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("auth_token");
+      final userId = prefs.getInt("user_id");
+      if (!mounted) return;
 
-    if (token == null || userId == null) {
-      setState(() => isLoading = false);
-      return;
-    }
+      if (token == null || userId == null) {
+        // Not signed in: AuthGate handles routing, so just stop loading.
+        setState(() => isLoading = false);
+        return;
+      }
 
-    final response = await http.get(
-      Uri.parse("https://happywedz.com/api/guestlist/user/$userId"),
-      headers: {
-        "Authorization": "Bearer $token",
-        "Accept": "application/json",
-      },
-    );
+      final response = await http.get(
+        Uri.parse("https://happywedz.com/api/guestlist/user/$userId"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+      );
+      if (!mounted) return;
 
-    if (response.statusCode == 200) {
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+
       final data = jsonDecode(response.body);
 
       if (data["success"] == true) {
@@ -1915,9 +1933,14 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
           guests = list.map((e) => Guest.fromJson(e)).toList();
         });
       }
+    } catch (e) {
+      debugPrint('fetchGuests failed: $e');
+      if (!mounted) return;
+      setState(() => _loadError = e);
+    } finally {
+      // Guarded: runs on every exit path, and the screen may already be gone.
+      if (mounted) setState(() => isLoading = false);
     }
-
-    setState(() => isLoading = false);
   }
 
   String buildWeddingInvite({
@@ -2165,12 +2188,20 @@ $familyName Family
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: Skeletons.listTiles(count: 6),
             )
-          : Column(
+          // AUDIT FIX: a failed load now says so and retries for real, rather
+          // than rendering an empty list that reads as "you have no guests".
+          : _loadError != null
+              ? ErrorState(error: _loadError, onRetry: fetchGuests)
+              : Column(
         children: [
           _buildStatsRow(),     // 👈 STATS
           Expanded(
             child: guests.isEmpty
-                ? const Center(child: Text("No guests found"))
+                ? const EmptyState(
+                    title: 'No guests yet',
+                    message: 'Add your first guest to start building the list.',
+                    icon: Icons.people_outline_rounded,
+                  )
                 : _buildGroupedList(),
           ),
         ],

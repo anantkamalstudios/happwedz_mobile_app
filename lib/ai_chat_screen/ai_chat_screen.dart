@@ -40,6 +40,12 @@ class VendorAi {
   );
 }
 
+/// Shown in the chat whenever the assistant cannot produce an answer.
+///
+/// Raw exception text ("Error: Exception: Failed to post chat: 502") is never
+/// put in front of the user — it goes to the logs instead.
+const String kNoAssistantResponse = 'No response found';
+
 class AssistantResponse {
   final String message;
   final List<VendorAi> results;
@@ -52,6 +58,11 @@ class AssistantResponse {
     required this.showWishlist,
     required this.summary,
   });
+
+  /// True when there is nothing at all to render, which would otherwise show
+  /// as an empty chat bubble.
+  bool get isEmpty =>
+      message.trim().isEmpty && summary.trim().isEmpty && results.isEmpty;
 
   factory AssistantResponse.fromJson(Map<String, dynamic> j) {
     final results = <VendorAi>[];
@@ -70,7 +81,13 @@ class AssistantResponse {
 }
 
 class ApiService {
-  static const String baseUrl = 'http://shaadiai.happywedz.com';
+  /// AUDIT FIX (broken in release builds): this was `http://…`. The app targets
+  /// SDK 36 and declares no cleartext-traffic exception, so Android blocks
+  /// plain-HTTP sockets outright — every AI chat request failed on a real
+  /// device even though the server was up. The same host answers over TLS
+  /// (verified: `https://shaadiai.happywedz.com/api/*` responds), so the scheme
+  /// is simply corrected rather than weakening the app's network security.
+  static const String baseUrl = 'https://shaadiai.happywedz.com';
 
   Future<Map<String, dynamic>> postUserChat({
     required int userId,
@@ -179,6 +196,7 @@ class ChatProvider extends ChangeNotifier {
         _messages.add(MessageItem(role: role, content: content));
       }
     } catch (e) {
+      debugPrint('ShaadiAi history failed: $e');
       error = e.toString();
     } finally {
       isLoading = false;
@@ -189,13 +207,21 @@ class ChatProvider extends ChangeNotifier {
   Future<void> sendUserMessage(String text) async {
     if (text.trim().isEmpty) return;
 
-    if (userId == null || userId == 0) {
-      throw Exception("User is not logged in.");
-    }
-
     // USER MESSAGE
     final userMessage = MessageItem(role: 'user', content: text);
     _messages.add(userMessage);
+
+    if (userId == null || userId == 0) {
+      // This used to throw out of an un-awaited call, which surfaced as an
+      // unhandled exception and left the chat looking frozen.
+      debugPrint('ShaadiAi chat skipped: user is not logged in.');
+      _messages.add(
+        MessageItem(role: 'assistant', content: kNoAssistantResponse),
+      );
+      await LocalChatStorage.saveMessages(_messages);
+      notifyListeners();
+      return;
+    }
 
     // SAVE to SharedPreferences
     await LocalChatStorage.saveMessages(_messages);
@@ -211,32 +237,41 @@ class ChatProvider extends ChangeNotifier {
       );
 
       final data = resp['data'] as Map<String, dynamic>?;
-      if (data != null) {
+      dynamic assistantContent;
+
+      if (data == null) {
+        // A 2xx with no payload still leaves the user waiting on a reply.
+        assistantContent = kNoAssistantResponse;
+      } else {
         sessionId = data['session_id'] ?? sessionId;
 
         final response = data['response'];
-        dynamic assistantContent;
 
         if (response == null) {
-          assistantContent = 'No response';
+          assistantContent = kNoAssistantResponse;
         } else if (response is Map<String, dynamic>) {
-          assistantContent = AssistantResponse.fromJson(response);
+          final parsed = AssistantResponse.fromJson(response);
+          assistantContent = parsed.isEmpty ? kNoAssistantResponse : parsed;
         } else {
-          assistantContent = response.toString();
+          final text = response.toString().trim();
+          assistantContent = text.isEmpty ? kNoAssistantResponse : text;
         }
-
-        // ASSISTANT MESSAGE
-        _messages.add(
-          MessageItem(role: 'assistant', content: assistantContent),
-        );
-
-        // SAVE again to SharedPreferences
-        await LocalChatStorage.saveMessages(_messages);
       }
-    } catch (e) {
-      _messages.add(MessageItem(role: 'assistant', content: 'Error: $e'));
 
-      // SAVE error message also
+      // ASSISTANT MESSAGE
+      _messages.add(
+        MessageItem(role: 'assistant', content: assistantContent),
+      );
+
+      // SAVE again to SharedPreferences
+      await LocalChatStorage.saveMessages(_messages);
+    } catch (e) {
+      // The user sees a plain message; the real cause stays in the logs.
+      debugPrint('ShaadiAi chat failed: $e');
+      _messages.add(
+        MessageItem(role: 'assistant', content: kNoAssistantResponse),
+      );
+
       await LocalChatStorage.saveMessages(_messages);
     } finally {
       isLoading = false;
@@ -705,13 +740,20 @@ class _AiChatScreenState extends State<AiChatScreen> {
               );
             }
             if (snap.hasError) {
-              return SizedBox(
+              debugPrint('ShaadiAi sessions failed: ${snap.error}');
+              return const SizedBox(
                 height: 200,
-                child: Center(child: Text('Error: ${snap.error}')),
+                child: Center(child: Text(kNoAssistantResponse)),
               );
             }
-            final m = snap.data as Map<String, dynamic>;
+            final m = snap.data ?? <String, dynamic>{};
             final list = m['data'] as List<dynamic>? ?? [];
+            if (list.isEmpty) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: Text(kNoAssistantResponse)),
+              );
+            }
             return ListView.separated(
               shrinkWrap: true,
               itemBuilder: (context, i) {
@@ -865,41 +907,79 @@ class LocalChatStorage {
 
     if (raw == null) return [];
 
-    List decoded = jsonDecode(raw);
+    // A malformed cache used to throw straight out of startNewChat and leave
+    // the screen stuck; treat it as "no history" instead.
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
 
-    return decoded.map((m) {
-      final role = m["role"];
-      final ts = DateTime.parse(m["timestamp"]);
-      final content = _decodeContent(m["content"]);
+      final items = <MessageItem>[];
+      for (final m in decoded) {
+        if (m is! Map) continue;
+        final role = m["role"]?.toString() ?? 'assistant';
+        final ts = DateTime.tryParse(m["timestamp"]?.toString() ?? '');
+        final rawContent = m["content"];
+        final content = rawContent is Map<String, dynamic>
+            ? _decodeContent(rawContent)
+            : _sanitise(rawContent?.toString() ?? '');
 
-      return MessageItem(role: role, content: content, timestamp: ts);
-    }).toList();
+        items.add(MessageItem(role: role, content: content, timestamp: ts));
+      }
+      return items;
+    } catch (e) {
+      debugPrint('ShaadiAi local history unreadable, discarding: $e');
+      return [];
+    }
+  }
+
+  /// Older builds persisted raw exception text (`Error: Exception: Failed to
+  /// post chat: 503`) into the chat history, so those bubbles keep coming back
+  /// from SharedPreferences long after the code stopped producing them.
+  /// Rewrite them on the way out.
+  static String _sanitise(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return kNoAssistantResponse;
+    if (t.startsWith('Error:') ||
+        t.contains('Exception:') ||
+        t == 'No response') {
+      return kNoAssistantResponse;
+    }
+    return text;
   }
 
   static dynamic _decodeContent(Map<String, dynamic> m) {
     final type = m["type"];
     final data = m["data"];
 
-    if (type == "string") return data;
+    if (type == "string") return _sanitise(data.toString());
 
     if (type == "assistant") {
-      return AssistantResponse(
-        message: data["message"],
-        summary: data["summary"],
-        showWishlist: data["show_wishlist"],
-        results: (data["results"] as List).map((v) {
-          return VendorAi(
-            name: v["name"],
-            location: v["location"],
-            type: v["type"],
-            rating: v["rating"],
-            whyConsider: List<String>.from(v["why_consider"] ?? []),
-          );
-        }).toList(),
+      final results = (data["results"] is List)
+          ? (data["results"] as List).map((v) {
+              return VendorAi(
+                name: v["name"]?.toString() ?? '',
+                location: v["location"]?.toString() ?? '',
+                type: v["type"]?.toString() ?? '',
+                rating: (v["rating"] is int)
+                    ? v["rating"] as int
+                    : int.tryParse('${v["rating"]}') ?? 0,
+                whyConsider: List<String>.from(v["why_consider"] ?? []),
+              );
+            }).toList()
+          : <VendorAi>[];
+
+      final restored = AssistantResponse(
+        message: data["message"]?.toString() ?? '',
+        summary: data["summary"]?.toString() ?? '',
+        showWishlist: data["show_wishlist"] == true,
+        results: results,
       );
+
+      // An empty cached payload would render a blank bubble.
+      return restored.isEmpty ? kNoAssistantResponse : restored;
     }
 
-    return data.toString();
+    return _sanitise(data.toString());
   }
 
   static Future<void> clear() async {

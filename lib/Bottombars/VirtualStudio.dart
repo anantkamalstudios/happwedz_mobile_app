@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../core/core.dart';
 // import 'package:image_gallery_saver/image_gallery_saver.dart';
@@ -920,9 +921,9 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
         setState(() {
           _uploadedImageId = data['id'].toString();
         });
-        print(_uploadedImageId);
-        print(responseData);
-        print(response);
+        debugPrint(_uploadedImageId);
+        debugPrint(responseData);
+        debugPrint('${response}');
         _showSnackBar('Image uploaded successfully!', Colors.green);
       } else {
         _showSnackBar('Failed to upload image', Colors.red);
@@ -940,11 +941,13 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
     try {
       final url =
           '$baseUrl/products/filter_products?category=$_selectedCategory&detailed_category=$_selectedDetailedCategory';
-      print('Loading products from: $url');
+      debugPrint('Loading products from: $url');
 
       final response = await http.get(Uri.parse(url));
-      print('Products response status: ${response.statusCode}');
-      print('Products response body: ${response.body}');
+      debugPrint('Products response status: ${response.statusCode}');
+      // AUDIT FIX (security): response bodies carry user data and are readable
+      // via `adb logcat` in a release build — debug only.
+      if (kDebugMode) debugPrint('Products response body: ${response.body}');
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body) as List;
@@ -981,11 +984,11 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
         }
       } else {
         _showSnackBar('Failed to load products. Status: ${response.statusCode}', Colors.red);
-        print('Products API error: ${response.body}');
+        if (kDebugMode) debugPrint('Products API error: ${response.body}');
       }
     } catch (e) {
       _showSnackBar('Error loading products: $e', Colors.red);
-      print('Exception in _loadProducts: $e');
+      debugPrint('Exception in _loadProducts: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -1011,10 +1014,10 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
         productIds = [_products.first.id];
       }
 
-      print('Selected product IDs: $productIds');
+      debugPrint('Selected product IDs: $productIds');
 
 
-      print('Selected product IDs: $productIds'); // Debug print
+      debugPrint('Selected product IDs: $productIds'); // Debug print
 
       final Map<String, dynamic> requestData = {
         "image_id": int.parse(_uploadedImageId!),
@@ -1054,7 +1057,7 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
       if (_selectedDetailedCategory == "MANGTIKA") {
         // nothing extra needed, product_id already included
       }
-      print('Request Data: ${jsonEncode(requestData)}'); // Debug print
+      debugPrint('Request Data: ${jsonEncode(requestData)}'); // Debug print
 
       final response = await http.post(
         Uri.parse('$baseUrl/images/apply-makeup'),
@@ -1068,17 +1071,17 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
         }),
         // body: jsonEncode(requestData),
       );
-      print('Response: ${response.statusCode} - ${response.body}');
+      if (kDebugMode) debugPrint('Response: ${response.statusCode} - ${response.body}');
 
-      print('Response Status: ${response.statusCode}'); // Debug print
-      print('Response Headers: ${response.headers}'); // Debug print
-      print('Response Body Length: ${response.bodyBytes.length}'); // Debug print
+      debugPrint('Response Status: ${response.statusCode}'); // Debug print
+      debugPrint('Response Headers: ${response.headers}'); // Debug print
+      if (kDebugMode) debugPrint('Response Body Length: ${response.bodyBytes.length}'); // Debug print
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final contentType = response.headers['content-type'];
         if (contentType != null && contentType.contains('application/json')) {
           final jsonResponse = jsonDecode(response.body);
-          print('Makeup JSON Response: $jsonResponse');
+          debugPrint('Makeup JSON Response: $jsonResponse');
           String imageUrl =
               'https://www.happywedz.com/ai/api/images/${jsonResponse['processed_image_id']}';
 
@@ -1095,9 +1098,9 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
               Colors.red,
             );
           }
-          print(imageResponse.statusCode);
-          print(imageResponse);
-          print(imageUrl);
+          debugPrint('${imageResponse.statusCode}');
+          debugPrint('${imageResponse}');
+          debugPrint(imageUrl);
         }
         //   final imageUrl = jsonResponse['url'];
         //   if (imageUrl != null) {
@@ -1132,9 +1135,9 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
         // }
       }
       else {
-        print(_products);
-        print(response);
-        print(response.statusCode);
+        debugPrint('${_products}');
+        debugPrint('${response}');
+        debugPrint('${response.statusCode}');
         String errorMessage = 'Failed to apply makeup. Status: ${response.statusCode}';
 
 
@@ -1143,14 +1146,14 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
         try {
           final errorResponse = jsonDecode(response.body);
           errorMessage += '\nError: ${errorResponse.toString()}';
-          print('API Error Response: $errorResponse'); // Debug print
+          debugPrint('API Error Response: $errorResponse'); // Debug print
         } catch (e) {
           errorMessage += '\nResponse: ${response.body}';
         }
         _showSnackBar(errorMessage, Colors.red);
       }
     } catch (e) {
-      print('Exception in _applyMakeup: $e'); // Debug print
+      debugPrint('Exception in _applyMakeup: $e'); // Debug print
       _showSnackBar('Error applying makeup: $e', Colors.red);
     } finally {
       setState(() => _isLoading = false);
@@ -2348,7 +2351,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
 
 
 
-        print('Upload successful: $_uploadedImageId');
+        debugPrint('Upload successful: $_uploadedImageId');
         _showSnackBar('Image uploaded successfully! ✨', Colors.green, Icons.check_circle);
       } else {
         _showSnackBar('Failed to upload image', Colors.red, Icons.error);
@@ -2365,10 +2368,10 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
 
     try {
       final url = '$baseUrl/products/filter_products?category=$_selectedCategory&detailed_category=$_selectedDetailedCategory';
-      print('Loading products from: $url');
+      debugPrint('Loading products from: $url');
 
       final response = await http.get(Uri.parse(url));
-      print('Products response status: ${response.statusCode}');
+      debugPrint('Products response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body) as List;
@@ -2468,9 +2471,9 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
             setState(() {
               _resultImage = imageResponse.bodyBytes;
             });
-            print('Makeup applied successfully!');
-            print(response);
-            print(response.body);
+            debugPrint('Makeup applied successfully!');
+            debugPrint('${response}');
+            if (kDebugMode) debugPrint(response.body);
             _showSnackBar('Makeup applied successfully! ✨', Colors.green, Icons.auto_fix_high);
           } else {
             _showSnackBar('Failed to load processed image', Colors.red, Icons.error);

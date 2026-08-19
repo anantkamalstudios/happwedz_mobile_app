@@ -44,7 +44,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
         });
       }
     } catch (e) {
-      print('Error loading countries: $e');
+      debugPrint('Error loading countries: $e');
     }
   }
 
@@ -58,7 +58,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('States API Response: $data'); // Debug log
+        debugPrint('States API Response: $data'); // Debug log
 
         if (data['error'] == false && data['data'] != null && data['data']['states'] != null) {
           final List<dynamic> statesData = data['data']['states'];
@@ -84,7 +84,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
         }
       }
     } catch (e) {
-      print('Error loading states: $e');
+      debugPrint('Error loading states: $e');
       // Add fallback states
       setState(() {
         _states = ['Error loading states'];
@@ -105,7 +105,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Cities API Response: $data'); // Debug log
+        debugPrint('Cities API Response: $data'); // Debug log
 
         if (data['error'] == false && data['data'] != null) {
           final List<dynamic> citiesData = data['data'];
@@ -126,7 +126,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
         }
       }
     } catch (e) {
-      print('Error loading cities: $e');
+      debugPrint('Error loading cities: $e');
       setState(() {
         _cities = ['Error loading cities'];
       });

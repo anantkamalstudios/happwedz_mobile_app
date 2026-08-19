@@ -9,8 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../InboxScreen.dart';
 import '../RealWedding/share_ur_story.dart';
 import '../Wishlist/Wishlistscreen.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../budget/budget.dart';
 import '../einvite1/einvite.dart';
@@ -29,7 +27,11 @@ class MoreOptionsScreen extends StatefulWidget {
 }
 
 class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
-  bool isLoading = true;
+  // AUDIT NOTE:
+  // `isLoading` was never read or written — this screen is a static menu with
+  // nothing to load. Kept intentionally and commented out as requested.
+  // Do not remove without confirming with the project owner.
+  // bool isLoading = true;
 
 
   @override
@@ -129,7 +131,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                       _buildMenuItem(
                         icon: Icons.logout,
                         title: 'Log out',
-                        onTap: () => _handleLogout(context),
+                        onTap: _handleLogout,
                         isLast: true,
                       ),
                     ],
@@ -279,8 +281,12 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
         final loggedIn = await ensureLoggedIn(context);
         if (!loggedIn) return; // 🚫 not logged in → go to SignInScreen
 
+        // AUDIT FIX (async context): `context` was used to push after an await
+        // with no re-check, so a user who left this tab mid-check pushed onto a
+        // dead element.
+        if (!mounted) return;
         Navigator.push(
-          context,
+          this.context,
           MaterialPageRoute(builder: (_) => ShareWeddingStory()),
         );
         break;
@@ -310,28 +316,50 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
     }
   }
 
-  void _openPlayStore() async {
-    const packageName = "com.yourcompany.yourapp"; // <-- Replace with your app's package name
-    final url = Uri.parse("https://play.google.com/store/apps/details?id=$packageName");
+  /// AUDIT FIX: both actions below shipped with the template placeholder
+  /// `com.yourcompany.yourapp`, so "Share App" sent friends a Play Store link
+  /// to a listing that does not exist and "Rate on Play Store" opened the same
+  /// dead page. This is the real application id — it matches
+  /// `applicationId = "com.happy.happy_wedz"` in android/app/build.gradle.kts.
+  static const String _packageName = 'com.happy.happy_wedz';
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      print("Could not launch Play Store URL");
+  static Uri get _playStoreUri => Uri.parse(
+        'https://play.google.com/store/apps/details?id=$_packageName',
+      );
+
+  Future<void> _openPlayStore() async {
+    // Prefer the Play Store app, fall back to the web listing — the same
+    // pattern the sign-in screen uses for the vendor app.
+    final market = Uri.parse('market://details?id=$_packageName');
+    try {
+      if (await canLaunchUrl(market) &&
+          await launchUrl(market, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+      if (await launchUrl(_playStoreUri, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (e) {
+      debugPrint('Could not open the Play Store listing: $e');
     }
+    if (mounted) AppSnackbar.error(context, 'Could not open the Play Store.');
   }
 
   void _shareApp() {
-    const packageName = "com.yourcompany.yourapp"; // <-- Replace with your app's package name
-    final appUrl = "https://play.google.com/store/apps/details?id=$packageName";
-
-    Share.share(
-      "Hey! Check out this amazing app: $appUrl",
-      subject: "HappyWedz App",
+    // AUDIT FIX (deprecation): `Share.share` is deprecated in share_plus 12.
+    SharePlus.instance.share(
+      ShareParams(
+        text: "Hey! Check out this amazing app: $_playStoreUri",
+        subject: "HappyWedz App",
+      ),
     );
   }
 
-  Future<void> _handleLogout(BuildContext context) async {
+  // AUDIT FIX (async context): this took a `BuildContext` parameter that
+  // shadowed `State.context`, so the `mounted` check below could not be tied to
+  // it and the awaits were crossed with an unverified context. Using the
+  // State's own context makes each `mounted` guard meaningful.
+  Future<void> _handleLogout() async {
     final confirmed = await ConfirmPopup.show(
       context,
       title: 'Log out?',
@@ -340,33 +368,13 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
       icon: Icons.logout_rounded,
       danger: true,
     );
-    if (!confirmed) return;
+    if (!confirmed || !mounted) return;
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Clear only auth-related keys (safer)
-    await prefs.remove('user_id');
-    await prefs.remove('user_name');
-    await prefs.remove('user_email');
-    await prefs.remove('user_phone');
-    await prefs.remove('auth_token');
-    await prefs.remove('user_photo');
-
-    // Google logout
-    await GoogleSignIn().signOut();
+    // Clears the stored session and the Google/Firebase providers, then
+    // unwinds the stack so AuthGate can show the login screen.
+    await signOutToLogin(context);
 
     if (!mounted) return;
-
-    // Navigate to login screen
-    Navigator.pushAndRemoveUntil(
-      context,
-      AnimatedPageRoute(
-        page: const SignInScreen(),
-        style: PageTransitionStyle.fade,
-      ),
-      (route) => false,
-    );
-
     AppSnackbar.success(context, 'You have been logged out.');
   }
 }

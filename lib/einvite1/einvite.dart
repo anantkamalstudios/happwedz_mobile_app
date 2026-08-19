@@ -1935,9 +1935,13 @@ class _DraftListScreenState extends State<DraftListScreen> {
                         return;
                       }
 
-                      Share.shareXFiles(
-                        [XFile(file.path)],
-                        text: "My Invitation Card",
+                      // AUDIT FIX (deprecation): `Share.shareXFiles` is
+                      // deprecated in share_plus 12.
+                      SharePlus.instance.share(
+                        ShareParams(
+                          files: [XFile(file.path)],
+                          text: "My Invitation Card",
+                        ),
                       );
                     },
                   ),
@@ -2042,9 +2046,15 @@ class FinalPreviewScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _actionButton(Icons.share, "Share", () {
-                      Share.shareXFiles(
-                        [XFile.fromData(cardBytes, mimeType: "image/png")],
-                        text: "Here is my invitation card!",
+                      // AUDIT FIX (deprecation): `Share.shareXFiles` is
+                      // deprecated in share_plus 12.
+                      SharePlus.instance.share(
+                        ShareParams(
+                          files: [
+                            XFile.fromData(cardBytes, mimeType: "image/png"),
+                          ],
+                          text: "Here is my invitation card!",
+                        ),
                       );
                     }),
 

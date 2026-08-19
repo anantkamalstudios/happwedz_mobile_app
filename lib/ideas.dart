@@ -61,8 +61,8 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
 // Fetch stories from API
   Future<List<Map<String, dynamic>>> fetchStories() async {
     final response = await http.get(Uri.parse('https://happywedz.com/api/blogs/all'));
-    print(response);
-    print(response.statusCode);
+    debugPrint('${response}');
+    debugPrint('${response.statusCode}');
     if (response.statusCode == 200) {
       final Map<String, dynamic> decodedJson = json.decode(response.body);
       final List<dynamic> dataList = decodedJson['data'];
@@ -103,9 +103,9 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   Future<void> debugImageUrl(String url) async {
     try {
       final response = await http.head(Uri.parse(url));
-      print("HEAD $url -> ${response.statusCode}, Content-Type: ${response.headers['content-type']}");
+      debugPrint("HEAD $url -> ${response.statusCode}, Content-Type: ${response.headers['content-type']}");
     } catch (e) {
-      print("HEAD $url failed: $e");
+      debugPrint("HEAD $url failed: $e");
     }
   }
 
@@ -1159,11 +1159,28 @@ class RealWeddingDetailPage extends StatelessWidget {
                   _sectionTitle("Special Moments"),
                   _textBlock(wedding.specialMoments),
 
-                  _sectionTitle("Outfits"),
-                  _infoCard([
-                    _infoRow(Icons.favorite, "Bride Outfit", wedding.brideOutfit),
-                    _infoRow(Icons.favorite, "Groom Outfit", wedding.groomOutfit),
-                  ]),
+                  if (wedding.brideOutfit.trim().isNotEmpty ||
+                      wedding.groomOutfit.trim().isNotEmpty) ...[
+                    _sectionTitle("Outfits"),
+                    if (wedding.brideOutfit.trim().isNotEmpty)
+                      _outfitCard(
+                        icon: Icons.female_rounded,
+                        role: "BRIDE",
+                        name: wedding.brideName,
+                        description: wedding.brideOutfit,
+                        accent: AppColors.primary,
+                        tint: AppColors.blush,
+                      ),
+                    if (wedding.groomOutfit.trim().isNotEmpty)
+                      _outfitCard(
+                        icon: Icons.male_rounded,
+                        role: "GROOM",
+                        name: wedding.groomName,
+                        description: wedding.groomOutfit,
+                        accent: AppColors.gold,
+                        tint: const Color(0xFFFDF6EF),
+                      ),
+                  ],
 
                   _sectionTitle("Gallery"),
                   _pinterestGallery(wedding.allPhotos, context),
@@ -1220,6 +1237,101 @@ class RealWeddingDetailPage extends StatelessWidget {
           const SizedBox(width: 12),
           Text("$label: ", style: const TextStyle(fontWeight: FontWeight.w600)),
           Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  /// One outfit card: a tinted header carrying the role + person, then the
+  /// description at full width underneath.
+  ///
+  /// The old layout put these paragraphs inline after a "Bride Outfit: "
+  /// label inside a Row, which squeezed 300+ characters into a narrow,
+  /// icon-indented column.
+  Widget _outfitCard({
+    required IconData icon,
+    required String role,
+    required String name,
+    required String description,
+    required Color accent,
+    required Color tint,
+  }) {
+    // Descriptions come from a rich-text editor, so they can carry markup.
+    final text = description.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            color: tint,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 19, color: accent),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        role,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                          color: accent,
+                        ),
+                      ),
+                      if (name.trim().isNotEmpty)
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF212121),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.55,
+                color: Color(0xFF424242),
+              ),
+            ),
+          ),
         ],
       ),
     );

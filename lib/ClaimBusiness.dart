@@ -170,7 +170,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
     try {
       savedPath = await savePdfSafely(pdfBytes);
     } catch (e) {
-      print("PDF save error: $e");
+      debugPrint("PDF save error: $e");
     }
 
     showDialog(
@@ -847,7 +847,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
   Future<void> _submitAll() async {
     if (!_validateCurrentStep()) return;
 
-    print("====== BUSINESS CLAIM API START ======");
+    debugPrint("====== BUSINESS CLAIM API START ======");
     setState(() => _submitting = true);
 
     try {
@@ -897,12 +897,12 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
         }
       }
 
-      print("Sending request...");
+      debugPrint("Sending request...");
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
 
-      print("STATUS: ${response.statusCode}");
-      print("BODY: $responseBody");
+      debugPrint("STATUS: ${response.statusCode}");
+      debugPrint("BODY: $responseBody");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final pdfBytes = await _generatePdf();
@@ -925,7 +925,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
         }
       }
     } catch (e) {
-      print("ERROR: $e");
+      debugPrint("ERROR: $e");
       if (mounted) {
         await ErrorPopup.show(
           context,
@@ -935,7 +935,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
       }
     } finally {
       setState(() => _submitting = false);
-      print("====== END BUSINESS CLAIM API ======");
+      debugPrint("====== END BUSINESS CLAIM API ======");
     }
   }
 }

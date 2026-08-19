@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -24,6 +25,27 @@ import 'designstudio1.dart';
 import 'morescreen.dart';
 
 
+// AUDIT NOTE:
+// `HomeScreen` (this class and `_HomeScreenState`, roughly lines 27–950) is an
+// OLDER, SUPERSEDED home page. The live dashboard is `WeddingHomePage` further
+// down this file — that is what `BottomBars._screens[0]` builds. Nothing
+// outside this class ever constructs `HomeScreen`; its only reference is its
+// own line-735 self-push.
+//
+// Because it is dead, the problems inside it do not reach users, but they are
+// recorded here so nobody revives it as-is:
+//   • every card list ("Popular venues", "Photographer for you", …) is a
+//     HARDCODED list — no API call anywhere in the class;
+//   • "View all" (line ~462) has an empty body with a `// TODO: navigate`;
+//   • it uses `GoogleFonts.getFont('Poltawski Nowy')` and `GoogleFonts.inter`,
+//     the only two places in the app that step outside the Poppins system;
+//   • `_selectedCity` is fixed to "Nashik", and `_selectedIndex`/`_onItemTapped`
+//     are dead (the analyzer's unused_field/unused_element warnings for this
+//     file all originate here).
+//
+// It is NOT commented out because it is ~900 lines with interleaved helpers;
+// removing it is a separate, deliberate change for the project owner to make.
+// Do not remove without confirming with the project owner.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -971,6 +993,19 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // vendor search (all categories, scoped to the picked city)
+  Timer? _searchDebounce;
+  List<dynamic> _searchResults = [];
+  bool _isSearching = false;
+  int _searchTotal = 0;
+
+  /// Incremented per request so a slow response for an older query cannot
+  /// overwrite the results of a newer one.
+  int _searchRequestId = 0;
+
+  /// Suggestions are a shortlist, not a results page.
+  static const int _searchPageSize = 8;
+
   // city loader
   bool _isLoadingCities = false;
   List<String> _cities = [];
@@ -998,17 +1033,154 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   bool checklistLoading = false;
 
   DateTime? weddingDate;
+
+  /// SharedPreferences key holding the city the user last picked.
+  static const String _cityPrefsKey = 'selected_city';
+
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    _bootstrap();
     loadStories();
     _loadChecklistSummary();
 
   }
+
+  /// Restores the saved city *before* the first fetch so the home page opens
+  /// on the user's city instead of the nationwide list.
+  Future<void> _bootstrap() async {
+    await _restoreSelectedCity();
+    await _loadInitialData();
+  }
+
+  Future<void> _restoreSelectedCity() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_cityPrefsKey);
+      if (saved != null && saved.isNotEmpty && mounted) {
+        setState(() => _selectedCity = saved);
+      }
+    } catch (e) {
+      debugPrint('Could not restore selected city: $e');
+    }
+  }
+
+  // -------- VENDOR SEARCH --------
+  /// Debounces typing so a request goes out once the user pauses rather than
+  /// on every keystroke.
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _searchDebounce?.cancel();
+
+    final query = value.trim();
+    if (query.isEmpty) {
+      // Drop any in-flight response for the text that was just cleared.
+      _searchRequestId++;
+      setState(() {
+        _searchResults = [];
+        _searchTotal = 0;
+        _isSearching = false;
+      });
+      return;
+    }
+
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _runSearch(query),
+    );
+  }
+
+  /// Searches every vendor category at once, narrowed to the picked city.
+  ///
+  /// Note: `image_exists=true` is deliberately NOT sent here. It is right for
+  /// the image-first home rails, but it drops most matches — `search=mayur`
+  /// returns 33 results without it and 0 with it.
+  Future<void> _runSearch(String query) async {
+    final requestId = ++_searchRequestId;
+    setState(() => _isSearching = true);
+
+    try {
+      final uri = Uri.https('happywedz.com', '/api/vendor-services', {
+        'page': '1',
+        'limit': '$_searchPageSize',
+        'search': query,
+        if (_selectedCity != null && _selectedCity!.isNotEmpty)
+          'city': _selectedCity!,
+      });
+
+      final response =
+          await http.get(uri, headers: {"Accept": "application/json"});
+
+      // A newer query has been issued since — discard this response.
+      if (!mounted || requestId != _searchRequestId) return;
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        final data = (decoded is Map && decoded['data'] is List)
+            ? decoded['data'] as List<dynamic>
+            : (decoded is List ? decoded : <dynamic>[]);
+
+        int total = data.length;
+        if (decoded is Map && decoded['pagination'] is Map) {
+          final raw = (decoded['pagination'] as Map)['total'];
+          total = (raw is num) ? raw.toInt() : int.tryParse('$raw') ?? total;
+        }
+
+        setState(() {
+          _searchResults = data;
+          _searchTotal = total;
+          _isSearching = false;
+        });
+      } else {
+        debugPrint('vendor search error: ${response.statusCode}');
+        setState(() {
+          _searchResults = [];
+          _searchTotal = 0;
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted || requestId != _searchRequestId) return;
+      debugPrint('vendor search exception: $e');
+      setState(() {
+        _searchResults = [];
+        _searchTotal = 0;
+        _isSearching = false;
+      });
+    }
+  }
+
+  void _closeSearch() {
+    _searchDebounce?.cancel();
+    _searchRequestId++;
+    setState(() {
+      _showSearch = false;
+      _searchController.clear();
+      _searchQuery = '';
+      _searchResults = [];
+      _searchTotal = 0;
+      _isSearching = false;
+    });
+  }
+
+  Future<void> _persistSelectedCity(String? city) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (city == null || city.isEmpty) {
+        await prefs.remove(_cityPrefsKey);
+      } else {
+        await prefs.setString(_cityPrefsKey, city);
+      }
+    } catch (e) {
+      debugPrint('Could not save selected city: $e');
+    }
+  }
   Future<void> loadStories() async {
     final data = await fetchStories();
 
+    // Guarded: the user can leave the home tab while the request is in flight,
+    // and setState() on a disposed State throws.
+    if (!mounted) return;
     setState(() {
       blogPosts = data;
       isLoadingBlogPosts = false;
@@ -1050,49 +1222,54 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     // run in parallel and wait
     await Future.wait([
       fetchHorizontalCategories(),
-      fetchVenues(), // no city -> default limited load for home
-      fetchPhotographers(),
+      // Both rails follow the picked city; passing null keeps the old
+      // nationwide behaviour when no city has been chosen yet.
+      fetchVenues(city: _selectedCity),
+      fetchPhotographers(city: _selectedCity),
       fetchRealWeddings(),
 
     ]).catchError((e) {
       // individual fetches handle their own errors; this is fallback
       debugPrint('Initial load error: $e');
+      return <void>[];
     });
 
+    if (!mounted) return;
     setState(() => isLoading = false);
   }
 
   // -------- CITIES (for selection) --------
+  /// Loads the selectable cities from [LocationService].
+  ///
+  /// The catalogue covers the whole country (Bengaluru, Chennai, Hyderabad,
+  /// Jaipur, Kolkata …), so this asks for every Indian city. It used to be
+  /// pinned to `state=Maharashtra`, which made every city outside that one
+  /// state impossible to select.
   Future<void> _loadCities() async {
     setState(() => _isLoadingCities = true);
 
     try {
-      final response = await http.get(Uri.parse(
-          'https://countriesnow.space/api/v0.1/countries/state/cities/q?country=India&state=Maharashtra'));
+      final loaded = await LocationService.fetchCities('India');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data != null && data['data'] != null) {
-          final List<String> loaded =
-          List<String>.from(data['data'].map((e) => e.toString()));
-          loaded.sort();
-          setState(() {
-            _cities = loaded;
-            _isLoadingCities = false;
-          });
-          return;
-        }
-      }
+      final cities = loaded
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 
-      // fallback if anything wrong
+      if (!mounted) return;
       setState(() {
-        _cities = ['No cities available'];
+        _cities = cities;
         _isLoadingCities = false;
       });
     } catch (e) {
       debugPrint('Error loading cities: $e');
+      // Leave the list empty so the next tap retries the API rather than
+      // caching a placeholder row the user could "select".
+      if (!mounted) return;
       setState(() {
-        _cities = ['Error loading cities'];
+        _cities = [];
         _isLoadingCities = false;
       });
     }
@@ -1125,17 +1302,23 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         throw Exception('Failed to load stories');
       }
     } catch (e) {
-      print("fetchBlogPosts error: $e");
+      debugPrint("fetchBlogPosts error: $e");
       return [];
     }
   }
 
 
 
-  void _showLocationSelection(BuildContext context) async {
+  // AUDIT FIX (async context): this took a `BuildContext` parameter that
+  // shadowed `State.context`, so neither `mounted` check below actually
+  // guarded the context being used across the awaits. It now uses the State's
+  // own context, which `mounted` genuinely describes.
+  Future<void> _showLocationSelection() async {
     if (_cities.isEmpty && !_isLoadingCities) {
       await _loadCities();
     }
+
+    if (!mounted) return;
 
     if (_cities.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -1145,20 +1328,26 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
     final selected = await showSearch<String>(
       context: context,
-      delegate: _CitySearchDelegate(_cities),
+      delegate: _CitySearchDelegate(_cities, currentCity: _selectedCity),
     );
 
-    if (selected != null && selected.isNotEmpty) {
-      setState(() {
-        _selectedCity = selected;
-      });
+    // An empty result means the sheet was dismissed — leave the city alone.
+    if (!mounted || selected == null || selected.isEmpty) return;
 
-      // Fetch filtered venues and photographers — when city selected we request more items (to get "all" for that city)
-      await Future.wait([
-        fetchVenues(city: _selectedCity, limitWhenCity: 1000),
-        fetchPhotographers(city: _selectedCity, limitWhenCity: 1000),
-      ]);
-    }
+    final city = selected == _kAllCitiesOption ? null : selected;
+    if (city == _selectedCity) return;
+
+    setState(() => _selectedCity = city);
+    await _persistSelectedCity(city);
+    await _loadCityScopedSections();
+  }
+
+  /// Re-fetches the two city-aware rails for the current [_selectedCity].
+  Future<void> _loadCityScopedSections() async {
+    await Future.wait([
+      fetchVenues(city: _selectedCity),
+      fetchPhotographers(city: _selectedCity),
+    ]);
   }
 
   // -------- HORIZONTAL CATEGORIES --------
@@ -1169,6 +1358,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
         headers: {"Accept": "application/json"},
       );
+
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -1182,28 +1373,46 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         debugPrint("Error fetching categories: ${response.statusCode}");
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoadingCategories = false);
       debugPrint("API Error (categories): $e");
     }
   }
 
   // -------- VENUES & PHOTOGRAPHERS --------
-  // Behavior:
-  // - if city provided we include &city=... and set limit to `limitWhenCity` (default large)
-  // - if no city provided we include &limit=limit (small default for homepage)
-  Future<void> fetchVenues({String? city, int limit = 20, int limitWhenCity = 1000}) async {
+  /// Rows on the home page are previews, so one small page is enough — the
+  /// "View all" button opens the full paginated list.
+  static const int _railPageSize = 9;
+
+  /// Builds a `/vendor-services` URL for a home rail.
+  ///
+  /// `image_exists=true` keeps listings without photos out of the rails, which
+  /// are image-first cards and would otherwise render blank tiles.
+  Uri _vendorServicesUri({
+    required String subCategory,
+    String? city,
+    int limit = _railPageSize,
+  }) {
+    return Uri.https('happywedz.com', '/api/vendor-services', {
+      'subCategory': subCategory,
+      'page': '1',
+      'limit': '$limit',
+      'image_exists': 'true',
+      if (city != null && city.isNotEmpty) 'city': city,
+    });
+  }
+
+  Future<void> fetchVenues({String? city, int limit = _railPageSize}) async {
     setState(() => isLoadingVenues = true);
 
     try {
-      final effectiveLimit = city != null && city.isNotEmpty ? limitWhenCity : limit;
-      final sb = StringBuffer('https://happywedz.com/api/vendor-services?subCategory=venue');
-      sb.write('&limit=$effectiveLimit');
-      if (city != null && city.isNotEmpty) {
-        sb.write('&city=${Uri.encodeComponent(city)}');
-      }
-
-      final url = Uri.parse(sb.toString());
+      final url = _vendorServicesUri(
+        subCategory: 'venue',
+        city: city,
+        limit: limit,
+      );
       final response = await http.get(url, headers: {"Accept": "application/json"});
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
@@ -1223,23 +1432,22 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       }
     } catch (e) {
       debugPrint('fetchVenues exception: $e');
+      if (!mounted) return;
       setState(() => isLoadingVenues = false);
     }
   }
 
-  Future<void> fetchPhotographers({String? city, int limit = 20, int limitWhenCity = 1000}) async {
+  Future<void> fetchPhotographers({String? city, int limit = _railPageSize}) async {
     setState(() => isLoadingPhotographers = true);
 
     try {
-      final effectiveLimit = city != null && city.isNotEmpty ? limitWhenCity : limit;
-      final sb = StringBuffer('https://happywedz.com/api/vendor-services?subCategory=photographer');
-      sb.write('&limit=$effectiveLimit');
-      if (city != null && city.isNotEmpty) {
-        sb.write('&city=${Uri.encodeComponent(city)}');
-      }
-
-      final url = Uri.parse(sb.toString());
+      final url = _vendorServicesUri(
+        subCategory: 'photographer',
+        city: city,
+        limit: limit,
+      );
       final response = await http.get(url, headers: {"Accept": "application/json"});
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
@@ -1257,6 +1465,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       }
     } catch (e) {
       debugPrint('fetchPhotographers exception: $e');
+      if (!mounted) return;
       setState(() => isLoadingPhotographers = false);
     }
   }
@@ -1266,10 +1475,19 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     setState(() => isLoadingRealWeddings = true);
     try {
       final response = await http.get(Uri.parse("https://happywedz.com/api/realwedding/public"));
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
+        // `decoded['weddings']` assumed a Map. A bare JSON list — or a list
+        // under 'data', the shape every other endpoint on this host uses —
+        // threw NoSuchMethodError inside setState, which left the rail
+        // shimmering forever instead of showing its empty state.
+        final raw = decoded is Map
+            ? (decoded['weddings'] ?? decoded['data'] ?? const [])
+            : decoded;
         setState(() {
-          realWeddings = decoded['weddings'] ?? [];
+          realWeddings = raw is List ? raw : const [];
           isLoadingRealWeddings = false;
         });
       } else {
@@ -1278,6 +1496,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       }
     } catch (e) {
       debugPrint('fetchRealWeddings exception: $e');
+      if (!mounted) return;
       setState(() => isLoadingRealWeddings = false);
     }
   }
@@ -1315,6 +1534,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //  checklist
   Future<void> _loadChecklistSummary() async {
     try {
+      if (!mounted) return;
       setState(() => checklistLoading = true);
 
       final prefs = await SharedPreferences.getInstance();
@@ -1353,6 +1573,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         }
       }
 
+      if (!mounted) return;
       setState(() {
         totalTasks = list.length;
         completedCount = completed;
@@ -1361,7 +1582,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     } catch (e) {
       debugPrint("❌ Checklist summary error: $e");
     } finally {
-      setState(() => checklistLoading = false);
+      // Guarded: `finally` runs on every exit path, including the early
+      // returns above, and the screen may already have been disposed.
+      if (mounted) setState(() => checklistLoading = false);
     }
   }
 
@@ -1374,6 +1597,197 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       loadStories(),
       _loadChecklistSummary(),
     ]);
+  }
+
+  // -------- SEARCH SUGGESTIONS --------
+  /// Typeahead panel shown under the search field while a query is active.
+  Widget _buildSearchSuggestions() {
+    Widget body;
+
+    if (_isSearching && _searchResults.isEmpty) {
+      body = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 22),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    } else if (_searchResults.isEmpty) {
+      body = Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 18,
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.search_off_rounded,
+              size: 18,
+              color: AppColors.textTertiary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _selectedCity == null
+                    ? 'No vendors matched "${_searchQuery.trim()}".'
+                    : 'No vendors matched "${_searchQuery.trim()}" '
+                        'in $_selectedCity.',
+                style: AppText.cardSubtitle,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // The API reports the full match count; the panel only lists a shortlist.
+      final hasMore = _searchTotal > _searchResults.length;
+
+      body = ListView.separated(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        // The panel is capped in height, so it scrolls on its own.
+        itemCount: _searchResults.length + (hasMore ? 1 : 0),
+        separatorBuilder: (_, __) => const Divider(
+          height: 1,
+          thickness: 1,
+          color: AppColors.divider,
+        ),
+        itemBuilder: (_, i) {
+          if (i == _searchResults.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 10,
+              ),
+              child: Text(
+                'Showing ${_searchResults.length} of $_searchTotal matches — '
+                'keep typing to narrow it down.',
+                style: AppText.caption,
+              ),
+            );
+          }
+          return _suggestionTile(_searchResults[i]);
+        },
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 330),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: AppRadii.rLg,
+          boxShadow: AppColors.shadowMd,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: body,
+      ),
+    );
+  }
+
+  Widget _suggestionTile(dynamic service) {
+    final attributes = (service is Map && service['attributes'] is Map)
+        ? service['attributes'] as Map
+        : const {};
+    final vendor = (service is Map && service['vendor'] is Map)
+        ? service['vendor'] as Map
+        : const {};
+    final subcategory = (service is Map && service['subcategory'] is Map)
+        ? service['subcategory'] as Map
+        : const {};
+
+    final name = (vendor['businessName'] ??
+            attributes['vendor_name'] ??
+            attributes['name'] ??
+            'No Name')
+        .toString();
+    final city = (attributes['city'] ?? vendor['city'] ?? '').toString();
+    final category = (subcategory['name'] ??
+            attributes['vendor_type'] ??
+            (vendor['vendorType'] is Map
+                ? (vendor['vendorType'] as Map)['name']
+                : null) ??
+            '')
+        .toString();
+
+    // "Photographer · Nashik", skipping whichever half is missing.
+    final meta = [category, city].where((s) => s.isNotEmpty).join(' · ');
+
+    return InkWell(
+      onTap: () => _openVendor(service),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            NetworkImageWidget(
+              url: _serviceImageUrl(service),
+              width: 44,
+              height: 44,
+              memCacheWidth: 120,
+              fit: BoxFit.cover,
+              radius: 10,
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: AppText.cardTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (meta.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        meta,
+                        style: AppText.cardSubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.north_east_rounded,
+              size: 16,
+              color: AppColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Dismisses the search UI and opens the tapped vendor.
+  void _openVendor(dynamic service) {
+    FocusScope.of(context).unfocus();
+    _closeSearch();
+    Navigator.push(
+      context,
+      AnimatedPageRoute(page: VendorDetailsScreen(service: service)),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -1743,7 +2157,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               Expanded(
                 child: Pressable(
                   scale: 0.97,
-                  onTap: () => _showLocationSelection(context),
+                  onTap: _showLocationSelection,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -1791,38 +2205,28 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                     : Icons.search_rounded,
                 tooltip: _showSearch ? 'Close search' : 'Search',
                 onTap: () {
-                  setState(() {
-                    _showSearch = !_showSearch;
-                    if (!_showSearch) {
-                      _searchController.clear();
-                      _searchQuery = '';
-                    }
-                  });
+                  if (_showSearch) {
+                    _closeSearch();
+                  } else {
+                    setState(() => _showSearch = true);
+                  }
                 },
               ),
               const SizedBox(width: AppSpacing.sm),
               _headerIcon(
+
                 icon: Icons.person_outline_rounded,
                 tooltip: 'Profile',
                 onTap: () async {
-                  SharedPreferences prefs =
-                      await SharedPreferences.getInstance();
-                  bool isLoggedIn = prefs.getBool("isLoggedIn") ?? false;
+                  // Profile is a protected screen — confirm the session is
+                  // still valid; AuthGate handles the redirect if it is not.
+                  final loggedIn = await ensureLoggedIn(context);
+                  if (!mounted || !loggedIn) return;
 
-                  if (!mounted) return;
-                  if (!isLoggedIn) {
-                    // User NOT logged in → go to SignInScreen
-                    Navigator.push(
-                      context,
-                      AnimatedPageRoute(page: const SignInScreen()),
-                    );
-                  } else {
-                    // User logged in → go to Profile Settings
-                    Navigator.push(
-                      context,
-                      AnimatedPageRoute(page: const ProfileSettingsScreen()),
-                    );
-                  }
+                  Navigator.push(
+                    context,
+                    AnimatedPageRoute(page: const ProfileSettingsScreen()),
+                  );
                 },
               ),
             ],
@@ -1837,10 +2241,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 controller: _searchController,
                 autofocus: true,
                 textInputAction: TextInputAction.search,
-                onChanged: (value) => setState(() => _searchQuery = value),
+                onChanged: _onSearchChanged,
+                onSubmitted: (value) {
+                  // Skip the debounce when the user hits the search key.
+                  _searchDebounce?.cancel();
+                  final q = value.trim();
+                  if (q.isNotEmpty) _runSearch(q);
+                },
                 style: AppText.body,
                 decoration: InputDecoration(
-                  hintText: 'Search venues, vendors, ideas…',
+                  hintText: _selectedCity == null
+                      ? 'Search venues, vendors, ideas…'
+                      : 'Search vendors in $_selectedCity…',
                   prefixIcon: const Icon(
                     Icons.search_rounded,
                     size: 20,
@@ -1865,6 +2277,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 ),
               ),
             ),
+          ),
+
+          // Live suggestions, anchored under the field.
+          AppExpandable(
+            expanded: _showSearch && _searchQuery.trim().isNotEmpty,
+            child: _buildSearchSuggestions(),
           ),
         ],
       ),
@@ -2281,32 +2699,75 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
+  /// Pulls the first usable photo out of a `/vendor-services` record.
+  ///
+  /// The API returns `media` as a **list of absolute URLs** — the venue rail
+  /// used to read it as a map (`coverImage` / `gallery`), keys the payload
+  /// never contains, so every venue card fell through to a placeholder.
+  /// `attributes.Portfolio` is a `|`-separated backup used by some listings.
+  String _serviceImageUrl(dynamic service) {
+    String normalise(String raw) {
+      final url = raw.trim();
+      if (url.isEmpty) return '';
+      // Some rows store a server-relative path instead of a full URL.
+      if (url.startsWith('/uploads/')) {
+        return 'https://happywedzbackend.happywedz.com$url';
+      }
+      return url.startsWith('http') ? url : '';
+    }
+
+    if (service is! Map) return '';
+
+    // 1. media: ["https://…", …]
+    final media = service['media'];
+    if (media is List) {
+      for (final item in media) {
+        if (item is String) {
+          final url = normalise(item);
+          if (url.isNotEmpty) return url;
+        } else if (item is Map && item['url'] != null) {
+          final url = normalise(item['url'].toString());
+          if (url.isNotEmpty) return url;
+        }
+      }
+    } else if (media is Map) {
+      // Defensive: older/alternate shape.
+      final cover = media['coverImage'];
+      if (cover != null) {
+        final url = normalise(cover.toString());
+        if (url.isNotEmpty) return url;
+      }
+      if (media['gallery'] is List) {
+        for (final item in media['gallery'] as List) {
+          final raw = item is Map ? item['url']?.toString() : item?.toString();
+          final url = normalise(raw ?? '');
+          if (url.isNotEmpty) return url;
+        }
+      }
+    }
+
+    // 2. attributes.Portfolio: "url1|url2|url3"
+    final attributes = service['attributes'];
+    if (attributes is Map) {
+      final portfolio = attributes['Portfolio']?.toString() ?? '';
+      for (final part in portfolio.split('|')) {
+        final url = normalise(part);
+        if (url.isNotEmpty) return url;
+      }
+    }
+
+    // No usable photo — _railCard renders its own placeholder.
+    return '';
+  }
+
   Widget  _buildVenuesSection() {
     final cards = <Widget>[];
     for (var i = 0; i < venues.length; i++) {
       final venue = venues[i];
       final vendor = (venue is Map && venue['vendor'] is Map) ? venue['vendor'] as Map<String, dynamic> : <String, dynamic>{};
       final attributes = (venue is Map && venue['attributes'] is Map) ? venue['attributes'] as Map<String, dynamic> : <String, dynamic>{};
-      final media = (venue is Map && venue['media'] is Map) ? venue['media'] as Map<String, dynamic> : <String, dynamic>{};
 
-      String imageUrl = '';
-      if (media['coverImage'] != null && media['coverImage'].toString().isNotEmpty) {
-        final cover = media['coverImage'].toString();
-        imageUrl = cover.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$cover" : cover;
-      } else if (media['gallery'] != null && media['gallery'] is List) {
-        for (var item in media['gallery']) {
-          if (item is String && item.isNotEmpty) {
-            imageUrl = item.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$item" : item;
-            break;
-          } else if (item is Map && item['url'] != null) {
-            final url = item['url'].toString();
-            imageUrl = url.startsWith('/uploads/') ? "https://happywedzbackend.happywedz.com$url" : url;
-            break;
-          }
-        }
-      } else if (attributes['url'] != null && attributes['url'].toString().isNotEmpty) {
-        imageUrl = 'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['url'])}&width=400';
-      }
+      final String imageUrl = _serviceImageUrl(venue);
 
       final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
       final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
@@ -2368,6 +2829,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         AnimatedPageRoute(
           page: VendorServicesScreen(
             subcategoryName: "venues",   // 👈 pass category name
+            initialCity: _selectedCity,  // carry the home page's city over
           ),
         ),
       );
@@ -2386,31 +2848,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           ? photo['attributes'] as Map<String, dynamic>
           : {};
 
-      final media = photo['media'];
-      String imageUrl = '';
-
-      // FIX: media is actually a List of URLs
-      if (media != null && media is List) {
-        for (var item in media) {
-          if (item is String && item.isNotEmpty) {
-            imageUrl = item;
-            break;
-          }
-        }
-      }
-      // Try Portfolio field
-      else if (attributes['Portfolio'] != null &&
-          attributes['Portfolio'].toString().isNotEmpty) {
-        final portfolioString = attributes['Portfolio'].toString();
-        final list = portfolioString.split("|");
-        if (list.isNotEmpty) imageUrl = list.first;
-      }
-      // Thumbnail fallback
-      else if (attributes['URL'] != null &&
-          attributes['URL'].toString().isNotEmpty) {
-        imageUrl =
-        'https://api.thumbnail.ws/api/.../generate/thumbnail?url=${Uri.encodeComponent(attributes['URL'])}&width=400';
-      }
+      final String imageUrl = _serviceImageUrl(photo);
 
       final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
       final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
@@ -2464,6 +2902,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         AnimatedPageRoute(
           page: VendorServicesScreen(
             subcategoryName: "photographer",   // 👈 pass category name
+            initialCity: _selectedCity,        // carry the home page's city over
           ),
         ),
       );
@@ -3176,28 +3615,145 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   }
 }
 
+/// Sentinel row that clears the city filter and shows results from everywhere.
+const String _kAllCitiesOption = 'All cities (India)';
+
 // Simple SearchDelegate for city selection
 class _CitySearchDelegate extends SearchDelegate<String> {
   final List<String> cities;
-  _CitySearchDelegate(this.cities);
 
-  @override
-  List<Widget>? buildActions(BuildContext context) => [IconButton(icon: const Icon(Icons.clear), onPressed: () => query = '')];
+  /// City currently in effect, ticked in the list so the user can see it.
+  final String? currentCity;
 
-  @override
-  Widget? buildLeading(BuildContext context) => IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, ''));
+  /// The full list runs to a few thousand entries; showing all of them before
+  /// the user has typed anything is noise, so the idle list is capped.
+  static const int _idleLimit = 40;
 
+  _CitySearchDelegate(this.cities, {this.currentCity})
+      : super(searchFieldLabel: 'Search city');
+
+  /// SearchDelegate builds its own theme and styles the field from
+  /// `textTheme.titleLarge`, so the typed text picks up whatever colour the
+  /// ambient theme happens to supply — which rendered white on the white
+  /// search bar. Pin the brand pink here instead of inheriting it.
   @override
-  Widget buildResults(BuildContext context) {
-    final results = cities.where((c) => c.toLowerCase().contains(query.toLowerCase())).toList();
-    return ListView.builder(itemCount: results.length, itemBuilder: (_, i) => ListTile(title: Text(results[i]), onTap: () => close(context, results[i])));
+  ThemeData appBarTheme(BuildContext context) {
+    final base = super.appBarTheme(context);
+    final queryStyle = AppText.sectionTitle.copyWith(color: AppColors.primary);
+
+    return base.copyWith(
+      textTheme: base.textTheme.copyWith(titleLarge: queryStyle),
+      appBarTheme: base.appBarTheme.copyWith(
+        backgroundColor: Colors.white,
+        titleTextStyle: queryStyle,
+        iconTheme: const IconThemeData(color: AppColors.primary, size: 22),
+        actionsIconTheme:
+            const IconThemeData(color: AppColors.primary, size: 22),
+      ),
+      inputDecorationTheme: base.inputDecorationTheme.copyWith(
+        hintStyle: AppText.body.copyWith(
+          color: AppColors.primary.withValues(alpha: 0.45),
+        ),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: AppColors.primary,
+        selectionColor: AppColors.primary.withValues(alpha: 0.2),
+        selectionHandleColor: AppColors.primary,
+      ),
+    );
+  }
+
+  List<String> _matches() {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return cities.take(_idleLimit).toList();
+
+    // Prefix matches first — typing "pun" should surface Pune above
+    // "Rajapunnapuram".
+    final starts = <String>[];
+    final contains = <String>[];
+    for (final c in cities) {
+      final lower = c.toLowerCase();
+      if (lower.startsWith(q)) {
+        starts.add(c);
+      } else if (lower.contains(q)) {
+        contains.add(c);
+      }
+    }
+    return [...starts, ...contains];
+  }
+
+  Widget _buildList(BuildContext context) {
+    final matches = _matches();
+
+    if (matches.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No city matches "$query".',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    // "All cities" always sits at the top so the filter can be undone.
+    final rows = <String>[_kAllCitiesOption, ...matches];
+
+    return ListView.builder(
+      itemCount: rows.length,
+      itemBuilder: (_, i) {
+        final value = rows[i];
+        final isAll = value == _kAllCitiesOption;
+        final selected =
+            isAll ? currentCity == null : value == currentCity;
+
+        return ListTile(
+          leading: Icon(
+            isAll ? Icons.public_rounded : Icons.location_city_rounded,
+            size: 20,
+            color: AppColors.primary,
+          ),
+          title: Text(
+            value,
+            style: AppText.body.copyWith(
+              color: selected ? AppColors.primary : AppColors.textPrimary,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+          trailing: selected
+              ? const Icon(
+                  Icons.check_rounded,
+                  size: 20,
+                  color: AppColors.primary,
+                )
+              : null,
+          onTap: () => close(context, value),
+        );
+      },
+    );
   }
 
   @override
-  Widget buildSuggestions(BuildContext context) {
-    final suggestions = query.isEmpty ? cities : cities.where((c) => c.toLowerCase().contains(query.toLowerCase())).toList();
-    return ListView.builder(itemCount: suggestions.length, itemBuilder: (_, i) => ListTile(title: Text(suggestions[i]), onTap: () => close(context, suggestions[i])));
-  }
+  List<Widget>? buildActions(BuildContext context) => [
+        IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () => query = '',
+        ),
+      ];
+
+  @override
+  Widget? buildLeading(BuildContext context) => IconButton(
+        icon: const Icon(Icons.arrow_back),
+        // Empty result == cancelled; the caller keeps the existing city.
+        onPressed: () => close(context, ''),
+      );
+
+  @override
+  Widget buildResults(BuildContext context) => _buildList(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _buildList(context);
 }
 
 // Placeholder VendorCategory model - replace with your actual model
@@ -3303,9 +3859,7 @@ class _BottomBarsState extends State<BottomBars> {
   final List<Widget> _screens = [
     const WeddingHomePage(),
     const VenuesScreen(),
-     VirtualTryOnScreennnnnnn(),
-    // LancomeMakeupTryOnScreen(),
-    // FinalLookResultScreen(),
+    VirtualTryOnScreennnnnnn(),
     const VendorCategoriesScreen(),
     MoreOptionsScreen()
     // VenueDetailsScreen()
@@ -3313,13 +3867,7 @@ class _BottomBarsState extends State<BottomBars> {
   ];
 
 
-  Future<void> _onItemTapped(int index) async {
-    // ✅ If user taps on VirtualStudio (index = 2)
-    if (index == 2) {
-      final loggedIn = await ensureLoggedIn(context);
-      if (!loggedIn) return; // 🚫 not logged in → SignInScreen opened automatically
-    }
-
+  void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
@@ -3509,14 +4057,19 @@ class _NavItem {
 
 
 class LocationService {
-  static const String _baseUrl = "https://www.countriesnow.space/api/v0.1/countries/cities";
-
+  // GET .../countries/cities/q?country=India
+  // -> {"error": false, "msg": "cities in India retrieved", "data": [...]}
+  //
+  // NOTE: the `www.` host 404s on this API — only the apex domain serves it,
+  // which is why this call never returned anything before.
   static Future<List<String>> fetchCities(String country) async {
-    final response = await http.post(
-      Uri.parse(_baseUrl),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"country": country}),
+    final uri = Uri.https(
+      'countriesnow.space',
+      '/api/v0.1/countries/cities/q',
+      {'country': country},
     );
+
+    final response = await http.get(uri, headers: {"Accept": "application/json"});
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);

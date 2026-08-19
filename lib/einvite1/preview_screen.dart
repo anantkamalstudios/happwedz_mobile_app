@@ -56,9 +56,13 @@ class PreviewScreen extends StatelessWidget {
     final file = File("${tmp.path}/invite.png");
     await file.writeAsBytes(bytes);
 
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: "My HappyWedz Invite 💖",
+    // AUDIT FIX (deprecation): `Share.shareXFiles` is deprecated in
+    // share_plus 12.
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        text: "My HappyWedz Invite 💖",
+      ),
     );
   }
 

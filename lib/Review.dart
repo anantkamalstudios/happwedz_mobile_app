@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'core/core.dart';
 import 'package:image_picker/image_picker.dart';
@@ -771,7 +772,7 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
   }
 
   Future<void> _submitReview() async {
-    print("📤 Submit Review Pressed");
+    debugPrint("📤 Submit Review Pressed");
 
     widget.reviewData.guestCount = _guestController.text.trim();
     widget.reviewData.amountSpent = _amountController.text.trim();
@@ -813,7 +814,7 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
 
     final url = Uri.parse('https://happywedz.com/api/reviews/$vendorId');
 
-    print("📤 Body: $body");
+    debugPrint("📤 Body: $body");
 
     try {
       final res = await http.post(url,
@@ -823,7 +824,9 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
           },
           body: jsonEncode(body));
 
-      print("📥 Response: ${res.statusCode} ${res.body}");
+      // AUDIT FIX (security): response bodies carry user data and are readable
+      // via `adb logcat` in a release build — debug only.
+      if (kDebugMode) debugPrint("📥 Response: ${res.statusCode} ${res.body}");
       if (!mounted) return;
 
       if (res.statusCode == 200 || res.statusCode == 201) {

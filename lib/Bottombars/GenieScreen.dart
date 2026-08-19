@@ -20,7 +20,12 @@ import 'package:http/http.dart' as http;
 ///
 /// NOTE: Add `http` and `shared_preferences` to pubspec.yaml dependencies.
 
-const String kBaseUrl = 'http://shaadiai.happywedz.com';
+/// AUDIT FIX (broken in release builds): this was `http://…`. Android blocks
+/// cleartext traffic by default at this target SDK and the app ships no
+/// exception for it, so every Genie request failed on device. The host serves
+/// the same API over TLS, so the scheme is corrected here too — see the note on
+/// `ApiService.baseUrl` in lib/ai_chat_screen/ai_chat_screen.dart.
+const String kBaseUrl = 'https://shaadiai.happywedz.com';
 
 class GenieScreen extends StatefulWidget {
   const GenieScreen({super.key});
@@ -444,7 +449,14 @@ class _GenieScreenState extends State<GenieScreen> with TickerProviderStateMixin
               decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)]),
               child: Row(
                 children: [
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.add, color: Colors.pinkAccent)),
+                  // AUDIT NOTE:
+                  // This "+" button had an empty `onPressed: () {}` — it was
+                  // visible and pressable but did nothing. "New chat" already
+                  // exists in the app bar above (Icons.add_circle_outline), so
+                  // there is no missing feature to wire up here.
+                  // Kept intentionally and commented out as requested.
+                  // Do not remove without confirming with the project owner.
+                  // IconButton(onPressed: () {}, icon: const Icon(Icons.add, color: Colors.pinkAccent)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Container(

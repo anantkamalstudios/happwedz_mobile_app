@@ -20,6 +20,7 @@ import 'dart:io';
 
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -3026,14 +3027,14 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
   // ----------------------------
 
   Future<void> _submitWeddingStory(BuildContext context) async {
-    print("🟢 Starting wedding story submission...");
+    debugPrint("🟢 Starting wedding story submission...");
     final url = Uri.parse('https://happywedz.com/api/realwedding');
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
     if (token == null || token.isEmpty) {
-      print("❌ No token found!");
+      debugPrint("❌ No token found!");
       AppSnackbar.info(context, 'Please login first');
       return;
     }
@@ -3095,51 +3096,51 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
         'featured': isFeatured ? 'true' : 'false',
       });
 
-      print("📝 FIELDS SENT:");
-      request.fields.forEach((k, v) => print("   ➤ $k: $v"));
+      debugPrint("📝 FIELDS SENT:");
+      request.fields.forEach((k, v) => debugPrint("   ➤ $k: $v"));
 
       // Files
       if (_coverPhotos.isNotEmpty) {
         final file = _coverPhotos.first;
         request.files.add(await http.MultipartFile.fromPath('coverPhoto', file.path));
-        print("📌 coverPhoto: ${file.path}");
+        debugPrint("📌 coverPhoto: ${file.path}");
       }
 
       for (var file in _highlightPhotos) {
         request.files.add(await http.MultipartFile.fromPath('highlightPhotos', file.path));
-        print("✨ highlightPhotos: ${file.path}");
+        debugPrint("✨ highlightPhotos: ${file.path}");
       }
 
       for (var file in _weddingPhotos) {
         request.files.add(await http.MultipartFile.fromPath('allPhotos', file.path));
-        print("📷 allPhotos: ${file.path}");
+        debugPrint("📷 allPhotos: ${file.path}");
       }
 
       // Send
-      print("🚀 Sending request...");
+      debugPrint("🚀 Sending request...");
       setState(() => isSubmitting = true);
 
       final streamedResponse = await request.send();
       final status = streamedResponse.statusCode;
       final respStr = await streamedResponse.stream.bytesToString();
 
-      print("📡 STATUS: $status");
-      print("📨 RESPONSE: $respStr");
+      debugPrint("📡 STATUS: $status");
+      debugPrint("📨 RESPONSE: $respStr");
 
       if (status == 200 || status == 201) {
-        print("✅ Wedding story submitted successfully!");
+        debugPrint("✅ Wedding story submitted successfully!");
         AppSnackbar.info(context, 'Wedding story submitted successfully!');
         return;
       } else if (status == 401) {
-        print("❌ Unauthorized token!");
+        debugPrint("❌ Unauthorized token!");
         AppSnackbar.info(context, 'Session expired. Please login again');
         return;
       } else {
-        print("❌ Failed: $status");
+        debugPrint("❌ Failed: $status");
         AppSnackbar.info(context, "Failed to submit ($status): $respStr");
       }
     } catch (e, st) {
-      print("🔥 ERROR: $e\n$st");
+      debugPrint("🔥 ERROR: $e\n$st");
       AppSnackbar.info(context, 'Error: $e');
     } finally {
       setState(() => isSubmitting = false);
@@ -3228,7 +3229,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
         });
       }
     } catch (e) {
-      print("Country API Error: $e");
+      debugPrint("Country API Error: $e");
       setState(() => isLoadingCountries = false);
     }
   }
@@ -3246,7 +3247,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
         setState(() {});
       }
     } catch (e) {
-      print("Error loading all venues $e");
+      debugPrint("Error loading all venues $e");
     }
   }
 
@@ -3257,8 +3258,10 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
       final url = Uri.parse("https://happywedz.com/api/real-wedding-culture/public");
       final response = await http.get(url, headers: {"Accept": "application/json"});
 
-      print("👉 Culture API Status: ${response.statusCode}");
-      print("👉 Culture API Body: ${response.body}");
+      debugPrint("👉 Culture API Status: ${response.statusCode}");
+      // AUDIT FIX (security): response bodies carry user data and are readable
+      // via `adb logcat` in a release build — debug only.
+      if (kDebugMode) debugPrint("👉 Culture API Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
@@ -3273,7 +3276,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
         throw Exception("Invalid status");
       }
     } catch (e) {
-      print("❌ Culture API error: $e");
+      debugPrint("❌ Culture API error: $e");
       setState(() => isLoadingCultures = false);
     }
   }
@@ -3344,7 +3347,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
         setState(() => venueSuggestions = combined);
       }
     } catch (e) {
-      print("Venue search error: $e");
+      debugPrint("Venue search error: $e");
     }
   }
 }

@@ -18,6 +18,13 @@ class _FavouritesPageState extends State<FavouritesPage> {
   String? currentUserId;
   Set<String> favouriteVendors = {};
 
+  /// AUDIT FIX: the screen had no failure state at all. A network error was
+  /// swallowed by the catch below and the body then rendered "No favourites
+  /// yet" — telling the user their saved vendors had vanished when in fact the
+  /// request never completed. This holds the last failure so [_buildBody] can
+  /// show a real error with a working retry instead.
+  Object? _error;
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +35,7 @@ class _FavouritesPageState extends State<FavouritesPage> {
     final prefs = await SharedPreferences.getInstance();
     final storedId = prefs.getInt('user_id')?.toString();
     final token = prefs.getString('auth_token');
+    if (!mounted) return;
 
     if (storedId == null || token == null || token.isEmpty) {
       debugPrint('❌ User not signed in or token missing');
@@ -42,18 +50,23 @@ class _FavouritesPageState extends State<FavouritesPage> {
   }
 
   Future<void> fetchWishlist() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _error = null;
+    });
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token') ?? '';
+      if (!mounted) return;
+
       if (token.isEmpty || currentUserId == null) {
         setState(() => isLoading = false);
         return;
       }
 
       final url = Uri.parse('https://happywedz.com/api/wishlist');
-      print('🌍 Fetching wishlist → $url');
+      debugPrint('🌍 Fetching wishlist → $url');
 
       final response = await http.get(
         url,
@@ -62,39 +75,51 @@ class _FavouritesPageState extends State<FavouritesPage> {
           'Authorization': 'Bearer $token',
         },
       );
+      if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> items = data['data'] ?? [];
-
-        List<dynamic> fullDetails = [];
-
-        for (var item in items) {
-          final vendorServiceId = item['vendor_services_id']?.toString() ?? '';
-          if (vendorServiceId.isEmpty) continue;
-
-          final vendorData = await fetchVendorDetails(vendorServiceId);
-
-          if (vendorData.isNotEmpty) {
-            fullDetails.add({
-              'vendor_services_id': vendorServiceId,
-              'attributes': vendorData,
-            });
-          }
-        }
-
-        setState(() {
-          wishlistItems = fullDetails;
-          favouriteVendors = fullDetails
-              .map((e) => e['vendor_services_id']?.toString() ?? '')
-              .where((e) => e.isNotEmpty)
-              .toSet();
-        });
+      // Previously any non-200 fell through silently and the list stayed empty.
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
       }
+
+      final data = jsonDecode(response.body);
+      final List<dynamic> items = data['data'] ?? [];
+
+      final ids = items
+          .map((item) => item['vendor_services_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+
+      // The detail lookups used to run one after another inside a for-loop, so
+      // a 20-item wishlist meant 20 sequential round trips. They are
+      // independent, so they now run together — same endpoint, same parsing.
+      final details = await Future.wait(ids.map(fetchVendorDetails));
+      if (!mounted) return;
+
+      final fullDetails = <dynamic>[];
+      for (var i = 0; i < ids.length; i++) {
+        if (details[i].isNotEmpty) {
+          fullDetails.add({
+            'vendor_services_id': ids[i],
+            'attributes': details[i],
+          });
+        }
+      }
+
+      setState(() {
+        wishlistItems = fullDetails;
+        favouriteVendors = fullDetails
+            .map((e) => e['vendor_services_id']?.toString() ?? '')
+            .where((e) => e.isNotEmpty)
+            .toSet();
+      });
     } catch (e) {
       debugPrint("💥 Error fetching wishlist: $e");
+      if (!mounted) return;
+      setState(() => _error = e);
     } finally {
-      setState(() => isLoading = false);
+      // Guarded: the user can pop this screen mid-request.
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -103,7 +128,7 @@ class _FavouritesPageState extends State<FavouritesPage> {
     final token = prefs.getString('auth_token') ?? '';
 
     final url = Uri.parse('https://happywedz.com/api/vendor-services/$vendorServiceId');
-    print('🌍 Fetching vendor service → $url');
+    debugPrint('🌍 Fetching vendor service → $url');
 
     try {
       final response = await http.get(
@@ -331,6 +356,12 @@ class _FavouritesPageState extends State<FavouritesPage> {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         child: Skeletons.listCards(count: 3, height: 280),
       );
+    }
+
+    // AUDIT FIX: a failed load now says so and offers a retry that really
+    // re-issues the request, instead of silently rendering the empty state.
+    if (_error != null) {
+      return ErrorState(error: _error, onRetry: fetchWishlist);
     }
 
     if (wishlistItems.isEmpty) {

@@ -1,8 +1,41 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      AUDIT FIX: the release manifest declared no INTERNET permission. It only
+      worked because the Firebase/Play-Services libraries happen to declare it
+      and the merger pulled it in — so the entire app's networking depended on a
+      transitive dependency nobody controls. `src/debug` and `src/profile`
+      declare it, which is why this never showed up while developing. Declared
+      explicitly here so a dependency change can't silently kill every API call
+      in a release build. ACCESS_NETWORK_STATE backs `connectivity_plus`.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- FORCE REMOVE ALL FILES ACCESS added by any library -->
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:node="remove" />
+
+    <!--
+      POLICY FIX: Google Play rejects apps targeting API 33+ that declare the
+      broad photo/video permissions when system pickers would do. We never
+      request these ourselves - the `open_filex` plugin declares them in its own
+      manifest and the merger pulled them into the release APK, which is what
+      tripped the "Use alternative system pickers for photos / videos" review.
+      All picking goes through `image_picker` (system picker, no permission),
+      and the only OpenFilex.open() call targets a PDF in the app's private
+      documents directory, so nothing here needs media read access. Stripped at
+      merge time so a plugin can't reintroduce a policy violation.
+    -->
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_VIDEO"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_AUDIO"
         tools:node="remove" />
 
     <application android:label="Happy Wedz"
@@ -33,6 +66,24 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!--
+          Package visibility (Android 11+ / targetSdk 30+): without these,
+          canLaunchUrl() returns false and launchUrl() cannot resolve a
+          handler, so external links silently do nothing.
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+        <!-- Play Store deep link for the vendor app. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="market"/>
         </intent>
     </queries>
 </manifest>

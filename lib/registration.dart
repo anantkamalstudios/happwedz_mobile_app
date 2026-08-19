@@ -3577,9 +3577,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
           <p>Password: ${_isGoogleSignUp ? "Secured with Google" : userPassword}</p>
         """;
       await send(message, smtpServer);
-      print("Email sent to $toEmail");
+      debugPrint("Email sent to $toEmail");
     } catch (e) {
-      print("Email send failed: $e");
+      debugPrint("Email send failed: $e");
     }
   }
 
@@ -3613,7 +3613,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
-    print('Recaptcha token: $token');
+    // AUDIT FIX (security): the reCAPTCHA token is a single-use credential —
+    // never log it. Only the fact that one was obtained is recorded.
+    debugPrint('Recaptcha token obtained');
     // 2️⃣ Verify server-side
     bool verified = await verifyRecaptchaServerSide(token);
     if (!verified) {
@@ -3625,7 +3627,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
-  print('Recaptcha verified: $token');
+  debugPrint('Recaptcha verified');
     final payload = {
       "name": _nameController.text.trim(),
       "email": _emailController.text.trim(),
@@ -3639,7 +3641,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       "signupMethod": _isGoogleSignUp ? "google" : "email",
     };
 
-    print('Payload: $payload');
+    debugPrint('Payload: $payload');
 
     try {
       final response = await http.post(
@@ -3667,7 +3669,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         );
       }
     } catch (e) {
-      print(e);
+      debugPrint('${e}');
       if (!mounted) return;
       await ErrorPopup.show(
         context,

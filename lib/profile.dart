@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'authservice.dart';
 import 'core/core.dart';
 import 'guestlist/guestlist.dart';
@@ -56,19 +54,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   // -----------------------------------------------------
   // LOGIN CHECK
   // -----------------------------------------------------
-  Future<bool> ensureLoggedIn(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    if (token != null && token.isNotEmpty) return true;
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SignInScreen()),
-    );
-
-    return result == true;
-  }
+  /// Re-checks the session before saving. The app-wide gate sends the user
+  /// back to login on its own when this comes back false.
+  Future<bool> ensureLoggedIn(BuildContext context) => AuthSession.instance.refresh();
 
   // -----------------------------------------------------
   // LOAD USER DATA
@@ -85,6 +73,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     weddingVenueController.text = prefs.getString("wedding_venue") ?? "";
     weddingDateController.text = prefs.getString("wedding_date") ?? "";
 
+    // Guarded: reading preferences is async, so the screen may already be gone.
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -121,25 +111,34 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   // -----------------------------------------------------
   // LOAD CITIES
   // -----------------------------------------------------
+  /// AUDIT FIX: this used to call
+  /// `.../countries/state/cities/q?country=India&state=Maharashtra`, so the
+  /// "Wedding Venue (City)" picker could only ever offer Maharashtra cities —
+  /// a user marrying in Delhi, Bengaluru or Jaipur had no selectable value.
+  /// The home screen already solved this with [LocationService.fetchCities],
+  /// which asks for every Indian city; reusing it keeps one implementation
+  /// instead of two divergent ones.
   Future<void> _loadCities() async {
     setState(() => _isLoadingCities = true);
     try {
-      final response = await http.get(Uri.parse(
-          'https://countriesnow.space/api/v0.1/countries/state/cities/q?country=India&state=Maharashtra'));
+      final loaded = await LocationService.fetchCities('India');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['error'] == false && data['data'] != null) {
-          setState(() {
-            _cities = List<String>.from(data['data']);
-            _cities.sort();
-          });
-        }
-      }
+      final cities = loaded
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+
+      if (!mounted) return;
+      setState(() => _cities = cities);
     } catch (e) {
-      print('🚨 City loading error: $e');
+      // Never surface the raw exception to the user; the picker simply stays
+      // empty and the next tap retries.
+      debugPrint('City loading error: $e');
     } finally {
-      setState(() => _isLoadingCities = false);
+      // Guarded: the user can leave Profile while the request is in flight.
+      if (mounted) setState(() => _isLoadingCities = false);
     }
   }
 
@@ -187,38 +186,46 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
 
 
-  Future<void> fetchAndSaveUserProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final userId = prefs.getInt("user_id");
-    if (userId == null) return;
-
-    final url = 'https://happywedz.com/api/user/$userId';
-
-    try {
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        if (data['success'] == true) {
-          final user = data['user'];
-
-          // 🔐 SAVE EVERYTHING YOU NEED
-          prefs.setString('user_name', user['name'] ?? '');
-          prefs.setString('user_email', user['email'] ?? '');
-          prefs.setString('user_mobile', user['phone'] ?? '');
-          prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
-          prefs.setString('wedding_date', user['weddingDate'] ?? '');
-          prefs.setString('user_photo', user['profileImage'] ?? '');
-
-          print('✅ Profile fetched & saved');
-        }
-      }
-    } catch (e) {
-      print('❌ Profile fetch error: $e');
-    }
-  }
+  // AUDIT NOTE:
+  // This is a byte-for-byte duplicate of `fetchAndSaveUserProfile()` in
+  // lib/main.dart, which runs once right after a successful Google sign-in.
+  // Nothing in this file ever called this copy, so it was dead code that could
+  // silently drift away from the version that actually runs.
+  // Kept intentionally and commented out as requested.
+  // Do not remove without confirming with the project owner.
+  //
+  // Future<void> fetchAndSaveUserProfile() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //
+  //   final userId = prefs.getInt("user_id");
+  //   if (userId == null) return;
+  //
+  //   final url = 'https://happywedz.com/api/user/$userId';
+  //
+  //   try {
+  //     final response = await http.get(Uri.parse(url));
+  //
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(response.body);
+  //
+  //       if (data['success'] == true) {
+  //         final user = data['user'];
+  //
+  //         // 🔐 SAVE EVERYTHING YOU NEED
+  //         prefs.setString('user_name', user['name'] ?? '');
+  //         prefs.setString('user_email', user['email'] ?? '');
+  //         prefs.setString('user_mobile', user['phone'] ?? '');
+  //         prefs.setString('wedding_venue', user['weddingVenue'] ?? '');
+  //         prefs.setString('wedding_date', user['weddingDate'] ?? '');
+  //         prefs.setString('user_photo', user['profileImage'] ?? '');
+  //
+  //         print('✅ Profile fetched & saved');
+  //       }
+  //     }
+  //   } catch (e) {
+  //     print('❌ Profile fetch error: $e');
+  //   }
+  // }
   // -----------------------------------------------------
   // UPDATE PROFILE
   // -----------------------------------------------------
@@ -246,10 +253,20 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
     final url = 'https://happywedz.com/api/user/$userId';
 
+    // AUDIT FIX (security): this PUT identified the account purely by the id in
+    // the URL and sent no credentials, so the request carried nothing proving
+    // it came from the signed-in user. Every other authenticated call in the
+    // app sends the stored JWT; this one now does too.
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(UserPrefs.tokenKey) ?? '';
+
     try {
       final response = await http.put(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
           'phone': mobileController.text.trim(),
           'weddingVenue': weddingVenueController.text.trim(),
@@ -289,13 +306,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           final complete = await _isProfileComplete();
 
           if (complete && mounted) {
-            Navigator.pushAndRemoveUntil(
+            // AUDIT FIX (authentication bypass): this used to be
+            // `pushAndRemoveUntil(..., (route) => false)`, which wiped the
+            // *first* route as well — and the first route is `AuthGate`, the
+            // widget that owns the signed-in/signed-out decision. Once it was
+            // gone, `signOutToLogin()`'s `popUntil(isFirst)` had nothing to
+            // unwind, so logging out left the user sitting inside a protected
+            // screen. Pushing normally keeps AuthGate at the root of the stack.
+            Navigator.push(
               context,
               AnimatedPageRoute(
                 page: const GuestListDashboard(),
                 style: PageTransitionStyle.fade,
               ),
-              (route) => false,
             );
           }
         } else {
@@ -334,15 +357,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   // LOGOUT
   // -----------------------------------------------------
   Future<void> _logout() async {
-    await UserPrefs.clear();
-    await FirebaseAuth.instance.signOut();
-    await GoogleSignIn().signOut();
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const SignInScreen()),
-          (route) => false,
-    );
+    // Session teardown (prefs + Google + Firebase) lives in one place; this
+    // also unwinds the stack so no protected screen survives the logout.
+    await signOutToLogin(context);
   }
 
   void _showSnackBar(String msg) {
@@ -385,18 +402,21 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   ),
                   child: Row(
                     children: [
+                      // AUDIT FIX (authentication bypass + wrong back
+                      // behaviour): Back used to `pushAndRemoveUntil(…,
+                      // (route) => false)` onto a *fresh* WeddingHomePage,
+                      // which destroyed `AuthGate` (the root route) and left a
+                      // home page outside the session gate — after that,
+                      // logging out could not return the user to the login
+                      // screen. Profile is always pushed on top of the
+                      // dashboard, so popping is both correct and safe.
                       AppBackButton(
                         color: AppColors.textOnPrimary,
                         background: Colors.white.withValues(alpha: 0.25),
                         onTap: () {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            AnimatedPageRoute(
-                              page: const WeddingHomePage(),
-                              style: PageTransitionStyle.fade,
-                            ),
-                            (route) => false,
-                          );
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
                         },
                       ),
                       Expanded(

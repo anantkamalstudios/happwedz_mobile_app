@@ -39,8 +39,11 @@ class _CustomBottomBarState extends State<CustomBottomBar> {
   }
 
   Widget _buildBottomBar() {
-    return Container(
-      height: 70,
+    // No fixed height here. BottomNavigationBar sizes itself to
+    // kBottomNavigationBarHeight *plus* the bottom safe-area inset; pinning it
+    // to 70px left the tiles ~10px to draw a 38px icon+label and overflowed by
+    // the size of the gesture bar on devices that have one.
+    return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -51,38 +54,43 @@ class _CustomBottomBarState extends State<CustomBottomBar> {
           end: Alignment.bottomCenter,
         ),
       ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withValues(alpha: 0.7),
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.key_outlined),
-            activeIcon: Icon(Icons.key),
-            label: 'Guest Token',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Upload Selfie',
-          ),
-          // BottomNavigationBarItem(
-          //   icon: Icon(Icons.menu),
-          //   activeIcon: Icon(Icons.menu),
-          //   label: 'Login',
-          // ),
-        ],
+      // Labels here are fixed at 12px, but the system font-size setting still
+      // scales them and is the other way these tiles overflow.
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.2,
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white.withValues(alpha: 0.7),
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.key_outlined),
+              activeIcon: Icon(Icons.key),
+              label: 'Guest Token',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Upload Selfie',
+            ),
+            // BottomNavigationBarItem(
+            //   icon: Icon(Icons.menu),
+            //   activeIcon: Icon(Icons.menu),
+            //   label: 'Login',
+            // ),
+          ],
+        ),
       ),
     );
   }

@@ -47,5 +47,19 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!--
+	  AUDIT FIX: the app uses image_picker with both ImageSource.camera and
+	  ImageSource.gallery (Virtual Studio, Design Studio, Claim Business,
+	  Moment+ selfie upload). iOS terminates an app that touches the camera or
+	  photo library without a usage description in Info.plist, so on iOS those
+	  screens crashed rather than showing a permission prompt. These strings are
+	  what the system shows in that prompt.
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>HappyWedz needs camera access so you can take a photo for your virtual try-on, selfie upload and business listing.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HappyWedz needs photo library access so you can choose existing photos for your try-on, wedding story and business listing.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>HappyWedz saves your generated cards and try-on results to your photo library.</string>
 </dict>
 </plist>

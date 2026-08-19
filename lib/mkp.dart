@@ -257,7 +257,7 @@ class _LancomeMakeupTryOnScreen13State extends State<LancomeMakeupTryOnScreen13>
         _loadProducts();
       }
     } catch (e) {
-      print('Upload error: $e');
+      debugPrint('Upload error: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -279,7 +279,7 @@ class _LancomeMakeupTryOnScreen13State extends State<LancomeMakeupTryOnScreen13>
         setState(() => _products = products);
       }
     } catch (e) {
-      print('Load products error: $e');
+      debugPrint('Load products error: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -310,7 +310,7 @@ class _LancomeMakeupTryOnScreen13State extends State<LancomeMakeupTryOnScreen13>
         }
       }
     } catch (e) {
-      print('Apply makeup error: $e');
+      debugPrint('Apply makeup error: $e');
     } finally {
       setState(() => _isLoading = false);
     }

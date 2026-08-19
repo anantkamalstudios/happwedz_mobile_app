@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:shimmer/shimmer.dart';
 import 'custome_theme.dart';
@@ -887,9 +888,11 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
     final response = await http.get(
       Uri.parse("https://happywedz.com/api/what-couples-says-route"),
     );
-    print(response);
+    debugPrint('${response}');
     final jsonData = json.decode(response.body);
-    print(response.body);
+    // AUDIT FIX (security): response bodies carry user data and are readable
+    // via `adb logcat` in a release build — debug only.
+    if (kDebugMode) debugPrint(response.body);
     return CoupleSayResponse.fromJson(jsonData).data;
   }
 

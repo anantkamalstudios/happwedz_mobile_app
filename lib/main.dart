@@ -1,20 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:happy_wedz/Bottombars/HomeScreen.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart' show MultiProvider, ChangeNotifierProvider;
+import 'package:provider/provider.dart'
+    show MultiProvider, ChangeNotifierProvider;
+// Aliased: `Provider` also exists in flutter_riverpod, which is imported above.
+import 'package:provider/provider.dart' as legacy_provider show Provider;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'ai_chat_screen/ai_chat_screen.dart';
+import 'authservice.dart';
 import 'core/core.dart';
 import 'internetconnection.dart';
+
+/// Root navigator, so the session can tear down every pushed screen the
+/// moment authentication is lost — from anywhere in the app.
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 
 Future<void> main() async {
@@ -73,6 +84,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorKey: rootNavigatorKey,
       title: 'HappyWedz',
       theme: AppTheme.light(),
       builder: (context, child) {
@@ -92,20 +104,93 @@ class MyApp extends StatelessWidget {
           ),
         );
       },
-      home: const AuthCheckScreen(),
+      home: const AuthGate(),
     );
   }
 }
 
-/// ✅ AuthWrapper checks if user is already logged in
-// ✅ AuthWrapper (decides if logged in or not)
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
+/// The single entry point of the app.
+///
+/// It owns the answer to "is the user signed in?" and rebuilds the whole tree
+/// whenever that changes:
+///
+/// ```
+/// Splash → check session → authenticated ? BottomBars : SignInScreen
+/// ```
+///
+/// Because it sits at the root of the navigator, an unauthenticated user is
+/// never given a protected screen to begin with — there is nothing to reach by
+/// back navigation, deep link or direct push.
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
+  final AuthSession _session = AuthSession.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _session.addListener(_onSessionChanged);
+    _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _session.removeListener(_onSessionChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // A token can expire while the app sits in the background.
+    if (state == AppLifecycleState.resumed && _session.isReady) {
+      _session.refresh();
+    }
+  }
+
+  Future<void> _bootstrap() async {
+    // Keep the brand moment on screen for the same beat as before.
+    await Future.wait([
+      _session.refresh(),
+      Future<void>.delayed(const Duration(milliseconds: 600)),
+    ]);
+  }
+
+  /// The gate only rebuilds itself, so anything pushed on top of it has to be
+  /// torn down explicitly — otherwise a protected screen would survive logout
+  /// or a token expiring mid-session.
+  void _onSessionChanged() {
+    if (_session.isAuthenticated) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navigator = rootNavigatorKey.currentState;
+      if (navigator != null && navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 Always start app for everyone (guest or logged in)
-    return const BottomBars();
+    return AnimatedBuilder(
+      animation: _session,
+      builder: (context, _) {
+        if (!_session.isReady) {
+          return const Scaffold(
+            backgroundColor: Colors.white,
+            body: BrandSplash(),
+          );
+        }
+        return _session.isAuthenticated
+            ? const BottomBars()
+            : const SignInScreen();
+      },
+    );
   }
 }
 
@@ -160,53 +245,6 @@ class CountryData {
   ];
 }
 
-class AuthCheckScreen extends StatefulWidget {
-  const AuthCheckScreen({Key? key}) : super(key: key);
-
-  @override
-  _AuthCheckScreenState createState() => _AuthCheckScreenState();
-}
-
-class _AuthCheckScreenState extends State<AuthCheckScreen> {
-
-  @override
-  void initState() {
-    super.initState();
-    checkLogin();
-  }
-
-  Future<void> checkLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    final userId = prefs.getInt('user_id');
-
-    await Future.delayed(const Duration(milliseconds: 600)); // small splash effect
-
-    if (token != null && userId != null && userId > 0) {
-      // USER IS LOGGED IN → GO TO HOME
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const BottomBars()),
-      );
-    } else {
-      // USER NOT LOGGED IN → GO TO SIGN IN
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SignInScreen()),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
-      body: BrandSplash(),
-    );
-  }
-}
-
-
 class SignInScreen extends StatefulWidget {
   const SignInScreen({Key? key}) : super(key: key);
 
@@ -215,11 +253,26 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  /// OAuth **web** client id (`client_type: 3`) from
+  /// `android/app/google-services.json`.
+  ///
+  /// Android only returns a non-null `idToken` when this is supplied — and the
+  /// backend's `/api/user/google-auth` verifies exactly that token, so without
+  /// it every sign-in fails no matter how well Google Sign-In is configured.
+  /// It must stay the *web* client id; an Android client id here makes Play
+  /// Services fail with `ApiException: 10 (DEVELOPER_ERROR)`.
+  static const String _serverClientId =
+      '5404414440-02ttfd1mvhk62e5bubrkcipdjhdrrabv.apps.googleusercontent.com';
+
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
-    // clientId:
-    //   '5404414440-cpfrtjjfh6maga878im03li5lmpqga30.apps.googleusercontent.com'
+    serverClientId: _serverClientId,
   );
+
+  /// True while a Google sign-in is in flight — drives the button's loading
+  /// state and blocks duplicate taps.
+  bool _isSigningIn = false;
+
   Future<void> fetchAndSaveUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -245,11 +298,11 @@ class _SignInScreenState extends State<SignInScreen> {
           prefs.setString('wedding_date', user['weddingDate'] ?? '');
           prefs.setString('user_photo', user['profileImage'] ?? '');
 
-          print('✅ Profile fetched & saved');
+          debugPrint('✅ Profile fetched & saved');
         }
       }
     } catch (e) {
-      print('❌ Profile fetch error: $e');
+      debugPrint('❌ Profile fetch error: $e');
     }
   }
 
@@ -259,67 +312,159 @@ class _SignInScreenState extends State<SignInScreen> {
 
 
 
+
+
+
+
+
+
+
+
+
+
+  /// The only way into the app.
+  ///
+  /// Signs in with Google, hands the id token to the existing
+  /// `/api/user/google-auth` endpoint, persists the returned session through
+  /// [UserPrefs] and then lets [AuthSession] re-read it — the `AuthGate` swaps
+  /// to the dashboard on its own, so no login route is left on the stack.
   Future<void> _signInWithGoogle() async {
-    print('🟡 Starting Google Sign-In process...');
+    if (_isSigningIn) return; // ignore repeat taps while a sign-in is running
+    setState(() => _isSigningIn = true);
+
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      print('🟢 Google User result: $googleUser');
 
+      // The user backed out of the Google sheet.
       if (googleUser == null) {
         _showSnackBar('Google Sign-In cancelled');
         return;
       }
 
       final GoogleSignInAuthentication googleAuth =
-      await googleUser.authentication;
+          await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
 
-      print('🌐 Sending POST request to API...');
-      final response = await http.post(
-        Uri.parse('https://happywedz.com/api/user/google-auth'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': googleUser.email,
-          'name': googleUser.displayName ?? 'Guest User',
-          'tokenId': googleAuth.idToken ?? '',
-        }),
-      );
-      print('tokenId: ${googleAuth.idToken}');
-      print('🟢 API Response: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          final user = data['user'];
-          final token = data['token'];
-
-          // ✅ Save data locally
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('user_id', user['id']);
-          await prefs.setString('user_name', user['name']);
-          await prefs.setString('user_email', user['email']);
-          await prefs.setString('user_phone', user['phone'] ?? '');
-
-          await prefs.setString('auth_token', token);
-          await prefs.setString('user_photo', googleUser.photoUrl ?? '');
-          await prefs.setBool('isLoggedIn', true);
-
-          await fetchAndSaveUserProfile();
-
-          _showSnackBar('Welcome ${user['name']}');
-          print("user_id: ${user['id']}");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const BottomBars()),
-          );
-        } else {
-          _showSnackBar('Login failed: ${data['message']}');
-        }
-      } else {
-        _showSnackBar('Server Error: ${response.statusCode}');
+      // Google returned an account but no usable credential.
+      if (idToken == null || idToken.isEmpty) {
+        await _googleSignIn.signOut();
+        await _showError(
+          title: 'Sign-in failed',
+          message:
+              "We couldn't verify your Google account. Please try signing in again.",
+        );
+        return;
       }
+
+      final response = await http
+          .post(
+            Uri.parse('https://happywedz.com/api/user/google-auth'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': googleUser.email,
+              'name': googleUser.displayName ?? 'HappyWedz User',
+              'tokenId': idToken,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode != 200) {
+        await _showError(
+          title: AppErrorMessage.titleFor('${response.statusCode}'),
+          message:
+              'We could not sign you in right now (${response.statusCode}). Please try again.',
+        );
+        return;
+      }
+
+      final data = jsonDecode(response.body);
+      if (data is! Map || data['success'] != true) {
+        await _showError(
+          title: 'Sign-in failed',
+          message:
+              (data is Map ? data['message']?.toString() : null) ??
+              'Please try signing in again.',
+        );
+        return;
+      }
+
+      final user = data['user'];
+      final token = data['token']?.toString();
+      final userId = user is Map ? int.tryParse('${user['id']}') : null;
+
+      // Invalid / incomplete authentication response — never persist it.
+      if (user is! Map ||
+          userId == null ||
+          userId <= 0 ||
+          token == null ||
+          token.isEmpty) {
+        await _showError(
+          title: 'Sign-in failed',
+          message:
+              'The sign-in response was incomplete. Please try again in a moment.',
+        );
+        return;
+      }
+
+      // 1️⃣ Persist the session through the existing storage layer.
+      await UserPrefs.saveUser(
+        id: userId,
+        name: (user['name'] ?? googleUser.displayName ?? '').toString(),
+        email: (user['email'] ?? googleUser.email).toString(),
+        token: token,
+        phone: user['phone']?.toString(),
+        photo: googleUser.photoUrl,
+      );
+
+      // 2️⃣ Refresh the authenticated user's profile before the app opens.
+      await fetchAndSaveUserProfile();
+
+      if (mounted) {
+        // Keep the chat session bound to the user who just signed in.
+        legacy_provider.Provider.of<ChatProvider>(
+          context,
+          listen: false,
+        ).setUserId(userId);
+        _showSnackBar('Welcome ${user['name'] ?? ''}'.trim());
+      }
+
+      // 3️⃣ Publish the session — AuthGate rebuilds straight into BottomBars.
+      await AuthSession.instance.refresh();
+    } on SocketException catch (e) {
+      await _showError(
+        title: AppErrorMessage.offlineTitle,
+        message: AppErrorMessage.bodyFor(e),
+      );
+    } on TimeoutException {
+      await _showError(
+        title: AppErrorMessage.timeoutTitle,
+        message: AppErrorMessage.timeoutBody,
+      );
+    } on PlatformException catch (e, stack) {
+      debugPrint('🚨 Google Sign-In platform error: ${e.code} ${e.message}\n$stack');
+
+      // `sign_in_failed … ApiException: 10` is DEVELOPER_ERROR: Play Services
+      // could not match this build to an OAuth client (signing certificate,
+      // package name or client id mismatch). Nothing the user can fix by
+      // retrying, so say so plainly rather than showing a generic failure.
+      final bool misconfigured =
+          e.code == 'sign_in_failed' && '${e.message}'.contains('10:');
+
+      await _showError(
+        title: misconfigured ? 'Sign-in unavailable' : 'Sign-in failed',
+        message: misconfigured
+            ? 'Google Sign-In is not configured for this build of the app. '
+                  'Please update to the latest version or contact support.'
+            : AppErrorMessage.bodyFor(e),
+      );
     } catch (e, stack) {
-      print('🚨 Google Sign-In failed: $e');
-      print(stack);
-      _showSnackBar('Google Sign-In failed: $e');
+      debugPrint('🚨 Google Sign-In failed: $e\n$stack');
+      await _showError(
+        title: AppErrorMessage.titleFor(e),
+        message: AppErrorMessage.bodyFor(e),
+      );
+    } finally {
+      if (mounted) setState(() => _isSigningIn = false);
     }
   }
 
@@ -328,12 +473,56 @@ class _SignInScreenState extends State<SignInScreen> {
     AppSnackbar.info(context, message);
   }
 
-  /// Unchanged behaviour: the entry button routes into the app exactly as
-  /// before. Google sign-in stays available via [_signInWithGoogle].
-  void _continue() {
-    Navigator.pushReplacement(
+  /// Opens the HappyWedz Vendors app on the Play Store.
+  ///
+  /// Tries the `market:` scheme first so the Play Store app handles it
+  /// directly; falls back to the https listing (browser / Play web) when the
+  /// store app is unavailable, e.g. on a device without Play Services.
+  Future<void> _openVendorApp() async {
+    const packageName = 'com.happy.happy_weds_vendors';
+    final market = Uri.parse('market://details?id=$packageName');
+    final web = Uri.parse(
+      'https://play.google.com/store/apps/details?id=$packageName',
+    );
+
+    try {
+      if (await canLaunchUrl(market)) {
+        final opened = await launchUrl(
+          market,
+          mode: LaunchMode.externalApplication,
+        );
+        if (opened) return;
+      }
+
+      final opened = await launchUrl(
+        web,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) {
+        _showSnackBar('Could not open the Play Store.');
+      }
+    } catch (e) {
+      debugPrint('Could not open vendor app listing: $e');
+      _showSnackBar('Could not open the Play Store.');
+    }
+  }
+
+  /// Error feedback with a one-tap retry, using the shared popup.
+  Future<void> _showError({
+    required String title,
+    required String message,
+  }) async {
+    if (!mounted) return;
+    await ErrorPopup.show(
       context,
-      MaterialPageRoute(builder: (context) => const BottomBars()),
+      title: title,
+      message: message,
+      retryLabel: 'Try Again',
+      // Deferred by a frame so the in-flight attempt finishes releasing the
+      // re-entrancy guard before the retry starts.
+      onRetry: () => WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _signInWithGoogle(),
+      ),
     );
   }
 
@@ -433,25 +622,9 @@ class _SignInScreenState extends State<SignInScreen> {
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: AppSpacing.xl),
-                                  _GoogleButton(onPressed: _continue),
-                                  const SizedBox(height: AppSpacing.lg),
-                                  Row(
-                                    children: [
-                                      const Expanded(child: Divider()),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: AppSpacing.md,
-                                        ),
-                                        child: Text('or', style: AppText.caption),
-                                      ),
-                                      const Expanded(child: Divider()),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppSpacing.lg),
-                                  PremiumButton.outlined(
-                                    label: 'Continue as Guest',
-                                    icon: Icons.explore_outlined,
-                                    onPressed: _continue,
+                                  _GoogleButton(
+                                    onPressed: _signInWithGoogle,
+                                    isLoading: _isSigningIn,
                                   ),
                                 ],
                               ),
@@ -463,7 +636,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           PremiumButton.text(
                             label: 'Looking for a Business Account?',
                             expanded: true,
-                            onPressed: () {},
+                            onPressed: _openVendorApp,
                           ),
 
                           const SizedBox(height: AppSpacing.xl),
@@ -483,15 +656,18 @@ class _SignInScreenState extends State<SignInScreen> {
 
 /// White Google button matching the platform guidelines, with press feedback.
 class _GoogleButton extends StatelessWidget {
-  const _GoogleButton({required this.onPressed});
+  const _GoogleButton({required this.onPressed, this.isLoading = false});
 
   final VoidCallback onPressed;
+
+  /// While true the button shows a spinner and stops accepting taps.
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     return Pressable(
       scale: 0.98,
-      onTap: onPressed,
+      onTap: isLoading ? null : onPressed,
       withRipple: true,
       borderRadius: AppRadii.rMd,
       rippleColor: AppColors.primary.withValues(alpha: 0.08),
@@ -506,20 +682,30 @@ class _GoogleButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/google.png',
-              width: 22,
-              height: 22,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.g_mobiledata_rounded,
-                size: 24,
-                color: AppColors.textDark,
+            if (isLoading)
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              )
+            else
+              Image.asset(
+                'assets/google.png',
+                width: 22,
+                height: 22,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.g_mobiledata_rounded,
+                  size: 24,
+                  color: AppColors.textDark,
+                ),
               ),
-            ),
             const SizedBox(width: AppSpacing.md),
             Flexible(
               child: Text(
-                'Continue with Google',
+                isLoading ? 'Signing you in…' : 'Continue with Google',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppText.button.copyWith(color: AppColors.textDark),
@@ -1024,7 +1210,7 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
                   onTap: () {
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (context) => const BottomBars()),
+                      MaterialPageRoute(builder: (context) => const AuthGate()),
                           (route) => false,
                     );
                   },
@@ -1065,7 +1251,7 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
         Future.delayed(const Duration(milliseconds: 100), () {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const BottomBars()),
+            MaterialPageRoute(builder: (context) => const AuthGate()),
                 (route) => false,
           );
         });
@@ -1109,23 +1295,32 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
 
 
 
-// 👇 Don't import signin_screen.dart since it's already in main.dart
-
+/// Re-checks the stored session before a protected action runs.
+///
+/// The app is gated at the root by [AuthGate], so this is a second line of
+/// defence for tokens that expire while the user is inside the app: when the
+/// session is gone, [AuthSession] notifies the gate, which tears the stack
+/// down and shows the login screen. Callers only need the boolean.
 Future<bool> ensureLoggedIn(BuildContext context) async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('auth_token');
+  return AuthSession.instance.refresh();
+}
 
-  if (token != null && token.isNotEmpty) {
-    return true; // ✅ already logged in
+/// Logout entry point used everywhere: clears the session, then unwinds the
+/// navigator so no protected screen is left behind [AuthGate].
+Future<void> signOutToLogin(BuildContext context) async {
+  // AUDIT FIX (async context): the navigator was resolved *after* the await,
+  // and `Navigator.maybeOf(context)` on a context whose element has since been
+  // unmounted throws. Capturing it first means the fallback is looked up while
+  // the caller's context is still guaranteed valid; `rootNavigatorKey` is a
+  // GlobalKey and stays safe to read at any time.
+  final NavigatorState? fallback = Navigator.maybeOf(context);
+
+  await AuthSession.instance.signOut();
+
+  final navigator = rootNavigatorKey.currentState ?? fallback;
+  if (navigator != null && navigator.mounted && navigator.canPop()) {
+    navigator.popUntil((route) => route.isFirst);
   }
-
-  // 🚫 not logged in → go to SignInScreen (which is defined below in main.dart)
-  final result = await Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const SignInScreen()),
-  );
-
-  return result == true; // ✅ if login succeeded
 }
 
 
@@ -1142,7 +1337,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Future.delayed(const Duration(seconds: 5), () {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const BottomBars()),
+        MaterialPageRoute(builder: (context) => const AuthGate()),
       );
     });
   }
@@ -1312,7 +1507,7 @@ class _TravelPromoScreenState extends State<TravelPromoScreen> {
     Timer(Duration(seconds: 2), () {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => BottomBars()), // replace with your screen
+        MaterialPageRoute(builder: (context) => const AuthGate()), // replace with your screen
       );
     });
   }
@@ -1718,27 +1913,16 @@ class MakeMyTripHomePage extends StatelessWidget {
   }
 }
 
+/// Thin wrapper kept for call sites — [AuthSession] owns the actual rules so
+/// expiry and logout can't diverge between here and the gate.
 class AuthUtils {
-  static const int tokenExpiryDays = 2;
+  static const int tokenExpiryDays = AuthSession.tokenExpiryDays;
 
-  // Check if token expired
+  /// True when there is no usable session (missing, invalid or expired token).
   static Future<bool> isTokenExpired() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedAt = prefs.getString('token_saved_at');
-
-    if (savedAt == null) return true; // No token saved
-
-    final savedTime = DateTime.parse(savedAt);
-    final now = DateTime.now();
-
-    final difference = now.difference(savedTime).inDays;
-
-    return difference >= tokenExpiryDays;
+    return !await AuthSession.instance.refresh();
   }
 
   // Logout function
-  static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-  }
+  static Future<void> logout() => AuthSession.instance.signOut();
 }

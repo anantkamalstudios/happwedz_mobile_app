@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'designstudio22.dart';
+import 'design_studio_ui.dart';
 //
 // import 'package:flutter/material.dart';
 // import 'package:image_picker/image_picker.dart';
@@ -16,122 +17,286 @@ import 'designstudio22.dart';
 class VirtualTryOnScreennnnnnn extends StatelessWidget {
   const VirtualTryOnScreennnnnnn({super.key});
 
+  /// The three experiences this flow actually leads to. Nothing invented —
+  /// each one maps to a real card on [VirtualDesignBrideScreen].
+  static const List<(IconData, String, String, bool)> _capabilities = [
+    (
+      Icons.brush_rounded,
+      'Makeup Try-On',
+      'Foundation, lips, eyes and more — tuned live',
+      true,
+    ),
+    (
+      Icons.diamond_outlined,
+      'Jewellery Try-On',
+      'Necklaces, maang tikka and earrings',
+      false,
+    ),
+    (
+      Icons.checkroom_rounded,
+      'Outfit Try-On',
+      'Lehengas, sarees and gowns',
+      false,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.md,
-                ),
-                child: Text(
-                  'Design Studio',
-                  style: AppText.pageTitle.copyWith(
-                    color: AppColors.textOnPrimary,
+      backgroundColor: AppColors.background,
+      body: Column(
+        children: [
+          // ---- App bar ----
+          // This screen is a bottom-nav root, so it carries no back button.
+          GradientHeader(
+            gradient: AppColors.brandGradientH,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              AppSpacing.md,
+              AppSpacing.xl,
+              AppSpacing.xl,
+            ),
+            child: StudioContent(
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                      size: 21,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'HappyWedz Studio',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.pageTitle.copyWith(
+                            color: AppColors.textOnPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Virtual try-on',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.caption.copyWith(
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+            ),
+          ),
 
-              // Hero frame
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
+          // ---- Body ----
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.xxl,
+                AppSpacing.lg,
+                AppSpacing.xxxl,
+              ),
+              child: StudioContent(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      color: Colors.black,
-                      child: Image.asset(
-                        'assets/1g.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Container(color: Colors.grey[850]),
+                    FadeSlideIn(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const StudioEyebrow(
+                            label: 'AI POWERED',
+                            icon: Icons.auto_awesome_rounded,
+                            onCanvas: false,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Text(
+                            'See your look\nbefore the big day',
+                            style: AppText.displaySm.copyWith(
+                              height: 1.15,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Upload one photo and try your bridal look on '
+                            'in seconds.',
+                            style: AppText.body.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
-                    // Scrim keeps the copy readable over any photo.
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0x33000000),
-                            Color(0x99000000),
-                          ],
-                        ),
-                      ),
-                      child: SizedBox.expand(),
-                    ),
+                    const SizedBox(height: AppSpacing.xxl),
 
-                    CustomPaint(
-                      size: Size.infinite,
-                      painter: FrameBracketsPainter(),
-                    ),
-
-                    // Copy + CTA
-                    Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xxl,
-                          vertical: AppSpacing.xxl,
+                    for (int i = 0; i < _capabilities.length; i++)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: i == _capabilities.length - 1
+                              ? 0
+                              : AppSpacing.md,
                         ),
-                        child: FadeSlideIn(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'VIRTUAL TRY-ON',
-                                textAlign: TextAlign.center,
-                                style: AppText.display.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 30,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              Text(
-                                'Wedding fit is an innovative idea that helps '
-                                'you find your perfect clothes.',
-                                textAlign: TextAlign.center,
-                                style: AppText.body.copyWith(
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.xxl),
-                              SizedBox(
-                                width: 200,
-                                child: PremiumButton(
-                                  label: 'Get Started',
-                                  trailingIcon: Icons.arrow_forward_rounded,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      AnimatedPageRoute(
-                                        page:
-                                            const VirtualDesignChooseScreen(),
-                                        style:
-                                            PageTransitionStyle.slideRight,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
+                        child: FadeSlideIn.staggered(
+                          index: i + 1,
+                          child: _CapabilityTile(
+                            icon: _capabilities[i].$1,
+                            title: _capabilities[i].$2,
+                            description: _capabilities[i].$3,
+                            available: _capabilities[i].$4,
                           ),
                         ),
                       ),
+
+                    const SizedBox(height: AppSpacing.xxl),
+
+                    PremiumButton(
+                      label: 'Get Started',
+                      trailingIcon: Icons.arrow_forward_rounded,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          AnimatedPageRoute(
+                            page: const VirtualDesignChooseScreen(),
+                            style: PageTransitionStyle.slideRight,
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 13,
+                          color: AppColors.textTertiary,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Photos are processed securely and deleted '
+                            'after processing.',
+                            style: AppText.caption,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One try-on experience on the studio landing screen.
+class _CapabilityTile extends StatelessWidget {
+  const _CapabilityTile({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.available,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool available;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard.outlined(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: available ? AppColors.blushDeep : AppColors.background,
+              borderRadius: AppRadii.rMd,
+            ),
+            child: Icon(
+              icon,
+              size: 21,
+              color: available ? AppColors.primary : AppColors.textTertiary,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.cardTitle,
+                      ),
+                    ),
+                    if (!available) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: AppRadii.rPill,
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: Text(
+                          'Soon',
+                          style: AppText.caption.copyWith(
+                            color: AppColors.textTertiary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.cardSubtitle,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -516,165 +681,200 @@ class VirtualDesignChooseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const _StudioAppBar(title: 'Visual Design'),
+    // Same three options, same order, same tap behaviour as before — only the
+    // presentation and the availability signal are new.
+    const options = <(String, String, String, bool)>[
+      ('Bride', 'assets/bride.png', 'Makeup, jewellery and outfit try-on', true),
+      ('Groom', 'assets/groom.png', 'Sherwani and accessory try-on', false),
+      ('Others', 'assets/other.png', 'Looks for the rest of the party', false),
+    ];
 
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.sm,
-                    AppSpacing.lg,
-                    AppSpacing.xxxl,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'CHOOSE ONE',
-                        textAlign: TextAlign.center,
-                        style: AppText.display.copyWith(
-                          fontSize: 24,
-                          color: AppColors.magenta,
-                          letterSpacing: 1.2,
-                        ),
+    return _StudioPageShell(
+      title: 'Visual Design',
+      eyebrow: 'STEP 1',
+      heading: 'Who are we styling?',
+      subheading:
+          'Pick a profile to see the try-on experiences built for it.',
+      children: [
+        for (int i = 0; i < options.length; i++)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: i == options.length - 1 ? 0 : AppSpacing.lg,
+            ),
+            child: FadeSlideIn.staggered(
+              index: i,
+              child: StudioOptionCard(
+                title: options[i].$1,
+                imagePath: options[i].$2,
+                subtitle: options[i].$3,
+                available: options[i].$4,
+                onTap: () {
+                  if (options[i].$1 == 'Bride') {
+                    Navigator.push(
+                      context,
+                      AnimatedPageRoute(
+                        page: const VirtualDesignBrideScreen(),
+                        style: PageTransitionStyle.slideRight,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Completely fill the screen with a single person photo',
-                        textAlign: TextAlign.center,
-                        style: AppText.bodySm,
-                      ),
-                      const SizedBox(height: AppSpacing.xxl),
-
-                      for (final option in const [
-                        ('Bride', 'assets/bride.png'),
-                        ('Groom', 'assets/groom.png'),
-                        ('Others', 'assets/other.png'),
-                      ])
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSpacing.xl,
-                          ),
-                          child: _buildOptionCard(
-                            context,
-                            option.$1,
-                            option.$2,
-                            () {
-                              if (option.$1 == 'Bride') {
-                                Navigator.push(
-                                  context,
-                                  AnimatedPageRoute(
-                                    page: const VirtualDesignBrideScreen(),
-                                    style: PageTransitionStyle.slideRight,
-                                  ),
-                                );
-                              } else {
-                                AppSnackbar.info(
-                                  context,
-                                  '${option.$1} try-on is coming soon.',
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                    );
+                  } else {
+                    AppSnackbar.info(
+                      context,
+                      '${options[i].$1} try-on is coming soon.',
+                    );
+                  }
+                },
               ),
-            ],
+            ),
           ),
+        const SizedBox(height: AppSpacing.lg),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.photo_camera_front_outlined,
+              size: 14,
+              color: AppColors.textTertiary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Works best with a single-person photo that fills the frame.',
+                style: AppText.caption,
+              ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  /// Full-bleed option tile. Width follows the viewport — the previous fixed
-  /// 377px overflowed on anything narrower than a large phone.
-  Widget _buildOptionCard(
-    BuildContext context,
-    String title,
-    String imagePath,
-    VoidCallback onTap,
-  ) {
-    return Pressable(
-      onTap: onTap,
-      borderRadius: AppRadii.rLg,
-      child: ClipRRect(
-        borderRadius: AppRadii.rLg,
-        child: AspectRatio(
-          aspectRatio: 377 / 310,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                imagePath,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: AppColors.pinkSurface,
-                  child: const Icon(
-                    Icons.person_rounded,
-                    size: 56,
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(gradient: AppColors.imageScrim),
-                child: SizedBox.expand(),
-              ),
-              Positioned(
-                bottom: AppSpacing.xl,
-                left: AppSpacing.lg,
-                right: AppSpacing.lg,
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: AppText.sectionTitle.copyWith(
-                    color: Colors.white,
-                    letterSpacing: 1.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      ],
     );
   }
 }
 
 /// Shared translucent app bar for the studio flow.
+///
+/// Kept as-is for every existing caller; it now simply defers to the shared
+/// [StudioTopBar] so the whole studio has one header treatment.
 class _StudioAppBar extends StatelessWidget {
   const _StudioAppBar({required this.title});
 
   final String title;
 
   @override
+  Widget build(BuildContext context) => StudioTopBar(title: title);
+}
+
+/// Standard page shell for the studio's light "choose something" screens:
+/// brand header band, headline block, scrollable body and an optional
+/// pinned action bar.
+///
+/// Presentation only — it takes widgets and renders them.
+class _StudioPageShell extends StatelessWidget {
+  const _StudioPageShell({
+    required this.title,
+    required this.heading,
+    required this.children,
+    this.eyebrow,
+    this.subheading,
+    this.bottomBar,
+  });
+
+  final String title;
+  final String heading;
+  final List<Widget> children;
+  final String? eyebrow;
+  final String? subheading;
+  final Widget? bottomBar;
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.sm,
-      ),
-      child: Row(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Column(
         children: [
-          const AppBackButton(color: AppColors.textOnPrimary),
+          GradientHeader(
+            gradient: AppColors.brandGradientH,
+            padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _StudioAppBar(title: title),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.sm,
+                    AppSpacing.xl,
+                    0,
+                  ),
+                  child: StudioContent(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (eyebrow != null) ...[
+                          StudioEyebrow(label: eyebrow!),
+                          const SizedBox(height: AppSpacing.md),
+                        ],
+                        Text(
+                          heading,
+                          style: AppText.displaySm.copyWith(
+                            color: AppColors.textOnPrimary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        if (subheading != null) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            subheading!,
+                            style: AppText.bodySm.copyWith(
+                              color: Colors.white.withValues(alpha: 0.88),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppText.pageTitle.copyWith(
-                color: AppColors.textOnPrimary,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xxxl,
+              ),
+              child: StudioContent(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 44),
+
+          if (bottomBar != null)
+            Container(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.divider)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                  ),
+                  child: StudioContent(child: bottomBar!),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -686,75 +886,53 @@ class VirtualDesignBrideScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const _StudioAppBar(title: 'Visual Design'),
-
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.md,
-                    AppSpacing.lg,
-                    AppSpacing.xxxl,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Choose one',
-                        textAlign: TextAlign.center,
-                        style: AppText.display.copyWith(
-                          fontSize: 22,
-                          color: AppColors.magenta,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Completely fill the screen with a single person photo',
-                        textAlign: TextAlign.center,
-                        style: AppText.bodySm,
-                      ),
-                      const SizedBox(height: AppSpacing.xxl),
-
-                      _buildImageCard(
-                        context,
-                        'assets/group3.png',
-                        'MAKEUP TRY ON',
-                        onTap: () => _openConsent(context),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildImageCard(
-                        context,
-                        'assets/group2.png',
-                        'JEWELLERY TRY ON',
-                        onTap: () => AppSnackbar.info(
-                          context,
-                          'Jewellery try-on is coming soon.',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildImageCard(
-                        context,
-                        'assets/group1.png',
-                        'OUTFIT TRY ON',
-                        onTap: () => AppSnackbar.info(
-                          context,
-                          'Outfit try-on is coming soon.',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+    return _StudioPageShell(
+      title: 'Visual Design',
+      eyebrow: 'STEP 2',
+      heading: 'Choose an experience',
+      subheading: 'Start with makeup — the rest are on the way.',
+      children: [
+        FadeSlideIn.staggered(
+          index: 0,
+          child: StudioOptionCard(
+            title: 'Makeup Try-On',
+            subtitle: 'Foundation, lips, eyes and more, tuned live',
+            imagePath: 'assets/group3.png',
+            fallbackIcon: Icons.face_retouching_natural_rounded,
+            onTap: () => _openConsent(context),
           ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.lg),
+        FadeSlideIn.staggered(
+          index: 1,
+          child: StudioOptionCard(
+            title: 'Jewellery Try-On',
+            subtitle: 'Necklaces, maang tikka and earrings',
+            imagePath: 'assets/group2.png',
+            fallbackIcon: Icons.diamond_outlined,
+            available: false,
+            onTap: () => AppSnackbar.info(
+              context,
+              'Jewellery try-on is coming soon.',
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        FadeSlideIn.staggered(
+          index: 2,
+          child: StudioOptionCard(
+            title: 'Outfit Try-On',
+            subtitle: 'Lehengas, sarees and gowns',
+            imagePath: 'assets/group1.png',
+            fallbackIcon: Icons.checkroom_rounded,
+            available: false,
+            onTap: () => AppSnackbar.info(
+              context,
+              'Outfit try-on is coming soon.',
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -763,64 +941,8 @@ class VirtualDesignBrideScreen extends StatelessWidget {
   void _openConsent(BuildContext context) {
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.42),
+      barrierColor: StudioTokens.canvas.withValues(alpha: 0.55),
       builder: (_) => const PrivacyPopupDialog(),
-    );
-  }
-
-  /// Try-on tile. Height follows the viewport instead of a fixed 430x400,
-  /// which overflowed horizontally on standard phones.
-  Widget _buildImageCard(
-    BuildContext context,
-    String imagePath,
-    String buttonText, {
-    required VoidCallback onTap,
-  }) {
-    return Pressable(
-      onTap: onTap,
-      borderRadius: AppRadii.rLg,
-      child: ClipRRect(
-        borderRadius: AppRadii.rLg,
-        child: AspectRatio(
-          aspectRatio: 430 / 400,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(
-                color: Colors.black,
-                child: Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey[850],
-                    child: const Center(
-                      child: Icon(
-                        Icons.person_rounded,
-                        size: 72,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(gradient: AppColors.imageScrim),
-                child: SizedBox.expand(),
-              ),
-              Positioned(
-                bottom: AppSpacing.xxl,
-                left: AppSpacing.xxxl,
-                right: AppSpacing.xxxl,
-                child: PremiumButton(
-                  label: buttonText,
-                  size: PremiumButtonSize.medium,
-                  onPressed: onTap,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -902,126 +1024,182 @@ class _PrivacyPopupDialogState extends State<PrivacyPopupDialog> {
   bool consent1 = true;
   bool consent2 = true;
 
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Title + Close button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Our Privacy",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFD81B60),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFFD81B60)),
-                    onPressed: () => Navigator.of(context).pop(),
-                  )
-                ],
-              ),
-              const SizedBox(height: 8),
+  /// Legal copy — reproduced verbatim from the previous dialog. Do not
+  /// reword this without sign-off; only its presentation changed.
+  static const String _policy =
+      "To access this service, you must be at least 18 years old. By "
+      "continuing, you agree that HappyWedz may temporarily store your "
+      "uploaded image only for the purpose of applying AI filters and "
+      "generating your virtual try-on experience. Your photos are never "
+      "shared, sold, or used for any purpose other than providing this "
+      "feature. Images are stored securely and automatically deleted within "
+      "a short period after processing, in line with our data retention "
+      "policy.";
 
-              const Text(
-                "To access this service, you must be at least 18 years old. By continuing, you agree that HappyWedz may temporarily store your uploaded image only for the purpose of applying AI filters and generating your virtual try-on experience. Your photos are never shared, sold, or used for any purpose other than providing this feature. Images are stored securely and automatically deleted within a short period after processing, in line with our data retention policy.",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
+  bool get _canProceed => consent1 && consent2;
 
-              const SizedBox(height: 16),
-
-              _buildCheckbox(
-                value: consent1,
-                onChanged: (val) => setState(() => consent1 = val!),
-                text: "I agree to use my image for AI try-on filters.",
-              ),
-              const SizedBox(height: 8),
-              _buildCheckbox(
-                value: consent2,
-                onChanged: (val) => setState(() => consent2 = val!),
-                text: "I am 18+ and accept HappyWedz’s privacy terms.",
-              ),
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: (consent1 && consent2)
-                      ? () {
-                    Navigator.of(context).pop(); // close popup first
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MakeupTryOnScreen123(),
-                      ),
-                    );
-                  }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFD81B60),
-                    disabledBackgroundColor:
-                    const Color(0xFFD81B60).withValues(alpha: 0.4),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    "I Consent",
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                  ),
-                ),
-              )
-            ],
-          ),
-        ),
+  void _onConsent() {
+    Navigator.of(context).pop(); // close popup first
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: const MakeupTryOnScreen123(),
+        style: PageTransitionStyle.slideRight,
       ),
     );
   }
 
-  Widget _buildCheckbox({
-    required bool value,
-    required Function(bool?) onChanged,
-    required String text,
-  }) {
-    return InkWell(
-      onTap: () => onChanged(!value),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Checkbox(
-            value: value,
-            onChanged: onChanged,
-            activeColor: const Color(0xFFD81B60),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 13.5,
-                height: 1.4,
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      clipBehavior: Clip.antiAlias,
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xxl,
+      ),
+      shape: const RoundedRectangleBorder(borderRadius: AppRadii.rXl),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 440,
+          // Never taller than the viewport — the body scrolls instead.
+          maxHeight: media.size.height * 0.86,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ---- Header band ----
+            Container(
+              decoration: const BoxDecoration(
+                gradient: AppColors.brandGradientH,
+              ),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.shield_outlined,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Our Privacy',
+                          style: AppText.sectionTitle.copyWith(
+                            color: AppColors.textOnPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Before your try-on begins',
+                          style: AppText.caption.copyWith(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+
+            // ---- Scrollable body ----
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.xl,
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _policy,
+                      style: AppText.bodySm.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    StudioConsentTile(
+                      value: consent1,
+                      onChanged: (val) => setState(() => consent1 = val),
+                      text: "I agree to use my image for AI try-on filters.",
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    StudioConsentTile(
+                      value: consent2,
+                      onChanged: (val) => setState(() => consent2 = val),
+                      text:
+                          "I am 18+ and accept HappyWedz’s privacy terms.",
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ---- Actions ----
+            Container(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.divider)),
+              ),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.md,
+                AppSpacing.xl,
+                AppSpacing.lg,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PremiumButton(
+                    label: 'I Consent',
+                    icon: Icons.check_circle_outline_rounded,
+                    enabled: _canProceed,
+                    onPressed: _canProceed ? _onConsent : null,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  PremiumButton.text(
+                    label: 'Not now',
+                    expanded: true,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1865,95 +2043,131 @@ class _MakeupTryOnScreen123State extends State<MakeupTryOnScreen123> {
   // 🖼️ Open Gallery
   Future<void> _pickFromGallery() => _pick(ImageSource.gallery);
 
+  /// Guidance copy. Static UI text, not API content.
+  static const List<(IconData, String)> _tips = [
+    (
+      Icons.wb_sunny_outlined,
+      'Shoot in soft, even light — avoid harsh shadows.',
+    ),
+    (
+      Icons.face_outlined,
+      'Face the camera straight on and fill the frame.',
+    ),
+    (
+      Icons.visibility_off_outlined,
+      'Remove glasses and pull hair away from your face.',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: GradientBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              const _StudioAppBar(title: 'Visual Design'),
-
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
-                  child: Column(
-                    children: [
-                      // Preview
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: AppRadii.rXl,
-                          child: AspectRatio(
-                            aspectRatio: 0.92,
-                            child: Image.asset(
-                              'assets/rect.png',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    color: AppColors.pinkSurface,
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.face_retouching_natural_rounded,
-                                        size: 64,
-                                        color: AppColors.textTertiary,
-                                      ),
-                                    ),
-                                  ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: AppSpacing.xxl),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xxl,
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Virtual Try-On',
-                              textAlign: TextAlign.center,
-                              style: AppText.display.copyWith(fontSize: 24),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              'Instantly try on makeup looks virtually '
-                              'before you order',
-                              textAlign: TextAlign.center,
-                              style: AppText.bodySm,
-                            ),
-                            const SizedBox(height: AppSpacing.xxl),
-
-                            PremiumButton(
-                              label: 'SELFIE MODE',
-                              icon: Icons.photo_camera_rounded,
-                              isLoading: _picking,
-                              onPressed: _pickFromCamera,
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            PremiumButton.outlined(
-                              label: 'UPLOAD PHOTO',
-                              icon: Icons.photo_library_outlined,
-                              enabled: !_picking,
-                              onPressed: _pickFromGallery,
-                            ),
-                          ],
+    return _StudioPageShell(
+      title: 'Visual Design',
+      eyebrow: 'MAKEUP TRY-ON',
+      heading: 'Add your photo',
+      subheading: 'We only need one clear, front-facing photo.',
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PremiumButton(
+            label: 'Take a selfie',
+            icon: Icons.photo_camera_rounded,
+            isLoading: _picking,
+            onPressed: _pickFromCamera,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          PremiumButton.outlined(
+            label: 'Upload a photo',
+            icon: Icons.photo_library_outlined,
+            enabled: !_picking,
+            onPressed: _pickFromGallery,
+          ),
+        ],
+      ),
+      children: [
+        FadeSlideIn(
+          child: ClipRRect(
+            borderRadius: AppRadii.rXl,
+            child: AspectRatio(
+              aspectRatio: 1.02,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: AppColors.pinkSurface,
+                    child: Image.asset(
+                      'assets/rect.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(
+                          Icons.face_retouching_natural_rounded,
+                          size: 64,
+                          color: AppColors.textTertiary,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(gradient: StudioTokens.cardScrim),
+                    child: SizedBox.expand(),
+                  ),
+                  const IgnorePointer(
+                    child: CustomPaint(
+                      painter: StudioFramePainter(
+                        inset: 16,
+                        tick: 24,
+                        opacity: 0.55,
+                      ),
+                      child: SizedBox.expand(),
+                    ),
+                  ),
+                  Positioned(
+                    left: AppSpacing.lg,
+                    right: AppSpacing.lg,
+                    bottom: AppSpacing.lg,
+                    child: Text(
+                      'Frame your face like this',
+                      textAlign: TextAlign.center,
+                      style: AppText.label.copyWith(
+                        color: StudioTokens.onCanvas,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+
+        const SizedBox(height: AppSpacing.xl),
+
+        FadeSlideIn.staggered(
+          index: 1,
+          child: AppCard.outlined(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.tips_and_updates_outlined,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text('For the best result', style: AppText.cardTitle),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                for (final (icon, text) in _tips)
+                  StudioTipRow(icon: icon, title: text),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

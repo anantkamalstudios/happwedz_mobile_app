@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -29,6 +30,9 @@ class _SplashScreenState extends State<SplashScreen>
     'assets/Splash7.png',
     'assets/Splash3.png',
   ];
+
+
+
 
   late final AnimationController _logoController;
   late final Animation<double> _scaleAnimation;
@@ -65,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen>
       Navigator.pushReplacement(
         context,
         AnimatedPageRoute(
-          page: const AuthWrapper(),
+          page: const AuthGate(),
           style: PageTransitionStyle.fade,
         ),
       );

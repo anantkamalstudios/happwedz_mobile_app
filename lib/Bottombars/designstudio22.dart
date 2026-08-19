@@ -4644,6 +4644,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'design_studio_ui.dart';
 
 class CategoryModel {
   final int id;
@@ -4707,6 +4708,16 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
   Uint8List? _processedImageBytes;
 
   Object? _productsError;
+
+  /// True once a catalogue fetch has settled (success OR failure), so the
+  /// picker can tell "still loading" apart from "the catalogue is empty".
+  /// Presentation state only — the request itself is unchanged.
+  bool _productsLoaded = false;
+
+  /// Dismissible message shown over the stage when an upload/apply call
+  /// fails. Surfaces errors that were previously only debugPrint-ed; the
+  /// requests, payloads and parsing are untouched.
+  String? _stageNotice;
   List<CategoryModel> apiCategories = [];
   List<List<Brand>> apiBrandsByCategory = [];
 
@@ -4819,10 +4830,44 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
     return 1.0;
   }
 
+  // -------------------------------------------------------------------------
+  // Presentation helpers
+  //
+  // These derive display values from state that already exists. They do not
+  // fetch, parse or mutate anything the API layer cares about.
+  // -------------------------------------------------------------------------
+
+  /// Name of the category currently being edited, or null when none is active.
+  String? get _activeCategoryName =>
+      (selectedCategory >= 0 && selectedCategory < apiCategories.length)
+          ? apiCategories[selectedCategory].name
+          : null;
+
+  /// The colour currently applied for the active category, read back from the
+  /// same `selections` map the payload builder uses.
+  Color? get _activeShadeColor {
+    final hex = selections[selectedCategory]?['color'];
+    if (hex is! String) return null;
+    var h = hex.replaceAll('#', '').trim();
+    if (h.length == 6) h = 'FF$h';
+    if (h.length != 8) return null;
+    final value = int.tryParse(h, radix: 16);
+    return value == null ? null : Color(value);
+  }
+
+  /// Intensity for the active category as a safe 0..1 double.
+  double get _activeIntensity {
+    final raw = selections[selectedCategory]?['intensity'];
+    if (raw is num) return raw.toDouble().clamp(0.0, 1.0);
+    return 1.0;
+  }
+
+  bool get _isBusy => _isUploading || _isApplying;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: StudioTokens.canvas,
       body: Column(
         children: [
           _buildTopBar(),
@@ -4831,127 +4876,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
               index: _currentTab,
               children: [
                 // ---------------- SHADES TAB ----------------
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    // The preview used to be a fixed 525px, which overflowed
-                    // on shorter phones. Give it a share of the real height
-                    // and leave the rest for the picker.
-                    final previewHeight = (constraints.maxHeight * 0.62)
-                        .clamp(240.0, 525.0);
-
-                    return Column(
-                      children: [
-                        Container(
-                          height: previewHeight,
-                          margin: const EdgeInsets.all(AppSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: AppColors.shimmerBase,
-                            borderRadius: AppRadii.rLg,
-                            boxShadow: AppColors.shadowMd,
-                          ),
-                          child: Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: AppRadii.rLg,
-                                child: SizedBox.expand(
-                                  child: _processedImageBytes != null
-                                      ? Image.memory(
-                                          _processedImageBytes!,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : widget.userImage != null
-                                      ? Image.file(
-                                          widget.userImage!,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : Image(
-                                          image: _placeholderImage,
-                                          fit: BoxFit.cover,
-                                        ),
-                                ),
-                              ),
-
-                              // Upload / apply progress
-                              if (_isUploading || _isApplying)
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius: AppRadii.rLg,
-                                    child: ColoredBox(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.35,
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const AppLoader(color: Colors.white),
-                                          const SizedBox(height: AppSpacing.md),
-                                          Text(
-                                            _isUploading
-                                                ? 'Uploading your photo…'
-                                                : 'Applying your look…',
-                                            style: AppText.labelSm.copyWith(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                              // Intensity slider
-                              if (selectedShadeIndex != null)
-                                Positioned(
-                                  top: 50,
-                                  bottom: 50,
-                                  right: AppSpacing.sm,
-                                  child: RotatedBox(
-                                    quarterTurns: -1,
-                                    child: Slider(
-                                      value:
-                                          (selections[selectedCategory]?['intensity']
-                                                  ?.toDouble() ??
-                                              1.0),
-                                      min: 0.0,
-                                      max: 1.0,
-                                      activeColor: AppColors.primary,
-                                      inactiveColor: Colors.white54,
-                                      onChanged: (val) {
-                                        setState(() {
-                                          selections[selectedCategory]?['intensity'] =
-                                              val;
-                                        });
-                                        // Debounce apply so slider scrubs
-                                        // don't spam the API.
-                                        _scheduleApplyDebounced(500);
-                                      },
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: apiCategories.isEmpty
-                              ? _buildProductsPlaceholder()
-                              : ShadesScreen(
-                                  selectedCategory: selectedCategory,
-                                  selectedBrandIndex: selectedBrandIndex,
-                                  selectedShadeIndex: selectedShadeIndex,
-                                  onCategorySelected: _onCategorySelected,
-                                  onBrandSelected: _onBrandSelected,
-                                  onShadeSelected: _onShadeSelected,
-                                  brandsByCategory: apiBrandsByCategory,
-                                  categories: apiCategories
-                                      .map((c) => c.name)
-                                      .toList(),
-                                ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                _buildShadesTab(),
 
                 // Compare tab: LEFT original, RIGHT processed
                 CompareScreen(
@@ -4982,7 +4907,217 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
     );
   }
 
-  /// Shown while the product catalogue is loading, or when it failed.
+  /// Stage on top, product tray below. Both get a share of the *real* height
+  /// so nothing overflows on short phones.
+  Widget _buildShadesTab() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const chrome = AppSpacing.md * 2; // stage padding, top + bottom
+        final usable = constraints.maxHeight - chrome;
+
+        double stage = usable * 0.56;
+        if (stage > 440) stage = 440;
+        if (stage < 200) stage = 200;
+        // Always leave the tray a workable strip, whatever the viewport is.
+        final maxStage = usable - 200;
+        if (stage > maxStage) stage = maxStage;
+        if (stage < 0) stage = 0;
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.lg,
+                AppSpacing.md,
+              ),
+              child: SizedBox(height: stage, child: _buildStage()),
+            ),
+            Expanded(child: _buildTray()),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The photo stage — the user's picture is the hero of this screen.
+  Widget _buildStage() {
+    return Container(
+      decoration: BoxDecoration(
+        color: StudioTokens.canvasRaised,
+        borderRadius: AppRadii.rXl,
+        boxShadow: AppColors.shadowLg,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadii.rXl,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedSwitcher(
+              duration: AppMotion.normal,
+              child: _processedImageBytes != null
+                  ? Image.memory(
+                      _processedImageBytes!,
+                      key: ValueKey(_processedImageBytes!.length),
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    )
+                  : widget.userImage != null
+                  ? Image.file(
+                      widget.userImage!,
+                      key: const ValueKey('original'),
+                      fit: BoxFit.cover,
+                    )
+                  : Image(
+                      key: const ValueKey('placeholder'),
+                      image: _placeholderImage,
+                      fit: BoxFit.cover,
+                    ),
+            ),
+
+            // Which version am I looking at?
+            Positioned(
+              top: AppSpacing.md,
+              left: AppSpacing.md,
+              child: _processedImageBytes != null
+                  ? const StudioGlassChip(
+                      label: 'Look applied',
+                      accent: AppColors.success,
+                    )
+                  : const StudioGlassChip(
+                      label: 'Your photo',
+                      icon: Icons.photo_camera_front_outlined,
+                    ),
+            ),
+
+            // Friendly, dismissible failure notice (the request itself is
+            // unchanged — this only surfaces what used to be a debugPrint).
+            if (_stageNotice != null)
+              Positioned(
+                left: AppSpacing.md,
+                right: AppSpacing.md,
+                bottom: AppSpacing.md,
+                child: _buildStageNotice(),
+              ),
+
+            if (_isBusy)
+              StudioProcessingOverlay(
+                message: _isUploading
+                    ? 'Uploading your photo…'
+                    : 'Applying your look…',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStageNotice() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: StudioTokens.canvas.withValues(alpha: 0.86),
+        borderRadius: AppRadii.rMd,
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 16,
+            color: AppColors.error,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              _stageNotice!,
+              style: AppText.caption.copyWith(color: StudioTokens.onCanvas),
+            ),
+          ),
+          Pressable(
+            onTap: () => setState(() => _stageNotice = null),
+            borderRadius: AppRadii.rPill,
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.close_rounded,
+                size: 15,
+                color: StudioTokens.onCanvasMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Light control tray: drag affordance, intensity, then the picker.
+  Widget _buildTray() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadii.xl),
+        ),
+        boxShadow: AppColors.shadowLg,
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            width: 38,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.divider,
+              borderRadius: AppRadii.rPill,
+            ),
+          ),
+
+          // Intensity moved off the photo and into the tray — the old vertical
+          // slider sat on top of the user's face and was hard to hit.
+          if (selectedShadeIndex != null)
+            StudioIntensitySlider(
+              value: _activeIntensity,
+              label: 'Intensity',
+              swatch: _activeShadeColor,
+              enabled: !_isApplying,
+              onChanged: (val) {
+                setState(() {
+                  selections[selectedCategory]?['intensity'] = val;
+                });
+                // Debounce apply so slider scrubs don't spam the API.
+                _scheduleApplyDebounced(500);
+              },
+            ),
+
+          Expanded(
+            child: apiCategories.isEmpty
+                ? _buildProductsPlaceholder()
+                : ShadesScreen(
+                    selectedCategory: selectedCategory,
+                    selectedBrandIndex: selectedBrandIndex,
+                    selectedShadeIndex: selectedShadeIndex,
+                    onCategorySelected: _onCategorySelected,
+                    onBrandSelected: _onBrandSelected,
+                    onShadeSelected: _onShadeSelected,
+                    brandsByCategory: apiBrandsByCategory,
+                    categories: apiCategories.map((c) => c.name).toList(),
+                    categoryModels: apiCategories,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Loading / empty / error for the product catalogue.
   Widget _buildProductsPlaceholder() {
     if (_productsError != null) {
       return ErrorState(
@@ -4991,9 +5126,37 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
         onRetry: _fetchProducts,
       );
     }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      child: Skeletons.cardRail(count: 4, itemWidth: 130, height: 92),
+    if (_productsLoaded) {
+      return const EmptyState(
+        compact: true,
+        title: 'No products available',
+        message: 'The makeup catalogue is empty right now.',
+        icon: Icons.inventory_2_outlined,
+      );
+    }
+    // Skeleton mirrors the real breadcrumb + category rail below it.
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SkeletonBox(width: 96, height: 13, radius: 6),
+            const SizedBox(height: AppSpacing.lg),
+            Skeletons.cardRail(
+              count: 5,
+              itemWidth: 96,
+              height: 104,
+              padding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -5081,27 +5244,20 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
   }
 
   Widget _buildTopBar() {
-    return Container(
-      decoration: const BoxDecoration(gradient: AppColors.brandGradientH),
+    return ColoredBox(
+      color: StudioTokens.canvas,
       child: SafeArea(
         bottom: false,
-        child: SizedBox(
-          height: 56,
-          child: Row(
-            children: [
-              const AppBackButton(color: AppColors.textOnPrimary),
-              Expanded(
-                child: Text(
-                  'Visual Design',
-                  textAlign: TextAlign.center,
-                  style: AppText.pageTitle.copyWith(
-                    color: AppColors.textOnPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 44),
-            ],
-          ),
+        child: StudioTopBar(
+          title: 'Visual Design',
+          subtitle: _activeCategoryName,
+          trailing: _isBusy
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: AppLoader(size: 18, color: Colors.white),
+                )
+              : null,
         ),
       ),
     );
@@ -5111,57 +5267,33 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: const Border(top: BorderSide(color: AppColors.divider)),
-        boxShadow: AppColors.shadowSm,
+        boxShadow: AppColors.shadowMd,
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          children: [
-            _bottomTabButton('Shades', 0),
-            _bottomTabButton('Compare', 1),
-            _bottomTabButton('Complete Looks', 2),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _bottomTabButton(String label, int index) {
-    final isSelected = index == _currentTab;
-    return Expanded(
-      child: Pressable(
-        scale: 0.98,
-        withRipple: true,
-        onTap: () async {
-          if (index == 2) {
-            // apply makeup before showing Complete Looks to ensure final
-            // image available
-            await _maybeApplyMakeupForSelections();
-          }
-          if (mounted) setState(() => _currentTab = index);
-        },
-        child: AnimatedContainer(
-          duration: AppMotion.fast,
-          curve: AppMotion.standard,
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: isSelected ? AppColors.primary : Colors.transparent,
-                width: 3,
-              ),
-            ),
-            color: isSelected ? AppColors.blush : AppColors.surface,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.sm,
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: isSelected
-                ? AppText.buttonSm.copyWith(color: AppColors.primary)
-                : AppText.labelSm,
+          child: StudioSegmentedTabs(
+            labels: const ['Shades', 'Compare', 'Final Look'],
+            icons: const [
+              Icons.palette_outlined,
+              Icons.compare_rounded,
+              Icons.auto_awesome_rounded,
+            ],
+            index: _currentTab,
+            onChanged: (index) async {
+              if (index == 2) {
+                // apply makeup before showing Complete Looks to ensure final
+                // image available
+                await _maybeApplyMakeupForSelections();
+              }
+              if (mounted) setState(() => _currentTab = index);
+            },
           ),
         ),
       ),
@@ -5221,16 +5353,25 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
         }
 
         if (!mounted) return;
-        setState(() => _productsError = null);
+        setState(() {
+          _productsError = null;
+          _productsLoaded = true;
+        });
       } else {
         debugPrint('Failed to load products: ${resp.statusCode}');
         if (!mounted) return;
-        setState(() => _productsError = 'HTTP ${resp.statusCode}');
+        setState(() {
+          _productsError = 'HTTP ${resp.statusCode}';
+          _productsLoaded = true;
+        });
       }
     } catch (e) {
       debugPrint('Error fetching products: $e');
       if (!mounted) return;
-      setState(() => _productsError = e);
+      setState(() {
+        _productsError = e;
+        _productsLoaded = true;
+      });
     }
   }
 
@@ -5250,16 +5391,26 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
       if (streamed.statusCode == 200 || streamed.statusCode == 201) {
         final jsonResp = jsonDecode(respStr) as Map<String, dynamic>;
         _uploadedImageId = jsonResp['id']?.toString();
-        print('Uploaded image id: $_uploadedImageId');
+        debugPrint('Uploaded image id: $_uploadedImageId');
       } else {
-        print('Upload failed: ${streamed.statusCode} => $respStr');
+        debugPrint('Upload failed: ${streamed.statusCode} => $respStr');
+        if (mounted) {
+          setState(() => _stageNotice =
+              "We couldn't upload your photo. Please try again.");
+        }
       }
     } catch (e) {
-      print('Error uploading image: $e');
+      debugPrint('Error uploading image: $e');
+      if (mounted) {
+        setState(() => _stageNotice =
+            "We couldn't upload your photo. Please try again.");
+      }
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
     }
   }
 
@@ -5273,7 +5424,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
         await _uploadOriginalImage(widget.userImage!);
       }
       if (_uploadedImageId == null) {
-        print('No uploaded image ID, cannot apply makeup');
+        debugPrint('No uploaded image ID, cannot apply makeup');
         return;
       }
     }
@@ -5354,7 +5505,7 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
       // if (pid != null) payload['product_${catIndex}_id'] = pid;
     });
 
-    print('Payload to apply makeup: ${jsonEncode(payload)}');
+    debugPrint('Payload to apply makeup: ${jsonEncode(payload)}');
 
     setState(() {
       _isApplying = true;
@@ -5375,20 +5526,35 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
         if (imgResp.statusCode == 200) {
           setState(() {
             _processedImageBytes = imgResp.bodyBytes;
+            _stageNotice = null;
           });
-          print('Got processed image bytes, length: ${imgResp.bodyBytes.length}');
+          debugPrint('Got processed image bytes, length: ${imgResp.bodyBytes.length}');
         } else {
-          print('Failed to download processed image: ${imgResp.statusCode}');
+          debugPrint('Failed to download processed image: ${imgResp.statusCode}');
+          if (mounted) {
+            setState(() => _stageNotice =
+                "We couldn't load the processed photo. Please try again.");
+          }
         }
       } else {
-        print('Apply makeup failed: ${resp.statusCode} => ${resp.body}');
+        debugPrint('Apply makeup failed: ${resp.statusCode} => ${resp.body}');
+        if (mounted) {
+          setState(() => _stageNotice =
+              "We couldn't apply your look. Please try again.");
+        }
       }
     } catch (e) {
-      print('Error applying makeup: $e');
+      debugPrint('Error applying makeup: $e');
+      if (mounted) {
+        setState(() => _stageNotice =
+            "We couldn't apply your look. Please try again.");
+      }
     } finally {
-      setState(() {
-        _isApplying = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isApplying = false;
+        });
+      }
     }
   }
 }
@@ -5408,6 +5574,12 @@ class ShadesScreen extends StatefulWidget {
   final List<List<Brand>>? brandsByCategory;
   final List<String>? categories;
 
+  /// Optional richer category data. When supplied, the rail renders the
+  /// artwork the products API already returns (`product_detailed_image`)
+  /// instead of a generic glyph. Purely additive — [categories] still drives
+  /// the labels, so existing callers keep working unchanged.
+  final List<CategoryModel>? categoryModels;
+
   const ShadesScreen({
     Key? key,
     required this.selectedCategory,
@@ -5418,6 +5590,7 @@ class ShadesScreen extends StatefulWidget {
     this.selectedShadeIndex,
     this.brandsByCategory,
     this.categories,
+    this.categoryModels,
   }) : super(key: key);
 
   @override
@@ -5497,59 +5670,52 @@ class _ShadesScreenState extends State<ShadesScreen> {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Presentation helpers
+  // ---------------------------------------------------------------------------
+
+  List<Brand> get _currentBrands =>
+      (_categoryIndex < effectiveBrandsByCategory.length)
+          ? effectiveBrandsByCategory[_categoryIndex]
+          : const <Brand>[];
+
+  String get _currentCategoryName =>
+      (_categoryIndex < effectiveCategories.length)
+          ? effectiveCategories[_categoryIndex]
+          : 'Category';
+
+  String? _categoryImage(int index) {
+    final models = widget.categoryModels;
+    if (models == null || index >= models.length) return null;
+    return models[index].imageDataUri;
+  }
+
+  void _stepBack() {
+    setState(() {
+      _stage = _stage == BarStage.shades
+          ? BarStage.brands
+          : BarStage.categories;
+    });
+  }
+
   Widget _buildCategoriesBar() {
     return SizedBox(
-      height: 104,
+      height: 120,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         scrollDirection: Axis.horizontal,
         itemCount: effectiveCategories.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
         itemBuilder: (context, i) {
-          final selected =
-              i == _categoryIndex && _stage == BarStage.categories;
-          final label = effectiveCategories[i];
-          return Pressable(
+          final brandCount = i < effectiveBrandsByCategory.length
+              ? effectiveBrandsByCategory[i].length
+              : 0;
+          return StudioCategoryTile(
+            name: effectiveCategories[i],
+            imageSource: _categoryImage(i),
+            itemCount: brandCount > 0 ? brandCount : null,
+            selected: i == _categoryIndex && _stage == BarStage.categories,
             onTap: () => _goToBrands(i),
-            borderRadius: AppRadii.rMd,
-            child: AnimatedContainer(
-              duration: AppMotion.normal,
-              curve: AppMotion.standard,
-              width: 124,
-              margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: selected ? AppColors.blushDeep : AppColors.surface,
-                borderRadius: AppRadii.rMd,
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.divider,
-                  width: selected ? 2 : 1,
-                ),
-                boxShadow: selected ? AppColors.shadowSm : null,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.palette_rounded,
-                    size: 32,
-                    color: selected
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: selected
-                        ? AppText.labelSm.copyWith(color: AppColors.primary)
-                        : AppText.labelSm,
-                  ),
-                ],
-              ),
-            ),
           );
         },
       ),
@@ -5557,13 +5723,11 @@ class _ShadesScreenState extends State<ShadesScreen> {
   }
 
   Widget _buildBrandsBar() {
-    final brands = (_categoryIndex < effectiveBrandsByCategory.length)
-        ? effectiveBrandsByCategory[_categoryIndex]
-        : <Brand>[];
+    final brands = _currentBrands;
 
     if (brands.isEmpty) {
       return const SizedBox(
-        height: 104,
+        height: 120,
         child: EmptyState(
           compact: true,
           title: 'No brands here yet',
@@ -5575,63 +5739,22 @@ class _ShadesScreenState extends State<ShadesScreen> {
     }
 
     return SizedBox(
-      height: 104,
+      height: 120,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         scrollDirection: Axis.horizontal,
         itemCount: brands.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
         itemBuilder: (context, i) {
-          final isSel = i == _brandIndex && _stage == BarStage.brands;
           final brand = brands[i];
-          return Pressable(
+          return StudioBrandTile(
+            name: brand.name,
+            imageSource: brand.productImageDataUri,
+            shades: brand.shades.isNotEmpty
+                ? brand.shades
+                : brand.productColors.map(_hexToColor).toList(),
+            selected: i == _brandIndex && _stage == BarStage.brands,
             onTap: () => _goToShades(i),
-            borderRadius: AppRadii.rMd,
-            child: AnimatedContainer(
-              duration: AppMotion.normal,
-              curve: AppMotion.standard,
-              width: 168,
-              margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: isSel ? AppColors.blush : AppColors.surface,
-                borderRadius: AppRadii.rMd,
-                border: Border.all(
-                  color: isSel ? AppColors.primary : AppColors.divider,
-                  width: isSel ? 2 : 1,
-                ),
-                boxShadow: isSel ? AppColors.shadowSm : null,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: AppRadii.rSm,
-                    ),
-                    child: brand.productImageDataUri != null
-                        ? _maybeShowBase64(brand.productImageDataUri!)
-                        : const Icon(
-                            Icons.image_outlined,
-                            color: AppColors.textTertiary,
-                          ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      brand.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: isSel
-                          ? AppText.label.copyWith(color: AppColors.primary)
-                          : AppText.labelSm,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           );
         },
       ),
@@ -5639,9 +5762,7 @@ class _ShadesScreenState extends State<ShadesScreen> {
   }
 
   Widget _buildShadesBar() {
-    final brands = (_categoryIndex < effectiveBrandsByCategory.length)
-        ? effectiveBrandsByCategory[_categoryIndex]
-        : <Brand>[];
+    final brands = _currentBrands;
     final selectedBrand = (brands.isNotEmpty && _brandIndex < brands.length)
         ? brands[_brandIndex]
         : Brand(id: 0, name: 'Brand');
@@ -5662,75 +5783,49 @@ class _ShadesScreenState extends State<ShadesScreen> {
     return SizedBox(
       height: 116,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         scrollDirection: Axis.horizontal,
         itemCount: selectedBrand.shades.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.lg),
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, i) {
-          final isSel = i == _shadeIndex && _stage == BarStage.shades;
-          final col = selectedBrand.shades[i];
-          return Pressable(
+          return StudioShadeSwatch(
+            color: selectedBrand.shades[i],
+            label: i < selectedBrand.productColors.length
+                ? selectedBrand.productColors[i].toUpperCase()
+                : 'Shade ${i + 1}',
+            selected: i == _shadeIndex && _stage == BarStage.shades,
             onTap: () => _selectShade(i),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: AppMotion.fast,
-                  curve: AppMotion.standard,
-                  width: isSel ? 68 : 54,
-                  height: isSel ? 68 : 54,
-                  decoration: BoxDecoration(
-                    color: col,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSel ? AppColors.primary : Colors.white,
-                      width: isSel ? 4 : 2,
-                    ),
-                    boxShadow: AppColors.shadowSm,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                AnimatedContainer(
-                  duration: AppMotion.fast,
-                  width: isSel ? 40 : 0,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ],
-            ),
           );
         },
       ),
     );
   }
 
-  static Widget _maybeShowBase64(String dataUri) {
-    try {
-      if (dataUri.startsWith('data:image')) {
-        final base64Str = dataUri.split(',').last;
-        final bytes = base64Decode(base64Str);
-        return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(bytes, fit: BoxFit.cover));
-      }
-    } catch (_) {}
-    return const Icon(Icons.image, color: Colors.grey);
-  }
-
   @override
   Widget build(BuildContext context) {
-    Widget child;
+    final Widget child;
+    final List<String> crumbs;
+    final int count;
+
     switch (_stage) {
       case BarStage.categories:
         child = _buildCategoriesBar();
+        crumbs = const ['Products'];
+        count = effectiveCategories.length;
         break;
       case BarStage.brands:
         child = _buildBrandsBar();
+        crumbs = ['Products', _currentCategoryName];
+        count = _currentBrands.length;
         break;
       case BarStage.shades:
+        final brands = _currentBrands;
+        final brand = (brands.isNotEmpty && _brandIndex < brands.length)
+            ? brands[_brandIndex]
+            : null;
         child = _buildShadesBar();
+        crumbs = ['Products', _currentCategoryName, brand?.name ?? 'Brand'];
+        count = brand?.shades.length ?? 0;
         break;
     }
 
@@ -5738,56 +5833,17 @@ class _ShadesScreenState extends State<ShadesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                if (_stage != BarStage.categories)
-                  Padding(
-                    padding: const EdgeInsets.only(right: AppSpacing.md),
-                    child: Pressable(
-                      onTap: () {
-                        setState(() {
-                          _stage = _stage == BarStage.shades
-                              ? BarStage.brands
-                              : BarStage.categories;
-                        });
-                      },
-                      borderRadius: AppRadii.rSm,
-                      child: Container(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: AppRadii.rSm,
-                          border: Border.all(color: AppColors.divider),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: AppColors.primary,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                Text(
-                  _stage == BarStage.categories
-                      ? 'Products'
-                      : _stage == BarStage.brands
-                      ? 'Brands'
-                      : 'Shades',
-                  style: AppText.sectionTitle,
-                ),
-              ],
-            ),
+          StudioBreadcrumb(
+            crumbs: crumbs,
+            onBack: _stage == BarStage.categories ? null : _stepBack,
+            trailing: count > 0 ? StudioCountPill(count: count) : null,
           ),
           AnimatedSwitcher(
             duration: AppMotion.normal,
+            switchInCurve: AppMotion.standard,
             transitionBuilder: (child, anim) {
               final offsetAnim = Tween<Offset>(
-                begin: const Offset(0, 0.2),
+                begin: const Offset(0.06, 0),
                 end: Offset.zero,
               ).animate(anim);
               return SlideTransition(
@@ -5797,6 +5853,34 @@ class _ShadesScreenState extends State<ShadesScreen> {
             },
             child: SizedBox(key: ValueKey(_stage), child: child),
           ),
+          if (_stage != BarStage.shades)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.touch_app_outlined,
+                    size: 13,
+                    color: AppColors.textTertiary,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      _stage == BarStage.categories
+                          ? 'Pick a product to see its brands'
+                          : 'Pick a brand to see its shades',
+                      style: AppText.caption,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: AppSpacing.md),
         ],
       ),
@@ -5820,100 +5904,212 @@ class _CompareScreenState extends State<CompareScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      // The old fixed 700px height overflowed inside the tab's bounded box.
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          final h = constraints.maxHeight;
-          final clipWidth = w * _dividerPosition;
+    return ColoredBox(
+      color: StudioTokens.canvas,
+      child: Padding(
+        // The old fixed 700px height overflowed inside the tab's bounded box.
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.lg,
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: StudioTokens.canvasRaised,
+                  borderRadius: AppRadii.rXl,
+                  boxShadow: AppColors.shadowLg,
+                ),
+                child: ClipRRect(
+                  borderRadius: AppRadii.rXl,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final w = constraints.maxWidth;
+                      final h = constraints.maxHeight;
+                      final clipWidth = w * _dividerPosition;
 
-          // right image = processed (if available) otherwise original
-          final rightImage = widget.processedImage ?? widget.originalImage;
+                      // right image = processed (if available) otherwise original
+                      final rightImage =
+                          widget.processedImage ?? widget.originalImage;
 
-          return GestureDetector(
-            onHorizontalDragUpdate: (details) {
-              final box = context.findRenderObject() as RenderBox?;
-              if (box == null) return;
-              final local = box.globalToLocal(details.globalPosition);
-              setState(() {
-                _dividerPosition = (local.dx / box.size.width).clamp(0.0, 1.0);
-              });
-            },
-            child: Stack(
+                      // Drag maths now runs against this box, not an outer
+                      // padded ancestor, so the handle tracks the finger.
+                      void setFromDx(double dx) {
+                        setState(() {
+                          _dividerPosition = (dx / w).clamp(0.0, 1.0);
+                        });
+                      }
+
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (d) => setFromDx(d.localPosition.dx),
+                        onHorizontalDragUpdate: (d) =>
+                            setFromDx(d.localPosition.dx),
+                        child: Stack(
+                          children: [
+                            Image(
+                              image: rightImage,
+                              width: w,
+                              height: h,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              child: ClipRect(
+                                child: SizedBox(
+                                  width: clipWidth,
+                                  height: h,
+                                  child: OverflowBox(
+                                    alignment: Alignment.centerLeft,
+                                    minWidth: w,
+                                    maxWidth: w,
+                                    child: Image(
+                                      image: widget.originalImage,
+                                      width: w,
+                                      height: h,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Divider line
+                            Positioned(
+                              left: clipWidth - 1,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 2,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  boxShadow: AppColors.shadowSm,
+                                ),
+                              ),
+                            ),
+
+                            // Handle
+                            Positioned(
+                              left: clipWidth - 21,
+                              top: (h / 2) - 21,
+                              child: Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: AppColors.shadowMd,
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.chevron_left_rounded,
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // Labels so it is obvious which half is which.
+                            const Positioned(
+                              left: AppSpacing.md,
+                              top: AppSpacing.md,
+                              child: _CompareTag(label: 'Before'),
+                            ),
+                            Positioned(
+                              right: AppSpacing.md,
+                              top: AppSpacing.md,
+                              child: _CompareTag(
+                                label: widget.processedImage == null
+                                    ? 'No look applied'
+                                    : 'After',
+                                accent: widget.processedImage == null
+                                    ? null
+                                    : AppColors.success,
+                              ),
+                            ),
+
+                            if (widget.processedImage == null)
+                              Positioned(
+                                left: AppSpacing.lg,
+                                right: AppSpacing.lg,
+                                bottom: AppSpacing.lg,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md,
+                                    vertical: AppSpacing.sm,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: StudioTokens.canvas
+                                        .withValues(alpha: 0.72),
+                                    borderRadius: AppRadii.rMd,
+                                    border: Border.all(
+                                      color: StudioTokens.canvasBorder,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.palette_outlined,
+                                        size: 15,
+                                        color: StudioTokens.onCanvasMuted,
+                                      ),
+                                      const SizedBox(width: AppSpacing.sm),
+                                      Expanded(
+                                        child: Text(
+                                          'Pick a shade on the Shades tab to '
+                                          'see the comparison.',
+                                          style: AppText.caption.copyWith(
+                                            color:
+                                                StudioTokens.onCanvasMuted,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ClipRRect(
-                  borderRadius: AppRadii.rLg,
-                  child: Image(
-                    image: rightImage,
-                    width: w,
-                    height: h,
-                    fit: BoxFit.cover,
-                  ),
+                const Icon(
+                  Icons.swipe_rounded,
+                  size: 14,
+                  color: StudioTokens.onCanvasFaint,
                 ),
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  child: ClipRRect(
-                    borderRadius: AppRadii.rLg,
-                    child: SizedBox(
-                      width: clipWidth,
-                      height: h,
-                      child: Image(
-                        image: widget.originalImage,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topLeft,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: clipWidth - 1,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(width: 2, color: Colors.white),
-                ),
-                Positioned(
-                  left: clipWidth - 20,
-                  top: (h / 2) - 20,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: AppColors.shadowMd,
-                    ),
-                    child: const Icon(
-                      Icons.drag_handle_rounded,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                // Labels so it is obvious which half is which.
-                Positioned(
-                  left: AppSpacing.md,
-                  top: AppSpacing.md,
-                  child: _CompareTag(label: 'Before'),
-                ),
-                Positioned(
-                  right: AppSpacing.md,
-                  top: AppSpacing.md,
-                  child: _CompareTag(
-                    label: widget.processedImage == null
-                        ? 'No look applied'
-                        : 'After',
+                const SizedBox(width: 6),
+                Text(
+                  'Drag to reveal',
+                  style: AppText.caption.copyWith(
+                    color: StudioTokens.onCanvasFaint,
                   ),
                 ),
               ],
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -5921,26 +6117,14 @@ class _CompareScreenState extends State<CompareScreen> {
 
 /// Small translucent caption used on the compare slider.
 class _CompareTag extends StatelessWidget {
-  const _CompareTag({required this.label});
+  const _CompareTag({required this.label, this.accent});
 
   final String label;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: AppRadii.rPill,
-      ),
-      child: Text(
-        label,
-        style: AppText.caption.copyWith(color: Colors.white),
-      ),
-    );
+    return StudioGlassChip(label: label, accent: accent);
   }
 }
 
@@ -5964,132 +6148,152 @@ class CompleteLooksScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final selectedEntries = selections.entries.toList();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final previewHeight = (constraints.maxHeight * 0.66)
-            .clamp(240.0, 525.0);
+    return ColoredBox(
+      color: StudioTokens.canvas,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          double previewHeight = constraints.maxHeight * 0.58;
+          if (previewHeight > 460) previewHeight = 460;
+          if (previewHeight < 220) previewHeight = 220;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            children: [
-              ClipRRect(
-                borderRadius: AppRadii.rLg,
-                child: SizedBox(
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.xxl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ---- Final preview ----
+                Container(
                   height: previewHeight,
-                  width: double.infinity,
-                  child: Image(image: userImageProvider, fit: BoxFit.cover),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              if (selectedEntries.isEmpty)
-                const EmptyState(
-                  compact: true,
-                  title: 'No products selected yet',
-                  message: 'Pick a shade to build your look.',
-                  icon: Icons.brush_outlined,
-                )
-              else
-                SizedBox(
-                  height: 104,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: selectedEntries.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(width: AppSpacing.md),
-                    itemBuilder: (context, i) {
-                      final catIndex = selectedEntries[i].key;
-                      final map = selectedEntries[i].value;
-                      final brandIndex = map['brand'] ?? 0;
-                      final shadeIndex = map['shade'] ?? 0;
-                      final intensity = (map['intensity'] ?? 1.0).toDouble();
-
-                      // safe reads
-                      final catName = (catIndex < categories.length)
-                          ? categories[catIndex].name
-                          : 'Product';
-                      String brandName = 'Brand';
-                      Color shadeColor = AppColors.textTertiary;
-
-                      if (catIndex < brandsByCategory.length) {
-                        final brands = brandsByCategory[catIndex];
-                        if (brandIndex is int &&
-                            brandIndex >= 0 &&
-                            brandIndex < brands.length) {
-                          brandName = brands[brandIndex].name;
-                          final b = brands[brandIndex];
-                          if (b.shades.isNotEmpty &&
-                              shadeIndex >= 0 &&
-                              shadeIndex < b.shades.length) {
-                            shadeColor = b.shades[shadeIndex];
-                          } else if (b.productColors.isNotEmpty) {
-                            try {
-                              final h = b.productColors.first.replaceFirst(
-                                '#',
-                                '',
-                              );
-                              shadeColor = h.length == 6
-                                  ? Color(int.parse('FF$h', radix: 16))
-                                  : Color(int.parse(h, radix: 16));
-                            } catch (_) {}
-                          }
-                        }
-                      }
-
-                      return AppCard(
-                        width: 250,
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 58,
-                              height: 58,
-                              decoration: BoxDecoration(
-                                color: shadeColor,
-                                borderRadius: AppRadii.rSm,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    catName,
-                                    style: AppText.cardTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    brandName,
-                                    style: AppText.cardSubtitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: AppSpacing.xxs),
-                                  Text(
-                                    'Shade ${shadeIndex + 1} · '
-                                    '${(intensity * 100).round()}%',
-                                    style: AppText.caption,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                  decoration: BoxDecoration(
+                    color: StudioTokens.canvasRaised,
+                    borderRadius: AppRadii.rXl,
+                    boxShadow: AppColors.shadowLg,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: AppRadii.rXl,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image(image: userImageProvider, fit: BoxFit.cover),
+                        const Positioned(
+                          top: AppSpacing.md,
+                          left: AppSpacing.md,
+                          child: StudioGlassChip(
+                            label: 'Your look',
+                            icon: Icons.auto_awesome_rounded,
+                          ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
                 ),
-            ],
-          ),
-        );
-      },
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ---- Applied products ----
+                if (selectedEntries.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: AppSpacing.sm),
+                    child: EmptyState(
+                      compact: true,
+                      title: 'No products selected yet',
+                      message: 'Pick a shade to build your look.',
+                      icon: Icons.brush_outlined,
+                    ),
+                  )
+                else ...[
+                  Row(
+                    children: [
+                      Container(
+                        width: 3,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.brandGradient,
+                          borderRadius: AppRadii.rPill,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'Applied products',
+                          style: AppText.sectionTitle.copyWith(
+                            color: StudioTokens.onCanvas,
+                          ),
+                        ),
+                      ),
+                      StudioCountPill(count: selectedEntries.length),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  for (int i = 0; i < selectedEntries.length; i++)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        bottom: i == selectedEntries.length - 1
+                            ? 0
+                            : AppSpacing.sm,
+                      ),
+                      child: FadeSlideIn.staggered(
+                        index: i,
+                        child: _buildLookCard(selectedEntries[i]),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Renders one selected product. The safe-read logic below is unchanged
+  /// from the previous implementation — only the layout around it is new.
+  Widget _buildLookCard(MapEntry<int, Map<String, dynamic>> entry) {
+    final catIndex = entry.key;
+    final map = entry.value;
+    final brandIndex = map['brand'] ?? 0;
+    final shadeIndex = map['shade'] ?? 0;
+    final intensity = (map['intensity'] ?? 1.0).toDouble();
+
+    // safe reads
+    final catName =
+        (catIndex < categories.length) ? categories[catIndex].name : 'Product';
+    String brandName = 'Brand';
+    Color shadeColor = AppColors.textTertiary;
+
+    if (catIndex < brandsByCategory.length) {
+      final brands = brandsByCategory[catIndex];
+      if (brandIndex is int &&
+          brandIndex >= 0 &&
+          brandIndex < brands.length) {
+        brandName = brands[brandIndex].name;
+        final b = brands[brandIndex];
+        if (b.shades.isNotEmpty &&
+            shadeIndex >= 0 &&
+            shadeIndex < b.shades.length) {
+          shadeColor = b.shades[shadeIndex];
+        } else if (b.productColors.isNotEmpty) {
+          try {
+            final h = b.productColors.first.replaceFirst('#', '');
+            shadeColor = h.length == 6
+                ? Color(int.parse('FF$h', radix: 16))
+                : Color(int.parse(h, radix: 16));
+          } catch (_) {}
+        }
+      }
+    }
+
+    return StudioLookCard(
+      category: catName,
+      brand: brandName,
+      swatch: shadeColor,
+      detail: 'Shade ${shadeIndex + 1} · ${(intensity * 100).round()}%',
     );
   }
 }

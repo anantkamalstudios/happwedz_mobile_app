@@ -1833,7 +1833,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
                                   textInputAction: TextInputAction.search,
                                   decoration: InputDecoration(
                                     isDense: true,
-                                    hintText: 'Search venues, city, name…',
+                                    hintText: 'Search venues,name…',
                                     hintStyle: AppText.body.copyWith(
                                       color: AppColors.textTertiary,
                                     ),

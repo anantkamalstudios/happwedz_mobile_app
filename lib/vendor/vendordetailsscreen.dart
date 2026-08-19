@@ -25,7 +25,15 @@ import '../core/core.dart';
 class VendorServicesScreen extends StatefulWidget {
   final String subcategoryName;
 
-  const VendorServicesScreen({super.key, required this.subcategoryName});
+  /// City to pre-apply, so opening this from a city-scoped list keeps the
+  /// same scope instead of resetting to every city.
+  final String? initialCity;
+
+  const VendorServicesScreen({
+    super.key,
+    required this.subcategoryName,
+    this.initialCity,
+  });
 
   @override
   State<VendorServicesScreen> createState() => _VendorServicesScreenState();
@@ -73,6 +81,10 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   @override
   void initState() {
     super.initState();
+    // Seed the city filter before the first fetch so the initial render is
+    // already scoped; the filter chip stays editable as usual.
+    selectedCity = widget.initialCity ?? '';
+    filterCity = selectedCity;
     _loadCurrentUser();
     fetchAllServices();
   }
@@ -1851,7 +1863,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         }
       }
     } catch (e) {
-      print("Error fetching by ID: $e");
+      debugPrint("Error fetching by ID: $e");
     }
 
     if (showFullPageLoader) {
@@ -1889,7 +1901,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
           }
         }
       } catch (e) {
-        print("Error fetching by ID: $e");
+        debugPrint("Error fetching by ID: $e");
       }
     }
 
@@ -1913,7 +1925,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
           }
         }
       } catch (e) {
-        print("Error fetching by slug search: $e");
+        debugPrint("Error fetching by slug search: $e");
       }
     }
 
@@ -1958,7 +1970,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         setState(() => isClaimLoading = false);
       }
     } catch (e) {
-      print("STATUS ERROR: $e");
+      debugPrint("STATUS ERROR: $e");
       setState(() => isClaimLoading = false);
     }
   }
@@ -2465,7 +2477,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     final rawImageExists = service['image_exists'] ?? attributes['image_exists'];
     final bool imageExists = rawImageExists != false && rawImageExists != 'false';
     final List<String> images = extractImages(service['media'], vendor, attributes, imageExists);
-    print("IMAGES COUNT: ${images.length}");
+    debugPrint("IMAGES COUNT: ${images.length}");
     images.forEach(print);
 
     final String vendorId = (vendor['id'] ?? attributes['vendor_id'] ?? '').toString();
@@ -2477,8 +2489,8 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     final String about = aboutRaw.replaceAll(r'\n', '').replaceAll(r'\"', '"').replaceAll(r'\\', '').trim();
     final String phone = (vendor['phone'] ?? attributes['Phone'] ?? '').toString();
 
-    print("Vendor ID: $vendorId");
-    print("Vendor Subcategory ID: $vendorSubcategoryId");
+    debugPrint("Vendor ID: $vendorId");
+    debugPrint("Vendor Subcategory ID: $vendorSubcategoryId");
     final double rating =
         double.tryParse((vendor['rating'] ?? attributes['rating'] ?? apiAverageRating ?? '0').toString()) ?? apiAverageRating;
     final String vendorType = (vendor['vendorType']?['name'] ?? attributes['vendor_type'] ?? '').toString();
@@ -2557,7 +2569,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     if (latRaw is String) latitude ??= double.tryParse(latRaw.trim());
     if (lngRaw is String) longitude ??= double.tryParse(lngRaw.trim());
 
-    print("✅ FINAL LAT LNG => $latitude , $longitude");
+    debugPrint("✅ FINAL LAT LNG => $latitude , $longitude");
 
     Future<void> openMap(double lat, double lng) async {
       final Uri geoUri = Uri.parse("geo:$lat,$lng?q=$lat,$lng");
@@ -2632,7 +2644,10 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                       attributes['url']?.toString() ??
                                       '';
                                   if (shareLink.isNotEmpty) {
-                                    Share.share(shareLink);
+                                    // AUDIT FIX (deprecation): see share_plus 12.
+                                    SharePlus.instance.share(
+                                      ShareParams(text: shareLink),
+                                    );
                                   } else {
                                     AppSnackbar.info(
                                       context,
