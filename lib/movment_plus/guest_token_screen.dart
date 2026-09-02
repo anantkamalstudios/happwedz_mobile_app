@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../core/config/api_config.dart';
 import '../core/core.dart';
 import 'package:http/http.dart' as http;
 
@@ -275,7 +276,7 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
   }
   Future<Map<String, List<GalleryImage>>> fetchGallery(String token) async {
     final response = await http.get(
-      Uri.parse("https://happywedz.com/api/gallery/$token"),
+      Uri.parse("${ApiConfig.apiBase}/gallery/$token"),
     );
 
     final data = json.decode(response.body);

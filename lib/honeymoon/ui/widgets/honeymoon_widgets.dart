@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../../core/core.dart';
+import '../../data/honeymoon_api.dart';
 import '../../honeymoon_config.dart';
 
 // ---------------------------------------------------------------------------
@@ -111,11 +112,20 @@ class HoneymoonServiceTabs extends StatelessWidget {
 
 /// Full-bleed romantic header with scrim, copy and the trust strip.
 class HoneymoonHero extends StatelessWidget {
-  const HoneymoonHero({super.key, required this.child, this.onBack});
+  const HoneymoonHero({
+    super.key,
+    required this.child,
+    this.onBack,
+    this.onOpenTrips,
+  });
 
   /// The service tabs, rendered inside the hero under the copy.
   final Widget child;
   final VoidCallback? onBack;
+
+  /// Opens "My trips". Sits opposite the back button so a traveller can reach
+  /// an existing booking without first starting a new search.
+  final VoidCallback? onOpenTrips;
 
   @override
   Widget build(BuildContext context) {
@@ -150,11 +160,52 @@ class HoneymoonHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.sm),
-                child: AppBackButton(
-                  color: AppColors.textOnPrimary,
-                  background: Colors.white.withValues(alpha: 0.18),
-                  onTap: onBack,
+                padding: const EdgeInsets.only(
+                  top: AppSpacing.sm,
+                  right: AppSpacing.lg,
+                ),
+                child: Row(
+                  children: [
+                    AppBackButton(
+                      color: AppColors.textOnPrimary,
+                      background: Colors.white.withValues(alpha: 0.18),
+                      onTap: onBack,
+                    ),
+                    const Spacer(),
+                    if (onOpenTrips != null)
+                      Pressable(
+                        scale: 0.94,
+                        onTap: onOpenTrips,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: AppRadii.rPill,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.confirmation_number_outlined,
+                                size: 15,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Text(
+                                'My trips',
+                                style: AppText.labelSm.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -494,6 +545,15 @@ String formatTripDate(DateTime? date) {
   return '${date.day} ${_monthNames[date.month - 1]} ${date.year}';
 }
 
+/// `14 Aug 2026, 09:30` — for pick-ups and check-ins, where the time matters
+/// as much as the date.
+String formatTripDateTime(DateTime? date) {
+  if (date == null) return '';
+  final hour = date.hour.toString().padLeft(2, '0');
+  final minute = date.minute.toString().padLeft(2, '0');
+  return '${formatTripDate(date)}, $hour:$minute';
+}
+
 /// `₹89,999` / `₹1,24,500` — Indian grouping: last three digits, then pairs.
 String formatPrice(double amount, {String symbol = '₹'}) {
   final negative = amount < 0;
@@ -519,4 +579,14 @@ String formatPrice(double amount, {String symbol = '₹'}) {
   }
 
   return '${negative ? '-' : ''}$symbol$grouped';
+}
+/// The message to show a traveller when a booking call fails.
+///
+/// [HoneymoonApiException] already carries copy written for this module — a
+/// held fare that lapsed, a room that just sold out — so it is preferred over
+/// the app's generic wording. Anything else falls back to the shared copy,
+/// which is what keeps a raw stack trace off the screen.
+String bookingErrorText(Object? error) {
+  if (error is HoneymoonApiException) return error.message;
+  return AppErrorMessage.bodyFor(error);
 }

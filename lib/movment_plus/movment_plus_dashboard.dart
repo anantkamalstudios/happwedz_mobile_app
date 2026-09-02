@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:shimmer/shimmer.dart';
+import 'package:happy_wedz/core/config/api_config.dart';
 import 'custome_theme.dart';
 
 // import 'custome_theme.dart';
@@ -886,7 +887,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
 
   Future<CoupleData> fetchCoupleSays() async {
     final response = await http.get(
-      Uri.parse("https://happywedz.com/api/what-couples-says-route"),
+      Uri.parse("${ApiConfig.apiBase}/what-couples-says-route"),
     );
     debugPrint('${response}');
     final jsonData = json.decode(response.body);

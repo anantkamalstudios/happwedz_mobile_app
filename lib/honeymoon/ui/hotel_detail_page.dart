@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../data/honeymoon_api.dart';
 import '../models/honeymoon_models.dart';
+import 'booking/hotel_booking_page.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 class HotelDetailPage extends StatefulWidget {
@@ -38,7 +39,11 @@ class _HotelDetailPageState extends State<HotelDetailPage> {
   List<String> _images = const [];
   String _description = '';
   List<String> _amenities = const [];
-  List<_RoomOption> _rooms = const [];
+  List<HotelRoomOption> _rooms = const [];
+
+  /// The untouched `hotels/detail` response. The review call is keyed on ids
+  /// that live only here, so it has to outlive the parse into view models.
+  Map<String, dynamic> _detail = const <String, dynamic>{};
 
   @override
   void initState() {
@@ -72,6 +77,7 @@ class _HotelDetailPageState extends State<HotelDetailPage> {
 
       if (!mounted) return;
       setState(() {
+        _detail = detail;
         _images = _extractImages(detail, staticContent);
         _description = _extractDescription(staticContent, detail);
         _amenities = _extractAmenities(staticContent, detail);
@@ -148,7 +154,7 @@ class _HotelDetailPageState extends State<HotelDetailPage> {
     return const [];
   }
 
-  List<_RoomOption> _extractRooms(Map detail) {
+  List<HotelRoomOption> _extractRooms(Map detail) {
     final candidates = [
       detail['options'],
       detail['ops'],
@@ -160,9 +166,38 @@ class _HotelDetailPageState extends State<HotelDetailPage> {
     for (final c in candidates) {
       final list = asList(c);
       if (list.isEmpty) continue;
-      return list.map(_RoomOption.fromJson).where((r) => r.name.isNotEmpty).toList();
+      return list
+          .map(HotelRoomOption.fromJson)
+          .where((r) => r.name.isNotEmpty)
+          .toList();
     }
     return const [];
+  }
+
+  /// Rooms the supplier gave us enough information to book, cheapest first.
+  List<HotelRoomOption> get _bookableRooms {
+    final list = _rooms.where((r) => r.isBookable).toList()
+      ..sort((a, b) => a.price.compareTo(b.price));
+    return list;
+  }
+
+  void _startBooking(HotelRoomOption room) {
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: HotelBookingPage(
+          api: widget.api,
+          hotel: widget.hotel,
+          room: room,
+          checkIn: widget.checkIn,
+          checkOut: widget.checkOut,
+          nights: widget.nights,
+          searchId: widget.searchId,
+          detail: _detail,
+        ),
+        style: PageTransitionStyle.slideRight,
+      ),
+    );
   }
 
   @override
@@ -316,7 +351,12 @@ class _HotelDetailPageState extends State<HotelDetailPage> {
                     ),
                     child: FadeSlideIn(
                       delay: AppMotion.staggerFor(i),
-                      child: _RoomCard(room: _rooms[i]),
+                      child: _RoomCard(
+                        room: _rooms[i],
+                        onSelect: _rooms[i].isBookable
+                            ? () => _startBooking(_rooms[i])
+                            : null,
+                      ),
                     ),
                   ),
             ]),
@@ -426,16 +466,10 @@ class _HotelDetailPageState extends State<HotelDetailPage> {
               child: PremiumButton(
                 label: 'Continue',
                 trailingIcon: Icons.arrow_forward_rounded,
-                onPressed: () {
-                  // Booking, payment and voucher endpoints exist
-                  // (hotels/book, hotels/create-payment-order,
-                  // hotels/verify-payment-and-book) but are not wired into a
-                  // Flutter checkout yet — see the handover notes.
-                  AppSnackbar.info(
-                    context,
-                    'Checkout is not connected in the app yet.',
-                  );
-                },
+                enabled: _bookableRooms.isNotEmpty,
+                onPressed: _bookableRooms.isEmpty
+                    ? null
+                    : () => _startBooking(_bookableRooms.first),
               ),
             ),
           ],
@@ -446,22 +480,35 @@ class _HotelDetailPageState extends State<HotelDetailPage> {
 }
 
 /// One bookable room option from `hotels/detail`.
-class _RoomOption {
-  const _RoomOption({
+///
+/// The display fields are only half of what this carries: [optionId] and
+/// [raw] are what the review call needs to price this exact room, and without
+/// them a room can be shown but never booked.
+class HotelRoomOption {
+  const HotelRoomOption({
     required this.name,
+    this.optionId = '',
     this.mealPlan = '',
     this.cancellation = '',
     this.price = 0,
     this.refundable,
+    this.raw = const <String, dynamic>{},
   });
 
   final String name;
+
+  /// `option.id` — identifies this room+rate to the supplier.
+  final String optionId;
+
   final String mealPlan;
   final String cancellation;
   final double price;
   final bool? refundable;
+  final Map<String, dynamic> raw;
 
-  factory _RoomOption.fromJson(dynamic json) {
+  bool get isBookable => optionId.isNotEmpty;
+
+  factory HotelRoomOption.fromJson(dynamic json) {
     final rooms = asList(json is Map ? json['roomInfo'] ?? json['rooms'] : null);
     final firstRoom = rooms.isNotEmpty ? rooms.first : null;
 
@@ -486,8 +533,14 @@ class _RoomOption {
 
     final refundableRaw = json is Map ? (json['isRefundable'] ?? json['ref']) : null;
 
-    return _RoomOption(
+    return HotelRoomOption(
       name: name,
+      optionId: firstNonEmpty([
+        json is Map ? json['id'] : null,
+        json is Map ? json['optionId'] : null,
+        json is Map ? json['oid'] : null,
+      ]),
+      raw: asJsonMap(json),
       mealPlan: firstNonEmpty([read('mealPlan'), read('mb'), read('board')]),
       cancellation: firstNonEmpty([
         read('cancellationPolicy'),
@@ -500,9 +553,10 @@ class _RoomOption {
 }
 
 class _RoomCard extends StatelessWidget {
-  const _RoomCard({required this.room});
+  const _RoomCard({required this.room, required this.onSelect});
 
-  final _RoomOption room;
+  final HotelRoomOption room;
+  final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -542,13 +596,36 @@ class _RoomCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          if (room.price > 0) ...[
-            const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(formatPrice(room.price), style: AppText.price),
-            ),
-          ],
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: room.price > 0
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Total for your stay', style: AppText.caption),
+                          Text(
+                            formatPrice(room.price),
+                            style: AppText.price,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      )
+                    : Text('Priced at checkout', style: AppText.bodySm),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              PremiumButton(
+                label: 'Select',
+                size: PremiumButtonSize.small,
+                expanded: false,
+                enabled: onSelect != null,
+                onPressed: onSelect,
+              ),
+            ],
+          ),
         ],
       ),
     );

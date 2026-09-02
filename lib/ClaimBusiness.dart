@@ -16,6 +16,7 @@ import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import 'core/config/api_config.dart';
 import 'core/core.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -261,7 +262,7 @@ class _BusinessClaimFormState extends State<BusinessClaimForm> {
   }
 
   // Endpoint constant
-  final String endpoint = "https://happywedz.com/api/business/claims";
+  final String endpoint = "${ApiConfig.apiBase}/business/claims";
 
   @override
   void dispose() {

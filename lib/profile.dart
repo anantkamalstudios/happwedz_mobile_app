@@ -4,6 +4,7 @@ import 'package:happy_wedz/Bottombars/HomeScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'authservice.dart';
+import 'core/config/api_config.dart';
 import 'core/core.dart';
 import 'guestlist/guestlist.dart';
 import 'main.dart';
@@ -251,7 +252,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
     setState(() => _isSaving = true);
 
-    final url = 'https://happywedz.com/api/user/$userId';
+    final url = '${ApiConfig.apiBase}/user/$userId';
 
     // AUDIT FIX (security): this PUT identified the account purely by the id in
     // the URL and sent no credentials, so the request carried nothing proving

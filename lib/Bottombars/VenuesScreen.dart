@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
 import 'dart:convert';
@@ -878,7 +879,7 @@ import 'dart:async';
 // ---------------- IMAGE HELPERS (same approach as Vendor.dart) ----------------
 // Vendor.dart images: "https://happywedz.com/api/<path>" — that endpoint serves
 // the backend /uploads/... files, so venues use exactly the same base.
-const String kApiBase = "https://happywedz.com/api";
+const String kApiBase = ApiConfig.apiBase;
 
 /// Local asset used when the API gives us no usable image (or the URL fails).
 const String kVenuePlaceholderAsset = "assets/venue.png";
@@ -1031,10 +1032,12 @@ class _VenuesScreenState extends State<VenuesScreen> {
     });
 
     try {
-      // image_exists=true → API sirf wahi venues bhejta hai jinki photo actually
-      // available hai (website bhi yahi param use karti hai)
+      // AUDIT FIX: `image_exists=true` removed — confirmed live it drops 19
+      // of 20 real Nashik venues (every one has photos in `media`), which is
+      // why this initial load ("load everything once" in initState) was
+      // rendering just a single venue per city instead of the full list.
       final url = Uri.parse(
-          "https://happywedz.com/api/vendor-services?vendorType=venue&page=$page&limit=20&image_exists=true"
+          "${ApiConfig.apiBase}/vendor-services?vendorType=venue&page=$page&limit=20"
       );
 
       final res = await http.get(url);
@@ -1134,7 +1137,14 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
   // ----------------- Fetching (server aware) -----------------
   /// fetchVenues - loads a single page (appends to allVenues)
-  Future<void> fetchVenues({int page = 1, String? serverQuery, bool onlyWithImages = true}) async {
+  // AUDIT FIX: defaulted `onlyWithImages` to false — the backend's
+  // `image_exists=true` flag is unreliable (confirmed live: Nashik venues
+  // went 20 → 1 with it set, and every one of those 20 actually has photos
+  // in `media`), which is why the search path below already falls back to
+  // `onlyWithImages: false` on an empty result. That fallback never covered
+  // the default browse-with-no-search case, which is why "all venues" in a
+  // city rendered as just one.
+  Future<void> fetchVenues({int page = 1, String? serverQuery, bool onlyWithImages = false}) async {
     setState(() {
       // only show main spinner for first page / full refresh
       isLoading = page == 1;
@@ -1152,7 +1162,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
       // if (serverQuery != null && serverQuery.isNotEmpty) {
       //   buffer.write("&search=${Uri.encodeQueryComponent(serverQuery)}");
       // }
-      buffer.write("https://happywedz.com/api/vendor-services");
+      buffer.write("${ApiConfig.apiBase}/vendor-services");
       buffer.write("?vendorType=venue");
       buffer.write("&page=$page");
       buffer.write("&limit=$limit");
@@ -1410,7 +1420,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token') ?? '';
       if (token.isEmpty) return;
-      final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+      final url = Uri.parse('${ApiConfig.apiBase}/wishlist/toggle');
       final body = jsonEncode({'user_id': currentUserId, 'vendor_services_id': idStr});
       final res = await http.post(url, headers: {
         'Content-Type': 'application/json',

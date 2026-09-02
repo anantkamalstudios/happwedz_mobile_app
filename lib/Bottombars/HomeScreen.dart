@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/core.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../Wishlist/Wishlistscreen.dart';
@@ -1281,7 +1282,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   Future<List<Map<String, dynamic>>> fetchStories() async {
     try {
       final response = await http.get(
-        Uri.parse('https://happywedz.com/api/blogs/all'),
+        Uri.parse('${ApiConfig.apiBase}/blogs/all'),
       );
 
       if (response.statusCode == 200) {
@@ -1355,7 +1356,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     setState(() => isLoadingCategories = true);
     try {
       final response = await http.get(
-        Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all"),
+        Uri.parse("${ApiConfig.apiBase}/vendor-types/with-subcategories/all"),
         headers: {"Accept": "application/json"},
       );
 
@@ -1386,8 +1387,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   /// Builds a `/vendor-services` URL for a home rail.
   ///
-  /// `image_exists=true` keeps listings without photos out of the rails, which
-  /// are image-first cards and would otherwise render blank tiles.
+  /// AUDIT FIX: `image_exists=true` was meant to keep photo-less listings out
+  /// of these image-first rails, but the backend flag it checks is unreliable
+  /// — confirmed live: Nashik venues went from 20 results (every one carrying
+  /// 5-13 real photos in `media`) down to 1 with this param set, same
+  /// unreliability already documented and worked around in the search
+  /// function above. Dropped here too; `NetworkImageWidget` (used by every
+  /// rail card) already renders a placeholder for a missing image, so the
+  /// blank-tile concern this param was added for doesn't actually apply.
   Uri _vendorServicesUri({
     required String subCategory,
     String? city,
@@ -1397,7 +1404,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       'subCategory': subCategory,
       'page': '1',
       'limit': '$limit',
-      'image_exists': 'true',
       if (city != null && city.isNotEmpty) 'city': city,
     });
   }
@@ -1474,7 +1480,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   Future<void> fetchRealWeddings() async {
     setState(() => isLoadingRealWeddings = true);
     try {
-      final response = await http.get(Uri.parse("https://happywedz.com/api/realwedding/public"));
+      final response = await http.get(Uri.parse("${ApiConfig.apiBase}/realwedding/public"));
       if (!mounted) return;
 
       if (response.statusCode == 200) {
@@ -1508,7 +1514,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
     if (token.isEmpty) return false;
 
-    final url = Uri.parse('https://happywedz.com/api/wishlist');
+    final url = Uri.parse('${ApiConfig.apiBase}/wishlist');
 
     try {
       final response = await http.get(
@@ -1544,7 +1550,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       if (userId == null || token.isEmpty) return;
 
       final url =
-      Uri.parse("https://happywedz.com/api/new-checklist/newChecklist/user/$userId");
+      Uri.parse("${ApiConfig.apiBase}/new-checklist/newChecklist/user/$userId");
 
       final res = await http.get(
         url,
@@ -2391,7 +2397,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           String imageUrl = '';
           if (category.heroImage.isNotEmpty) {
             imageUrl =
-            "https://happywedzbackend.happywedz.com${category.heroImage}";
+            "${ApiConfig.backendBaseUrl}${category.heroImage}";
           }
 
           return FadeSlideIn.staggered(
@@ -2711,7 +2717,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       if (url.isEmpty) return '';
       // Some rows store a server-relative path instead of a full URL.
       if (url.startsWith('/uploads/')) {
-        return 'https://happywedzbackend.happywedz.com$url';
+        return '${ApiConfig.backendBaseUrl}$url';
       }
       return url.startsWith('http') ? url : '';
     }
@@ -4106,7 +4112,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
     setState(() => _loading = true);
     try {
       final url =
-          "https://happywedz.com/api/vendor-services?subCategory=${Uri.encodeComponent(subcategoryName)}";
+          "${ApiConfig.apiBase}/vendor-services?subCategory=${Uri.encodeComponent(subcategoryName)}";
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
@@ -4202,7 +4208,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
                   itemBuilder: (context, index) {
                     final item = _services[index];
                     final image = item['hero_image'] != null
-                        ? "https://happywedz.com${item['hero_image']}"
+                        ? "${ApiConfig.baseUrl}${item['hero_image']}"
                         : "https://via.placeholder.com/400x300?text=No+Image";
 
                     return Container(

@@ -1,0 +1,106 @@
+.psm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 16px;
+}
+
+.psm-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 920px;
+  max-height: 85vh;
+  overflow: auto;
+  padding: 28px 32px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.psm-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d6dbe7;
+  border-radius: 8px;
+  background: #fff;
+  color: #3a4257;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.psm-close:hover { background: #f4f6fa; }
+
+.psm-title {
+  margin: 0 0 22px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #2d3448;
+}
+
+.psm-empty {
+  padding: 40px 0;
+  text-align: center;
+  color: #8c95a8;
+}
+
+.psm-table-scroll { overflow-x: auto; }
+.psm-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+.psm-table thead th {
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8c95a8;
+  border-bottom: 1px solid #eef1f7;
+  white-space: nowrap;
+}
+.psm-table tbody td {
+  padding: 16px 14px;
+  font-size: 14px;
+  color: #2d3448;
+  vertical-align: top;
+  border-bottom: 1px solid #f4f6fa;
+}
+
+.psm-name { font-weight: 700; }
+.psm-sub { font-size: 12px; color: #8c95a8; margin-top: 2px; }
+
+.psm-pnr { font-weight: 700; }
+.psm-seg { color: #2d3448; }
+.psm-code { color: #147a40; }
+
+.psm-status {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 20px;
+  background: #eef1f7;
+  color: #5f6780;
+}
+.psm-status.ok { background: #e6f6ec; color: #147a40; }
+.psm-status.warn { background: #fff4e0; color: #b9750a; }
+.psm-status.bad { background: #fdeaea; color: #c62828; }
+
+.psm-footer {
+  margin-top: 20px;
+  text-align: right;
+}
+.psm-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.psm-link:hover { text-decoration: underline; }

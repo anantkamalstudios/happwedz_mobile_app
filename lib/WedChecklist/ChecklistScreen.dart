@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import '../core/config/api_config.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:http/http.dart' as http;
@@ -18,7 +19,7 @@ class WeddingTimelinePage extends StatefulWidget {
 class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     with TickerProviderStateMixin {
   // ---- Config ----
-  final String baseUrl = "https://happywedz.com/api";
+  final String baseUrl = ApiConfig.apiBase;
 
   // Dates
   DateTime? startDate;
@@ -217,7 +218,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   // Fetch vendor types + subcategories -> flatten to subcategories list
   Future<void> _fetchCategories() async {
     try {
-      final uri = Uri.parse("https://happywedz.com/api/vendor-types/with-subcategories/all");
+      final uri = Uri.parse("${ApiConfig.apiBase}/vendor-types/with-subcategories/all");
       debugPrint('📡 GET categories -> $uri');
 
       final res = await http.get(uri, headers: _headers());

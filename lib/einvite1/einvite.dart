@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import 'package:happy_wedz/core/config/api_config.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -853,20 +854,20 @@ final List<Map<String, String>> weddingWebsiteTemplates = [
     "title": "Royal Theme",
     "subtitle": "Elegant gold and white wedding theme.",
     "image": "assets/index1.png",
-      "url": "https://happywedz.com/wedding-form/royal",
+      "url": "${ApiConfig.baseUrl}/wedding-form/royal",
   },
   {
     "title": "Floral Theme",
     "subtitle": "Soft romantic floral design.",
     "image": "assets/floral2.png",
-  "url": "https://happywedz.com/wedding-form/floral",
+  "url": "${ApiConfig.baseUrl}/wedding-form/floral",
 
   },
   {
     "title": "Modern Theme",
     "subtitle": "Modern and sleek design.",
     "image": "assets/mordern3.png",
-  "url": "https://happywedz.com/wedding-form/modern",
+  "url": "${ApiConfig.baseUrl}/wedding-form/modern",
 
   },
 ];
@@ -1002,7 +1003,7 @@ class EInviteCard {
 
 
 final einviteProvider = FutureProvider<List<EInviteCard>>((ref) async {
-  final url = Uri.parse('https://happywedz.com/api/einvites/cards');
+  final url = Uri.parse('${ApiConfig.apiBase}/einvites/cards');
   final res = await http.get(url);
 
   if (res.statusCode != 200) {
@@ -1991,7 +1992,7 @@ class DraftEditorScreen extends StatelessWidget {
   }
 
   Future<EInviteCard> loadOriginalCard(String id) async {
-    final url = Uri.parse("https://happywedz.com/api/einvites/cards/$id");
+    final url = Uri.parse("${ApiConfig.apiBase}/einvites/cards/$id");
     final res = await http.get(url);
     final body = jsonDecode(res.body)["data"];
     return EInviteCard.fromJson(body);

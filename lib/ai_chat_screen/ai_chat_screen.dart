@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 
+import '../core/config/api_config.dart';
 import '../core/core.dart';
 
 
@@ -87,7 +88,20 @@ class ApiService {
   /// device even though the server was up. The same host answers over TLS
   /// (verified: `https://shaadiai.happywedz.com/api/*` responds), so the scheme
   /// is simply corrected rather than weakening the app's network security.
-  static const String baseUrl = 'https://shaadiai.happywedz.com';
+  static const String baseUrl = ApiConfig.aiChatBaseUrl;
+
+  /// AUDIT FIX: the reference client (`Genie.jsx`/`HomeGennie.jsx`) sends
+  /// `Authorization: Bearer <token>` on every one of these three calls; this
+  /// client sent none, which is the likely cause of empty/failing chat
+  /// history for signed-in users.
+  Future<Map<String, String>> _headers({String? contentType}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(ApiConfig.authTokenKey);
+    return {
+      if (contentType != null) 'Content-Type': contentType,
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   Future<Map<String, dynamic>> postUserChat({
     required int userId,
@@ -103,7 +117,7 @@ class ApiService {
     final resp = await http.post(
       uri,
       body: jsonEncode(body),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _headers(contentType: 'application/json'),
     );
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -114,7 +128,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getChatHistory(String sessionId) async {
     final uri = Uri.parse('$baseUrl/api/chat_history?session_id=$sessionId');
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: await _headers());
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
@@ -124,7 +138,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getSessions(int userId) async {
     final uri = Uri.parse('$baseUrl/api/sessions/$userId');
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: await _headers());
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
@@ -132,6 +146,13 @@ class ApiService {
     }
   }
 }
+
+/// AUDIT FIX: the reference client unwraps every response as `raw?.data ??
+/// raw` — tolerant of the backend answering either `{data: ...}` or the
+/// payload directly. This client required the `data` wrapper, so a bare
+/// response read as "no data" and surfaced as [kNoAssistantResponse].
+dynamic _unwrap(Map<String, dynamic> raw) =>
+    raw.containsKey('data') ? raw['data'] : raw;
 
 class MessageItem {
   final String role; // 'user' or 'assistant'
@@ -180,7 +201,8 @@ class ChatProvider extends ChangeNotifier {
       isLoading = true;
       notifyListeners();
       final data = await api.getChatHistory(sessId);
-      final arr = data['data'] as List<dynamic>? ?? [];
+      final unwrapped = _unwrap(data);
+      final arr = unwrapped is List ? unwrapped : <dynamic>[];
       _messages.clear();
       for (var item in arr) {
         final role = item['role'] ?? 'assistant';
@@ -236,7 +258,8 @@ class ChatProvider extends ChangeNotifier {
         userQuery: text,
       );
 
-      final data = resp['data'] as Map<String, dynamic>?;
+      final unwrapped = _unwrap(resp);
+      final data = unwrapped is Map<String, dynamic> ? unwrapped : null;
       dynamic assistantContent;
 
       if (data == null) {
@@ -747,7 +770,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
               );
             }
             final m = snap.data ?? <String, dynamic>{};
-            final list = m['data'] as List<dynamic>? ?? [];
+            final unwrapped = _unwrap(m);
+            final list = unwrapped is List ? unwrapped : <dynamic>[];
             if (list.isEmpty) {
               return const SizedBox(
                 height: 200,

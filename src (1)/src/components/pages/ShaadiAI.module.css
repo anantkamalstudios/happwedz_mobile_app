@@ -1,0 +1,1123 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ==========================================================
+   APP LAYOUT
+========================================================== */
+.appLayout {
+    display: flex;
+    width: 100%;
+    min-height: calc(100vh - 100px);
+    font-family: 'Inter', sans-serif;
+    color: #1f2937;
+    background: linear-gradient(180deg, #fffafc 0%, #ffffff 100%);
+}
+
+.mainArea {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+}
+
+/* ==========================================================
+   SIDEBAR
+========================================================== */
+.sidebar {
+    width: 280px;
+    height: calc(100vh - 100px);
+    position: sticky;
+    top: 0;
+    background: #ffffff;
+    border-right: 1px solid rgba(232, 53, 129, 0.12);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: transform 0.3s ease, width 0.3s ease;
+    overflow: hidden;
+    z-index: 20;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.02);
+}
+
+.sidebarOpen {
+    transform: translateX(0);
+}
+
+.sidebarClosed {
+    width: 0;
+    border: none;
+    transform: translateX(-280px);
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+/* Sits directly below the site's pink navbar, so a pink fill here would read as
+   one continuous band. Keeping it on the sidebar's own white lets the New Chat
+   button be the single filled accent in this column. */
+.sidebarHeader {
+    padding: 0.9rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    border-bottom: 1px solid rgba(232, 53, 129, 0.12);
+}
+
+.sidebarHeader h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    /* 5.9:1 on white — the darker end of the brand gradient, which clears AA
+       where #e83581 (3.99:1) would not. */
+    color: #c2185b;
+    letter-spacing: -0.01em;
+}
+
+.closeSidebar {
+    background: transparent;
+    border: none;
+    /* 4.8:1 on white; a lighter grey would miss the 3:1 minimum for icons. */
+    color: #6b7280;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.closeSidebar:hover {
+    background: rgba(232, 53, 129, 0.1);
+    color: #c2185b;
+}
+
+.newChatBtn {
+    margin: 1rem 1.2rem 0.5rem 1.2rem;
+    padding: 0.75rem 1.2rem;
+    /* Deeper than the brand gradient used elsewhere: at 0.92rem the label counts
+       as normal text, and white over #e83581 is only 3.99:1. This span runs
+       4.95:1 -> 6.97:1, so the label clears AA across the whole fill. */
+    background: linear-gradient(135deg, #d81b60 0%, #ad1457 100%);
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(173, 20, 87, 0.3);
+    transition: all 0.2s ease;
+}
+
+.newChatBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(173, 20, 87, 0.42);
+}
+
+.chatListSection {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.8rem 1rem;
+}
+
+.chatListLabel {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9ca3af;
+    font-weight: 700;
+    padding: 0.5rem 0.4rem;
+    display: block;
+}
+
+.chatList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chatListItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem 0.8rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    border: 1px solid transparent;
+}
+
+.chatListItem:hover {
+    background: #fff0f5;
+    border-color: rgba(232, 53, 129, 0.15);
+}
+
+.chatListItemActive {
+    background: #fff0f5;
+    border-color: rgba(232, 53, 129, 0.3);
+    border-left: 3px solid #e83581;
+}
+
+.chatListItemActive .chatTitle {
+    color: #e83581;
+    font-weight: 600;
+}
+
+.chatListItemActive .chatIcon {
+    color: #e83581;
+}
+
+.chatIcon {
+    color: #9ca3af;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.chatTitle {
+    flex: 1;
+    font-size: 0.88rem;
+    color: #374151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deleteChatBtn {
+    background: none;
+    border: none;
+    color: #d1d5db;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+}
+
+.chatListItem:hover .deleteChatBtn {
+    opacity: 1;
+}
+
+.deleteChatBtn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.noChats {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.menuBtn {
+    background: #ffffff;
+    border: 1px solid rgba(232, 53, 129, 0.2);
+    color: #e83581;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(232, 53, 129, 0.1);
+    transition: all 0.2s ease;
+}
+
+.menuBtn:hover {
+    background: #fff0f5;
+    transform: scale(1.04);
+}
+
+/* ==========================================================
+   HOME SCREEN
+========================================================== */
+.homeContainer {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+}
+
+.homeContent {
+    width: 100%;
+    max-width: 820px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.homeTitle {
+    font-size: 3.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #e83581 0%, #c2185b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+    letter-spacing: -0.03em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* The heading clips its gradient to the text, but an <img> is unaffected by
+   that, so the mark keeps its own colours. The mark now stands alone in the
+   heading, so it is sized as the hero element rather than as an inline icon. */
+.homeTitleLogo {
+    height: 8rem;
+    width: auto;
+    flex-shrink: 0;
+    /* logo-no-bg.png is 128x128 but its artwork only spans y 22-98, leaving
+       17.2% transparent above and 22.7% below. At 8rem that is ~22px and ~29px
+       of dead space the layout cannot see, so pull it back off here. */
+    margin-top: -1.38rem;
+    margin-bottom: -1.82rem;
+}
+
+/* ==========================================================
+   INPUT AREA
+========================================================== */
+.inputWrapper {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+}
+
+.inputBox {
+    background: #ffffff;
+    border: 2px solid rgba(232, 53, 129, 0.18);
+    border-radius: 24px;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    box-shadow: 0 8px 25px rgba(232, 53, 129, 0.08);
+    transition: all 0.25s ease;
+}
+
+.inputBox:focus-within {
+    border-color: #e83581;
+    box-shadow: 0 10px 30px rgba(232, 53, 129, 0.18);
+}
+
+.inputBox textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.05rem;
+    color: #111827;
+    resize: none;
+    padding: 8px 4px;
+    line-height: 1.5;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.inputBox textarea:focus {
+    outline: none;
+}
+
+.inputBox textarea::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.inputRight {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.submitBtn {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.95rem;
+    cursor: not-allowed;
+    transition: all 0.2s ease;
+}
+
+.activeSubmit {
+    background: linear-gradient(135deg, #e83581 0%, #c2185b 100%) !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 14px rgba(232, 53, 129, 0.4) !important;
+}
+
+.activeSubmit:hover {
+    transform: scale(1.06);
+    box-shadow: 0 6px 18px rgba(232, 53, 129, 0.5) !important;
+}
+
+/* ==========================================================
+   SUGGESTION PILLS (HOME)
+========================================================== */
+.suggestionsWrapper {
+    width: 100%;
+    max-width: 820px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(232, 53, 129, 0.15);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+}
+
+.suggestionsHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    color: #e83581;
+    font-weight: 700;
+    margin-bottom: 1.2rem;
+}
+
+.suggestionGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+    .suggestionGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .suggestionGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.suggestionPill {
+    background: #ffffff;
+    border: 1px solid rgba(232, 53, 129, 0.15);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.suggestionPill:hover {
+    background: #fff0f5;
+    border-color: #e83581;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(232, 53, 129, 0.12);
+}
+
+.suggestionPill span {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #e83581;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.suggestionPill p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #4b5563;
+    line-height: 1.4;
+}
+
+/* ==========================================================
+   CHAT LAYOUT
+========================================================== */
+.chatHeader {
+    padding: 0.8rem 1.5rem;
+    border-bottom: 1px solid #f3f4f6;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.chatHeader h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.chatMessages {
+    flex: 1;
+    padding: 2rem 1.5rem;
+    background: #ffffff;
+}
+
+.chatMessages::-webkit-scrollbar {
+    width: 5px;
+}
+.chatMessages::-webkit-scrollbar-thumb {
+    background: #e5e7eb;
+    border-radius: 10px;
+}
+
+.messagesMaxWidth {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* The sentinel scrollToBottom() scrolls to. The margin keeps the last message
+   clear of the sticky input bar below it.
+
+   This clearance used to be scroll-padding on the document, which also applied
+   to the browser's caret-into-view scrolling and made the page jump on every
+   keystroke. Scoped to this element, only our own scrollIntoView is affected. */
+.chatEndMarker {
+    height: 16px;
+    scroll-margin-bottom: 130px;
+}
+
+.chatInputWrapper {
+    padding: 1rem 1.5rem 1.5rem;
+    background: #ffffff;
+    border-top: 1px solid #f3f4f6;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+
+.chatInputMaxWidth {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* ==========================================================
+   MESSAGES
+========================================================== */
+.messageBlock {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    animation: fadeIn 0.25s ease forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.userBlock {
+    margin-bottom: -0.5rem;
+}
+
+.avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    background: #fdf2f8;
+    color: #db2777;
+    border: 1px solid #fce7f3;
+}
+
+.messageContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 2px;
+}
+
+.userText {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #111827;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+}
+
+.aiText {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #374151;
+    font-weight: 400;
+}
+
+/* ==========================================================
+   VENDOR CARDS
+========================================================== */
+.vendorsContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.8rem;
+    margin-top: 0.5rem;
+}
+
+.vendorCard {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    transition: all 0.2s ease;
+}
+
+.vendorCard:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.vendorHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.6rem;
+}
+
+.vendorHeader h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #111827;
+    font-weight: 600;
+}
+
+.vendorCategory {
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    background: #e5e7eb;
+    color: #4b5563;
+    border-radius: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.vendorDetails p {
+    margin: 5px 0;
+    font-size: 0.88rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.price {
+    font-weight: 600;
+    color: #111827 !important;
+}
+
+.starIcon {
+    color: #fbbf24;
+}
+
+.vendorWhy {
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.8rem;
+    color: #9ca3af;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+/* ==========================================================
+   BUDGET BREAKDOWN
+========================================================== */
+.budgetBreakdown {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+}
+
+.budgetTitle {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.budgetGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.8rem;
+}
+
+.budgetItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.budgetCategory {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.budgetAmount {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+/* ==========================================================
+   COMPARISONS & SUGGESTIONS
+========================================================== */
+.comparisonsContainer {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.comparisonCard {
+    background: #fdfdfd;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1.2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.comparisonGrid {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.compCol {
+    flex: 1;
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+}
+
+.compCol h4 {
+    margin: 0 0 0.8rem 0;
+    font-size: 1rem;
+    color: #111827;
+}
+
+.compCol p {
+    margin: 0.3rem 0;
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+
+.compCol p strong {
+    color: #111827;
+}
+
+.compVs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.compRecommendation {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.suggestionsContainer {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.suggestionAlert {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+/* ==========================================================
+   LOADING
+========================================================== */
+.loadingBubble {
+    padding: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    height: 30px;
+}
+
+.dotPulse {
+    position: relative;
+    left: -9999px;
+    width: 6px;
+    height: 6px;
+    border-radius: 5px;
+    background-color: #9ca3af;
+    color: #9ca3af;
+    box-shadow: 9999px 0 0 -5px;
+    animation: dotPulse 1.5s infinite linear;
+    animation-delay: 0.25s;
+}
+
+.dotPulse::before, .dotPulse::after {
+    content: '';
+    display: inline-block;
+    position: absolute;
+    top: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 5px;
+    background-color: #9ca3af;
+    color: #9ca3af;
+}
+
+.dotPulse::before {
+    box-shadow: 9984px 0 0 0;
+    animation: dotPulseBefore 1.5s infinite linear;
+    animation-delay: 0s;
+}
+
+.dotPulse::after {
+    box-shadow: 10014px 0 0 0;
+    animation: dotPulseAfter 1.5s infinite linear;
+    animation-delay: 0.5s;
+}
+
+@keyframes dotPulseBefore {
+    0% { box-shadow: 9984px 0 0 -5px; }
+    30% { box-shadow: 9984px 0 0 2px; }
+    60%, 100% { box-shadow: 9984px 0 0 -5px; }
+}
+@keyframes dotPulse {
+    0% { box-shadow: 9999px 0 0 -5px; }
+    30% { box-shadow: 9999px 0 0 2px; }
+    60%, 100% { box-shadow: 9999px 0 0 -5px; }
+}
+@keyframes dotPulseAfter {
+    0% { box-shadow: 10014px 0 0 -5px; }
+    30% { box-shadow: 10014px 0 0 2px; }
+    60%, 100% { box-shadow: 10014px 0 0 -5px; }
+}
+
+/* ==========================================================
+   RESPONSIVE
+========================================================== */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 280px;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebarClosed {
+        transform: translateX(-280px);
+    }
+
+    .homeTitle {
+        font-size: 2.2rem;
+    }
+
+    .homeTitleLogo {
+        height: 5.5rem;
+        /* Same 17.2% / 22.7% trim as above, scaled to 5.5rem. */
+        margin-top: -0.95rem;
+        margin-bottom: -1.25rem;
+    }
+
+    .userText {
+        font-size: 1.1rem;
+    }
+
+    .vendorsContainer {
+        grid-template-columns: 1fr;
+    }
+
+    .comparisonGrid {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .compVs {
+        padding: 0.5rem 0;
+    }
+}
+
+/* ── Store product cards ─────────────────────────────────────────────────
+   A grid rather than the vendor list's single column: products are chosen by
+   how they look, so the image has to lead. Same neutral palette as
+   .vendorCard so the two card types read as one family. */
+.productsContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+}
+
+.productCard {
+    display: flex;
+    flex-direction: column;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+}
+
+.productCard:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.productThumb {
+    position: relative;
+    aspect-ratio: 1;
+    background: #eef0f3;
+    display: grid;
+    place-items: center;
+    color: #9ca3af;
+}
+
+.productThumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.productSoldOut {
+    position: absolute;
+    inset: auto 0 0 0;
+    background: rgba(17, 24, 39, 0.78);
+    color: #fff;
+    font-size: 0.65rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 0.2rem 0;
+}
+
+.productBody {
+    padding: 0.6rem 0.7rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.productCategory {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+}
+
+/* Two-line clamp: product names vary from "Yellow Bloom" to
+   "Sangam ( gold & silver fusion)", and a ragged card grid looks broken. */
+.productTitle {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.productPrice {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+}
+
+.productPrice strong {
+    color: #be185d;
+    font-weight: 700;
+}
+
+.productPrice s {
+    color: #9ca3af;
+    font-size: 0.72rem;
+}
+
+/* Why this product was suggested to this shopper — "You have nothing for the
+   reception yet". Tinted rather than plain grey so it reads as a reason the
+   assistant is giving, not as more product metadata. */
+.productReason {
+    margin-top: 0.3rem;
+    font-size: 0.66rem;
+    line-height: 1.35;
+    color: #9d174d;
+    background: #fdf2f8;
+    border-radius: 5px;
+    padding: 0.25rem 0.4rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── The user's own orders, shown in chat ────────────────────────────────
+   A vertical list, not the product grid: an order is a receipt to read, not
+   a thing to browse and pick between. */
+.ordersContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-top: 0.9rem;
+}
+
+.orderCard {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+}
+
+.orderTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.55rem;
+}
+
+.orderInvoice {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #374151;
+    font-variant-numeric: tabular-nums;
+}
+
+.orderStatus {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: #e5e7eb;
+    color: #4b5563;
+}
+
+/* Status carries meaning, so it carries colour: green has arrived, amber is
+   waiting, blue is moving, red is cancelled. */
+.orderStatusDelivered { background: #dcfce7; color: #166534; }
+.orderStatusProcessing { background: #dbeafe; color: #1e40af; }
+.orderStatusPending { background: #fef3c7; color: #92400e; }
+.orderStatusCancel { background: #fee2e2; color: #991b1b; }
+
+.orderItems {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.orderItems li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.orderItems img {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex: none;
+    background: #eef0f3;
+}
+
+.orderItemTitle {
+    font-size: 0.78rem;
+    color: #374151;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.orderItemQty {
+    font-size: 0.72rem;
+    color: #9ca3af;
+    flex: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.orderFoot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-top: 0.6rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #eef0f3;
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.orderFoot strong {
+    font-size: 0.88rem;
+    color: #be185d;
+    font-variant-numeric: tabular-nums;
+}

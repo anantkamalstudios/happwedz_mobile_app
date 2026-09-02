@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../core/config/api_config.dart';
 import '../core/core.dart';
 
 class MyBookingsScreen extends StatelessWidget {
@@ -13,7 +15,7 @@ class MyBookingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: AppColors.surface,
         body: Container(
@@ -32,9 +34,12 @@ class MyBookingsScreen extends StatelessWidget {
                   labelStyle: AppText.button,
                   unselectedLabelStyle: AppText.bodyStrong,
                   dividerColor: Colors.transparent,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   tabs: const [
                     Tab(text: "Upcoming"),
                     Tab(text: "Past"),
+                    Tab(text: "Shop Orders"),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -48,7 +53,11 @@ class MyBookingsScreen extends StatelessWidget {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: const TabBarView(
-                      children: [UpcomingBookingsTab(), PastBookingsTab()],
+                      children: [
+                        UpcomingBookingsTab(),
+                        PastBookingsTab(),
+                        ShopOrdersTab(),
+                      ],
                     ),
                   ),
                 ),
@@ -107,7 +116,7 @@ Future<_BookingsResult> _fetchBookings() async {
   if (token == null) throw _NotSignedIn();
 
   final res = await http.get(
-    Uri.parse("https://happywedz.com/api/request-pricing/user/quotations"),
+    Uri.parse("${ApiConfig.apiBase}/request-pricing/user/quotations"),
     headers: {"Authorization": "Bearer $token"},
   );
 
@@ -145,11 +154,41 @@ Future<_BookingsResult> _fetchBookings() async {
   return _BookingsResult(upcoming, past);
 }
 
+/// Orders placed on the store (store.happywedz.com), a separate service with
+/// its own database. The HappyWedz backend resolves which store customer
+/// this user is and reshapes the orders before they arrive here, so this
+/// fetch looks like [_fetchBookings] even though the data crossed a service
+/// boundary to get here.
+///
+/// A user who has never shopped gets back `{success: true, orders: []}` (or
+/// `linked: false`) — an empty list, not an error.
+Future<List<dynamic>> _fetchShopOrders() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString("auth_token");
+
+  if (token == null) throw _NotSignedIn();
+
+  final res = await http.get(
+    Uri.parse("${ApiConfig.apiBase}/store/orders/mine"),
+    headers: {"Authorization": "Bearer $token"},
+  );
+
+  if (res.statusCode != 200) {
+    throw Exception('HTTP ${res.statusCode}');
+  }
+
+  final data = jsonDecode(res.body);
+  if (data["success"] == true) {
+    return (data["orders"] as List<dynamic>?) ?? [];
+  }
+  return [];
+}
+
 /// Maps one quotation object onto a [BookingCard]. Field lookups unchanged.
 BookingCard _cardFor(dynamic b) {
   return BookingCard(
     imageUrl:
-        b["vendor"]?["cover_photo"] ?? "https://happywedz.com/images/no-image.jpg",
+        b["vendor"]?["cover_photo"] ?? "${ApiConfig.baseUrl}/images/no-image.jpg",
     vendorName: b["vendor"]?["businessName"] ?? "Vendor",
     serviceName: b["vendor"]?["category"] ?? "Service",
     price: "${b["quote"]?["price"] ?? "N/A"}",
@@ -169,6 +208,7 @@ class _BookingsList extends StatelessWidget {
     required this.onRetry,
     required this.emptyTitle,
     required this.emptyMessage,
+    this.cardBuilder = _cardFor,
   });
 
   final bool loading;
@@ -177,6 +217,10 @@ class _BookingsList extends StatelessWidget {
   final Future<void> Function() onRetry;
   final String emptyTitle;
   final String emptyMessage;
+
+  /// Defaults to the vendor-quotation [BookingCard]; [ShopOrdersTab] passes
+  /// [_shopOrderCardFor] instead since the fields don't match.
+  final Widget Function(dynamic) cardBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +267,7 @@ class _BookingsList extends StatelessWidget {
         itemCount: bookings.length,
         itemBuilder: (context, index) => FadeSlideIn(
           delay: AppMotion.staggerFor(index),
-          child: _cardFor(bookings[index]),
+          child: cardBuilder(bookings[index]),
         ),
       ),
     );
@@ -336,6 +380,322 @@ class _PastBookingsTabState extends State<PastBookingsTab> {
       onRetry: fetchBookings,
       emptyTitle: 'No past bookings yet',
       emptyMessage: 'Completed bookings will be listed here.',
+    );
+  }
+}
+
+// =============================================================
+// SHOP ORDERS TAB
+// =============================================================
+class ShopOrdersTab extends StatefulWidget {
+  const ShopOrdersTab({super.key});
+
+  @override
+  State<ShopOrdersTab> createState() => _ShopOrdersTabState();
+}
+
+class _ShopOrdersTabState extends State<ShopOrdersTab> {
+  bool loading = true;
+  Object? error;
+  List<dynamic> orders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchOrders();
+  }
+
+  Future<void> fetchOrders() async {
+    if (mounted) setState(() => error = null);
+    try {
+      final result = await _fetchShopOrders();
+      if (!mounted) return;
+      setState(() {
+        orders = result;
+        loading = false;
+      });
+    } on _NotSignedIn {
+      if (mounted) Navigator.pushNamed(context, "/customer-login");
+    } catch (e) {
+      debugPrint("Exception during shop orders fetch: $e");
+      if (!mounted) return;
+      setState(() {
+        error = e;
+        loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _BookingsList(
+      loading: loading,
+      error: error,
+      bookings: orders,
+      onRetry: fetchOrders,
+      emptyTitle: 'No shop orders found',
+      emptyMessage: "You haven't ordered anything from the HappyWedz store yet.",
+      cardBuilder: _shopOrderCardFor,
+    );
+  }
+}
+
+Widget _shopOrderCardFor(dynamic order) => _ShopOrderCard(order: order);
+
+// =============================================================
+// SHOP ORDER STATUS
+// =============================================================
+
+/// The store's `Order.status` enum is exactly Pending / Processing /
+/// Delivered / Cancel (not "Cancelled") — the other spellings are matched
+/// too so a later widening of that enum still lands somewhere sensible.
+class _ShopStatus {
+  const _ShopStatus(this.label, this.color);
+  final String label;
+  final Color color;
+}
+
+_ShopStatus _shopStatusFor(dynamic raw) {
+  final value = raw?.toString().trim().toUpperCase() ?? '';
+  switch (value) {
+    case 'PENDING':
+      return const _ShopStatus('Pending', AppColors.warning);
+    case 'PROCESSING':
+      return const _ShopStatus('Processing', AppColors.info);
+    case 'DELIVERED':
+      return const _ShopStatus('Delivered', AppColors.success);
+    case 'CANCEL':
+    case 'CANCELLED':
+    case 'CANCELED':
+      return const _ShopStatus('Cancelled', AppColors.error);
+    default:
+      return _ShopStatus(
+        value.isEmpty ? 'Unknown' : value,
+        AppColors.textTertiary,
+      );
+  }
+}
+
+// =============================================================
+// SHOP ORDER CARD
+// =============================================================
+
+class _ShopOrderCard extends StatefulWidget {
+  const _ShopOrderCard({required this.order});
+
+  final dynamic order;
+
+  @override
+  State<_ShopOrderCard> createState() => _ShopOrderCardState();
+}
+
+class _ShopOrderCardState extends State<_ShopOrderCard> {
+  static const String _storeUrl = 'https://store.happywedz.com';
+
+  bool _expanded = false;
+
+  String get _formattedPlacedAt {
+    final placedAt = widget.order["placedAt"]?.toString();
+    if (placedAt == null || placedAt.isEmpty) return 'Date not set';
+    try {
+      return DateFormat('EEE, d MMM yyyy').format(DateTime.parse(placedAt));
+    } catch (_) {
+      return placedAt;
+    }
+  }
+
+  /// "Rose Gold Garland +2 more" — names the thing the person actually
+  /// recognises, then says how much else is in the box.
+  String _itemSummary(List<dynamic> items) {
+    if (items.isEmpty) return 'No items';
+    final first = items.first;
+    final rest = items.length - 1;
+    final title = first["title"]?.toString() ?? 'Item';
+    return rest > 0 ? '$title +$rest more' : title;
+  }
+
+  Future<void> _openStore() async {
+    final uri = Uri.parse(_storeUrl);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('Could not open store: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final order = widget.order;
+    final items = (order["items"] as List<dynamic>?) ?? [];
+    final itemCount = order["itemCount"] ?? items.length;
+    final status = _shopStatusFor(order["status"]);
+    final discount = num.tryParse('${order["discount"] ?? 0}') ?? 0;
+    final firstImage = items.isNotEmpty
+        ? items.first["image"]?.toString()
+        : null;
+
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: AppRadii.rSm,
+                child: firstImage != null && firstImage.isNotEmpty
+                    ? NetworkImageWidget(
+                        url: firstImage,
+                        height: 64,
+                        width: 64,
+                      )
+                    : Container(
+                        height: 64,
+                        width: 64,
+                        color: AppColors.pinkSurface,
+                        child: const Icon(
+                          Icons.shopping_bag_outlined,
+                          color: AppColors.primary,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order["invoice"] != null
+                          ? 'Order #${order["invoice"]}'
+                          : 'Shop Order',
+                      style: AppText.sectionTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      _itemSummary(items),
+                      style: AppText.cardSubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: status.color.withValues(alpha: 0.12),
+                  borderRadius: AppRadii.rPill,
+                  border: Border.all(color: status.color.withValues(alpha: 0.35)),
+                ),
+                child: Text(
+                  status.label,
+                  style: AppText.caption.copyWith(
+                    color: status.color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _InfoRow(
+            icon: Icons.inventory_2_outlined,
+            text: '$itemCount item${itemCount == 1 ? "" : "s"}',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _InfoRow(
+            icon: Icons.payments_outlined,
+            text: order["paymentMethod"]?.toString() ?? '—',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _InfoRow(
+            icon: Icons.local_shipping_outlined,
+            text: order["shipTo"]?.toString() ?? '—',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _InfoRow(icon: Icons.calendar_today_rounded, text: _formattedPlacedAt),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.pinkSurface,
+                  borderRadius: AppRadii.rSm,
+                ),
+                child: Text(
+                  '₹${order["total"] ?? "—"}',
+                  style: AppText.price,
+                ),
+              ),
+              if (discount > 0) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  '₹$discount off',
+                  style: AppText.caption.copyWith(color: AppColors.successDark),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              if (items.isNotEmpty)
+                TextButton.icon(
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  icon: Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                  ),
+                  label: Text(_expanded ? 'Hide Items' : 'View Items'),
+                ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _openStore,
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Visit Store'),
+              ),
+            ],
+          ),
+          if (_expanded)
+            Column(
+              children: items.map((item) {
+                final title = item["title"]?.toString() ?? 'Item';
+                final quantity = item["quantity"] ?? 1;
+                final price = item["price"] ?? 0;
+                final lineTotal = item["lineTotal"] ?? 0;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '$title  ·  $quantity × ₹$price',
+                          style: AppText.body,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text('₹$lineTotal', style: AppText.bodyStrong),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
     );
   }
 }

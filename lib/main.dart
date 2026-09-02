@@ -20,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'ai_chat_screen/ai_chat_screen.dart';
 import 'authservice.dart';
+import 'core/config/api_config.dart';
 import 'core/core.dart';
 import 'internetconnection.dart';
 
@@ -279,7 +280,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final userId = prefs.getInt("user_id");
     if (userId == null) return;
 
-    final url = 'https://happywedz.com/api/user/$userId';
+    final url = '${ApiConfig.baseUrl}/api/user/$userId';
 
     try {
       final response = await http.get(Uri.parse(url));
@@ -358,7 +359,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
       final response = await http
           .post(
-            Uri.parse('https://happywedz.com/api/user/google-auth'),
+            Uri.parse('${ApiConfig.baseUrl}/api/user/google-auth'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'email': googleUser.email,

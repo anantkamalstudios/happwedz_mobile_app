@@ -1,0 +1,15 @@
+.upload-modal .nav-tabs .nav-link {
+  color: #495057;
+  cursor: pointer;
+}
+
+.upload-modal .nav-tabs .nav-link.active {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.upload-modal .preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

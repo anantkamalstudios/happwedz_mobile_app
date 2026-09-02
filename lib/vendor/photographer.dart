@@ -277,9 +277,10 @@ import '../core/core.dart';
 // }
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:happy_wedz/core/config/api_config.dart';
 
 Future<List<Vendor>> fetchPhotographers() async {
-  final url = Uri.parse('https://happywedz.com/api/vendor-services?subCategory=photographers');
+  final url = Uri.parse('${ApiConfig.apiBase}/vendor-services?subCategory=photographers');
   final response = await http.get(url);
 
   if (response.statusCode == 200) {
@@ -334,9 +335,9 @@ class Vendor {
     if (json['media']?['gallery'] != null) {
       for (var img in json['media']['gallery']) {
         if (img is Map && img['id'] != null) {
-          imagesList.add('https://happywedz.com/uploads/${img['id']}');
+          imagesList.add('${ApiConfig.baseUrl}/uploads/${img['id']}');
         } else if (img is String) {
-          imagesList.add('https://happywedz.com$img');
+          imagesList.add('${ApiConfig.baseUrl}$img');
         }
       }
     }

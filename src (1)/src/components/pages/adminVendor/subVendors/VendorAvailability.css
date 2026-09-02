@@ -1,0 +1,304 @@
+/* VendorAvailability.css - Minimal, Clean & Modern Booking Calendar */
+
+.vendor-avail-studio {
+  width: 100%;
+}
+
+/* Minimal Top Bar */
+.avail-clean-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.avail-pills-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.avail-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.avail-pill.available {
+  background-color: #fff1f6;
+  color: #ed1173;
+  border-color: #fce7f3;
+}
+
+.avail-pill.closed {
+  background-color: #ffffff;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.avail-action-btn {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid #fce7f3;
+  background: #ffffff;
+  color: #ed1173;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.avail-action-btn:hover {
+  background: #ed1173;
+  color: #ffffff;
+  border-color: #ed1173;
+}
+
+.avail-action-btn:hover svg {
+  color: #ffffff !important;
+}
+
+/* Month Filter Tabs */
+.avail-tabs-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 20px;
+}
+
+.avail-tab-pill {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.avail-tab-pill:hover {
+  border-color: #ed1173;
+  color: #ed1173;
+  background: #fff1f6;
+}
+
+.avail-tab-pill.active {
+  background: #ed1173;
+  color: #ffffff;
+  border-color: #ed1173;
+  box-shadow: 0 2px 6px rgba(237, 17, 115, 0.2);
+}
+
+.avail-tab-count {
+  font-size: 0.7rem;
+  padding: 0px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.avail-tab-pill:not(.active) .avail-tab-count {
+  background: #fff1f6;
+  color: #ed1173;
+}
+
+/* Months Grid Layout */
+.avail-months-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 20px;
+}
+
+.avail-months-container.single-focus {
+  grid-template-columns: 1fr;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Month Card */
+.avail-month-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.03);
+  overflow: hidden;
+  transition: border-color 0.18s ease;
+}
+
+.avail-month-card:hover {
+  border-color: #cbd5e1;
+}
+
+.avail-month-header {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.avail-month-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avail-open-counter {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ed1173;
+  background: #fff1f6;
+  border: 1px solid #fce7f3;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+/* Weekday Strip */
+.avail-weekdays-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 10px 12px 4px;
+  text-align: center;
+}
+
+.avail-weekday-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.avail-weekday-title.is-weekend {
+  color: #ed1173;
+}
+
+/* 7-Column Days Grid */
+.avail-days-matrix {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 6px 12px 14px;
+}
+
+.avail-empty-cell {
+  aspect-ratio: 1;
+  min-height: 34px;
+}
+
+/* Day Button - Clean Circular Design */
+.avail-day-tile {
+  aspect-ratio: 1;
+  min-height: 34px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  padding: 0;
+  user-select: none;
+  background: transparent;
+  color: #334155;
+}
+
+.avail-day-tile:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Available Date State (Clean HappyWedz Pink Pill) */
+.avail-day-tile.is-available {
+  background: #fff1f6 !important;
+  color: #ed1173 !important;
+  border-color: #fce7f3 !important;
+  font-weight: 700;
+}
+
+.avail-day-tile.is-available:hover {
+  background: #ffe4ee !important;
+  border-color: #f472b6 !important;
+  transform: scale(1.05);
+}
+
+.avail-day-tile.is-available::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #ed1173;
+}
+
+/* Unavailable Date State */
+.avail-day-tile.is-unavailable {
+  background-color: #ffffff;
+  color: #64748b;
+  border-color: #f1f5f9;
+}
+
+.avail-day-tile.is-unavailable:hover {
+  background-color: #fff1f6;
+  color: #ed1173;
+  border-color: #fce7f3;
+}
+
+/* Past Date */
+.avail-day-tile.is-past {
+  background: transparent !important;
+  color: #cbd5e1 !important;
+  border-color: transparent !important;
+  cursor: not-allowed;
+  font-weight: 400;
+}
+
+/* Today Ring */
+.avail-day-tile.is-today {
+  box-shadow: 0 0 0 2px #ed1173 !important;
+}
+
+.avail-day-tile.is-today .avail-today-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #ed1173;
+}

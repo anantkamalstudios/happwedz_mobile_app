@@ -1,0 +1,421 @@
+/* ══ Shared cab controls ══════════════════════════════════════════════════
+   Location autocomplete, the date-and-time picker and the passenger stepper.
+   Imported by the components themselves rather than by a page, so they carry
+   their own styling wherever they are mounted — the results page uses the same
+   three controls and had none of this until now.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.cab-search-card,
+.cab-loc,
+.cab-dt,
+.cab-pax {
+  --cab-pink: #ed1173;
+  --cab-border: #e3e5ec;
+  --cab-muted: #8b8fa8;
+}
+
+/* ── location field ────────────────────────────────────────────────────── */
+
+.cab-loc {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  min-width: 0;
+}
+
+/* Lives here, not in a page stylesheet: both the home form and the results bar
+   render this button and it was unstyled on the form. */
+.cab-loc-clear,
+.cab-dt-seg-x {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: #9aa1ae;
+  cursor: pointer;
+}
+
+.cab-loc-clear:hover,
+.cab-dt-seg-x:hover { background: #f1f2f5; color: #1a1f36; }
+
+.cab-loc-icon {
+  display: flex;
+  color: var(--cab-muted);
+  flex-shrink: 0;
+}
+
+/* Flex so the clear button sits beside the input; as a block it dropped onto
+   the line below the address. The bar variant relied on its own override and
+   the standalone form never got one. */
+.cab-loc-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cab-loc-input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  font-size: 13px;
+  color: #333;
+  background: transparent;
+  text-overflow: ellipsis;
+}
+
+.cab-loc-input::placeholder { color: var(--cab-muted); }
+
+.cab-loc-hint {
+  position: absolute;
+  left: 40px;
+  bottom: -15px;
+  font-size: 10px;
+  color: var(--cab-muted);
+}
+
+.cab-loc-list {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 10px);
+  left: -14px;
+  width: max(340px, calc(100% + 28px));
+  max-height: 300px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--cab-border);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  padding: 4px 0;
+}
+
+.cab-loc-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.cab-loc-item:hover { background: #fdf0f6; }
+.cab-loc-item.is-note { color: var(--cab-muted); cursor: default; font-size: 12px; }
+.cab-loc-item.is-note:hover { background: transparent; }
+
+.cab-loc-pin { color: var(--cab-muted); flex-shrink: 0; margin-top: 2px; }
+
+.cab-loc-text { display: flex; flex-direction: column; min-width: 0; }
+.cab-loc-text strong { font-weight: 600; color: #333; }
+.cab-loc-text small { font-size: 11px; color: var(--cab-muted); line-height: 1.4; }
+
+/* ── date + time field ─────────────────────────────────────────────────── */
+
+.cab-dt { position: relative; min-width: 0; }
+
+.cab-dt-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--cab-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #333;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cab-dt-icon { color: var(--cab-muted); flex-shrink: 0; }
+
+.cab-dt-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cab-dt-text small { font-size: 10px; color: var(--cab-muted); }
+.cab-dt-text .is-placeholder { color: var(--cab-muted); }
+
+.cab-dt-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #666;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cab-dt-pop {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 290px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--cab-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.cab-dt-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.cab-dt-nav button {
+  border: 0;
+  background: transparent;
+  color: var(--cab-pink);
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+}
+
+.cab-dt-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  text-align: center;
+}
+
+.cab-dt-wd {
+  font-size: 11px;
+  color: var(--cab-muted);
+  padding-bottom: 4px;
+}
+
+.cab-dt-day {
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+}
+
+.cab-dt-day:hover:not(:disabled) { background: #fdf0f6; }
+.cab-dt-day:disabled { color: #ccc; cursor: default; }
+.cab-dt-day.is-today { box-shadow: inset 0 0 0 1px var(--cab-pink); color: var(--cab-pink); }
+.cab-dt-day.is-picked { background: var(--cab-pink); color: #fff; font-weight: 600; }
+
+/* ── time step ─────────────────────────────────────────────────────────── */
+
+.cab-dt-time-head { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px; }
+
+.cab-dt-chosen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  background: #f6f6f8;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #333;
+}
+
+.cab-dt-chosen span { display: inline-flex; align-items: center; gap: 6px; }
+
+.cab-dt-chosen button {
+  border: 0;
+  background: transparent;
+  color: var(--cab-pink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cab-dt-clock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.cab-dt-clock input {
+  width: 56px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--cab-border);
+  border-radius: 5px;
+  font-size: 14px;
+  text-align: center;
+  outline: none;
+}
+
+.cab-dt-clock input:focus { border-color: var(--cab-pink); }
+
+.cab-dt-mer {
+  display: flex;
+  margin-left: 6px;
+  border: 1px solid var(--cab-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.cab-dt-mer button {
+  width: 52px;
+  height: 36px;
+  border: 0;
+  background: #fff;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+}
+
+.cab-dt-mer button.is-on { background: var(--cab-pink); color: #fff; font-weight: 600; }
+
+/* Inline rule failure, shown between the clock and the actions as the portal
+   does — the message belongs where the time is being set, not at the bottom of
+   the whole form. */
+.cab-dt-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: #fdf2f2;
+  border: 1px solid #f3c2c2;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #c0392b;
+}
+
+.cab-dt-error svg { flex-shrink: 0; margin-top: 1px; }
+
+.cab-dt-actions { display: flex; gap: 10px; }
+
+.cab-dt-actions button {
+  flex: 1;
+  height: 36px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cab-dt-cancel { border: 1px solid var(--cab-border); background: #fff; color: #555; }
+.cab-dt-apply { border: 0; background: var(--cab-pink); color: #fff; }
+.cab-dt-apply:disabled { background: #e5b8cd; cursor: not-allowed; }
+
+
+.cab-pax { position: relative; }
+
+.cab-pax-trigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--cab-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+
+.cab-pax-icon { color: var(--cab-muted); }
+.cab-pax-caret { margin-left: auto; color: var(--cab-muted); }
+
+.cab-pax-pop {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 260px;
+  padding: 8px 16px 16px;
+  background: #fff;
+  border: 1px solid var(--cab-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.cab-pax-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  font-size: 13px;
+  color: #333;
+}
+
+.cab-pax-row + .cab-pax-row { border-top: 1px solid #f2f2f4; }
+
+.cab-pax-stepper { display: flex; align-items: center; gap: 12px; }
+
+.cab-pax-stepper button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--cab-pink);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--cab-pink);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cab-pax-stepper button:disabled { border-color: #ddd; color: #ccc; cursor: default; }
+.cab-pax-count { min-width: 14px; text-align: center; font-weight: 600; }
+
+.cab-pax-done {
+  width: 100%;
+  height: 38px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--cab-pink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 767.98px) {
+  /* Popovers span their field rather than overflowing the viewport. */
+  .cab-loc-list { left: 0; width: 100%; }
+  .cab-pax-trigger { min-width: 0; width: 100%; }
+
+  .cab-dt-pop,
+  .cab-pax-pop { left: 0; right: 0; min-width: 0; width: auto; }
+}

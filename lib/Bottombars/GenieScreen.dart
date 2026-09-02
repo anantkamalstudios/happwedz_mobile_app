@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:happy_wedz/core/config/api_config.dart';
 
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,7 +26,7 @@ import 'package:http/http.dart' as http;
 /// exception for it, so every Genie request failed on device. The host serves
 /// the same API over TLS, so the scheme is corrected here too — see the note on
 /// `ApiService.baseUrl` in lib/ai_chat_screen/ai_chat_screen.dart.
-const String kBaseUrl = 'https://shaadiai.happywedz.com';
+const String kBaseUrl = ApiConfig.aiChatBaseUrl;
 
 class GenieScreen extends StatefulWidget {
   const GenieScreen({super.key});
@@ -66,6 +67,20 @@ class ApiService {
   final http.Client client;
   ApiService({http.Client? client}) : client = client ?? http.Client();
 
+  /// AUDIT FIX: the reference client (`Genie.jsx`/`HomeGennie.jsx`) sends
+  /// `Authorization: Bearer <token>` on every chat call; this client sent
+  /// none, which is the likely cause of empty/failing chat history for
+  /// signed-in users. See the matching fix on `ai_chat_screen.dart`'s
+  /// `ApiService`.
+  Future<Map<String, String>> _headers({String? contentType}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(ApiConfig.authTokenKey);
+    return {
+      if (contentType != null) 'Content-Type': contentType,
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<Map<String, dynamic>> sendMessage({
     required String sessionId,
     required int? userId,
@@ -79,7 +94,7 @@ class ApiService {
     });
 
     final res = await client.post(uri,
-        headers: {"Content-Type": "application/json"}, body: body);
+        headers: await _headers(contentType: 'application/json'), body: body);
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final decoded = jsonDecode(res.body);
@@ -92,10 +107,16 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> fetchChatHistory(String sessionId) async {
     final uri = Uri.parse('$kBaseUrl/api/chat_history?session_id=$sessionId');
-    final res = await client.get(uri);
+    final res = await client.get(uri, headers: await _headers());
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final decoded = jsonDecode(res.body);
-      final items = decoded['data'] as List<dynamic>? ?? [];
+      // AUDIT FIX: tolerant of the backend answering either `{data: [...]}`
+      // or the list directly, matching the reference client's `raw?.data ??
+      // raw` unwrapping.
+      final unwrapped = decoded is Map && decoded.containsKey('data')
+          ? decoded['data']
+          : decoded;
+      final items = unwrapped is List ? unwrapped : <dynamic>[];
       return items.cast<Map<String, dynamic>>();
     }
     return [];
@@ -205,8 +226,12 @@ class _GenieScreenState extends State<GenieScreen> with TickerProviderStateMixin
         query: text,
       );
 
-      // backend returns wrapper -> decoded['data']
-      final data = apiResp['data'] as Map<String, dynamic>?;
+      // backend returns wrapper -> decoded['data'], but AUDIT FIX: tolerate
+      // the backend answering the payload directly too (matches the
+      // reference client's `raw?.data ?? raw` unwrapping).
+      final unwrapped =
+          apiResp.containsKey('data') ? apiResp['data'] : apiResp;
+      final data = unwrapped is Map<String, dynamic> ? unwrapped : null;
       if (data == null) throw Exception('Malformed response');
 
       // Update session id if provided

@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'core/core.dart';
+import 'core/config/api_config.dart';
 
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:http/http.dart' as http;
@@ -60,7 +61,7 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
   }
 // Fetch stories from API
   Future<List<Map<String, dynamic>>> fetchStories() async {
-    final response = await http.get(Uri.parse('https://happywedz.com/api/blogs/all'));
+    final response = await http.get(Uri.parse('${ApiConfig.apiBase}/blogs/all'));
     debugPrint('${response}');
     debugPrint('${response.statusCode}');
     if (response.statusCode == 200) {
@@ -76,12 +77,12 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     if (path == null || path.isEmpty) {
       return 'https://via.placeholder.com/300x200.png';
     }
-    return 'https://happywedz.com$path';
+    return '${ApiConfig.baseUrl}$path';
   }
 
   Future<List<RealWedding>> fetchRealWeddings() async {
     final response = await http.get(
-      Uri.parse('https://happywedz.com/api/realwedding/public'),
+      Uri.parse('${ApiConfig.apiBase}/realwedding/public'),
     );
 
     if (response.statusCode == 200) {

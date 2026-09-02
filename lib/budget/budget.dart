@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
+import '../core/config/api_config.dart';
 import '../core/core.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:http/http.dart' as http;
@@ -28,7 +29,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
 
 
-  final String baseUrl = 'https://happywedz.com/api/budgets';
+  final String baseUrl = '${ApiConfig.apiBase}/budgets';
 
 
 
@@ -53,7 +54,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('https://happywedz.com/api/vendor-types/with-subcategories/all'),
+        Uri.parse('${ApiConfig.apiBase}/vendor-types/with-subcategories/all'),
       );
       debugPrint('🌐 Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {

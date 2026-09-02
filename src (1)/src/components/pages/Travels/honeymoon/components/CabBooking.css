@@ -1,0 +1,452 @@
+/* ══ Cab review / booking page ════════════════════════════════════════════
+   Trip summary, vehicle, traveller form and the steps card down the left, with
+   a sticky price breakup on the right — the portal's layout, in our pink.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.cbk-page {
+  --cbk-pink: #ed1173;
+  --cbk-border: #e3e5ec;
+  --cbk-muted: #64748b;
+}
+
+.cbk-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-top: 16px;
+  font-size: 12px;
+  color: var(--cbk-muted);
+}
+
+.cbk-crumbs button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  color: var(--cbk-pink);
+  cursor: pointer;
+}
+
+.cbk-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+  padding-top: 14px;
+  padding-bottom: 40px;
+}
+
+.cbk-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.cbk-card {
+  background: #fff;
+  border: 1px solid var(--cbk-border);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+/* ── trip summary ──────────────────────────────────────────────────────── */
+
+.cbk-trip-head {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 14px;
+}
+
+.cbk-trip-head span { color: var(--cbk-border); margin: 0 4px; }
+
+.cbk-trip-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.cbk-trip-end { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cbk-trip-end small { font-size: 11px; color: var(--cbk-muted); }
+.cbk-trip-end strong { font-size: 13px; font-weight: 600; color: #0f172a; }
+
+/* Dotted connector with a dot at each end, as the portal draws it. */
+.cbk-trip-dash {
+  position: relative;
+  height: 1px;
+  background: repeating-linear-gradient(
+    to right, var(--cbk-pink) 0 4px, transparent 4px 8px
+  );
+}
+
+.cbk-trip-dash::before,
+.cbk-trip-dash::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--cbk-pink);
+  background: #fff;
+  transform: translateY(-50%);
+}
+
+.cbk-trip-dash::before { left: -3px; }
+.cbk-trip-dash::after { right: -3px; background: var(--cbk-pink); }
+
+.cbk-trip-when {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--cbk-pink);
+}
+
+.cbk-trip-when span { color: var(--cbk-muted); }
+
+/* ── vehicle ───────────────────────────────────────────────────────────── */
+
+.cbk-vehicle {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+}
+
+.cbk-veh-media {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cbk-veh-media img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.cbk-veh-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 3px 8px;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #334155;
+}
+
+.cbk-veh-main { min-width: 0; }
+
+.cbk-veh-main h3 {
+  margin: 0 0 10px;
+  /* App.css forces h3 to 32px !important, so this has to match that weight. */
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  color: #0f172a;
+}
+
+.cbk-veh-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.cbk-veh-chips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.cbk-policies {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1f36;
+  cursor: pointer;
+}
+
+.cbk-policies:hover { text-decoration: underline; }
+
+.cbk-veh-fare { text-align: right; }
+.cbk-veh-fare strong { display: block; font-size: 19px; font-weight: 800; color: #0f172a; }
+.cbk-veh-fare small { font-size: 11px; color: var(--cbk-muted); }
+
+/* ── traveller form ────────────────────────────────────────────────────── */
+
+.cbk-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.cbk-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 11px 13px;
+  background: #f6f8fb;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #475569;
+}
+
+.cbk-note svg { flex-shrink: 0; margin-top: 1px; color: var(--cbk-muted); }
+
+.cbk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.cbk-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+.cbk-field label { font-size: 12px; color: #334155; }
+.cbk-field label i { color: #e0202a; font-style: normal; }
+.cbk-field label em { color: var(--cbk-muted); font-style: normal; }
+
+.cbk-field input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--cbk-border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.cbk-field input:focus { border-color: var(--cbk-pink); }
+.cbk-field input::placeholder { color: #9aa3b2; }
+.cbk-err { font-size: 11px; color: #d0021b; }
+
+/* ── steps ─────────────────────────────────────────────────────────────── */
+
+.cbk-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.cbk-step { min-width: 0; }
+
+.cbk-step-tag {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #475569;
+}
+
+.cbk-step strong { display: block; font-size: 14px; color: #0f172a; margin-bottom: 5px; }
+.cbk-step p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--cbk-muted); }
+
+/* ── consent + pay ─────────────────────────────────────────────────────── */
+
+.cbk-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 4px 2px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #334155;
+  cursor: pointer;
+}
+
+.cbk-consent input {
+  margin-top: 3px;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--cbk-pink);
+  flex-shrink: 0;
+}
+
+.cbk-consent a { color: var(--cbk-pink); }
+
+.cbk-pay-row { display: flex; justify-content: flex-end; }
+
+.cbk-pay {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 28px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--cbk-pink);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cbk-pay:disabled { background: #e5b8cd; cursor: not-allowed; }
+
+/* ── price breakup ─────────────────────────────────────────────────────── */
+
+.cbk-side { position: sticky; top: 16px; }
+
+.cbk-price h4 {
+  margin: 0 0 14px;
+  /* Same global h4 !important as elsewhere. */
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #0f172a;
+}
+
+.cbk-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: var(--cbk-muted);
+  position: relative;
+}
+
+.cbk-price-row.is-strong { color: #0f172a; font-weight: 600; }
+
+.cbk-price-markup > span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cbk-price-markup button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cbk-pink);
+  cursor: pointer;
+  display: flex;
+}
+
+.cbk-price-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #eef0f4;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* ── add markup popover ────────────────────────────────────────────────── */
+
+.cbk-markup {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--cbk-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+
+.cbk-markup > strong {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.cbk-markup label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--cbk-pink);
+  border-radius: 5px;
+}
+
+.cbk-markup label span { color: var(--cbk-muted); font-size: 13px; }
+
+.cbk-markup input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  font-size: 13px;
+}
+
+.cbk-markup-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* Every box-model property is stated rather than inherited: these sit inside a
+   popover on a page that also loads the global button styling, and centring by
+   default alone left the labels off-centre and the two buttons uneven. */
+.cbk-markup-actions button {
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 10px;
+  margin: 0;
+  border: 1px solid var(--cbk-border);
+  border-radius: 5px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  color: #475569;
+  cursor: pointer;
+}
+
+.cbk-markup-actions .is-primary {
+  border-color: var(--cbk-pink);
+  background: var(--cbk-pink);
+  color: #fff;
+}
+
+/* ── responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 991.98px) {
+  .cbk-body { grid-template-columns: minmax(0, 1fr); }
+  .cbk-side { position: static; }
+  .cbk-steps { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+
+@media (max-width: 767.98px) {
+  .cbk-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .cbk-trip-route { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .cbk-trip-dash { display: none; }
+
+  .cbk-vehicle { grid-template-columns: 100px minmax(0, 1fr); }
+  .cbk-veh-fare { grid-column: 1 / -1; text-align: left; }
+
+  .cbk-pay-row { justify-content: stretch; }
+  .cbk-pay { width: 100%; justify-content: center; }
+  .cbk-markup { right: auto; left: 0; }
+}

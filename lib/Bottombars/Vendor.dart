@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:happy_wedz/core/config/api_config.dart';
+
 import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
 
@@ -38,7 +40,7 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          "https://happywedz.com/api/vendor-services?subCategory=${subcategory.name.toLowerCase()}",
+          "${ApiConfig.apiBase}/vendor-services?subCategory=${subcategory.name.toLowerCase()}",
         ),
         headers: {"Accept": "application/json"},
       );
@@ -72,7 +74,7 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          "https://happywedz.com/api/vendor-types/with-subcategories/all",
+          "${ApiConfig.apiBase}/vendor-types/with-subcategories/all",
         ),
         headers: {"Accept": "application/json"},
       );
@@ -277,7 +279,7 @@ class _CategoryCard extends StatelessWidget {
                   const SizedBox(width: AppSpacing.md),
                   NetworkImageWidget(
                     // Existing image URL shape preserved.
-                    url: "https://happywedz.com/api/$image",
+                    url: "${ApiConfig.apiBase}/$image",
                     width: 78,
                     height: 62,
                     radius: AppRadii.md,

@@ -6,6 +6,7 @@ import 'package:before_after/before_after.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:happy_wedz/core/config/api_config.dart';
 
 class LancomeMakeupTryOnScreen13 extends StatefulWidget {
   @override
@@ -13,7 +14,7 @@ class LancomeMakeupTryOnScreen13 extends StatefulWidget {
 }
 
 class _LancomeMakeupTryOnScreen13State extends State<LancomeMakeupTryOnScreen13> {
-  final String baseUrl = 'https://www.happywedz.com/ai/api';
+  final String baseUrl = '${ApiConfig.baseUrl}/ai/api';
   final ImagePicker _picker = ImagePicker();
   double beforeAfterValue = 0.5;
   File? _selectedImage;

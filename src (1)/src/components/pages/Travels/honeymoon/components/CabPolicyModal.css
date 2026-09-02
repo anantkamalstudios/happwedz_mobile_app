@@ -1,0 +1,140 @@
+/* ══ Cab policies dialog ══════════════════════════════════════════════════
+   Imported by CabPolicyModal itself, not by a page: the modal is opened from
+   both the results list and the booking review, and living in the results
+   stylesheet left it completely unstyled on the booking page.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.cpm-overlay,
+.cpm-modal {
+  --cabx-pink: #ed1173;
+  --cabx-border: #e3e5ec;
+  --cabx-muted: #8b8fa8;
+}
+
+.cpm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.cpm-modal {
+  width: 100%;
+  max-width: 640px;
+  /* Fixed rather than fluid: the four tabs differ a lot in length and the
+     dialog jumped size on every switch. */
+  height: min(480px, 86vh);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cpm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #f0f0f2;
+  font-size: 15px;
+  color: #1a1f36;
+}
+
+.cpm-head button { border: 0; background: transparent; cursor: pointer; color: #555; display: flex; }
+
+/* Wraps rather than scrolling: a sideways scrollbar under the tabs read as a
+   broken layout, and at 640px the four fit on one line anyway. */
+.cpm-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 18px 0;
+}
+
+.cpm-tabs button {
+  flex-shrink: 0;
+  padding: 7px 15px;
+  border: 1px solid var(--cabx-border);
+  border-radius: 20px;
+  background: #fff;
+  font-size: 12px;
+  color: #444;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cpm-tabs button.is-on {
+  background: #ed1173;
+  border-color: #ed1173;
+  color: #fff;
+  font-weight: 600;
+}
+
+.cpm-body { flex: 1 1 auto; padding: 16px 18px 20px; overflow-y: auto; }
+
+.cpm-panel {
+  border: 1px solid #ececf0;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.cpm-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #ececf0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1f36;
+}
+
+.cpm-panel-head.is-in { color: #1e9e4a; }
+.cpm-panel-head.is-ex { color: #d0021b; }
+
+.cpm-panel ul { margin: 0; padding: 12px 14px 12px 32px; }
+.cpm-panel li { font-size: 12px; color: #333; line-height: 1.9; }
+
+.cpm-empty,
+.cpm-note {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #555;
+}
+
+.cpm-note {
+  border: 1px solid #ececf0;
+  border-radius: 8px;
+}
+
+.cpm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  border: 1px solid #ececf0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cpm-table th {
+  padding: 11px 14px;
+  background: #f7f7f9;
+  text-align: left;
+  font-weight: 600;
+  color: #1a1f36;
+}
+
+.cpm-table td {
+  padding: 11px 14px;
+  border-top: 1px solid #f0f0f2;
+  color: #555;
+}

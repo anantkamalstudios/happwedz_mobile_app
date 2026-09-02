@@ -12,6 +12,7 @@ import '../../core/core.dart';
 import '../data/honeymoon_api.dart';
 import '../honeymoon_config.dart';
 import '../models/honeymoon_models.dart';
+import 'booking/cab_booking_page.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 /// A place the user picked, plus the coordinates the quotes call needs.
@@ -118,7 +119,7 @@ class _CabSearchFormState extends State<CabSearchForm> {
 
     setState(() => _submitting = true);
     try {
-      final quotes = await widget.api.fetchCabQuotes(
+      final result = await widget.api.fetchCabQuotes(
         origin: _pickup!.node,
         destination: _drop!.node,
         pickupAt: _pickupAt!,
@@ -129,10 +130,11 @@ class _CabSearchFormState extends State<CabSearchForm> {
         context,
         AnimatedPageRoute(
           page: CabResultsPage(
+            api: widget.api,
             pickupLabel: _pickup!.label,
             dropLabel: _drop!.label,
             pickupAt: _pickupAt!,
-            quotes: quotes,
+            result: result,
           ),
           style: PageTransitionStyle.slideRight,
         ),
@@ -398,20 +400,27 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
 class CabResultsPage extends StatelessWidget {
   const CabResultsPage({
     super.key,
+    required this.api,
     required this.pickupLabel,
     required this.dropLabel,
     required this.pickupAt,
-    required this.quotes,
+    required this.result,
   });
 
+  final HoneymoonApi api;
   final String pickupLabel;
   final String dropLabel;
   final DateTime pickupAt;
-  final List<CabQuote> quotes;
+
+  /// The whole quotes response: booking echoes its journey and route blocks
+  /// straight back, so the options cannot be separated from their context.
+  final CabQuoteResult result;
 
   @override
   Widget build(BuildContext context) {
-    final sorted = List<CabQuote>.from(quotes)
+    // Already cheapest-first out of the model, but sorting here keeps the
+    // ordering guaranteed at the point it is rendered.
+    final sorted = List<CabQuote>.from(result.quotes)
       ..sort((a, b) => a.price.compareTo(b.price));
 
     return Scaffold(
@@ -454,7 +463,23 @@ class CabResultsPage extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
               itemBuilder: (context, i) => FadeSlideIn(
                 delay: AppMotion.staggerFor(i),
-                child: _CabCard(quote: sorted[i]),
+                child: _CabCard(
+                  quote: sorted[i],
+                  onSelect: () => Navigator.push(
+                    context,
+                    AnimatedPageRoute(
+                      page: CabBookingPage(
+                        api: api,
+                        quote: sorted[i],
+                        result: result,
+                        pickupLabel: pickupLabel,
+                        dropLabel: dropLabel,
+                        pickupAt: pickupAt,
+                      ),
+                      style: PageTransitionStyle.slideRight,
+                    ),
+                  ),
+                ),
               ),
             ),
     );
@@ -462,9 +487,10 @@ class CabResultsPage extends StatelessWidget {
 }
 
 class _CabCard extends StatelessWidget {
-  const _CabCard({required this.quote});
+  const _CabCard({required this.quote, required this.onSelect});
 
   final CabQuote quote;
+  final VoidCallback onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -533,10 +559,8 @@ class _CabCard extends StatelessWidget {
           PremiumButton(
             label: 'Select',
             size: PremiumButtonSize.small,
-            onPressed: () => AppSnackbar.info(
-              context,
-              'Transfer checkout is not connected in the app yet.',
-            ),
+            expanded: false,
+            onPressed: onSelect,
           ),
         ],
       ),

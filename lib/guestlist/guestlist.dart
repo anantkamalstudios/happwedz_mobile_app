@@ -1557,6 +1557,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:happy_wedz/core/config/api_config.dart';
+
 import '../main.dart';
 import '../profile.dart';
 
@@ -1912,7 +1914,7 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
       }
 
       final response = await http.get(
-        Uri.parse("https://happywedz.com/api/guestlist/user/$userId"),
+        Uri.parse("${ApiConfig.apiBase}/guestlist/user/$userId"),
         headers: {
           "Authorization": "Bearer $token",
           "Accept": "application/json",
@@ -2024,7 +2026,7 @@ $familyName Family
 
     final response = await http.post(
       Uri.parse(
-        "https://happywedz.com/api/guestlist/send-guestlist-email",
+        "${ApiConfig.apiBase}/guestlist/send-guestlist-email",
       ),
       headers: {
         "Content-Type": "application/json",
@@ -2049,7 +2051,7 @@ $familyName Family
     if (token == null) return;
 
     await http.delete(
-      Uri.parse("https://happywedz.com/api/guestlist/$guestId"),
+      Uri.parse("${ApiConfig.apiBase}/guestlist/$guestId"),
       headers: {
         "Authorization": "Bearer $token",
       },
@@ -2117,7 +2119,7 @@ $familyName Family
     if (token == null) return;
 
     await http.put(
-      Uri.parse("https://happywedz.com/api/guestlist/$guestId"),
+      Uri.parse("${ApiConfig.apiBase}/guestlist/$guestId"),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token",
@@ -2231,7 +2233,7 @@ $familyName Family
     final message = await buildDynamicMessage(selectedGuests.first);
 
     await http.post(
-      Uri.parse("https://happywedz.com/api/guestlist/send-guestlist-email"),
+      Uri.parse("${ApiConfig.apiBase}/guestlist/send-guestlist-email"),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token",
@@ -2562,7 +2564,7 @@ class _AddGuestScreenState extends State<AddGuestScreen> {
     };
 
     final response = await http.post(
-      Uri.parse("https://happywedz.com/api/guestlist"),
+      Uri.parse("${ApiConfig.apiBase}/guestlist"),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token",

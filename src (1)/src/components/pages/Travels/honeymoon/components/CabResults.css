@@ -1,0 +1,646 @@
+/* ══ Cab results ══════════════════════════════════════════════════════════
+   Sidebar plus a card list, laid out like the portal's /cabs/rides page — in
+   our pink rather than its orange.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Declared on the page root, not on .cabx-body: the search bar sits above it
+   and the policies dialog renders as a sibling, so both are outside .cabx-body
+   and could not see variables scoped to it. */
+.cab-results-page {
+  --cabx-pink: #ed1173;
+  --cabx-border: #e3e5ec;
+  --cabx-muted: #8b8fa8;
+}
+
+.cabx-body {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: 24px;
+  padding-top: 22px;
+  padding-bottom: 40px;
+  align-items: start;
+}
+
+/* ── sticky search bar ─────────────────────────────────────────────────── */
+
+/* Sticks to the top so the search stays reachable while scrolling a long list.
+   Sits above the cards, and above the sidebar, which is sticky too. */
+.cabx-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #1e2532;
+  padding: 14px 0;
+}
+
+.cabx-bar-inner {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2.2fr) max-content max-content max-content auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+/* Each field is its own bordered white box with the label inside it, as the
+   portal draws them — and every value carries a clear button. */
+.cabx-bar-pair,
+.cabx-bar-box {
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+  border-radius: 6px;
+  min-width: 0;
+  padding: 7px 12px;
+}
+
+.cabx-bar-pair { padding: 0; }
+.cabx-bar-pair > .cab-loc { flex: 1 1 0; min-width: 0; padding: 7px 12px; }
+.cabx-bar-pair > .cab-loc + .cab-loc { border-left: 1px solid #e6e8ee; }
+
+.cabx-bar-box { flex-direction: column; justify-content: center; gap: 2px; }
+
+.cabx-bar-label,
+.cab-loc.is-bar .cab-loc-label,
+.cab-dt-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+/* ── location, bar variant ─────────────────────────────────────────────── */
+
+.cab-loc.is-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 2px;
+  height: auto;
+  border: 0;
+  background: transparent;
+}
+
+.cab-loc.is-bar .cab-loc-input {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1f36;
+  padding: 0;
+}
+
+.cab-dt-seg-x:hover { color: #1a1f36; }
+
+/* ── date + time, bar variant ──────────────────────────────────────────── */
+
+.cab-dt.is-bar { width: 100%; }
+.cab-dt-bar { display: flex; flex-direction: column; gap: 2px; }
+
+.cab-dt-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cab-dt-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cab-dt-seg > button:first-child {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1f36;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cab-dt-seg .is-placeholder { color: #b6bcc8; font-weight: 400; }
+
+/* ── pax, bar variant ──────────────────────────────────────────────────── */
+
+.cab-pax.is-bar .cab-pax-trigger {
+  height: auto;
+  /* The standalone control reserves 250px so its summary never reflows; on the
+     bar the box is sized by the grid, so that floor just padded it out. */
+  min-width: 0;
+  min-height: 0;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1f36;
+  white-space: nowrap;
+}
+
+/* Sits beside the text rather than being pushed to the far edge. */
+.cab-pax.is-bar .cab-pax-caret { margin-left: 0; }
+
+.cabx-update {
+  align-self: stretch;
+  height: auto;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 5px;
+  background: #ed1173;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cabx-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-top: 14px;
+  font-size: 12px;
+  color: #8b8fa8;
+}
+
+.cabx-crumbs button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ed1173;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ── why book with us ──────────────────────────────────────────────────── */
+
+.cabx-aside {
+  background: #fff;
+  border: 1px solid var(--cabx-border);
+  border-radius: 10px;
+  padding: 18px 16px;
+  position: sticky;
+  /* Clears the sticky bar above it — 16px alone parked it underneath. */
+  top: 92px;
+  z-index: 1;
+}
+
+.cabx-aside h4 {
+  margin: 0 0 14px;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #1a1f36;
+}
+
+.cabx-aside ul { list-style: none; margin: 0; padding: 0; }
+
+.cabx-aside li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 0;
+}
+
+.cabx-aside-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: #fdf0f6;
+  color: var(--cabx-pink);
+}
+
+.cabx-aside-text { display: flex; flex-direction: column; min-width: 0; }
+.cabx-aside-text strong { font-size: 13px; font-weight: 600; color: #333; }
+.cabx-aside-text small { font-size: 11px; color: var(--cabx-muted); line-height: 1.5; }
+
+/* ── list ──────────────────────────────────────────────────────────────── */
+
+.cabx-list-col { min-width: 0; }
+
+.cabx-count {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  color: #444;
+}
+
+.cabx-count strong { color: #1a1f36; font-weight: 700; }
+
+.cabx-list { display: flex; flex-direction: column; gap: 14px; }
+
+.cabx-state {
+  padding: 40px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--cabx-muted);
+  background: #fff;
+  border: 1px solid var(--cabx-border);
+  border-radius: 10px;
+}
+
+.cabx-state--error { color: #c0392b; }
+
+/* ── card ──────────────────────────────────────────────────────────────── */
+
+/* Sizes from the reference markup: p-5, w-[144px] h-[122px] media,
+   min-h-[124px] rows, w-36 action button. */
+.cabx-card {
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid var(--cabx-border);
+  border-radius: 10px;
+}
+
+.cabx-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 144px;
+  height: 122px;
+  background: #f5f6f8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cabx-media img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.cabx-media-fallback {
+  font-size: 10px;
+  color: var(--cabx-muted);
+  text-align: center;
+  padding: 0 6px;
+}
+
+.cabx-main { min-width: 0; }
+
+/* App.css sets `h3 { font-size: 32px !important }` globally, so these two
+   declarations have to match that weight to take effect at all. */
+.cabx-name {
+  margin: 0;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #1a1f36;
+}
+
+.cabx-model {
+  margin: 3px 0 12px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.cabx-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.cabx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.cabx-policies {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1f36;
+  cursor: pointer;
+}
+
+.cabx-policies:hover { text-decoration: underline; }
+
+/* ── fare column ───────────────────────────────────────────────────────── */
+
+.cabx-fare {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 2px;
+  min-height: 124px;
+  margin-left: 16px;
+}
+
+/* The popovers hang off this row, so it owns the positioning context — not
+   the column, which would drop them below the button. */
+.cabx-price-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.cabx-price {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.cabx-edit {
+  padding: 0;
+  line-height: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cabx-muted);
+  cursor: pointer;
+  display: flex;
+}
+
+.cabx-edit:hover { color: var(--cabx-pink); }
+
+.cabx-tax { font-size: 12px; font-weight: 500; color: #475569; margin-bottom: 8px; }
+
+/* Hover breakdown — the portal shows the roundtrip halves here. */
+.cabx-fare-pop {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 210px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--cabx-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+  font-size: 12px;
+}
+
+.cabx-fare-pop div {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 3px 0;
+  color: var(--cabx-muted);
+}
+
+.cabx-fare-pop .is-total {
+  margin-top: 5px;
+  padding-top: 7px;
+  border-top: 1px solid #f0f0f2;
+  color: #1a1f36;
+  font-weight: 700;
+}
+
+.cabx-book {
+  width: 144px;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--cabx-pink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cabx-book:hover { filter: brightness(1.05); }
+
+/* ── policies dialog ───────────────────────────────────────────────────── */
+
+
+/* ── responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 991.98px) {
+  .cabx-body { grid-template-columns: minmax(0, 1fr); }
+  .cabx-aside { position: static; order: 2; }
+  .cabx-list-col { order: 1; }
+}
+
+@media (max-width: 767.98px) {
+  .cabx-card {
+    grid-template-columns: 90px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .cabx-fare {
+    grid-column: 1 / -1;
+    align-items: stretch;
+    min-width: 0;
+    border-top: 1px solid #f2f2f4;
+    padding-top: 12px;
+  }
+
+  .cabx-price-row { justify-content: flex-start; }
+  .cabx-tax { text-align: left; }
+  .cabx-fare-pop { left: 0; right: auto; }
+  .cabx-book { width: 100%; }
+}
+
+@media (max-width: 1199.98px) {
+  .cabx-bar-inner { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cabx-update { grid-column: 1 / -1; }
+}
+
+@media (max-width: 575.98px) {
+  .cabx-bar-inner { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── markup popover ────────────────────────────────────────────────────── */
+
+.cabm {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--cabx-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+
+.cabm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #1a1f36;
+}
+
+.cabm-head button { border: 0; background: transparent; cursor: pointer; color: #666; display: flex; }
+
+.cabm-field { display: block; margin-bottom: 12px; }
+
+.cabm-field span {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.cabm-field input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--cabx-border);
+  border-radius: 5px;
+  font-size: 13px;
+  outline: none;
+}
+
+.cabm-field input:focus { border-color: var(--cabx-pink); }
+
+.cabm-actions { display: flex; gap: 8px; }
+
+.cabm-actions button {
+  flex: 1;
+  height: 34px;
+  border: 0;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cabm-primary { background: var(--cabx-pink); color: #fff; }
+.cabm-secondary { background: #475569; color: #fff; }
+
+/* ── compare panel ─────────────────────────────────────────────────────── */
+
+.cabx-compare {
+  margin-top: 8px;
+  width: 144px;
+  padding: 7px 16px;
+  border: 1px solid var(--cabx-pink);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--cabx-pink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cabx-compare:hover { background: #fdf0f6; }
+
+.cabx-compare-panel {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eef0f4;
+  overflow-x: auto;
+}
+
+.cmp { display: flex; gap: 12px; min-width: 0; }
+
+/* Row labels share the grid's row heights with each column beside them. */
+.cmp-labels {
+  flex: 0 0 190px;
+  display: flex;
+  flex-direction: column;
+  padding-top: 52px;
+}
+
+.cmp-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 48px;
+  border-bottom: 1px solid #eef0f4;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cmp-label svg { color: #475569; flex-shrink: 0; }
+.cmp-label.is-spacer { border-bottom: 0; height: 60px; }
+
+.cmp-cols { display: flex; gap: 12px; }
+
+.cmp-col {
+  flex: 0 0 196px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cabx-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cmp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.cmp-head strong { font-size: 15px; font-weight: 800; color: #0f172a; }
+
+.cmp-head button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  color: #1a1f36;
+  cursor: pointer;
+}
+
+.cmp-head button:hover { text-decoration: underline; }
+
+.cmp-cell {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 12px;
+  border-bottom: 1px solid #eef0f4;
+  font-size: 12px;
+  color: #475569;
+}
+
+.cmp-cell > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.cmp-cell.is-action { height: 60px; border-bottom: 0; }
+
+.cmp-yes { display: inline-flex; align-items: center; gap: 5px; color: #1e9e4a; }
+.cmp-yes svg:last-child { color: #9aa1ae; }
+.cmp-no { color: #9aa1ae; }
+
+.cmp-book {
+  width: 100%;
+  height: 36px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--cabx-pink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}

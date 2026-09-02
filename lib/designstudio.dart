@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:happy_wedz/core/config/api_config.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -12,7 +13,7 @@ class LancomeMakeupTryOnScreen1 extends StatefulWidget {
 
 class _LancomeMakeupTryOnScreen1State extends State<LancomeMakeupTryOnScreen1>
     with TickerProviderStateMixin {
-  final String baseUrl = 'https://www.happywedz.com/ai/api';
+  final String baseUrl = '${ApiConfig.baseUrl}/ai/api';
   final ImagePicker _picker = ImagePicker();
 
   File? _selectedImage;

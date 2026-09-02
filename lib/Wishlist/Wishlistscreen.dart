@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/core.dart';
+import '../core/config/api_config.dart';
 import '../vendor/vendordetailsscreen.dart';
 
 class FavouritesPage extends StatefulWidget {
@@ -65,7 +66,7 @@ class _FavouritesPageState extends State<FavouritesPage> {
         return;
       }
 
-      final url = Uri.parse('https://happywedz.com/api/wishlist');
+      final url = Uri.parse('${ApiConfig.apiBase}/wishlist');
       debugPrint('🌍 Fetching wishlist → $url');
 
       final response = await http.get(
@@ -127,7 +128,7 @@ class _FavouritesPageState extends State<FavouritesPage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
 
-    final url = Uri.parse('https://happywedz.com/api/vendor-services/$vendorServiceId');
+    final url = Uri.parse('${ApiConfig.apiBase}/vendor-services/$vendorServiceId');
     debugPrint('🌍 Fetching vendor service → $url');
 
     try {
@@ -160,7 +161,7 @@ class _FavouritesPageState extends State<FavouritesPage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
 
-    final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+    final url = Uri.parse('${ApiConfig.apiBase}/wishlist/toggle');
     final body = {
       'user_id': currentUserId,
       'vendor_services_id': vendorServiceId,
@@ -202,7 +203,7 @@ class _FavouritesPageState extends State<FavouritesPage> {
     if (media.isEmpty) return '';
     final first = media[0];
     return first.startsWith('/uploads/')
-        ? 'https://happywedzbackend.happywedz.com$first'
+        ? '${ApiConfig.backendBaseUrl}$first'
         : first;
   }
 

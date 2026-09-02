@@ -1,0 +1,316 @@
+/* VenueMasterProfile.css - Modern, Clean & High-Quality Design - Brand Theme Palette (#ed1173) */
+
+:root {
+  --hw-primary-pink: #ed1173;
+  --hw-primary-dark: #be185d;
+  --hw-primary-rose: #db2777;
+  --hw-primary-light: #fff1f6;
+  --hw-primary-border: #fce7f3;
+  --hw-text-dark: #0f172a;
+  --hw-text-muted: #64748b;
+  --hw-card-bg: #ffffff;
+}
+
+.venue-master-container {
+  font-family: inherit;
+}
+
+/* Accordion Wrapper */
+.venue-master-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.venue-master-accordion .accordion-item {
+  border: 1px solid #fce7f3 !important;
+  border-radius: 14px !important;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(237, 17, 115, 0.03);
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+}
+
+.venue-master-accordion .accordion-item:hover {
+  box-shadow: 0 4px 14px rgba(237, 17, 115, 0.08);
+  border-color: #f472b6 !important;
+}
+
+/* Accordion Header / Button */
+.venue-master-accordion .accordion-button {
+  padding: 16px 20px !important;
+  font-weight: 700 !important;
+  font-size: 1.02rem !important;
+  color: var(--hw-text-dark) !important;
+  background: #fafbfc !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.venue-master-accordion .accordion-button:not(.collapsed) {
+  background: linear-gradient(135deg, #fff1f6 0%, #ffffff 100%) !important;
+  color: var(--hw-text-dark) !important;
+  border-bottom: 1px solid #fce7f3 !important;
+}
+
+.venue-master-accordion .accordion-button::after {
+  background-size: 14px 14px;
+  filter: grayscale(1);
+  transition: transform 0.25s ease;
+}
+
+.venue-master-accordion .accordion-button:not(.collapsed)::after {
+  filter: none;
+}
+
+/* Section Header Badge */
+.vm-section-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background-color: #fce7f3;
+  color: var(--hw-primary-dark);
+  margin-right: 8px;
+}
+
+.venue-master-accordion .accordion-button:not(.collapsed) .vm-section-badge {
+  background-color: var(--hw-primary-pink);
+  color: #ffffff;
+}
+
+/* Accordion Body */
+.venue-master-accordion .accordion-body {
+  padding: 24px !important;
+  background-color: #ffffff;
+}
+
+/* Checkbox Group Container */
+.vm-checkbox-group {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #fdfafc;
+  border: 1px solid #fce7f3;
+  border-radius: 12px;
+}
+
+.vm-checkbox-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.vm-checkbox-group-title .group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vm-checkbox-group-title .group-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--hw-primary-pink);
+  display: inline-block;
+}
+
+.vm-selected-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.vm-selected-count.has-selected {
+  background-color: #fce7f3;
+  color: var(--hw-primary-dark);
+}
+
+/* Checkbox Grid */
+.vm-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .vm-checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Checkbox Card Option */
+.vm-checkbox-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.18s ease-in-out;
+  min-height: 44px;
+}
+
+.vm-checkbox-card:hover {
+  border-color: #f472b6;
+  background-color: #fff8fb;
+  transform: translateY(-1px);
+}
+
+.vm-checkbox-card.selected {
+  border-color: var(--hw-primary-pink);
+  background-color: #fff1f6;
+  box-shadow: 0 2px 6px rgba(237, 17, 115, 0.08);
+}
+
+.vm-checkbox-indicator {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: #ffffff;
+  transition: all 0.18s ease;
+}
+
+.vm-checkbox-card.selected .vm-checkbox-indicator {
+  border-color: var(--hw-primary-pink);
+  background-color: var(--hw-primary-pink);
+  color: #ffffff;
+}
+
+.vm-checkbox-label {
+  font-size: 0.865rem;
+  font-weight: 500;
+  color: #334155;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.vm-checkbox-card.selected .vm-checkbox-label {
+  font-weight: 600;
+  color: var(--hw-text-dark);
+}
+
+/* Yes / No Toggle Group */
+.vm-yesno-group {
+  margin-bottom: 20px;
+}
+
+.vm-yesno-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.vm-yesno-options {
+  display: inline-flex;
+  gap: 8px;
+  background-color: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.vm-yesno-btn {
+  padding: 6px 20px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vm-yesno-btn:hover {
+  color: #0f172a;
+}
+
+.vm-yesno-btn.active-yes {
+  background-color: #ffffff;
+  color: #059669;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.vm-yesno-btn.active-no {
+  background-color: #ffffff;
+  color: #e11d48;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Custom Select & Text Controls */
+.vm-form-group {
+  margin-bottom: 20px;
+}
+
+.vm-form-label {
+  font-size: 0.885rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.vm-select, .vm-input {
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 9px !important;
+  padding: 9px 12px !important;
+  font-size: 0.885rem !important;
+  color: var(--hw-text-dark) !important;
+  background-color: #ffffff !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.vm-select:focus, .vm-input:focus {
+  border-color: var(--hw-primary-pink) !important;
+  box-shadow: 0 0 0 3px rgba(237, 17, 115, 0.12) !important;
+  outline: none !important;
+}
+
+/* Sub-card & Section Dividers */
+.vm-subcard {
+  background-color: #fdfafc;
+  border: 1px solid #fce7f3;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.vm-subcard-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--hw-text-dark);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #fce7f3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

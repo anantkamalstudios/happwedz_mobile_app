@@ -18,6 +18,7 @@ import '../movment_plus/bottom_nav_bar.dart';
 import '../my_bookings/my_bookings.dart';
 import '../packages.dart';
 import '../planning.dart';
+import '../shaadi_ai/ui/shaadi_ai_screen.dart';
 
 class MoreOptionsScreen extends StatefulWidget {
   const MoreOptionsScreen({super.key});
@@ -51,6 +52,11 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.only(top: 30, bottom: 20),
                     children: [
+                      _buildMenuItem(
+                        icon: Icons.auto_awesome,
+                        title: 'Shaadi AI',
+                        onTap: () => _handleMenuTap(context, 'Shaadi AI'),
+                      ),
                       _buildMenuItem(
                         icon: Icons.card_travel_rounded,
                         title: 'Honeymoon',
@@ -228,6 +234,15 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
 
   void _handleMenuTap(BuildContext context, String menuTitle) async {
     switch (menuTitle) {
+      case 'Shaadi AI':
+        Navigator.push(
+          context,
+          AnimatedPageRoute(
+            page: const ShaadiAiScreen(),
+            style: PageTransitionStyle.slideRight,
+          ),
+        );
+        break;
       case 'Honeymoon':
         Navigator.push(
           context,

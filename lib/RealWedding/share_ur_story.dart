@@ -6,6 +6,7 @@
 // import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import '../core/config/api_config.dart';
 // import 'package:image_picker/image_picker.dart';
 // import 'package:http/http.dart' as http;
 // import 'package:path/path.dart';
@@ -60,7 +61,7 @@ class Venue {
           .whereType<String>()
           .map((url) => url.startsWith("http")
           ? url
-          : "https://happywedzbackend.happywedz.com$url")
+          : "${ApiConfig.backendBaseUrl}$url")
           .toList();
     }
 
@@ -3028,7 +3029,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
   Future<void> _submitWeddingStory(BuildContext context) async {
     debugPrint("🟢 Starting wedding story submission...");
-    final url = Uri.parse('https://happywedz.com/api/realwedding');
+    final url = Uri.parse('${ApiConfig.apiBase}/realwedding');
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -3174,7 +3175,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
   }
 
   Future<List<String>> fetchVendorTypes() async {
-    final url = Uri.parse('https://happywedz.com/api/vendor-types/with-subcategories/all');
+    final url = Uri.parse('${ApiConfig.apiBase}/vendor-types/with-subcategories/all');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -3236,7 +3237,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
   Future<void> loadAllVenues() async {
     try {
-      final url = Uri.parse("https://happywedz.com/api/vendor-services?vendorType=Venues");
+      final url = Uri.parse("${ApiConfig.apiBase}/vendor-services?vendorType=Venues");
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -3255,7 +3256,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
     setState(() => isLoadingCultures = true);
 
     try {
-      final url = Uri.parse("https://happywedz.com/api/real-wedding-culture/public");
+      final url = Uri.parse("${ApiConfig.apiBase}/real-wedding-culture/public");
       final response = await http.get(url, headers: {"Accept": "application/json"});
 
       debugPrint("👉 Culture API Status: ${response.statusCode}");
@@ -3321,7 +3322,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
     // 2️⃣ API suggestions (optional)
     try {
-      final url = Uri.parse("https://happywedz.com/api/vendor-services?search=$query&vendorType=Venues");
+      final url = Uri.parse("${ApiConfig.apiBase}/vendor-services?search=$query&vendorType=Venues");
 
       final response = await http.get(url);
 

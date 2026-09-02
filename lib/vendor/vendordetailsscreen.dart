@@ -14,6 +14,7 @@ import '../Review.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
 import '../chat_page_new.dart';
 import '../core/core.dart';
+import 'package:happy_wedz/core/config/api_config.dart';
 
 // Final VendorServicesScreen — pagination, grid/list toggle, search, filters,
 // wishlist toggle, phone/WhatsApp/message actions, safe image handling.
@@ -113,7 +114,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       final sub = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
 
       final url = Uri.parse(
-        "https://happywedz.com/api/vendor-services?subCategory=$sub&limit=5000",
+        "${ApiConfig.apiBase}/vendor-services?subCategory=$sub&limit=5000",
       );
 
       final response = await http.get(url);
@@ -219,7 +220,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       );
 
       final url = Uri.parse(
-        "https://happywedz.com/api/vendor-services?subCategory=$encodedSubcategory&page=$currentPage&limit=9",
+        "${ApiConfig.apiBase}/vendor-services?subCategory=$encodedSubcategory&page=$currentPage&limit=9",
       );
 
       final response = await http.get(
@@ -352,7 +353,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       final token = prefs.getString('auth_token') ?? '';
       if (token.isEmpty) return;
 
-      final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+      final url = Uri.parse('${ApiConfig.apiBase}/wishlist/toggle');
       final body = jsonEncode({
         'user_id': currentUserId.toString(),
         'vendor_services_id': vendorServiceId.toString(),
@@ -443,7 +444,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
   Future<void> fetchVendors(String query) async {
     final url = Uri.parse(
-      "https://happywedz.com/api/vendor-services?search=$query",
+      "${ApiConfig.apiBase}/vendor-services?search=$query",
     );
 
     final response = await http.get(url);
@@ -1849,7 +1850,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     }
 
     try {
-      final url = Uri.parse('https://happywedz.com/api/vendor-services/$id');
+      final url = Uri.parse('${ApiConfig.apiBase}/vendor-services/$id');
       final response = await http.get(url, headers: {'Accept': 'application/json'});
       if (response.statusCode == 200) {
         final bodyData = jsonDecode(response.body);
@@ -1892,7 +1893,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
     if (serviceId != null) {
       try {
-        final url = Uri.parse('https://happywedz.com/api/vendor-services/$serviceId');
+        final url = Uri.parse('${ApiConfig.apiBase}/vendor-services/$serviceId');
         final response = await http.get(url, headers: {'Accept': 'application/json'});
         if (response.statusCode == 200) {
           final bodyData = jsonDecode(response.body);
@@ -1908,7 +1909,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     // 2. If not found, try searching by slug
     if (foundService == null) {
       try {
-        final url = Uri.parse('https://happywedz.com/api/vendor-services?search=$slug');
+        final url = Uri.parse('${ApiConfig.apiBase}/vendor-services?search=$slug');
         final response = await http.get(url, headers: {'Accept': 'application/json'});
         if (response.statusCode == 200) {
           final bodyData = jsonDecode(response.body);
@@ -1948,7 +1949,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     if (service == null || service['id'] == null) return;
 
     final url = Uri.parse(
-        "https://happywedz.com/api/business/claims/check-status?"
+        "${ApiConfig.apiBase}/business/claims/check-status?"
             "vendor_id=${service['id']}&vendor_subcategory_data_id=${service['vendor_subcategory_id']}"
     );
 
@@ -1993,7 +1994,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     }
 
     if (url.startsWith('/uploads/')) {
-      return "https://happywedzbackend.happywedz.com$url";
+      return "${ApiConfig.backendBaseUrl}$url";
     }
 
     return url;
@@ -2142,7 +2143,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     try {
       // <-- Adjust endpoint if your backend uses a different path/params -->
       final url = Uri.parse(
-          "https://happywedz.com/api/vendor-reviews?vendorId=$vendorId&page=$page&limit=$limit");
+          "${ApiConfig.apiBase}/vendor-reviews?vendorId=$vendorId&page=$page&limit=$limit");
       final res = await http.get(url, headers: {'Accept': 'application/json'});
 
       if (res.statusCode == 200) {
@@ -2310,7 +2311,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       final token = prefs.getString('auth_token') ?? '';
       if (token.isEmpty) return;
 
-      final url = Uri.parse('https://happywedz.com/api/wishlist/toggle');
+      final url = Uri.parse('${ApiConfig.apiBase}/wishlist/toggle');
       final body = jsonEncode({
         'user_id': currentUserId.toString(),
         'vendor_services_id': vendorServiceId,

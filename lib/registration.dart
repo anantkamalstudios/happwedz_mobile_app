@@ -3410,6 +3410,7 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
 
 import 'core/core.dart';
+import 'core/config/api_config.dart';
 
 class RecaptchaHandler {
   static Future<String?> executeV3(BuildContext context) async {
@@ -3645,7 +3646,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse("https://happywedz.com/api/user/register"),
+        Uri.parse("${ApiConfig.apiBase}/user/register"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(payload),
       );

@@ -1,0 +1,277 @@
+.ub-section {
+  background: #f5f7fb;
+  width: 100%;
+}
+
+.ub-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 18px 12px 40px;
+}
+
+.ub-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ub-tabs {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5f6780;
+  cursor: pointer;
+}
+
+.ub-tab.active {
+  color: #ed7a1a;
+}
+
+.ub-tab-divider {
+  width: 1px;
+  height: 18px;
+  background: #d6dbe7;
+}
+
+.ub-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  border: 1px solid #d6dbe7;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #147a40;
+  cursor: pointer;
+}
+
+.ub-share-btn:hover {
+  border-color: #25d366;
+  box-shadow: 0 2px 8px rgba(20, 30, 50, 0.08);
+}
+
+.ub-card {
+  background: #fff;
+  border: 1px solid #eef1f7;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(20, 30, 50, 0.06);
+  overflow: hidden;
+}
+
+.ub-table-scroll {
+  overflow-x: auto;
+}
+
+.ub-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.ub-table thead th {
+  background: #3a3f4b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-align: left;
+  padding: 14px 18px;
+  white-space: nowrap;
+}
+
+.ub-table tbody td {
+  padding: 16px 18px;
+  font-size: 14px;
+  color: #2d3448;
+  border-bottom: 1px solid #f0f2f7;
+  white-space: nowrap;
+}
+
+.ub-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ub-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ub-link:hover {
+  text-decoration: underline;
+}
+
+.ub-muted {
+  color: #9aa3b5;
+}
+
+.ub-return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  border: 1px solid #d6dbe7;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3a4257;
+  cursor: pointer;
+}
+
+.ub-return-btn:hover {
+  border-color: #ed1173;
+  color: #ed1173;
+}
+
+.ub-hold-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #b9750a;
+  background: #fff4e0;
+  border-radius: 20px;
+  vertical-align: middle;
+}
+
+.ub-pay-btn {
+  background: #ed1173;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ub-pay-btn:hover {
+  background: #d10e66;
+}
+
+.ub-pay-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ub-release-btn {
+  color: #c62828 !important;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ub-release-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ub-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 16px;
+  color: #8c95a8;
+  font-size: 14px;
+  text-align: center;
+}
+
+.ub-empty-icon {
+  font-size: 26px;
+  color: #c7cdd9;
+}
+
+.ub-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  border-top: 1px solid #f0f2f7;
+}
+
+.ub-pagination button {
+  background: #f4f6fa;
+  border: 1px solid #dfe3ee;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a4257;
+  cursor: pointer;
+}
+
+.ub-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ub-page-num {
+  min-width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ed7a1a;
+  border-radius: 6px;
+  color: #ed7a1a;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ub-recent-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ub-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0f2f7;
+}
+
+.ub-recent-item:last-child {
+  border-bottom: none;
+}
+
+.ub-recent-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  color: #2d3448;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.ub-recent-meta {
+  flex: 1 1 auto;
+  color: #6b7385;
+  font-size: 13px;
+}

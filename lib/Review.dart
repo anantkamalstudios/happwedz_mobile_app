@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
+import 'core/config/api_config.dart';
 import 'core/core.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -812,7 +813,7 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
     }
 
 
-    final url = Uri.parse('https://happywedz.com/api/reviews/$vendorId');
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/reviews/$vendorId');
 
     debugPrint("📤 Body: $body");
 

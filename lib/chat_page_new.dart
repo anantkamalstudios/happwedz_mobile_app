@@ -1,6 +1,7 @@
     // import 'package:flutter/material.dart';
 
 import 'core/core.dart';
+import 'core/config/api_config.dart';
 // import 'package:intl/intl.dart';
 //
 // /// Example: wire this from your button:
@@ -919,7 +920,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ChatService (all APIs)
 // ---------------------------
 class ChatService {
-  static const String baseUrl = "https://happywedz.com/api/messages/user";
+  static const String baseUrl = "${ApiConfig.apiBase}/messages/user";
 
   // --------------------------
   // 🔐 GET TOKEN HEADER
@@ -1049,7 +1050,7 @@ class ChatService {
     required String eventDate,
     required String message,
   }) async {
-    final url = Uri.parse("https://happywedz.com/request-pricing");
+    final url = Uri.parse("${ApiConfig.baseUrl}/request-pricing");
 
     debugPrint("➡ POST PricingRequest: $url");
     debugPrint("   BODY: vendorId:$vendorId firstName:$firstName lastName:$lastName "

@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'package:happy_wedz/core/config/api_config.dart';
 import 'package:happy_wedz/einvite1/template_model.dart';
 import 'package:http/http.dart' as http;
 
 
 class EInviteAPI {
-  final String base = 'https://happywedz.com/api/einvites';
+  final String base = '${ApiConfig.apiBase}/einvites';
 
   // Replace main domain with backend domain to avoid corrupted images
   String fixImageUrl(String url) {

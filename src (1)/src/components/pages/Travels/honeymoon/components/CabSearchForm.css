@@ -1,0 +1,146 @@
+/* ══ Cab search box ═══════════════════════════════════════════════════════
+   Laid out like the portal's cabs search — journey radios, a single route box
+   with a swap between its two ends, two date-and-time fields, then passengers
+   and the search button — in our pink rather than its orange.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Declared on every control root, not just the card: these three are reused on
+   the results page inside its own search bar, where there is no .cab-search-card
+   ancestor — the picked day and the AM/PM toggle both resolved to no background
+   and vanished. */
+
+.cab-search-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.1);
+}
+
+/* ── journey type ──────────────────────────────────────────────────────── */
+
+.cab-journey-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 26px;
+  margin-bottom: 16px;
+}
+
+.cab-journey {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+}
+
+.cab-journey input {
+  accent-color: var(--cab-pink);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* ── field row ─────────────────────────────────────────────────────────── */
+
+.cab-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* Pick-up and drop-off read as one control, split by the swap button. */
+.cab-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--cab-border);
+  border-radius: 8px;
+  background: #fff;
+  min-width: 0;
+}
+
+.cab-swap {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--cab-border);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--cab-pink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.cab-swap:hover { background: #fdf0f6; }
+
+/* ── passengers + search ───────────────────────────────────────────────── */
+
+.cab-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.cab-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 34px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--cab-pink);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cab-search-btn:disabled { opacity: 0.65; cursor: default; }
+
+.cab-error {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #d0021b;
+}
+
+/* ── responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 1199.98px) {
+  .cab-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cab-route { grid-column: 1 / -1; }
+}
+
+@media (max-width: 767.98px) {
+  .cab-search-card { padding: 16px; }
+  .cab-journey-row { gap: 16px; }
+
+  .cab-fields { grid-template-columns: minmax(0, 1fr); }
+
+  /* Stack the two ends and turn the swap a quarter turn between them. */
+  .cab-route {
+    grid-template-columns: minmax(0, 1fr);
+    position: relative;
+  }
+
+  .cab-route .cab-loc + .cab-swap + .cab-loc { border-top: 1px solid var(--cab-border); }
+
+  .cab-swap {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%) rotate(90deg);
+    background: #fff;
+  }
+
+  .cab-actions { flex-direction: column; align-items: stretch; }
+  .cab-search-btn { justify-content: center; width: 100%; }
+}

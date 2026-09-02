@@ -11,6 +11,7 @@ import '../../core/core.dart';
 import '../data/honeymoon_api.dart';
 import '../honeymoon_config.dart';
 import '../models/honeymoon_models.dart';
+import 'booking/insurance_booking_page.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 /// Region keys accepted by the TripSafe `isc.iri[].rkey` field.
@@ -233,9 +234,11 @@ class _InsuranceSearchFormState extends State<InsuranceSearchForm> {
         context,
         AnimatedPageRoute(
           page: InsuranceResultsPage(
+            api: widget.api,
             region: _region!,
             start: _start!,
             end: _end!,
+            ages: List<int>.from(_ages),
             plans: plans,
           ),
           style: PageTransitionStyle.slideRight,
@@ -305,15 +308,23 @@ class _InsuranceSearchFormState extends State<InsuranceSearchForm> {
 class InsuranceResultsPage extends StatelessWidget {
   const InsuranceResultsPage({
     super.key,
+    required this.api,
     required this.region,
     required this.start,
     required this.end,
+    required this.ages,
     required this.plans,
   });
 
+  final HoneymoonApi api;
   final InsuranceRegion region;
   final DateTime start;
   final DateTime end;
+
+  /// Carried through from the search: the booking form needs one row per
+  /// insured person, and the insurer prices on age rather than head count.
+  final List<int> ages;
+
   final List<InsurancePlan> plans;
 
   @override
@@ -358,7 +369,23 @@ class InsuranceResultsPage extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
               itemBuilder: (context, i) => FadeSlideIn(
                 delay: AppMotion.staggerFor(i),
-                child: _PlanCard(plan: plans[i]),
+                child: _PlanCard(
+                  plan: plans[i],
+                  onSelect: () => Navigator.push(
+                    context,
+                    AnimatedPageRoute(
+                      page: InsuranceBookingPage(
+                        api: api,
+                        plan: plans[i],
+                        regionLabel: region.label,
+                        start: start,
+                        end: end,
+                        travellerAges: ages,
+                      ),
+                      style: PageTransitionStyle.slideRight,
+                    ),
+                  ),
+                ),
               ),
             ),
     );
@@ -366,9 +393,10 @@ class InsuranceResultsPage extends StatelessWidget {
 }
 
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.plan});
+  const _PlanCard({required this.plan, required this.onSelect});
 
   final InsurancePlan plan;
+  final VoidCallback onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -378,18 +406,38 @@ class _PlanCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(plan.name, style: AppText.cardTitle),
-          if (plan.insurer.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xxs),
-            Text(plan.insurer, style: AppText.cardSubtitle),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(plan.insurerLabel, style: AppText.cardSubtitle),
+
+          if (plan.coverageAmount.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                const Icon(
+                  Icons.shield_outlined,
+                  size: 15,
+                  color: AppColors.successDark,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    'Cover up to ${plan.coverageAmount}',
+                    style: AppText.bodySm,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ],
 
-          if (plan.coverage.isNotEmpty) ...[
+          if (plan.coverageTags.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             Wrap(
               spacing: AppSpacing.xs,
               runSpacing: AppSpacing.xs,
               children: [
-                for (final c in plan.coverage.take(4)) MetaChip(label: c),
+                for (final c in plan.coverageTags) MetaChip(label: c),
               ],
             ),
           ],
@@ -412,10 +460,8 @@ class _PlanCard extends StatelessWidget {
               PremiumButton(
                 label: 'Select',
                 size: PremiumButtonSize.small,
-                onPressed: () => AppSnackbar.info(
-                  context,
-                  'Insurance checkout is not connected in the app yet.',
-                ),
+                expanded: false,
+                onPressed: onSelect,
               ),
             ],
           ),

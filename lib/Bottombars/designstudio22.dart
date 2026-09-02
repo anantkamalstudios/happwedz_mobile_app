@@ -5,6 +5,7 @@
 // //
 // // import 'package:flutter/material.dart';
 
+import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/core.dart';
 // // import 'package:http/http.dart' as http;
 // // import 'package:image_picker/image_picker.dart';
@@ -4721,8 +4722,8 @@ class _VisualDesignScreenState extends State<VisualDesignScreen> {
   List<CategoryModel> apiCategories = [];
   List<List<Brand>> apiBrandsByCategory = [];
 
-  final String baseUrl = 'https://www.happywedz.com/ai/api';
-  final String productsApi = 'https://www.happywedz.com/ai/api/products/filter_products?category=MAKEUP';
+  final String baseUrl = '${ApiConfig.baseUrl}/ai/api';
+  final String productsApi = '${ApiConfig.baseUrl}/ai/api/products/filter_products?category=MAKEUP';
 
   Timer? _debounceApply;
 

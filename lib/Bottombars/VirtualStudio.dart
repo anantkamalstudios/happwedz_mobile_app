@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
+import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/core.dart';
 // import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
@@ -244,7 +245,7 @@ class MakeupTryOnScreen extends StatefulWidget {
 }
 
 class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
-  final String baseUrl = 'https://www.happywedz.com/ai/api';
+  final String baseUrl = '${ApiConfig.baseUrl}/ai/api';
   final ImagePicker _picker = ImagePicker();
 
   File? _selectedImage;
@@ -1083,7 +1084,7 @@ class _MakeupTryOnScreenState extends State<MakeupTryOnScreen> {
           final jsonResponse = jsonDecode(response.body);
           debugPrint('Makeup JSON Response: $jsonResponse');
           String imageUrl =
-              'https://www.happywedz.com/ai/api/images/${jsonResponse['processed_image_id']}';
+              '${ApiConfig.baseUrl}/ai/api/images/${jsonResponse['processed_image_id']}';
 
           final imageResponse = await http.get(Uri.parse(imageUrl));
 
@@ -1342,7 +1343,7 @@ class LancomeMakeupTryOnScreen extends StatefulWidget {
 
 class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
     with TickerProviderStateMixin {
-  final String baseUrl = 'https://www.happywedz.com/ai/api';
+  final String baseUrl = '${ApiConfig.baseUrl}/ai/api';
   final ImagePicker _picker = ImagePicker();
 
   File? _selectedImage;
@@ -2463,7 +2464,7 @@ class _LancomeMakeupTryOnScreenState extends State<LancomeMakeupTryOnScreen>
         final contentType = response.headers['content-type'];
         if (contentType != null && contentType.contains('application/json')) {
           final jsonResponse = jsonDecode(response.body);
-          String imageUrl = 'https://www.happywedz.com/ai/api/images/${jsonResponse['processed_image_id']}';
+          String imageUrl = '${ApiConfig.baseUrl}/ai/api/images/${jsonResponse['processed_image_id']}';
 
           final imageResponse = await http.get(Uri.parse(imageUrl));
 

@@ -275,6 +275,7 @@ import '../core/core.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:happy_wedz/core/config/api_config.dart';
 
 class MakeupScreen extends StatefulWidget {
   const MakeupScreen({Key? key}) : super(key: key);
@@ -297,7 +298,7 @@ class _MakeupScreenState extends State<MakeupScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-            'https://happywedz.com/api/vendor-services?subCategory=bridal%20makeup'),
+            '${ApiConfig.apiBase}/vendor-services?subCategory=bridal%20makeup'),
       );
 
       if (response.statusCode == 200) {
@@ -421,9 +422,9 @@ class _MakeupScreenState extends State<MakeupScreen> {
         vendor['media']['gallery'].isNotEmpty) {
       final gallery = vendor['media']['gallery'];
       if (gallery[0] is Map && gallery[0]['id'] != null) {
-        imageUrl = 'https://happywedz.com/uploads/${gallery[0]['id']}';
+        imageUrl = '${ApiConfig.baseUrl}/uploads/${gallery[0]['id']}';
       } else if (gallery[0] is String) {
-        imageUrl = 'https://happywedz.com${gallery[0]}';
+        imageUrl = '${ApiConfig.baseUrl}${gallery[0]}';
       }
     } else {
       imageUrl =
@@ -662,9 +663,9 @@ class BridalVendor {
         (json['media']['gallery'] as List).isNotEmpty) {
       for (var img in json['media']['gallery']) {
         if (img is Map && img['id'] != null) {
-          imagesList.add('https://happywedz.com/uploads/${img['id']}');
+          imagesList.add('${ApiConfig.baseUrl}/uploads/${img['id']}');
         } else if (img is String) {
-          imagesList.add('https://happywedz.com$img');
+          imagesList.add('${ApiConfig.baseUrl}$img');
         }
       }
     }

@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../data/honeymoon_api.dart';
 import '../honeymoon_config.dart';
+import '../models/booking_models.dart';
 import '../models/honeymoon_models.dart';
+import 'booking/flight_booking_page.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -121,7 +123,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 
     setState(() => _submitting = true);
     try {
-      final flights = await widget.api.searchFlights(
+      final results = await widget.api.searchFlights(
         fromCode: _from!.code,
         toCode: _to!.code,
         departure: _departure!,
@@ -134,11 +136,13 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
         context,
         AnimatedPageRoute(
           page: FlightResultsPage(
+            api: widget.api,
             from: _from!,
             to: _to!,
             departure: _departure!,
             returnDate: _roundTrip ? _returnDate : null,
-            flights: flights,
+            results: results,
+            adults: _adults,
           ),
           style: PageTransitionStyle.slideRight,
         ),
@@ -426,80 +430,268 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
 // Results
 // ---------------------------------------------------------------------------
 
-class FlightResultsPage extends StatelessWidget {
+/// Search results, and the selection that leads into the booking funnel.
+///
+/// A round trip is picked one leg at a time. Showing both directions at once
+/// needs two side-by-side columns, which does not fit a phone; picking the
+/// outbound first and then the return is the pattern travellers already know
+/// from every mobile flight app, and it also matches how the supplier prices
+/// the two legs — separately.
+class FlightResultsPage extends StatefulWidget {
   const FlightResultsPage({
     super.key,
+    required this.api,
     required this.from,
     required this.to,
     required this.departure,
-    required this.flights,
+    required this.results,
+    required this.adults,
     this.returnDate,
+    this.children = 0,
+    this.infants = 0,
+    this.cabinClass = 'ECONOMY',
   });
 
+  final HoneymoonApi api;
   final FlightLocation from;
   final FlightLocation to;
   final DateTime departure;
   final DateTime? returnDate;
-  final List<FlightResult> flights;
+  final FlightSearchResult results;
+  final int adults;
+  final int children;
+  final int infants;
+  final String cabinClass;
+
+  @override
+  State<FlightResultsPage> createState() => _FlightResultsPageState();
+}
+
+class _FlightResultsPageState extends State<FlightResultsPage> {
+  /// Set once the outbound has been chosen on a round trip; the list then
+  /// switches to the return leg.
+  FlightResult? _outbound;
+
+  bool get _twoStep => widget.results.hasSeparateReturn;
+
+  bool get _pickingReturn => _twoStep && _outbound != null;
+
+  FlightTripContext get _trip => FlightTripContext(
+    from: widget.from,
+    to: widget.to,
+    departure: widget.departure,
+    returnDate: widget.returnDate,
+    adults: widget.adults,
+    children: widget.children,
+    infants: widget.infants,
+    cabinClass: widget.cabinClass,
+  );
+
+  List<FlightResult> get _visible => _pickingReturn
+      ? widget.results.sortedInbound
+      : widget.results.sortedOnward;
+
+  void _select(FlightResult flight) {
+    if (_twoStep && _outbound == null) {
+      setState(() => _outbound = flight);
+      return;
+    }
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: FlightBookingPage(
+          api: widget.api,
+          trip: _trip,
+          outbound: _outbound ?? flight,
+          inbound: _outbound == null ? null : flight,
+        ),
+        style: PageTransitionStyle.slideRight,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final sorted = List<FlightResult>.from(flights)
-      ..sort((a, b) => a.price.compareTo(b.price));
+    final list = _visible;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppTopBar(
-        elevated: true,
-        titleWidget: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+    return PopScope(
+      // On a round trip, back from the return list means "pick a different
+      // outbound", not "abandon the search".
+      canPop: !_pickingReturn,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _outbound = null);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppTopBar(
+          elevated: true,
+          onBack: _pickingReturn
+              ? () => setState(() => _outbound = null)
+              : null,
+          titleWidget: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _pickingReturn
+                    ? '${widget.to.code} → ${widget.from.code}'
+                    : '${widget.from.code} → ${widget.to.code}',
+                style: AppText.cardTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                _pickingReturn
+                    ? 'Return · ${formatTripDate(widget.returnDate)}'
+                    : _twoStep
+                    ? 'Departure · ${formatTripDate(widget.departure)}'
+                    : widget.returnDate == null
+                    ? formatTripDate(widget.departure)
+                    : '${formatTripDate(widget.departure)} – '
+                          '${formatTripDate(widget.returnDate)}',
+                style: AppText.caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        body: Column(
           children: [
-            Text(
-              '${from.code} → ${to.code}',
-              style: AppText.cardTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              returnDate == null
-                  ? formatTripDate(departure)
-                  : '${formatTripDate(departure)} – ${formatTripDate(returnDate)}',
-              style: AppText.caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            if (_twoStep)
+              _LegProgress(
+                pickingReturn: _pickingReturn,
+                outbound: _outbound,
+                onChangeOutbound: () => setState(() => _outbound = null),
+              ),
+            Expanded(
+              child: list.isEmpty
+                  ? EmptyState(
+                      title: _pickingReturn
+                          ? 'No return flights found'
+                          : 'No flights found',
+                      message:
+                          'Try different dates or a nearby airport — this '
+                          'route may not have flights on the day you chose.',
+                      icon: Icons.flight_takeoff_rounded,
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.xxxl,
+                      ),
+                      itemCount: list.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.md),
+                      itemBuilder: (context, i) => FadeSlideIn(
+                        delay: AppMotion.staggerFor(i),
+                        child: _FlightCard(
+                          flight: list[i],
+                          actionLabel: _twoStep && _outbound == null
+                              ? 'Choose'
+                              : 'Select',
+                          onSelect: () => _select(list[i]),
+                        ),
+                      ),
+                    ),
             ),
           ],
         ),
       ),
-      body: sorted.isEmpty
-          ? const EmptyState(
-              title: 'No flights found',
-              message: 'Try different dates or nearby airports.',
-              icon: Icons.flight_takeoff_rounded,
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.xxxl,
-              ),
-              itemCount: sorted.length,
-              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-              itemBuilder: (context, i) => FadeSlideIn(
-                delay: AppMotion.staggerFor(i),
-                child: _FlightCard(flight: sorted[i]),
-              ),
+    );
+  }
+}
+
+/// The "outbound chosen, now pick a return" strip. Doubles as the way back to
+/// change the outbound without losing the search.
+class _LegProgress extends StatelessWidget {
+  const _LegProgress({
+    required this.pickingReturn,
+    required this.outbound,
+    required this.onChangeOutbound,
+  });
+
+  final bool pickingReturn;
+  final FlightResult? outbound;
+  final VoidCallback onChangeOutbound;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!pickingReturn || outbound == null) {
+      return Container(
+        width: double.infinity,
+        color: AppColors.blush,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        child: Text(
+          'Step 1 of 2 — choose your departure flight',
+          style: AppText.labelSm.copyWith(color: AppColors.primaryDeep),
+        ),
+      );
+    }
+
+    final f = outbound!;
+    return Container(
+      width: double.infinity,
+      color: AppColors.blush,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.check_circle_rounded,
+            size: 16,
+            color: AppColors.successDark,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Departure selected',
+                  style: AppText.labelSm.copyWith(color: AppColors.primaryDeep),
+                ),
+                Text(
+                  '${f.airline.isNotEmpty ? f.airline : f.airlineCode} · '
+                  '${f.fromCode} → ${f.toCode}',
+                  style: AppText.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
+          ),
+          PremiumButton.text(
+            label: 'Change',
+            size: PremiumButtonSize.small,
+            onPressed: onChangeOutbound,
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _FlightCard extends StatelessWidget {
-  const _FlightCard({required this.flight});
+  const _FlightCard({
+    required this.flight,
+    required this.onSelect,
+    this.actionLabel = 'Select',
+  });
 
   final FlightResult flight;
+  final VoidCallback onSelect;
+  final String actionLabel;
 
   String _time(DateTime? d) {
     if (d == null) return '--:--';
@@ -511,6 +703,7 @@ class _FlightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      onTap: onSelect,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -519,7 +712,9 @@ class _FlightCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  flight.airline.isNotEmpty ? flight.airline : flight.airlineCode,
+                  flight.airline.isNotEmpty
+                      ? flight.airline
+                      : flight.airlineCode,
                   style: AppText.cardTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -551,33 +746,38 @@ class _FlightCard extends StatelessWidget {
                   child: Column(
                     children: [
                       if (flight.durationLabel.isNotEmpty)
-                        Text(flight.durationLabel, style: AppText.caption),
+                        Text(
+                          flight.durationLabel,
+                          style: AppText.caption,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       const SizedBox(height: 3),
-                      Row(
+                      const Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.circle,
                             size: 6,
                             color: AppColors.textTertiary,
                           ),
-                          const Expanded(
+                          Expanded(
                             child: Divider(
                               color: AppColors.divider,
                               thickness: 1,
                             ),
                           ),
-                          const Icon(
+                          Icon(
                             Icons.flight_rounded,
                             size: 14,
                             color: AppColors.primary,
                           ),
-                          const Expanded(
+                          Expanded(
                             child: Divider(
                               color: AppColors.divider,
                               thickness: 1,
                             ),
                           ),
-                          const Icon(
+                          Icon(
                             Icons.circle,
                             size: 6,
                             color: AppColors.textTertiary,
@@ -585,7 +785,12 @@ class _FlightCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      Text(flight.stopsLabel, style: AppText.caption),
+                      Text(
+                        flight.stopsLabel,
+                        style: AppText.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -601,27 +806,38 @@ class _FlightCard extends StatelessWidget {
             ],
           ),
 
-          if (flight.price > 0) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-              child: Divider(height: 1, color: AppColors.divider),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(formatPrice(flight.price), style: AppText.price),
-                ),
-                PremiumButton(
-                  label: 'Select',
-                  size: PremiumButtonSize.small,
-                  onPressed: () => AppSnackbar.info(
-                    context,
-                    'Flight checkout is not connected in the app yet.',
-                  ),
-                ),
-              ],
-            ),
-          ],
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Divider(height: 1, color: AppColors.divider),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: flight.price > 0
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('per adult', style: AppText.caption),
+                          Text(
+                            formatPrice(flight.price),
+                            style: AppText.price,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      )
+                    : Text('Price on review', style: AppText.bodySm),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              PremiumButton(
+                label: actionLabel,
+                size: PremiumButtonSize.small,
+                expanded: false,
+                onPressed: onSelect,
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -16,6 +16,7 @@ import 'cab_results_page.dart';
 import 'flight_results_page.dart';
 import 'hotel_results_page.dart';
 import 'insurance_results_page.dart';
+import 'bookings/my_trips_page.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 class HoneymoonHomePage extends StatefulWidget {
@@ -44,6 +45,13 @@ class _HoneymoonHomePageState extends State<HoneymoonHomePage> {
         slivers: [
           SliverToBoxAdapter(
             child: HoneymoonHero(
+              onOpenTrips: () => Navigator.push(
+                context,
+                AnimatedPageRoute(
+                  page: MyTripsPage(api: _api),
+                  style: PageTransitionStyle.slideRight,
+                ),
+              ),
               child: HoneymoonServiceTabs(
                 selected: _service,
                 onSelected: (s) => setState(() => _service = s),

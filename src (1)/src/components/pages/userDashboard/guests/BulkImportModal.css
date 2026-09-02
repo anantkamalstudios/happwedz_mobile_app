@@ -1,0 +1,468 @@
+/* ==========================================================================
+   Bulk Import Guests Modal Styling
+   ========================================================================== */
+
+.hw-bulk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 16px;
+  animation: hwBulkFadeIn 0.2s ease-out;
+}
+
+@keyframes hwBulkFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.hw-bulk-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 820px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: hwBulkSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes hwBulkSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modal Header */
+.hw-bulk-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+}
+
+.hw-bulk-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hw-bulk-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fff0f6;
+  color: #ed1173;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.hw-bulk-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.hw-bulk-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.hw-bulk-close {
+  background: #f1f5f9;
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+}
+
+.hw-bulk-close:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+/* Modal Body */
+.hw-bulk-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  background: #f8fafc;
+}
+
+/* Tabs & Template action */
+.hw-bulk-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.hw-bulk-tabs {
+  display: flex;
+  gap: 6px;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.hw-bulk-tab {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.hw-bulk-tab.active {
+  background: #ffffff;
+  color: #ed1173;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.hw-bulk-template-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hw-bulk-template-btn:hover {
+  border-color: #ed1173;
+  color: #ed1173;
+  background: #fff5f9;
+}
+
+/* Upload Dropzone */
+.hw-bulk-dropzone {
+  border: 2px dashed #cbd5e1;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.hw-bulk-dropzone:hover,
+.hw-bulk-dropzone.dragover {
+  border-color: #ed1173;
+  background: #fff5f9;
+}
+
+.hw-bulk-drop-icon {
+  font-size: 42px;
+  color: #ed1173;
+  margin-bottom: 12px;
+}
+
+.hw-bulk-drop-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.hw-bulk-drop-sub {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-bottom: 14px;
+}
+
+.hw-bulk-browse-btn {
+  display: inline-block;
+  padding: 8px 20px;
+  background: #fff0f6;
+  color: #ed1173;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid #f9b6d6;
+}
+
+/* Textarea Input */
+.hw-bulk-textarea-wrap {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.hw-bulk-textarea-wrap label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.hw-bulk-textarea {
+  width: 100%;
+  height: 160px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+  color: #1e293b;
+}
+
+.hw-bulk-textarea:focus {
+  border-color: #ed1173;
+  box-shadow: 0 0 0 3px rgba(237, 17, 115, 0.08);
+}
+
+.hw-bulk-textarea-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 6px;
+}
+
+/* Preview Section */
+.hw-bulk-preview-wrap {
+  margin-top: 20px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+}
+
+.hw-bulk-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hw-bulk-preview-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hw-bulk-count-badge {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.hw-bulk-group-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.hw-bulk-group-select {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+  outline: none;
+  background: #ffffff;
+}
+
+.hw-bulk-table-wrap {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.hw-bulk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.hw-bulk-table th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  z-index: 1;
+}
+
+.hw-bulk-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.hw-bulk-table tr:hover td {
+  background: #fff5f9;
+}
+
+.hw-bulk-remove-row {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.hw-bulk-remove-row:hover {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.hw-bulk-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.hw-bulk-pill-veg {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.hw-bulk-pill-nonveg {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.hw-bulk-pill-attending {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.hw-bulk-pill-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Modal Footer */
+.hw-bulk-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #f1f5f9;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.hw-bulk-btn-cancel {
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hw-bulk-btn-cancel:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.hw-bulk-btn-submit {
+  padding: 9px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #ed1173;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(237, 17, 115, 0.25);
+}
+
+.hw-bulk-btn-submit:hover:not(:disabled) {
+  background: #d00a62;
+  transform: translateY(-1px);
+}
+
+.hw-bulk-btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .hw-bulk-modal {
+    max-height: 95vh;
+  }
+  .hw-bulk-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hw-bulk-tabs {
+    width: 100%;
+  }
+  .hw-bulk-tab {
+    flex: 1;
+    justify-content: center;
+  }
+}
