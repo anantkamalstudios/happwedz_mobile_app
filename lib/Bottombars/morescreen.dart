@@ -243,7 +243,19 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
           ),
         );
         break;
-      case 'Honeymoon':
+    case 'Store':
+          // The store is a separate app on its own domain, not a route in
+        // this one — same reasoning as the ShaadiAI product-card links.
+          final storeUri = Uri.parse('https://store.happywedz.com/');
+       try {
+             if (!await launchUrl(storeUri, mode: LaunchMode.externalApplication)) {
+             debugPrint('Could not open the store: launchUrl returned false');
+              }
+         } catch (e) {
+          debugPrint('Could not open the store: $e');
+         }
+       break;
+    case 'Honeymoon':
         Navigator.push(
           context,
           AnimatedPageRoute(
