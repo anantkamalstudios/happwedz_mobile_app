@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:happy_wedz/movment_plus/upload_selfie_screen.dart';
 
+import 'custome_theme.dart';
 import 'guest_token_screen.dart';
+import 'guest_token_store.dart';
 import 'movment_plus_dashboard.dart';
 
 class CustomBottomBar extends StatefulWidget {
@@ -17,7 +19,7 @@ class _CustomBottomBarState extends State<CustomBottomBar> {
   final List<Widget> _screens = [
     const Moment_plus_home(),
     const GuestTokenScreen(),
-    const MomentPrivacyDialog(),
+    const _UploadSelfieTab(),
     // const LoginScreen(),
   ];
 
@@ -92,6 +94,111 @@ class _CustomBottomBarState extends State<CustomBottomBar> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The "Upload Selfie" tab needs to know which gallery to match against.
+/// Unlike the other two tabs it has no token of its own to work with, so it
+/// reads the last one the guest verified via [GuestTokenStore] (set by
+/// `GuestTokenScreen` on a successful lookup) and either drops straight into
+/// the real selfie flow or, for a guest who hasn't entered a code yet, asks
+/// for one first — same guard the website applies before this screen.
+class _UploadSelfieTab extends StatefulWidget {
+  const _UploadSelfieTab();
+
+  @override
+  State<_UploadSelfieTab> createState() => _UploadSelfieTabState();
+}
+
+class _UploadSelfieTabState extends State<_UploadSelfieTab> {
+  late Future<String?> _tokenFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _tokenFuture = GuestTokenStore.read();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _tokenFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: MpTheme.primaryColor),
+            ),
+          );
+        }
+
+        final token = snapshot.data;
+        if (token != null) {
+          return MomentPrivacyDialog(token: token);
+        }
+
+        return Scaffold(
+          body: Container(
+            decoration:
+                const BoxDecoration(gradient: MpTheme.backgroundGradient),
+            child: SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.key_outlined,
+                          size: 48, color: Colors.white),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Enter your gallery access code first",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "We need to know which wedding gallery to search for you in.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                        ),
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const GuestTokenScreen(),
+                            ),
+                          );
+                          // The token screen may have saved one while it was
+                          // on top — re-check so this tab reflects it without
+                          // the guest having to tap away and back.
+                          setState(() {
+                            _tokenFuture = GuestTokenStore.read();
+                          });
+                        },
+                        child: Text(
+                          "Enter Access Code",
+                          style: TextStyle(color: MpTheme.primaryColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

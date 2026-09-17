@@ -13,6 +13,7 @@ import '../honeymoon_config.dart';
 import '../models/honeymoon_models.dart';
 import 'booking/insurance_booking_page.dart';
 import 'widgets/honeymoon_widgets.dart';
+import 'widgets/insurance_benefits_sheet.dart';
 
 /// Region keys accepted by the TripSafe `isc.iri[].rkey` field.
 class InsuranceRegion {
@@ -439,6 +440,20 @@ class _PlanCard extends StatelessWidget {
               children: [
                 for (final c in plan.coverageTags) MetaChip(label: c),
               ],
+            ),
+          ],
+
+          // The card can only carry a few highlights; the full schedule of
+          // benefits is what a traveller actually compares policies on.
+          if (plan.benefits.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: PremiumButton.text(
+                label: 'View all ${plan.benefits.length} benefits',
+                size: PremiumButtonSize.small,
+                onPressed: () => showInsuranceBenefitsSheet(context, plan),
+              ),
             ),
           ],
 

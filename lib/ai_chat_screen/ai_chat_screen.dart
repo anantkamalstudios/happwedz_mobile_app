@@ -1,315 +1,114 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+   import 'dart:convert';
 import 'package:flutter/material.dart';
 
-import '../core/config/api_config.dart';
 import '../core/core.dart';
-
+import '../shaadi_ai/data/shaadi_ai_api.dart';
+import '../shaadi_ai/models/shaadi_ai_models.dart';
+import '../shaadi_ai/ui/widgets/shaadi_ai_message_cards.dart';
+import '../vendor/vendordetailsscreen.dart';
 
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-
-class VendorAi {
-  final String location;
-  final String name;
-  final int rating;
-  final String type;
-  final List<String> whyConsider;
-
-  VendorAi({
-    required this.location,
-    required this.name,
-    required this.rating,
-    required this.type,
-    required this.whyConsider,
-  });
-
-  factory VendorAi.fromJson(Map<String, dynamic> j) => VendorAi(
-    location: j['location'] ?? '',
-    name: j['name'] ?? '',
-    rating: (j['rating'] is int)
-        ? j['rating']
-        : int.tryParse('${j['rating']}') ?? 0,
-    type: j['type'] ?? '',
-    whyConsider:
-        (j['why_consider'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        [],
-  );
-}
-
-/// Shown in the chat whenever the assistant cannot produce an answer.
-///
-/// Raw exception text ("Error: Exception: Failed to post chat: 502") is never
-/// put in front of the user — it goes to the logs instead.
+/// AUDIT FIX: this screen ("ShaadiAi Assistant") and `lib/shaadi_ai/` are the
+/// same product feature reached from two places in the app, not two
+/// different backends as an earlier pass here assumed. The original
+/// `/api/user_chat`, `/api/chat_history` and `/api/sessions/:id` endpoints
+/// (ported from the old `Genie.jsx`, which called the now-dead
+/// `shaadiai.happywedz.com` host) were never migrated anywhere — confirmed
+/// live: every path variant under `api.happywedz.com/ai/...` returns
+/// `{"success":false,"message":"Route not found"}`. The only working chat
+/// endpoint on the consolidated backend is `POST /ai/chat`
+/// (`ApiConfig.apiBase`), already used successfully by
+/// `lib/shaadi_ai/data/shaadi_ai_api.dart`'s `sendChat`. This screen now
+/// calls that same endpoint through the same `ShaadiAiApi`/`ShaadiChatMessage`
+/// types instead of a parallel, broken implementation. There is no backend
+/// session/history endpoint to restore, so — like ShaadiAI — history is
+/// local-only (`LocalChatStorage`, below).
 const String kNoAssistantResponse = 'No response found';
 
-class AssistantResponse {
-  final String message;
-  final List<VendorAi> results;
-  final bool showWishlist;
-  final String summary;
-
-  AssistantResponse({
-    required this.message,
-    required this.results,
-    required this.showWishlist,
-    required this.summary,
-  });
-
-  /// True when there is nothing at all to render, which would otherwise show
-  /// as an empty chat bubble.
-  bool get isEmpty =>
-      message.trim().isEmpty && summary.trim().isEmpty && results.isEmpty;
-
-  factory AssistantResponse.fromJson(Map<String, dynamic> j) {
-    final results = <VendorAi>[];
-    if (j['results'] is List) {
-      for (var r in j['results']) {
-        if (r is Map<String, dynamic>) results.add(VendorAi.fromJson(r));
-      }
-    }
-    return AssistantResponse(
-      message: j['message'] ?? '',
-      results: results,
-      showWishlist: j['show_wishlist'] ?? false,
-      summary: j['summary'] ?? '',
-    );
-  }
-}
-
-class ApiService {
-  /// AUDIT FIX (broken in release builds): this was `http://…`. The app targets
-  /// SDK 36 and declares no cleartext-traffic exception, so Android blocks
-  /// plain-HTTP sockets outright — every AI chat request failed on a real
-  /// device even though the server was up. The same host answers over TLS
-  /// (verified: `https://shaadiai.happywedz.com/api/*` responds), so the scheme
-  /// is simply corrected rather than weakening the app's network security.
-  static const String baseUrl = ApiConfig.aiChatBaseUrl;
-
-  /// AUDIT FIX: the reference client (`Genie.jsx`/`HomeGennie.jsx`) sends
-  /// `Authorization: Bearer <token>` on every one of these three calls; this
-  /// client sent none, which is the likely cause of empty/failing chat
-  /// history for signed-in users.
-  Future<Map<String, String>> _headers({String? contentType}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(ApiConfig.authTokenKey);
-    return {
-      if (contentType != null) 'Content-Type': contentType,
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
-
-  Future<Map<String, dynamic>> postUserChat({
-    required int userId,
-    String? sessionId,
-    required String userQuery,
-  }) async {
-    final uri = Uri.parse('$baseUrl/api/user_chat');
-    final body = {
-      'user_id': userId,
-      'user_query': userQuery,
-      if (sessionId != null) 'session_id': sessionId,
-    };
-    final resp = await http.post(
-      uri,
-      body: jsonEncode(body),
-      headers: await _headers(contentType: 'application/json'),
-    );
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to post chat: ${resp.statusCode}');
-    }
-  }
-
-  Future<Map<String, dynamic>> getChatHistory(String sessionId) async {
-    final uri = Uri.parse('$baseUrl/api/chat_history?session_id=$sessionId');
-    final resp = await http.get(uri, headers: await _headers());
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to fetch history');
-    }
-  }
-
-  Future<Map<String, dynamic>> getSessions(int userId) async {
-    final uri = Uri.parse('$baseUrl/api/sessions/$userId');
-    final resp = await http.get(uri, headers: await _headers());
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to fetch sessions');
-    }
-  }
-}
-
-/// AUDIT FIX: the reference client unwraps every response as `raw?.data ??
-/// raw` — tolerant of the backend answering either `{data: ...}` or the
-/// payload directly. This client required the `data` wrapper, so a bare
-/// response read as "no data" and surfaced as [kNoAssistantResponse].
-dynamic _unwrap(Map<String, dynamic> raw) =>
-    raw.containsKey('data') ? raw['data'] : raw;
-
-class MessageItem {
-  final String role; // 'user' or 'assistant'
-  final dynamic content; // String or AssistantResponse
-  final DateTime timestamp;
-
-  MessageItem({required this.role, required this.content, DateTime? timestamp})
-    : timestamp = timestamp ?? DateTime.now();
-}
-
 class ChatProvider extends ChangeNotifier {
-  final ApiService api = ApiService();
+  final ShaadiAiApi _api = ShaadiAiApi();
 
-  final List<MessageItem> _messages = [];
-  List<MessageItem> get messages => List.unmodifiable(_messages);
+  List<ShaadiChatMessage> _messages = [];
+  List<ShaadiChatMessage> get messages => List.unmodifiable(_messages);
 
-  String? sessionId;
   bool isLoading = false;
   String? error;
 
-  int? userId;
-
-  void setUserId(int id) {
-    userId = id;
-    notifyListeners();
-  }
-
-  Future<void> startNewChat({String? existingSessionId}) async {
-    _messages.clear();
-
-    // ⬇️ LOAD LOCAL CHAT STORAGE
-    final localMsgs = await LocalChatStorage.loadMessages();
-    _messages.addAll(localMsgs);
-
-    sessionId = existingSessionId;
+  Future<void> startNewChat() async {
+    _messages = await LocalChatStorage.loadMessages();
     error = null;
     notifyListeners();
-
-    if (sessionId != null) {
-      await fetchHistory(sessionId!);
-    }
   }
 
-  Future<void> fetchHistory(String sessId) async {
-    try {
-      isLoading = true;
-      notifyListeners();
-      final data = await api.getChatHistory(sessId);
-      final unwrapped = _unwrap(data);
-      final arr = unwrapped is List ? unwrapped : <dynamic>[];
-      _messages.clear();
-      for (var item in arr) {
-        final role = item['role'] ?? 'assistant';
-        final contentRaw = item['content'];
-        dynamic content;
-        if (contentRaw is String) {
-          content = contentRaw;
-        } else if (contentRaw is Map<String, dynamic>) {
-          content = AssistantResponse.fromJson(contentRaw);
-        } else {
-          content = contentRaw.toString();
-        }
-        _messages.add(MessageItem(role: role, content: content));
-      }
-    } catch (e) {
-      debugPrint('ShaadiAi history failed: $e');
-      error = e.toString();
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
+  Future<void> clearChat() async {
+    _messages = [];
+    await LocalChatStorage.clear();
+    notifyListeners();
   }
 
   Future<void> sendUserMessage(String text) async {
-    if (text.trim().isEmpty) return;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
 
-    // USER MESSAGE
-    final userMessage = MessageItem(role: 'user', content: text);
-    _messages.add(userMessage);
-
-    if (userId == null || userId == 0) {
-      // This used to throw out of an un-awaited call, which surfaced as an
-      // unhandled exception and left the chat looking frozen.
-      debugPrint('ShaadiAi chat skipped: user is not logged in.');
-      _messages.add(
-        MessageItem(role: 'assistant', content: kNoAssistantResponse),
-      );
-      await LocalChatStorage.saveMessages(_messages);
-      notifyListeners();
-      return;
-    }
-
-    // SAVE to SharedPreferences
+    final updated = [
+      ..._messages,
+      ShaadiChatMessage(role: 'user', content: trimmed),
+    ];
+    _messages = updated;
+    isLoading = true;
+    error = null;
+    notifyListeners();
     await LocalChatStorage.saveMessages(_messages);
 
-    isLoading = true;
-    notifyListeners();
-
     try {
-      final resp = await api.postUserChat(
-        userId: userId!,
-        sessionId: sessionId,
-        userQuery: text,
+      final history = updated
+          .map((m) => {'role': m.role, 'content': m.content})
+          .toList();
+
+      final reply = await _api.sendChat(
+        message: trimmed,
+        conversationHistory: history,
       );
-
-      final unwrapped = _unwrap(resp);
-      final data = unwrapped is Map<String, dynamic> ? unwrapped : null;
-      dynamic assistantContent;
-
-      if (data == null) {
-        // A 2xx with no payload still leaves the user waiting on a reply.
-        assistantContent = kNoAssistantResponse;
-      } else {
-        sessionId = data['session_id'] ?? sessionId;
-
-        final response = data['response'];
-
-        if (response == null) {
-          assistantContent = kNoAssistantResponse;
-        } else if (response is Map<String, dynamic>) {
-          final parsed = AssistantResponse.fromJson(response);
-          assistantContent = parsed.isEmpty ? kNoAssistantResponse : parsed;
-        } else {
-          final text = response.toString().trim();
-          assistantContent = text.isEmpty ? kNoAssistantResponse : text;
-        }
-      }
-
-      // ASSISTANT MESSAGE
-      _messages.add(
-        MessageItem(role: 'assistant', content: assistantContent),
-      );
-
-      // SAVE again to SharedPreferences
-      await LocalChatStorage.saveMessages(_messages);
+      _messages = [...updated, reply];
+    } on ShaadiAiException catch (e) {
+      debugPrint('ShaadiAi chat failed: ${e.message}');
+      _messages = [
+        ...updated,
+        ShaadiChatMessage(role: 'assistant', content: e.message),
+      ];
     } catch (e) {
-      // The user sees a plain message; the real cause stays in the logs.
       debugPrint('ShaadiAi chat failed: $e');
-      _messages.add(
-        MessageItem(role: 'assistant', content: kNoAssistantResponse),
-      );
-
-      await LocalChatStorage.saveMessages(_messages);
+      _messages = [
+        ...updated,
+        ShaadiChatMessage(role: 'assistant', content: kNoAssistantResponse),
+      ];
     } finally {
       isLoading = false;
       notifyListeners();
+      await LocalChatStorage.saveMessages(_messages);
     }
   }
 }
 
 class MessageBubble extends StatelessWidget {
-  final MessageItem message;
-  const MessageBubble({super.key, required this.message});
+  final ShaadiChatMessage message;
+  final void Function(String vendorId) onVendorTap;
+  final void Function(String url) onProductTap;
+
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.onVendorTap,
+    required this.onProductTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isUser = message.role == 'user';
+    final isUser = message.isUser;
     final bg = isUser ? Colors.pink.shade50 : Colors.grey.shade100;
     final align = isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final radius = isUser
@@ -323,40 +122,6 @@ class MessageBubble extends StatelessWidget {
             topRight: Radius.circular(16),
             bottomRight: Radius.circular(16),
           );
-
-    Widget contentWidget;
-    if (message.content is String) {
-      contentWidget = Text(
-        message.content as String,
-        style: const TextStyle(fontSize: 15),
-      );
-    } else if (message.content is AssistantResponse) {
-      final ar = message.content as AssistantResponse;
-      contentWidget = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (ar.summary.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                ar.summary,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          if (ar.message.isNotEmpty) Text(ar.message),
-          if (ar.results.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            // Brief list preview
-            Text(
-              'Found ${ar.results.length} vendor(s). Tap to view cards.',
-              style: const TextStyle(color: Colors.grey),
-            ),
-          ],
-        ],
-      );
-    } else {
-      contentWidget = Text(message.content.toString());
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -374,7 +139,26 @@ class MessageBubble extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(color: bg, borderRadius: radius),
-                  child: contentWidget,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (message.content.trim().isNotEmpty)
+                        Text(
+                          message.content,
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                      if (message.hasResults)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: ShaadiMessageResults(
+                            message: message,
+                            onVendorTap: onVendorTap,
+                            onProductTap: onProductTap,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               if (isUser) const SizedBox(width: 8),
@@ -408,102 +192,6 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class VendorCard extends StatelessWidget {
-  final VendorAi vendor;
-  final VoidCallback? onTap;
-  final VoidCallback? onWishlist;
-
-  const VendorCard({
-    super.key,
-    required this.vendor,
-    this.onTap,
-    this.onWishlist,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.pink.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    vendor.name.isNotEmpty ? vendor.name[0] : '?',
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      vendor.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${vendor.type} • ${vendor.location}',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: vendor.whyConsider.take(3).map((w) {
-                        return Chip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(w, style: const TextStyle(fontSize: 12)),
-                          backgroundColor: Colors.pink.shade50,
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                children: [
-                  Icon(Icons.star, color: Colors.amber, size: 20),
-                  Text(
-                    '${vendor.rating}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  IconButton(
-                    onPressed: onWishlist,
-                    icon: const Icon(Icons.favorite_border, color: Colors.pink),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key});
 
@@ -518,8 +206,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   @override
   void initState() {
     super.initState();
-    final provider = Provider.of<ChatProvider>(context, listen: false);
-    provider.startNewChat(); // no session initially
+    Provider.of<ChatProvider>(context, listen: false).startNewChat();
   }
 
   void _send() {
@@ -540,42 +227,38 @@ class _AiChatScreenState extends State<AiChatScreen> {
     }
   }
 
-  void _openNewChatMenu() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  void _onNewChat() async {
+    final prov = Provider.of<ChatProvider>(context, listen: false);
+    await prov.clearChat();
+    if (!mounted) return;
+    AppSnackbar.info(context, "Started a new chat");
+  }
+
+  void _onVendorTap(String vendorId) {
+    if (vendorId.isEmpty) return;
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: VendorDetailsScreen(
+          service: {
+            'vendor': {'id': vendorId},
+          },
+        ),
+        style: PageTransitionStyle.slideRight,
       ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.chat, color: Colors.pink),
-                title: Text("Start New Chat"),
-                onTap: () async {
-                  Navigator.pop(context);
-
-                  final prov = Provider.of<ChatProvider>(
-                    context,
-                    listen: false,
-                  );
-
-                  // CLEAR LOCAL SAVED CHAT
-                  await LocalChatStorage.clear();
-
-                  // CLEAR PROVIDER CHAT
-                  await prov.startNewChat(existingSessionId: null);
-
-                  AppSnackbar.info(context, "Started a new chat");
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
+  }
+
+  Future<void> _onProductTap(String url) async {
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Nothing sensible to recover to — a broken product link isn't
+      // something the app can fix.
+    }
   }
 
   @override
@@ -583,12 +266,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
     return Consumer<ChatProvider>(
       builder: (context, prov, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-        bool _shouldShowVendorCards(ChatProvider prov) {
-          if (prov.messages.isEmpty) return false;
-          final last = prov.messages.last;
-          if (last.content is! AssistantResponse) return false;
-          return (last.content as AssistantResponse).results.isNotEmpty;
-        }
 
         return Scaffold(
           appBar: AppBar(
@@ -598,15 +275,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () =>
-                    prov.startNewChat(existingSessionId: prov.sessionId),
-                tooltip: 'Reload history',
-              ),
-              IconButton(
-                icon: const Icon(Icons.list_alt),
-                onPressed: _openSessionsModal,
-                tooltip: 'Sessions',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: _onNewChat,
+                tooltip: 'Start new chat',
               ),
             ],
           ),
@@ -618,76 +289,20 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     : ListView.builder(
                         controller: _scroll,
                         padding: const EdgeInsets.only(top: 12, bottom: 12),
-                        // itemCount: prov.messages.length + 1,
-                        //   itemCount: prov.messages.length + (prov.isLoading ? 1 : 0),
-                        //
-                        //   itemBuilder: (context, idx) {
-                        // if (idx == prov.messages.length) {
-                        // // If last assistant message contains Vendor results, show them
-                        // if (prov.messages.isNotEmpty) {
-                        // final last = prov.messages.last;
-                        // if (last.content is AssistantResponse) {
-                        // final ar = last.content as AssistantResponse;
-                        // if (ar.results.isNotEmpty) {
-                        // return Column(
-                        // children: ar.results.map((v) {
-                        // return VendorCard(
-                        // vendor: v,
-                        // onTap: () => _showVendorDetails(v),
-                        // // onWishlist: () => _addToWishlist(v),
-                        // );
-                        // }).toList(),
-                        // );
-                        // }
-                        // }
-                        // }
-                        // return const SizedBox.shrink();
-                        // }
-                        //
-                        // final msg = prov.messages[idx];
-                        // return MessageBubble(message: msg);
-                        // },
                         itemCount:
-                            prov.messages.length +
-                            (prov.isLoading
-                                ? 1
-                                : 0) + // typing indicator extra row
-                            (_shouldShowVendorCards(prov)
-                                ? 1
-                                : 0), // vendor cards extra row
-
+                            prov.messages.length + (prov.isLoading ? 1 : 0),
                         itemBuilder: (context, idx) {
-                          final vendorCardsIndex = prov.messages.length;
-                          final typingIndex =
-                              prov.messages.length +
-                              (_shouldShowVendorCards(prov) ? 1 : 0);
-
-                          // 1️⃣ Vendor Cards Section
-                          if (_shouldShowVendorCards(prov) &&
-                              idx == vendorCardsIndex) {
-                            final last = prov.messages.last;
-                            final ar = last.content as AssistantResponse;
-
-                            return Column(
-                              children: ar.results.map((v) {
-                                return VendorCard(
-                                  vendor: v,
-                                  onTap: () => _showVendorDetails(v),
-                                );
-                              }).toList(),
-                            );
-                          }
-
-                          // 2️⃣ Typing Indicator
-                          if (prov.isLoading && idx == typingIndex) {
+                          if (idx == prov.messages.length) {
                             return const Padding(
                               padding: EdgeInsets.all(12.0),
                               child: AITypingIndicator(),
                             );
                           }
-
-                          // 3️⃣ Normal messages
-                          return MessageBubble(message: prov.messages[idx]);
+                          return MessageBubble(
+                            message: prov.messages[idx],
+                            onVendorTap: _onVendorTap,
+                            onProductTap: _onProductTap,
+                          );
                         },
                       ),
               ),
@@ -701,13 +316,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   ),
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: _openNewChatMenu,
-                        icon: const Icon(
-                          Icons.add_circle_outline,
-                          color: Colors.pink,
-                        ),
-                      ),
                       Expanded(
                         child: TextField(
                           controller: _ctrl,
@@ -747,268 +355,61 @@ class _AiChatScreenState extends State<AiChatScreen> {
       },
     );
   }
-
-  void _openSessionsModal() {
-    final prov = Provider.of<ChatProvider>(context, listen: false);
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) {
-        return FutureBuilder(
-          future: prov.api.getSessions(prov.userId ?? 0),
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const SizedBox(
-                height: 200,
-                child: const AppLoader(),
-              );
-            }
-            if (snap.hasError) {
-              debugPrint('ShaadiAi sessions failed: ${snap.error}');
-              return const SizedBox(
-                height: 200,
-                child: Center(child: Text(kNoAssistantResponse)),
-              );
-            }
-            final m = snap.data ?? <String, dynamic>{};
-            final unwrapped = _unwrap(m);
-            final list = unwrapped is List ? unwrapped : <dynamic>[];
-            if (list.isEmpty) {
-              return const SizedBox(
-                height: 200,
-                child: Center(child: Text(kNoAssistantResponse)),
-              );
-            }
-            return ListView.separated(
-              shrinkWrap: true,
-              itemBuilder: (context, i) {
-                final it = list[i] as Map<String, dynamic>;
-                final title =
-                    it['title'] ?? 'Session ${it['session_id'] ?? it['id']}';
-                final sid = it['session_id'] ?? it['session_id'];
-                final updated = it['updated_at'] ?? '';
-                return ListTile(
-                  title: Text(title),
-                  subtitle: Text(updated),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    // load that session
-                    prov.startNewChat(existingSessionId: sid);
-                  },
-                );
-              },
-              separatorBuilder: (_, __) => const Divider(),
-              itemCount: list.length,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showVendorDetails(VendorAi v) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.6,
-          minChildSize: 0.3,
-          maxChildSize: 0.95,
-          builder: (_, controller) {
-            return SingleChildScrollView(
-              controller: controller,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Text(
-                      v.name,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on, color: Colors.pink),
-                        const SizedBox(width: 6),
-                        Text(v.location),
-                        const Spacer(),
-                        const Icon(Icons.star, color: Colors.amber),
-                        const SizedBox(width: 6),
-                        Text('${v.rating}'),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: const Text(
-                        'Why consider',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: v.whyConsider
-                          .map((s) => Chip(label: Text(s)))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        // _addToWishlist(v);
-                      },
-                      icon: const Icon(Icons.favorite_border),
-                      label: const Text('Add to Wishlist'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // void _addToWishlist(VendorAi v) {
-  // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${v.name} added to wishlist (mock)')));
-  // // TODO: call real wishlist API
-  // }
 }
 
+/// There is no backend session/history endpoint for this chat (same
+/// situation as `lib/shaadi_ai/data/shaadi_ai_storage.dart` documents for
+/// ShaadiAI) — this is the only place the conversation is persisted.
 class LocalChatStorage {
   static const String keyChatMessages = "chat_messages";
 
-  static Future<void> saveMessages(List<MessageItem> messages) async {
+  static Future<void> saveMessages(List<ShaadiChatMessage> messages) async {
     final prefs = await SharedPreferences.getInstance();
-
-    List<Map<String, dynamic>> encoded = messages.map((m) {
-      return {
-        "role": m.role,
-        "timestamp": m.timestamp.toIso8601String(),
-        "content": _encodeContent(m.content),
-      };
-    }).toList();
-
-    prefs.setString(keyChatMessages, jsonEncode(encoded));
+    final encoded = messages.map((m) => m.toJson()).toList();
+    await prefs.setString(keyChatMessages, jsonEncode(encoded));
   }
 
-  static dynamic _encodeContent(dynamic content) {
-    if (content is String) {
-      return {"type": "string", "data": content};
-    } else if (content is AssistantResponse) {
-      return {
-        "type": "assistant",
-        "data": {
-          "message": content.message,
-          "summary": content.summary,
-          "show_wishlist": content.showWishlist,
-          "results": content.results
-              .map(
-                (v) => {
-                  "name": v.name,
-                  "location": v.location,
-                  "type": v.type,
-                  "rating": v.rating,
-                  "why_consider": v.whyConsider,
-                },
-              )
-              .toList(),
-        },
-      };
-    }
-    return {"type": "unknown", "data": content.toString()};
-  }
-
-  static Future<List<MessageItem>> loadMessages() async {
+  static Future<List<ShaadiChatMessage>> loadMessages() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(keyChatMessages);
-
     if (raw == null) return [];
 
-    // A malformed cache used to throw straight out of startNewChat and leave
-    // the screen stuck; treat it as "no history" instead.
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return [];
-
-      final items = <MessageItem>[];
-      for (final m in decoded) {
-        if (m is! Map) continue;
-        final role = m["role"]?.toString() ?? 'assistant';
-        final ts = DateTime.tryParse(m["timestamp"]?.toString() ?? '');
-        final rawContent = m["content"];
-        final content = rawContent is Map<String, dynamic>
-            ? _decodeContent(rawContent)
-            : _sanitise(rawContent?.toString() ?? '');
-
-        items.add(MessageItem(role: role, content: content, timestamp: ts));
-      }
-      return items;
+      return decoded.map(_decodeEntry).map(ShaadiChatMessage.fromJson).toList();
     } catch (e) {
       debugPrint('ShaadiAi local history unreadable, discarding: $e');
       return [];
     }
   }
 
-  /// Older builds persisted raw exception text (`Error: Exception: Failed to
-  /// post chat: 503`) into the chat history, so those bubbles keep coming back
-  /// from SharedPreferences long after the code stopped producing them.
-  /// Rewrite them on the way out.
-  static String _sanitise(String text) {
-    final t = text.trim();
-    if (t.isEmpty) return kNoAssistantResponse;
-    if (t.startsWith('Error:') ||
-        t.contains('Exception:') ||
-        t == 'No response') {
-      return kNoAssistantResponse;
-    }
-    return text;
-  }
+  /// Cache written before this screen switched to [ShaadiChatMessage] wrapped
+  /// every message's text as `{"type": ..., "data": ...}`. Left as-is, that
+  /// shows up as a literal `{type: string, data: hi}` bubble — confirmed on a
+  /// real device with pre-fix chat history still cached. Unwrap it to plain
+  /// text before handing the entry to `ShaadiChatMessage.fromJson`; anything
+  /// already in the current shape passes through untouched.
+  static dynamic _decodeEntry(dynamic entry) {
+    if (entry is! Map) return entry;
+    final content = entry['content'];
+    if (content is! Map || !content.containsKey('type')) return entry;
 
-  static dynamic _decodeContent(Map<String, dynamic> m) {
-    final type = m["type"];
-    final data = m["data"];
-
-    if (type == "string") return _sanitise(data.toString());
-
-    if (type == "assistant") {
-      final results = (data["results"] is List)
-          ? (data["results"] as List).map((v) {
-              return VendorAi(
-                name: v["name"]?.toString() ?? '',
-                location: v["location"]?.toString() ?? '',
-                type: v["type"]?.toString() ?? '',
-                rating: (v["rating"] is int)
-                    ? v["rating"] as int
-                    : int.tryParse('${v["rating"]}') ?? 0,
-                whyConsider: List<String>.from(v["why_consider"] ?? []),
-              );
-            }).toList()
-          : <VendorAi>[];
-
-      final restored = AssistantResponse(
-        message: data["message"]?.toString() ?? '',
-        summary: data["summary"]?.toString() ?? '',
-        showWishlist: data["show_wishlist"] == true,
-        results: results,
-      );
-
-      // An empty cached payload would render a blank bubble.
-      return restored.isEmpty ? kNoAssistantResponse : restored;
-    }
-
-    return _sanitise(data.toString());
+    final data = content['data'];
+    final text = switch (content['type']) {
+      'string' => data?.toString() ?? '',
+      'assistant' when data is Map =>
+        (data['summary'] as String?)?.trim().isNotEmpty == true
+            ? data['summary']
+            : (data['message'] as String?) ?? '',
+      _ => data?.toString() ?? '',
+    };
+    return {...entry, 'content': text};
   }
 
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
-    prefs.remove(keyChatMessages);
+    await prefs.remove(keyChatMessages);
   }
 }
 

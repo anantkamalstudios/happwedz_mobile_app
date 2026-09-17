@@ -9,6 +9,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../../../core/core.dart';
 import '../../data/honeymoon_api.dart';
@@ -85,12 +86,121 @@ class _TripDetailPageState extends State<TripDetailPage> {
       !_booking.isCancelled &&
       _booking.reference.isNotEmpty &&
       (_booking.product == TravelProduct.flight ||
-          _booking.product == TravelProduct.hotel);
+          _booking.product == TravelProduct.hotel ||
+          (_booking.product == TravelProduct.insurance && _canCancelPolicy));
 
   bool get _canEmailTicket =>
       _booking.product == TravelProduct.flight &&
       !_booking.isCancelled &&
       _booking.reference.isNotEmpty;
+
+  /// A policy can only be cancelled once the detail response has told us which
+  /// plan, product and travellers to name in the amendment.
+  bool get _canCancelPolicy =>
+      _insurancePlanId.isNotEmpty &&
+      _insuranceProductId.isNotEmpty &&
+      _insuranceTravellerIds.isNotEmpty;
+
+  /// `iinfo.pli[0]` carries the plan; its first `pi` entry carries the product
+  /// and the travellers insured under it — the same path the web client walks.
+  dynamic get _insuranceProduct =>
+      digPath(_detail, ['itemInfos', 'INSURANCE', 'iinfo', 'pli', 0, 'pi', 0]);
+
+  String get _insurancePlanId => asString(
+    digPath(_detail, ['itemInfos', 'INSURANCE', 'iinfo', 'pli', 0, 'plid']),
+  );
+
+  String get _insuranceProductId =>
+      asString(readKey(_insuranceProduct, 'pid'));
+
+  List<String> get _insuranceTravellerIds {
+    // Travellers hang off the product once issued, and off the quote before
+    // that; the web reads `product.iti` first and falls back to `isq.iti`.
+    var list = asList(readKey(_insuranceProduct, 'iti'));
+    if (list.isEmpty) {
+      list = asList(
+        digPath(_detail, ['itemInfos', 'INSURANCE', 'isq', 'iti']),
+      );
+    }
+    return list
+        .map((t) => asString(readKey(t, 'id')))
+        .where((id) => id.isNotEmpty)
+        .toList();
+  }
+
+  /// The document this product issues, or null when it has none.
+  ({String label, Future<String> Function() download})? get _document =>
+      switch (_booking.product) {
+        TravelProduct.hotel => (
+          label: 'Download voucher',
+          download: () => widget.api.downloadHotelVoucher(_booking.reference),
+        ),
+        TravelProduct.insurance => (
+          label: 'Download policy',
+          download: () =>
+              widget.api.downloadInsurancePolicy(_booking.reference),
+        ),
+        _ => null,
+      };
+
+  Future<void> _downloadDocument() async {
+    final doc = _document;
+    if (doc == null || _busy) return;
+
+    setState(() => _busy = true);
+    try {
+      final path = await doc.download();
+      if (!mounted) return;
+      // Saving it silently would leave the user with no way to find the file,
+      // so it is handed straight to the system viewer.
+      final opened = await OpenFilex.open(path);
+      if (!mounted) return;
+      if (opened.type != ResultType.done) {
+        AppSnackbar.success(context, 'Saved to your device as a PDF.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.error(context, bookingErrorText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _downloadReceipt() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final path = await widget.api.downloadHotelReceipt(_booking.reference);
+      if (!mounted) return;
+      final opened = await OpenFilex.open(path);
+      if (!mounted) return;
+      if (opened.type != ResultType.done) {
+        AppSnackbar.success(context, 'Saved to your device as a PDF.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.error(context, bookingErrorText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Cancelling a policy is a two-call amendment: raise, then confirm with the
+  /// reference the raise returned.
+  Future<void> _cancelPolicy() async {
+    final payload = HoneymoonApi.buildInsuranceCancellationPayload(
+      bookingId: _booking.reference,
+      planId: _insurancePlanId,
+      productId: _insuranceProductId,
+      travellerIds: _insuranceTravellerIds,
+    );
+
+    final amendmentId = await widget.api.raiseInsuranceCancellation(payload);
+    await widget.api.confirmInsuranceCancellation(
+      payload: payload,
+      amendmentId: amendmentId,
+    );
+  }
 
   /// Shows what cancelling would actually cost before asking to confirm it —
   /// a refund quote is the one thing a traveller needs at this moment.
@@ -121,16 +231,20 @@ class _TripDetailPageState extends State<TripDetailPage> {
       }
       if (!mounted) return;
 
+      final isPolicy = _booking.product == TravelProduct.insurance;
       final confirmed = await ConfirmPopup.show(
         context,
-        title: 'Cancel this booking?',
+        title: isPolicy ? 'Cancel this policy?' : 'Cancel this booking?',
         message: [
           refundLine ??
-              'Refunds depend on the fare rules and can take a few days to '
-                  'reach your account.',
+              (isPolicy
+                  ? 'Cover ends immediately for everyone named on the policy. '
+                        'Any refund follows the insurer’s terms.'
+                  : 'Refunds depend on the fare rules and can take a few days '
+                        'to reach your account.'),
           'This cannot be undone.',
         ].join('\n\n'),
-        confirmLabel: 'Cancel booking',
+        confirmLabel: isPolicy ? 'Cancel policy' : 'Cancel booking',
         cancelLabel: 'Keep it',
         icon: Icons.cancel_outlined,
         danger: true,
@@ -138,10 +252,14 @@ class _TripDetailPageState extends State<TripDetailPage> {
       if (!confirmed || !mounted) return;
 
       setState(() => _busy = true);
-      if (_booking.product == TravelProduct.flight) {
-        await widget.api.cancelFlightBooking(_booking.reference);
-      } else {
-        await widget.api.cancelHotelBooking(_booking.reference);
+      switch (_booking.product) {
+        case TravelProduct.flight:
+          await widget.api.cancelFlightBooking(_booking.reference);
+        case TravelProduct.insurance:
+          await _cancelPolicy();
+        case TravelProduct.hotel:
+        case TravelProduct.cab:
+          await widget.api.cancelHotelBooking(_booking.reference);
       }
       if (!mounted) return;
 
@@ -284,9 +402,33 @@ class _TripDetailPageState extends State<TripDetailPage> {
               ),
               const SizedBox(height: AppSpacing.md),
             ],
+            // The voucher and the policy are the documents a traveller is
+            // actually asked to produce — at a hotel desk, or on a visa
+            // application — so they belong on this screen, not only in email.
+            if (_document != null && !_booking.isCancelled) ...[
+              PremiumButton.outlined(
+                label: _document!.label,
+                icon: Icons.picture_as_pdf_outlined,
+                isLoading: _busy,
+                onPressed: _downloadDocument,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+            if (_booking.product == TravelProduct.hotel &&
+                !_booking.isCancelled) ...[
+              PremiumButton.outlined(
+                label: 'Download receipt',
+                icon: Icons.receipt_long_outlined,
+                isLoading: _busy,
+                onPressed: _downloadReceipt,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             if (_canCancel)
               PremiumButton(
-                label: 'Cancel booking',
+                label: _booking.product == TravelProduct.insurance
+                    ? 'Cancel policy'
+                    : 'Cancel booking',
                 variant: PremiumButtonVariant.danger,
                 icon: Icons.cancel_outlined,
                 isLoading: _busy,

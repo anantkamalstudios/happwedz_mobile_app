@@ -27,7 +27,7 @@ export function useBudget() {
     const loadVendorTypes = async () => {
       try {
         const response = await fetch(
-          "https://happywedz.com/api/vendor-types/with-subcategories/all"
+          "https://api.happywedz.com/vendor-types/with-subcategories/all"
         );
         const data = await response.json();
 

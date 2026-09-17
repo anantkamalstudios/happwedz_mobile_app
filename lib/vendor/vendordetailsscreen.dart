@@ -10,9 +10,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../ClaimBusiness.dart';
+import '../authservice.dart';
 import '../Review.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
 import '../chat_page_new.dart';
+import 'request_pricing_sheet.dart';
+import 'master_facilities_section.dart';
 import '../core/core.dart';
 import 'package:happy_wedz/core/config/api_config.dart';
 
@@ -187,7 +190,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     queryParams["maxPrice"] = maxPrice.toInt().toString();
     queryParams["minRating"] = selectedRating.toString();
 
-    final uri = Uri.https("happywedz.com", "/api/vendor-services", queryParams);
+    final uri = Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(queryParameters: queryParams);
 
     try {
       final res = await http.get(uri);
@@ -384,6 +387,11 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           }
         });
         AppSnackbar.error(context, 'Session expired. Please log in again.');
+        // AUDIT FIX: this only showed a message and reverted the optimistic
+        // toggle — the expired token stayed in storage, so every subsequent
+        // authenticated action kept silently failing the same way instead of
+        // returning the user to login.
+        AuthSession.instance.signOut();
       }
     } catch (e) {
       debugPrint('wishlist api error $e');
@@ -1800,6 +1808,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   double apiAverageRating = 0.0;
   int apiTotalReviews = 0;
   List<Map<String, dynamic>> reviews = [];
+  Map<String, double> reviewCategoryAverages = const {};
 
 
   bool isClaimLoading = true;
@@ -2000,7 +2009,17 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     return url;
   }
 
-  List<String> extractImages(dynamic media, dynamic vendor, dynamic attributes, bool imageExists) {
+  // AUDIT FIX: this used to only run when `service.image_exists` was truthy,
+  // so a listing whose backend flag was false hid its real uploaded photos
+  // entirely (confirmed live: a vendor-uploaded listing with two valid
+  // `media` URLs and `image_exists: false` fell straight through to the
+  // vendor's profile-picture fallback below). `NetworkImageWidget` already
+  // renders its own broken-image state per thumbnail, so there is no need to
+  // gate the whole gallery on a flag that does not reliably track whether
+  // the URLs actually resolve — every media/portfolio URL is attempted now,
+  // and a genuinely broken one just shows its own error tile instead of
+  // nothing.
+  List<String> extractImages(dynamic media, dynamic vendor, dynamic attributes) {
     final Set<String> images = {};
 
     void add(String? url) {
@@ -2011,34 +2030,32 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       }
     }
 
-    if (imageExists) {
-      // media as List
-      if (media is List) {
-        for (final item in media) {
-          if (item is String) {
-            add(item);
-          } else if (item is Map) {
-            add(item['original_url']);
-            add(item['url']);
-            add(item['thumb']);
-          }
+    // media as List
+    if (media is List) {
+      for (final item in media) {
+        if (item is String) {
+          add(item);
+        } else if (item is Map) {
+          add(item['original_url']);
+          add(item['url']);
+          add(item['thumb']);
         }
       }
+    }
 
-      // media as Map
-      if (media is Map) {
-        add(media['original_url']);
-        add(media['url']);
-        add(media['coverImage']);
-      }
+    // media as Map
+    if (media is Map) {
+      add(media['original_url']);
+      add(media['url']);
+      add(media['coverImage']);
+    }
 
-      // portfolio fallback from attributes
-      if (images.isEmpty && attributes is Map) {
-        final portfolio = attributes['Portfolio'] ?? attributes['portfolio_urls'] ?? attributes['portfolio'] ?? '';
-        if (portfolio is String && portfolio.isNotEmpty) {
-          for (final item in portfolio.split('|')) {
-            add(item);
-          }
+    // portfolio fallback from attributes
+    if (images.isEmpty && attributes is Map) {
+      final portfolio = attributes['Portfolio'] ?? attributes['portfolio_urls'] ?? attributes['portfolio'] ?? '';
+      if (portfolio is String && portfolio.isNotEmpty) {
+        for (final item in portfolio.split('|')) {
+          add(item);
         }
       }
     }
@@ -2056,6 +2073,70 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     }
 
     return images.toList();
+  }
+
+  /// `attributes.video` (list, pipe-separated string, or list of
+  /// `{url: ...}` maps — the three shapes seen across categories) → a flat
+  /// list of external video links (Pexels/YouTube/Vimeo/direct file). These
+  /// are opened externally rather than played inline since most vendor
+  /// listings link to a hosting page, not a raw video file.
+  List<String> extractVideos(Map attributes) {
+    final Set<String> videos = {};
+
+    void add(String? url) {
+      if (url == null) return;
+      final u = url.trim();
+      if (u.isEmpty) return;
+      videos.add(normalizeUrl(u));
+    }
+
+    final raw = attributes['video'] ?? attributes['videos'] ?? attributes['Video'];
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is String) {
+          add(item);
+        } else if (item is Map) {
+          add((item['url'] ?? item['link'])?.toString());
+        }
+      }
+    } else if (raw is String && raw.isNotEmpty) {
+      for (final part in raw.split('|')) {
+        add(part);
+      }
+    }
+
+    return videos.toList();
+  }
+
+  /// Active, non-expired entries from `attributes.deals` (promo codes a
+  /// vendor has published — `code`, `title`, `value`/`type`, validity dates).
+  List<Map<String, dynamic>> extractDeals(Map attributes) {
+    final raw = attributes['deals'];
+    if (raw is! List) return [];
+
+    final now = DateTime.now();
+    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).where((deal) {
+      if (deal['active'] == false || deal['active'] == 'false') return false;
+      final endRaw = deal['endDate']?.toString();
+      if (endRaw != null && endRaw.isNotEmpty) {
+        final end = DateTime.tryParse(endRaw);
+        if (end != null && end.isBefore(now)) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  Future<void> _launchExternal(String url) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return;
+    final normalized = trimmed.startsWith('http') ? trimmed : 'https://$trimmed';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      AppSnackbar.error(context, "We couldn't open that link.");
+    }
   }
 
   List<Map<String, String>> parseArea(String areaRaw) {
@@ -2088,6 +2169,144 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     if (value is String) return value.trim().isNotEmpty;
     if (value is num) return value > 0;
     return true;
+  }
+
+  /// `menu.items` comes back as a list containing one comma-separated string
+  /// (e.g. `["Paneer Butter Masala, Dal Makhani, ..."]`), not one entry per
+  /// dish — split it out so each dish becomes its own chip.
+  List<String> _menuItems(Map<String, dynamic> menu) {
+    final raw = menu['items'];
+    if (raw is! List) return [];
+    final items = <String>[];
+    for (final entry in raw) {
+      if (entry is! String) continue;
+      items.addAll(
+        entry.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty),
+      );
+    }
+    return items;
+  }
+
+  bool _isVegMenuType(String type) {
+    final t = type.toLowerCase();
+    return t.contains('veg') && !t.contains('non');
+  }
+
+  /// One "Vegetarian Menu" / "Non-Vegetarian Menu" card: coloured title,
+  /// starting price, description, then every dish as its own chip.
+  Widget _buildMenuCard(Map<String, dynamic> menu) {
+    final type = (menu['type'] ?? '').toString();
+    final isVeg = _isVegMenuType(type);
+    final color = isVeg ? AppColors.successDark : AppColors.error;
+    final title = (menu['title'] ?? '').toString().isNotEmpty
+        ? menu['title'].toString()
+        : (isVeg ? 'Vegetarian Menu' : 'Non-Vegetarian Menu');
+    final subtitle = isVeg ? 'Pure Veg Options' : 'Includes Non-Veg Specialties';
+    final description = (menu['description'] ?? '').toString();
+    final price = (menu['price'] ?? '').toString();
+    final items = _menuItems(menu);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadii.rLg,
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.only(top: 5, right: AppSpacing.sm),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: AppText.bodyStrong.copyWith(color: color),
+                    ),
+                    Text(subtitle, style: AppText.caption),
+                  ],
+                ),
+              ),
+              if (_hasValue(price)) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Starting From', style: AppText.caption),
+                    Text(
+                      '₹$price / plate',
+                      style: AppText.bodyStrong.copyWith(
+                        color: color,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          if (_hasValue(description)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            const Divider(height: 1, color: AppColors.divider),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              description,
+              style: AppText.bodySm.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+          if (items.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'MENU INCLUSIONS (${items.length} ITEM${items.length == 1 ? '' : 'S'})',
+              style: AppText.labelSm.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                for (final item in items)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.08),
+                      borderRadius: AppRadii.rPill,
+                      border: Border.all(color: color.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      '✓ $item',
+                      style: AppText.caption.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _call(String phone) async {
@@ -2141,35 +2360,118 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     });
 
     try {
-      // <-- Adjust endpoint if your backend uses a different path/params -->
-      final url = Uri.parse(
-          "${ApiConfig.apiBase}/vendor-reviews?vendorId=$vendorId&page=$page&limit=$limit");
-      final res = await http.get(url, headers: {'Accept': 'application/json'});
+      // AUDIT FIX: this previously hit `/vendor-reviews?vendorId=` which the
+      // backend answers with 404 "Route not found" for every vendor, so the
+      // reviews section always fell back to its error/empty state. The real
+      // route (confirmed live, matches the website's `ReviewSection.jsx`) is
+      // `GET /api/reviews/:vendorId` — a path param, not a query string — and
+      // it answers `{ success, reviews: [...] }` with five category ratings
+      // per review (`rating_quality`, `rating_responsiveness`,
+      // `rating_professionalism`, `rating_value`, `rating_flexibility`)
+      // rather than one flat `rating`.
+      //
+      // vendorId here is the vendor *account* id (matches what the website
+      // sends), but this vendor-service listing's own id is the one the
+      // route actually keys reviews on for some legacy records, so both are
+      // tried in order — the second call only fires if the first comes back
+      // empty, keeping this a single round trip for the common case.
+      Future<Map<String, dynamic>?> fetchFor(String id) async {
+        final url = Uri.parse("${ApiConfig.apiBase}/reviews/$id");
+        debugPrint("[REVIEWS] GET $url");
+        final res = await http.get(url, headers: {'Accept': 'application/json'});
+        debugPrint("[REVIEWS] response ${res.statusCode}");
+        if (res.statusCode != 200) return null;
+        final decoded = json.decode(res.body);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
 
-      if (res.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(res.body);
+      Map<String, dynamic>? jsonData = await fetchFor(vendorId);
+      List<dynamic> list =
+          (jsonData?['reviews'] ?? jsonData?['data'] ?? []) as List<dynamic>;
 
-        // Expecting structure: { data: [reviews...], meta: { avgRating, totalReviews } }
-        final List<dynamic> list = jsonData['data'] ?? jsonData['reviews'] ?? [];
-        final meta = jsonData['meta'] ?? jsonData['pagination'] ?? jsonData['summary'] ?? {};
+      final String serviceId = (service['id'] ?? '').toString();
+      if (list.isEmpty && serviceId.isNotEmpty && serviceId != vendorId) {
+        final fallback = await fetchFor(serviceId);
+        final fallbackList =
+            (fallback?['reviews'] ?? fallback?['data'] ?? []) as List<dynamic>;
+        if (fallbackList.isNotEmpty) {
+          jsonData = fallback;
+          list = fallbackList;
+        }
+      }
+
+      if (jsonData != null) {
+        double sumOf(dynamic item, List<String> keys) {
+          for (final k in keys) {
+            final v = item[k];
+            if (v != null) return double.tryParse(v.toString()) ?? 0;
+          }
+          return 0;
+        }
 
         final parsed = list.map<Map<String, dynamic>>((item) {
-          // normalize common fields if backend varies
+          // The category ratings are what the backend actually stores; a
+          // single review's overall star rating is their average, matching
+          // the "Quality of service / Responsiveness / ..." breakdown the
+          // website shows above the review list.
+          final categories = <String, double>{
+            'quality': sumOf(item, ['rating_quality']),
+            'responsiveness': sumOf(item, ['rating_responsiveness']),
+            'professionalism': sumOf(item, ['rating_professionalism']),
+            'value': sumOf(item, ['rating_value']),
+            'flexibility': sumOf(item, ['rating_flexibility']),
+          };
+          final nonZero = categories.values.where((v) => v > 0).toList();
+          final overall = nonZero.isEmpty
+              ? (double.tryParse((item['rating'] ?? '0').toString()) ?? 0)
+              : nonZero.reduce((a, b) => a + b) / nonZero.length;
+
+          final user = item['user'];
+          final userName = (user is Map ? user['name'] : null) ??
+              item['userName'] ??
+              item['user_name'] ??
+              'Guest';
+
           return {
             'id': item['id'] ?? item['review_id'] ?? '',
-            'rating': (item['rating'] ?? item['rate'] ?? 0).toString(),
+            'rating': overall.toString(),
+            'categories': categories,
             'title': item['title'] ?? '',
             'comment': item['comment'] ?? item['review'] ?? item['description'] ?? '',
-            'userName': item['userName'] ?? item['user_name'] ?? item['user'] ?? 'Guest',
+            'userName': userName,
+            'vendorReply': item['vendor_reply'] ?? item['vendorReply'] ?? '',
             'createdAt': item['createdAt'] ?? item['created_at'] ?? item['date'] ?? '',
           };
         }).toList();
 
+        // The category summary bars average every review's own breakdown, so
+        // they are computed here once rather than trusting a separate meta
+        // block the endpoint does not actually return.
+        final categoryAverages = <String, double>{};
+        for (final key in ['quality', 'responsiveness', 'professionalism', 'value', 'flexibility']) {
+          final values = parsed
+              .map((r) => (r['categories'] as Map<String, double>)[key] ?? 0)
+              .where((v) => v > 0)
+              .toList();
+          categoryAverages[key] =
+              values.isEmpty ? 0 : values.reduce((a, b) => a + b) / values.length;
+        }
+
+        final overallValues = parsed
+            .map((r) => double.tryParse(r['rating'].toString()) ?? 0)
+            .where((v) => v > 0)
+            .toList();
+        final computedAverage = overallValues.isEmpty
+            ? 0.0
+            : overallValues.reduce((a, b) => a + b) / overallValues.length;
+
+        debugPrint("[REVIEWS] parsed ${parsed.length} review(s), avg ${computedAverage.toStringAsFixed(2)}");
+
         setState(() {
           reviews = parsed;
-          apiAverageRating =
-              double.tryParse((meta['avgRating'] ?? meta['averageRating'] ?? meta['average_rating'] ?? '0').toString()) ?? 0.0;
-          apiTotalReviews = int.tryParse((meta['totalReviews'] ?? meta['total_reviews'] ?? meta['count'] ?? parsed.length).toString()) ?? parsed.length;
+          reviewCategoryAverages = categoryAverages;
+          apiAverageRating = computedAverage > 0 ? computedAverage : apiAverageRating;
+          apiTotalReviews = parsed.length;
           isReviewsLoading = false;
           reviewsError = false;
         });
@@ -2180,6 +2482,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         });
       }
     } catch (e) {
+      debugPrint("[REVIEWS] error: $e");
       setState(() {
         reviewsError = true;
         isReviewsLoading = false;
@@ -2190,7 +2493,30 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   /// Claim CTA. The four states (loading / approved / pending / rejected /
   /// unclaimed) and their navigation targets are unchanged — only the
   /// presentation moved onto the design system.
-  Widget claimButton(String vendorId, String vendorSubcategoryId) {
+  Widget claimButton(
+    String vendorId,
+    String vendorSubcategoryId, {
+    String vendorAccountStatus = '',
+  }) {
+    // The vendor account itself is already verified — this is a stronger,
+    // account-level signal than `claimStatus` below, which only reflects
+    // *this session's own* claim submission and stays empty (`hasClaim:
+    // false`) even for an account an admin has already approved. Checked
+    // first and unconditionally: an approved account never shows a "Claim
+    // Your Business" button, no matter what `checkClaimStatus()` returns.
+    if (vendorAccountStatus == 'approved') {
+      return _ClaimStatusButton(
+        icon: Icons.verified_rounded,
+        label: 'Verified business',
+        color: AppColors.successDark,
+        onTap: () => SuccessPopup.show(
+          context,
+          title: 'Verified business',
+          message: 'This business is verified and already claimed.',
+        ),
+      );
+    }
+
     if (isClaimLoading) {
       return const PremiumButton(
         label: 'Checking…',
@@ -2341,6 +2667,11 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
               ? 'Session expired. Please log in again.'
               : "We couldn't update your wishlist. Please try again.",
         );
+        // AUDIT FIX: same expired-token gap as the other wishlist call above —
+        // force sign-out so the stale token can't keep failing silently.
+        if (res.statusCode == 401) {
+          AuthSession.instance.signOut();
+        }
       }
     } catch (e) {
       debugPrint("Wishlist API error: $e");
@@ -2475,13 +2806,21 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     //   }
     // }
     // if (images.isEmpty) images.add('https://via.placeholder.com/1200x700?text=No+Image');
-    final rawImageExists = service['image_exists'] ?? attributes['image_exists'];
-    final bool imageExists = rawImageExists != false && rawImageExists != 'false';
-    final List<String> images = extractImages(service['media'], vendor, attributes, imageExists);
+    final List<String> images = extractImages(service['media'], vendor, attributes);
     debugPrint("IMAGES COUNT: ${images.length}");
     images.forEach(print);
 
     final String vendorId = (vendor['id'] ?? attributes['vendor_id'] ?? '').toString();
+    // Public "is this business already claimed and verified" flag, from the
+    // vendor account's own `status` — separate from `checkClaimStatus()`
+    // below, which tracks whether *this session's* claim submission has been
+    // approved. A listing can be `vendor.status == "approved"` (an admin
+    // marked the account verified) with zero rows in `business_claims`
+    // (confirmed live against a test listing set up for exactly this: its
+    // `check-status` call returns `hasClaim: false`) — so the two checks are
+    // combined in `claimButton()` rather than one standing in for the other.
+    final String vendorAccountStatus = (vendor['status'] ?? '').toString().toLowerCase();
+    debugPrint("[CLAIM] vendor.status=$vendorAccountStatus");
     final String vendorSubcategoryId = (service['vendor_subcategory_id'] ?? attributes['vendor_subcategory_id'] ?? '').toString();
     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
     final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
@@ -2489,6 +2828,19 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     final String aboutRaw = (attributes['about_us'] ?? attributes['Aboutus'] ?? '').toString();
     final String about = aboutRaw.replaceAll(r'\n', '').replaceAll(r'\"', '"').replaceAll(r'\\', '').trim();
     final String phone = (vendor['phone'] ?? attributes['Phone'] ?? '').toString();
+    final String email = (attributes['Email'] ?? attributes['email'] ?? vendor['email'] ?? '').toString();
+    final String website = (attributes['website'] ?? attributes['Website'] ?? vendor['website'] ?? '').toString();
+    final List<String> videos = extractVideos(attributes);
+    final List<Map<String, dynamic>> deals = extractDeals(attributes);
+    final socialLinks = <MapEntry<IconData, String>>[
+      if (_hasValue(vendor['facebook_link'])) MapEntry(Icons.facebook_rounded, vendor['facebook_link'].toString()),
+      if (_hasValue(vendor['instagram_link'])) MapEntry(Icons.camera_alt_rounded, vendor['instagram_link'].toString()),
+      if (_hasValue(vendor['twitter_link'])) MapEntry(Icons.alternate_email_rounded, vendor['twitter_link'].toString()),
+      if (_hasValue(vendor['pinterest_link'])) MapEntry(Icons.push_pin_rounded, vendor['pinterest_link'].toString()),
+      if (_hasValue(vendor['linkedin_link'])) MapEntry(Icons.business_center_rounded, vendor['linkedin_link'].toString()),
+      if (_hasValue(vendor['youtube_link'])) MapEntry(Icons.smart_display_rounded, vendor['youtube_link'].toString()),
+      if (_hasValue(vendor['threads_link'])) MapEntry(Icons.tag_rounded, vendor['threads_link'].toString()),
+    ];
 
     debugPrint("Vendor ID: $vendorId");
     debugPrint("Vendor Subcategory ID: $vendorSubcategoryId");
@@ -2499,7 +2851,59 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     final String vegPrice = (attributes['veg_price'] ?? '').toString();
     final String nonVegPrice = (attributes['non_veg_price'] ?? '').toString();
 
+    // Structured per-menu breakdown (`attributes.menus`) — richer than the
+    // flat veg/non-veg price above (title, description, item list per menu).
+    // Only some categories/vendors have filled this in yet, so the flat
+    // Pricing block above stays as the fallback when it's empty.
+    final rawMenus = attributes['menus'];
+    final List<Map<String, dynamic>> foodMenus = rawMenus is List
+        ? rawMenus
+              .whereType<Map>()
+              .map((m) => Map<String, dynamic>.from(m))
+              .toList()
+        : [];
+
     final seatingList = parseArea((attributes['area'] ?? ''));
+
+    // Dates the vendor has published as open, straight from
+    // `attributes.available_slots` (`[{date: "YYYY-MM-DD"}, ...]`) — the same
+    // field the website's Request Pricing calendar reads. Used to restrict
+    // the date picker exactly like the website's `shouldDisableDate` does;
+    // an empty list means the vendor has not published a calendar, in which
+    // case any future date is accepted.
+    final rawSlots = attributes['available_slots'];
+    final List<DateTime> availableSlots = (rawSlots is List ? rawSlots : const [])
+        .map((slot) {
+          final raw = (slot is Map ? slot['date'] : slot)?.toString() ?? '';
+          if (raw.isEmpty) return null;
+          return DateTime.tryParse(raw.split('T').first);
+        })
+        .whereType<DateTime>()
+        .toList();
+    debugPrint("[AVAILABILITY] vendor=$vendorId slots=${availableSlots.length}");
+
+    // Any attribute whose key ends in "_master" is the rich per-category
+    // profile the vendor filled in through their dashboard (`venue_master`
+    // today; `photographer_master`, `caterer_master`, etc. the same way once
+    // a vendor in that category has one) — see `_MasterFacilitiesSection`.
+    // Generic by design: one renderer covers every category's schema without
+    // hand-porting each of the ~25 category-specific field sets.
+    Map<String, dynamic>? masterAttrs;
+    for (final entry in attributes.entries) {
+      if (entry.key.endsWith('_master') && entry.value is Map) {
+        masterAttrs = Map<String, dynamic>.from(entry.value as Map);
+        break;
+      }
+    }
+    // No vendor-filled `*_master` profile yet — fall back to whatever flat
+    // legacy fields this listing already has, so the section still shows
+    // something instead of nothing (see `buildFallbackMasterAttrs`).
+    if (!MasterFacilitiesSection.hasContent(masterAttrs)) {
+      final fallback = buildFallbackMasterAttrs(attributes);
+      if (MasterFacilitiesSection.hasContent(fallback)) {
+        masterAttrs = fallback;
+      }
+    }
 
 
     // // Parse lat & lng carefully (they might be num or String)
@@ -2910,7 +3314,11 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                         Row(
                           children: [
                             Expanded(
-                              child: claimButton(vendorId, vendorSubcategoryId),
+                              child: claimButton(
+                                vendorId,
+                                vendorSubcategoryId,
+                                vendorAccountStatus: vendorAccountStatus,
+                              ),
                             ),
                             const SizedBox(width: AppSpacing.md),
                             _SquareIconButton(
@@ -2960,8 +3368,58 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           ],
                         ),
 
-                        // --- Pricing ---
-                        if (_hasValue(vegPrice) || _hasValue(nonVegPrice)) ...[
+                        const SizedBox(height: AppSpacing.md),
+
+                        // --- Request Pricing & Availability ---
+                        // Not a dummy CTA: opens a sheet whose date picker is
+                        // constrained to `availableSlots` exactly like the
+                        // website, and submits to the same
+                        // `POST /api/request-pricing` endpoint.
+                        SizedBox(
+                          width: double.infinity,
+                          child: PremiumButton.outlined(
+                            label: 'Request Pricing & Availability',
+                            icon: Icons.calendar_month_outlined,
+                            onPressed: () {
+                              if (currentUserId == null || currentUserId!.isEmpty) {
+                                AppSnackbar.info(
+                                  context,
+                                  'Please sign in to request pricing & availability.',
+                                );
+                                return;
+                              }
+                              debugPrint(
+                                "[PRICING] opening sheet for vendor=$vendorId "
+                                "slots=${availableSlots.length}",
+                              );
+                              showRequestPricingSheet(
+                                context,
+                                vendorId: vendorId,
+                                vendorName: vendorName,
+                                availableSlots: availableSlots,
+                              );
+                            },
+                          ),
+                        ),
+
+                        // --- Food & Catering Menus (structured, richer than
+                        // the flat veg/non-veg price rows) ---
+                        if (foodMenus.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Food & Catering Menus',
+                            subtitle: 'Prices per plate / guest',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          for (final menu in foodMenus) _buildMenuCard(menu),
+                        ],
+
+                        // --- Pricing (fallback when there's no structured
+                        // menu breakdown yet) ---
+                        if (foodMenus.isEmpty &&
+                            (_hasValue(vegPrice) || _hasValue(nonVegPrice))) ...[
                           const SizedBox(height: AppSpacing.xxl),
                           SectionHeader(
                             title: 'Pricing',
@@ -3082,6 +3540,139 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           ),
                         ],
 
+                        // --- Videos ---
+                        if (videos.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Videos',
+                            subtitle: '${videos.length} video${videos.length == 1 ? '' : 's'}',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          SizedBox(
+                            height: 96,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: videos.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: AppSpacing.md),
+                              itemBuilder: (ctx, idx) {
+                                return Pressable(
+                                  onTap: () => _launchExternal(videos[idx]),
+                                  borderRadius: AppRadii.rMd,
+                                  child: Container(
+                                    width: 150,
+                                    height: 96,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black87,
+                                      borderRadius: AppRadii.rMd,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.play_circle_fill_rounded,
+                                          color: Colors.white,
+                                          size: 32,
+                                        ),
+                                        const SizedBox(height: AppSpacing.xs),
+                                        Text(
+                                          'Video ${idx + 1}',
+                                          style: AppText.caption.copyWith(color: Colors.white70),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+
+                        // --- Deals & Offers ---
+                        if (deals.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Deals & Offers',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          for (var i = 0; i < deals.length; i++)
+                            Padding(
+                              padding: EdgeInsets.only(
+                                bottom: i == deals.length - 1 ? 0 : AppSpacing.md,
+                              ),
+                              child: AppCard.outlined(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: AppSpacing.sm,
+                                        vertical: AppSpacing.xs,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.pinkSurface,
+                                        borderRadius: AppRadii.rSm,
+                                      ),
+                                      child: Text(
+                                        deals[i]['type'] == 'percentage'
+                                            ? '${deals[i]['value']}% OFF'
+                                            : '₹${deals[i]['value']} OFF',
+                                        style: AppText.labelSm.copyWith(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (_hasValue(deals[i]['title']))
+                                            Text(
+                                              '${deals[i]['title']}',
+                                              style: AppText.bodyStrong,
+                                            ),
+                                          if (_hasValue(deals[i]['description']))
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Text(
+                                                '${deals[i]['description']}',
+                                                style: AppText.caption,
+                                              ),
+                                            ),
+                                          if (_hasValue(deals[i]['code']))
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: AppSpacing.xs),
+                                              child: Text(
+                                                'Code: ${deals[i]['code']}',
+                                                style: AppText.bodySm.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          if (_hasValue(deals[i]['endDate']))
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Text(
+                                                'Valid till ${deals[i]['endDate']}',
+                                                style: AppText.caption,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+
                         // --- About ---
                         if (_hasValue(about)) ...[
                           const SizedBox(height: AppSpacing.xxl),
@@ -3158,6 +3749,72 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                   ),
                               ],
                             ),
+                          ),
+                        ],
+
+                        // --- Facilities & Features (generic "*_master" renderer) ---
+                        if (masterAttrs != null &&
+                            MasterFacilitiesSection.hasContent(masterAttrs)) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Facilities & Features',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          MasterFacilitiesSection(masterAttrs: masterAttrs),
+                        ],
+
+                        // --- Connect (email, website, social links) ---
+                        if (_hasValue(email) ||
+                            _hasValue(website) ||
+                            socialLinks.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SectionHeader(
+                            title: 'Connect',
+                            accent: true,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
+                            children: [
+                              if (_hasValue(website))
+                                Pressable(
+                                  onTap: () => _launchExternal(website),
+                                  child: _infoChip(
+                                    'Website',
+                                    Icons.language_rounded,
+                                  ),
+                                ),
+                              if (_hasValue(email))
+                                Pressable(
+                                  onTap: () => launchUrl(Uri(scheme: 'mailto', path: email)),
+                                  child: _infoChip(
+                                    email,
+                                    Icons.email_outlined,
+                                  ),
+                                ),
+                              for (final link in socialLinks)
+                                Pressable(
+                                  onTap: () => _launchExternal(link.value),
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surface,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: AppColors.divider),
+                                    ),
+                                    child: Icon(
+                                      link.key,
+                                      size: 18,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
 
@@ -3333,39 +3990,94 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       children: [
         // Rating summary
         AppCard.outlined(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              Row(
                 children: [
-                  Text(
-                    apiAverageRating > 0
-                        ? apiAverageRating.toStringAsFixed(1)
-                        : '—',
-                    style: AppText.display.copyWith(color: AppColors.primary),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        apiAverageRating > 0
+                            ? apiAverageRating.toStringAsFixed(1)
+                            : '—',
+                        style: AppText.display.copyWith(color: AppColors.primary),
+                      ),
+                      Text(
+                        '$apiTotalReviews review${apiTotalReviews == 1 ? '' : 's'}',
+                        style: AppText.caption,
+                      ),
+                    ],
                   ),
-                  Text(
-                    '$apiTotalReviews review${apiTotalReviews == 1 ? '' : 's'}',
-                    style: AppText.caption,
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        for (var i = 1; i <= 5; i++)
+                          Icon(
+                            i <= apiAverageRating.round()
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            size: 20,
+                            color: AppColors.warning,
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(width: AppSpacing.lg),
-              Expanded(
-                child: Row(
-                  children: [
-                    for (var i = 1; i <= 5; i++)
-                      Icon(
-                        i <= apiAverageRating.round()
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
-                        size: 20,
-                        color: AppColors.warning,
+              // Per-category breakdown (Quality / Responsiveness /
+              // Professionalism / Value / Flexibility) — averaged client-side
+              // from each review's own `rating_*` fields, since the reviews
+              // endpoint does not return a pre-computed summary.
+              if (reviewCategoryAverages.values.any((v) => v > 0)) ...[
+                const SizedBox(height: AppSpacing.lg),
+                const Divider(height: 1, color: AppColors.divider),
+                const SizedBox(height: AppSpacing.md),
+                for (final entry in const {
+                  'quality': 'Quality of service',
+                  'responsiveness': 'Responsiveness',
+                  'professionalism': 'Professionalism',
+                  'value': 'Value',
+                  'flexibility': 'Flexibility',
+                }.entries)
+                  if ((reviewCategoryAverages[entry.key] ?? 0) > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 130,
+                            child: Text(entry.value, style: AppText.bodySm),
+                          ),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: AppRadii.rSm,
+                              child: LinearProgressIndicator(
+                                value: (reviewCategoryAverages[entry.key] ?? 0) / 5,
+                                minHeight: 6,
+                                backgroundColor: AppColors.divider,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          SizedBox(
+                            width: 28,
+                            child: Text(
+                              (reviewCategoryAverages[entry.key] ?? 0)
+                                  .toStringAsFixed(1),
+                              style: AppText.bodySm,
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
-              ),
+                    ),
+              ],
             ],
           ),
         ),
@@ -3666,6 +4378,34 @@ class _ReviewTile extends StatelessWidget {
               style: AppText.bodySm,
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          if ((review['vendorReply'] ?? '').toString().trim().isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: AppRadii.rSm,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Response from the owner',
+                    style: AppText.caption.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    review['vendorReply'].toString(),
+                    style: AppText.bodySm,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ],

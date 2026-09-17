@@ -6,6 +6,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../data/flight_filters.dart' show airlineLogoUrl;
+
 import '../../../core/core.dart';
 import '../../data/honeymoon_api.dart';
 import '../../honeymoon_config.dart';
@@ -589,4 +591,32 @@ String formatPrice(double amount, {String symbol = '₹'}) {
 String bookingErrorText(Object? error) {
   if (error is HoneymoonApiException) return error.message;
   return AppErrorMessage.bodyFor(error);
+}
+
+/// Carrier logo from TripJack's CDN, silently replaced by the airline code
+/// when the image is missing — the portal hides a broken logo rather than
+/// showing the browser's broken-image glyph.
+class AirlineLogo extends StatelessWidget {
+  const AirlineLogo({super.key, required this.code, this.size = 22});
+
+  final String code;
+
+  /// Edge length of the square the logo is fitted into.
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipRRect(
+        borderRadius: AppRadii.rXs,
+        child: Image.network(
+          airlineLogoUrl(code),
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+      ),
+    );
+  }
 }

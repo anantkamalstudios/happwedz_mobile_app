@@ -6,6 +6,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
+// AUDIT FIX: `hide ChangeNotifierProvider` was a no-op — this riverpod
+// version no longer exports that name (flagged by analyzer as
+// undefined_hidden_name). The `provider` package below still provides the
+// real `ChangeNotifierProvider` used in this file.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -14,9 +18,8 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart'
     show MultiProvider, ChangeNotifierProvider;
-// Aliased: `Provider` also exists in flutter_riverpod, which is imported above.
-import 'package:provider/provider.dart' as legacy_provider show Provider;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'ai_chat_screen/ai_chat_screen.dart';
 import 'authservice.dart';
@@ -53,18 +56,13 @@ Future<void> main() async {
   await _openBoxSafe('weddingBox');
   await _openBoxSafe('guestBox');
 
-  final prefs = await SharedPreferences.getInstance();
-  final savedUserId = prefs.getInt('user_id') ?? 0;
-
   runApp(
 
     ProviderScope(
       child: MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
-          ChangeNotifierProvider(
-            create: (_) => ChatProvider()..setUserId(savedUserId),
-          ),
+          ChangeNotifierProvider(create: (_) => ChatProvider()),
         ],
         child: const MyApp(),
       ),
@@ -274,6 +272,159 @@ class _SignInScreenState extends State<SignInScreen> {
   /// state and blocks duplicate taps.
   bool _isSigningIn = false;
 
+  /// Same, for Apple. Kept separate so one button's spinner doesn't appear on
+  /// the other.
+  bool _isSigningInApple = false;
+
+  /// Mirrors [_signInWithGoogle]: authenticate with the provider, hand the
+  /// resulting identity token to the backend, then persist and publish the
+  /// session so AuthGate rebuilds into the dashboard.
+  ///
+  /// `POST /apple-auth` reads only `id_token` — the email and Apple user id
+  /// are derived server-side by verifying that token against APPLE_CLIENT_ID,
+  /// so nothing else is worth sending.
+  Future<void> _signInWithApple() async {
+    if (_isSigningInApple) return; // ignore repeat taps while one is running
+    setState(() => _isSigningInApple = true);
+
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final String? idToken = credential.identityToken;
+      if (idToken == null || idToken.isEmpty) {
+        await _showError(
+          title: 'Sign-in failed',
+          message:
+              "We couldn't verify your Apple account. Please try signing in again.",
+        );
+        return;
+      }
+
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.apiBase}/user/apple-auth'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'id_token': idToken}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      // The endpoint reports its own failures as JSON on 400/401, so read the
+      // body before deciding what to show — its `message` is more useful than
+      // a bare status code.
+      Object? data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        data = null;
+      }
+      final String? serverMessage = data is Map
+          ? data['message']?.toString()
+          : null;
+
+      if (response.statusCode != 200) {
+        await _showError(
+          title: AppErrorMessage.titleFor('${response.statusCode}'),
+          message:
+              serverMessage ??
+              'We could not sign you in right now (${response.statusCode}). Please try again.',
+        );
+        return;
+      }
+
+      if (data is! Map || data['success'] != true) {
+        await _showError(
+          title: 'Sign-in failed',
+          message: serverMessage ?? 'Please try signing in again.',
+        );
+        return;
+      }
+
+      final user = data['user'];
+      final token = data['token']?.toString();
+      final userId = user is Map ? int.tryParse('${user['id']}') : null;
+
+      // Invalid / incomplete authentication response — never persist it.
+      if (user is! Map ||
+          userId == null ||
+          userId <= 0 ||
+          token == null ||
+          token.isEmpty) {
+        await _showError(
+          title: 'Sign-in failed',
+          message:
+              'The sign-in response was incomplete. Please try again in a moment.',
+        );
+        return;
+      }
+
+      // Apple only discloses the name on the very first authorisation, and
+      // never a photo — so fall back to whatever the backend already holds.
+      final appleName = [
+        credential.givenName,
+        credential.familyName,
+      ].where((p) => p != null && p.isNotEmpty).join(' ');
+
+      // 1️⃣ Persist the session through the existing storage layer.
+      await UserPrefs.saveUser(
+        id: userId,
+        name: (user['name'] ?? (appleName.isEmpty ? '' : appleName)).toString(),
+        email: (user['email'] ?? credential.email ?? '').toString(),
+        token: token,
+        phone: user['phone']?.toString(),
+      );
+
+      // 2️⃣ Refresh the authenticated user's profile before the app opens.
+      await fetchAndSaveUserProfile();
+
+      if (mounted) {
+        _showSnackBar('Welcome ${user['name'] ?? ''}'.trim());
+      }
+
+      // 3️⃣ Publish the session — AuthGate rebuilds straight into BottomBars.
+      await AuthSession.instance.refresh();
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // Backing out of the Apple sheet is a normal outcome, not an error.
+      if (e.code == AuthorizationErrorCode.canceled) {
+        _showSnackBar('Apple Sign-In cancelled');
+        return;
+      }
+      debugPrint('🚨 Apple Sign-In authorization error: ${e.code} ${e.message}');
+      await _showError(
+        title: 'Sign-in failed',
+        message: 'Apple could not complete the sign-in. Please try again.',
+      );
+    } on SignInWithAppleNotSupportedException {
+      await _showError(
+        title: 'Sign-in unavailable',
+        message:
+            'Sign in with Apple needs iOS 13 or later. Please use Google instead.',
+      );
+    } on SocketException catch (e) {
+      await _showError(
+        title: AppErrorMessage.offlineTitle,
+        message: AppErrorMessage.bodyFor(e),
+      );
+    } on TimeoutException {
+      await _showError(
+        title: AppErrorMessage.timeoutTitle,
+        message: AppErrorMessage.timeoutBody,
+      );
+    } catch (e, stack) {
+      debugPrint('🚨 Apple Sign-In failed: $e\n$stack');
+      await _showError(
+        title: AppErrorMessage.titleFor(e),
+        message: AppErrorMessage.bodyFor(e),
+      );
+    } finally {
+      if (mounted) setState(() => _isSigningInApple = false);
+    }
+  }
+
   Future<void> fetchAndSaveUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -359,7 +510,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
       final response = await http
           .post(
-            Uri.parse('${ApiConfig.baseUrl}/api/user/google-auth'),
+            Uri.parse('${ApiConfig.baseUrl}/user/google-auth'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'email': googleUser.email,
@@ -421,11 +572,6 @@ class _SignInScreenState extends State<SignInScreen> {
       await fetchAndSaveUserProfile();
 
       if (mounted) {
-        // Keep the chat session bound to the user who just signed in.
-        legacy_provider.Provider.of<ChatProvider>(
-          context,
-          listen: false,
-        ).setUserId(userId);
         _showSnackBar('Welcome ${user['name'] ?? ''}'.trim());
       }
 
@@ -627,6 +773,16 @@ class _SignInScreenState extends State<SignInScreen> {
                                     onPressed: _signInWithGoogle,
                                     isLoading: _isSigningIn,
                                   ),
+                                  // Apple requires a Sign in with Apple option
+                                  // wherever a third-party login is offered,
+                                  // so this only needs to appear on iOS.
+                                  if (Platform.isIOS) ...[
+                                    const SizedBox(height: AppSpacing.md),
+                                    _AppleButton(
+                                      onPressed: _signInWithApple,
+                                      isLoading: _isSigningInApple,
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -710,6 +866,70 @@ class _GoogleButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppText.button.copyWith(color: AppColors.textDark),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Black "Continue with Apple" button. Apple's Human Interface Guidelines
+/// require the logo and label to sit on a solid black (or white/outlined)
+/// fill at the same size as the other sign-in options, so this deliberately
+/// mirrors [_GoogleButton]'s height and radius rather than using the app's
+/// brand colours.
+class _AppleButton extends StatelessWidget {
+  const _AppleButton({required this.onPressed, this.isLoading = false});
+
+  final VoidCallback onPressed;
+
+  /// While true the button shows a spinner and stops accepting taps.
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      scale: 0.98,
+      onTap: isLoading ? null : onPressed,
+      withRipple: true,
+      borderRadius: AppRadii.rMd,
+      rippleColor: Colors.white.withValues(alpha: 0.12),
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: AppRadii.rMd,
+          boxShadow: AppColors.shadowSm,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isLoading)
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            else
+              // Nudged up a touch: the glyph's stem makes it read low when
+              // centred on its own bounding box.
+              const Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.apple, size: 26, color: Colors.white),
+              ),
+            const SizedBox(width: AppSpacing.md),
+            Flexible(
+              child: Text(
+                isLoading ? 'Signing you in…' : 'Continue with Apple',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.button.copyWith(color: Colors.white),
               ),
             ),
           ],

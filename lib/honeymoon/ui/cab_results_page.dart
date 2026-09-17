@@ -13,6 +13,7 @@ import '../data/honeymoon_api.dart';
 import '../honeymoon_config.dart';
 import '../models/honeymoon_models.dart';
 import 'booking/cab_booking_page.dart';
+import 'widgets/cab_policy_sheet.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 /// A place the user picked, plus the coordinates the quotes call needs.
@@ -416,12 +417,45 @@ class CabResultsPage extends StatelessWidget {
   /// straight back, so the options cannot be separated from their context.
   final CabQuoteResult result;
 
+  /// The quotes API groups options by vehicle class (`quotesInfo[].quotes[]`)
+  /// and our flattener spreads them into one entry each — which turns a class
+  /// offered by two vendors into two near-identical cards. Regrouped here so
+  /// each class gets a single card carrying its cheapest quote, with the rest
+  /// behind Compare, exactly as the portal presents them.
+  List<List<CabQuote>> get _groups {
+    final byClass = <String, List<CabQuote>>{};
+    for (final q in result.quotes) {
+      final key = '${q.vehicleType}|${q.category}|${q.vehicleName}';
+      byClass.putIfAbsent(key, () => <CabQuote>[]).add(q);
+    }
+    final groups = byClass.values
+        .map((list) => List<CabQuote>.from(list)
+          ..sort((a, b) => a.price.compareTo(b.price)))
+        .toList();
+    groups.sort((a, b) => a.first.price.compareTo(b.first.price));
+    return groups;
+  }
+
+  void _openBooking(BuildContext context, CabQuote quote) {
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: CabBookingPage(
+          api: api,
+          quote: quote,
+          result: result,
+          pickupLabel: pickupLabel,
+          dropLabel: dropLabel,
+          pickupAt: pickupAt,
+        ),
+        style: PageTransitionStyle.slideRight,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Already cheapest-first out of the model, but sorting here keeps the
-    // ordering guaranteed at the point it is rendered.
-    final sorted = List<CabQuote>.from(result.quotes)
-      ..sort((a, b) => a.price.compareTo(b.price));
+    final groups = _groups;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -446,7 +480,7 @@ class CabResultsPage extends StatelessWidget {
           ],
         ),
       ),
-      body: sorted.isEmpty
+      body: groups.isEmpty
           ? const EmptyState(
               title: 'No vehicles available',
               message: 'Try a different pick-up time or nearby location.',
@@ -459,26 +493,13 @@ class CabResultsPage extends StatelessWidget {
                 AppSpacing.lg,
                 AppSpacing.xxxl,
               ),
-              itemCount: sorted.length,
+              itemCount: groups.length,
               separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
               itemBuilder: (context, i) => FadeSlideIn(
                 delay: AppMotion.staggerFor(i),
-                child: _CabCard(
-                  quote: sorted[i],
-                  onSelect: () => Navigator.push(
-                    context,
-                    AnimatedPageRoute(
-                      page: CabBookingPage(
-                        api: api,
-                        quote: sorted[i],
-                        result: result,
-                        pickupLabel: pickupLabel,
-                        dropLabel: dropLabel,
-                        pickupAt: pickupAt,
-                      ),
-                      style: PageTransitionStyle.slideRight,
-                    ),
-                  ),
+                child: _CabClassCard(
+                  quotes: groups[i],
+                  onSelect: (quote) => _openBooking(context, quote),
                 ),
               ),
             ),
@@ -486,17 +507,117 @@ class CabResultsPage extends StatelessWidget {
   }
 }
 
+/// One vehicle class: its cheapest quote on the face of the card, with any
+/// sibling quotes revealed by Compare.
+class _CabClassCard extends StatefulWidget {
+  const _CabClassCard({required this.quotes, required this.onSelect});
+
+  /// Cheapest first; never empty.
+  final List<CabQuote> quotes;
+  final ValueChanged<CabQuote> onSelect;
+
+  @override
+  State<_CabClassCard> createState() => _CabClassCardState();
+}
+
+class _CabClassCardState extends State<_CabClassCard> {
+  bool _comparing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cheapest = widget.quotes.first;
+    final hasSiblings = widget.quotes.length > 1;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CabCard(
+          quote: cheapest,
+          onSelect: () => widget.onSelect(cheapest),
+          onPolicies: () => showCabPolicySheet(context, cheapest),
+          // Compare is offered only when this class actually has another quote
+          // to compare against, matching the portal.
+          onCompare: hasSiblings
+              ? () => setState(() => _comparing = !_comparing)
+              : null,
+          comparing: _comparing,
+          optionCount: widget.quotes.length,
+        ),
+        AnimatedCrossFade(
+          duration: AppMotion.fast,
+          crossFadeState: _comparing && hasSiblings
+              ? CrossFadeState.showFirst
+              : CrossFadeState.showSecond,
+          firstChild: Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: CabCompareTable(
+              quotes: widget.quotes,
+              onSelect: widget.onSelect,
+              onPolicies: (q) => showCabPolicySheet(context, q),
+            ),
+          ),
+          secondChild: const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+}
+
 class _CabCard extends StatelessWidget {
-  const _CabCard({required this.quote, required this.onSelect});
+  const _CabCard({
+    required this.quote,
+    required this.onSelect,
+    required this.onPolicies,
+    this.onCompare,
+    this.comparing = false,
+    this.optionCount = 1,
+  });
 
   final CabQuote quote;
   final VoidCallback onSelect;
+  final VoidCallback onPolicies;
+
+  /// Null when this class has only one quote, so there is nothing to compare.
+  final VoidCallback? onCompare;
+  final bool comparing;
+  final int optionCount;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          _mainRow(),
+          const SizedBox(height: AppSpacing.sm),
+          const Divider(height: 1, color: AppColors.divider),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              PremiumButton.text(
+                label: 'View policies',
+                size: PremiumButtonSize.small,
+                onPressed: onPolicies,
+              ),
+              const Spacer(),
+              if (onCompare != null)
+                PremiumButton.text(
+                  label: comparing
+                      ? 'Hide options'
+                      : 'Compare $optionCount options',
+                  size: PremiumButtonSize.small,
+                  onPressed: onCompare,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mainRow() {
+    return Row(
+      children: [
           if (quote.imageUrl.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.md),
@@ -556,14 +677,13 @@ class _CabCard extends StatelessWidget {
             ),
           ),
 
-          PremiumButton(
-            label: 'Select',
-            size: PremiumButtonSize.small,
-            expanded: false,
-            onPressed: onSelect,
-          ),
-        ],
-      ),
+        PremiumButton(
+          label: 'Select',
+          size: PremiumButtonSize.small,
+          expanded: false,
+          onPressed: onSelect,
+        ),
+      ],
     );
   }
 }

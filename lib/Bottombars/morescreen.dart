@@ -58,6 +58,11 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                         onTap: () => _handleMenuTap(context, 'Shaadi AI'),
                       ),
                       _buildMenuItem(
+                        icon: Icons.shop_2,
+                        title: 'Shop',
+                        onTap: () => _handleMenuTap(context, 'Store'),
+                      ),
+                      _buildMenuItem(
                         icon: Icons.card_travel_rounded,
                         title: 'Honeymoon',
                         onTap: () => _handleMenuTap(context, 'Honeymoon'),

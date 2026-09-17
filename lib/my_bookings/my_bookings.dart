@@ -1,68 +1,166 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/config/api_config.dart';
 import '../core/core.dart';
+import 'booking_status.dart';
+import 'bookings_api.dart';
 
-class MyBookingsScreen extends StatelessWidget {
+/// My Bookings.
+///
+/// Three categories, matching the web dashboard's Booking tab — Wedding
+/// Services (vendor quotation requests), Honeymoon Travel, and Shop Orders —
+/// with Travel splitting into Hotels / Flights / Cabs / Insurance.
+///
+/// Shop orders come from the store backend, a separate service on its own
+/// MongoDB. They arrive already reshaped into the same row vocabulary as
+/// everything else, which is why they slot in as one more category rather
+/// than needing a parallel structure.
+///
+/// All six lists load together with the screen, because the category tabs and
+/// the travel rail count them. Panels are presentational: they filter and
+/// render the rows handed to them, so switching sub-tabs is instant.
+class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
 
   @override
+  State<MyBookingsScreen> createState() => _MyBookingsScreenState();
+}
+
+enum _Category { services, travel, shop }
+
+const List<({_Category key, String label})> _categories = [
+  (key: _Category.services, label: 'Wedding Services'),
+  (key: _Category.travel, label: 'Honeymoon Travel'),
+  (key: _Category.shop, label: 'Shop Orders'),
+];
+
+const List<({BookingSource source, String label, IconData icon})> _travelTabs = [
+  (source: BookingSource.hotels, label: 'Hotels', icon: Icons.hotel_rounded),
+  (source: BookingSource.flights, label: 'Flights', icon: Icons.flight_rounded),
+  (source: BookingSource.cabs, label: 'Cabs', icon: Icons.local_taxi_rounded),
+  (
+    source: BookingSource.insurance,
+    label: 'Insurance',
+    icon: Icons.shield_rounded,
+  ),
+];
+
+const List<BookingSource> _travelSources = [
+  BookingSource.hotels,
+  BookingSource.flights,
+  BookingSource.cabs,
+  BookingSource.insurance,
+];
+
+class _MyBookingsScreenState extends State<MyBookingsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  final BookingsController _data = BookingsController();
+
+  /// Coming back to Travel lands where you left it, not always on Hotels.
+  int _travelIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: _categories.length, vsync: this)
+      ..addListener(() => setState(() {}));
+    _data
+      ..addListener(_onData)
+      ..loadAll();
+  }
+
+  void _onData() {
+    if (!mounted) return;
+    if (_data.signedOut) {
+      _data.removeListener(_onData);
+      Navigator.pushNamed(context, '/customer-login');
+      return;
+    }
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _data
+      ..removeListener(_onData)
+      ..dispose();
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  /// Badge for one category tab: travel sums its four lists, the others
+  /// forward their single list's count. Null while anything is unresolved.
+  int? _countFor(_Category category) => switch (category) {
+    _Category.services => _data.slice(BookingSource.quotations).count,
+    _Category.travel => _data.totalOf(_travelSources),
+    _Category.shop => _data.slice(BookingSource.orders).count,
+  };
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        backgroundColor: AppColors.surface,
-        body: Container(
-          decoration: const BoxDecoration(gradient: AppColors.headerGradient),
-          child: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                _buildAppBar(context),
-                TabBar(
-                  labelColor: AppColors.textOnPrimary,
-                  unselectedLabelColor: Colors.white70,
-                  indicatorColor: AppColors.textOnPrimary,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  indicatorWeight: 3,
-                  labelStyle: AppText.button,
-                  unselectedLabelStyle: AppText.bodyStrong,
-                  dividerColor: Colors.transparent,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  tabs: const [
-                    Tab(text: "Upcoming"),
-                    Tab(text: "Past"),
-                    Tab(text: "Shop Orders"),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Expanded(
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(24),
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              _buildAppBar(context),
+              TabBar(
+                controller: _tabs,
+                labelColor: AppColors.textOnPrimary,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: AppColors.textOnPrimary,
+                indicatorSize: TabBarIndicatorSize.label,
+                indicatorWeight: 3,
+                labelStyle: AppText.button,
+                unselectedLabelStyle: AppText.bodyStrong,
+                dividerColor: Colors.transparent,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: [
+                  for (final category in _categories)
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(category.label),
+                          _CategoryBadge(count: _countFor(category.key)),
+                        ],
                       ),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: const TabBarView(
-                      children: [
-                        UpcomingBookingsTab(),
-                        PastBookingsTab(),
-                        ShopOrdersTab(),
-                      ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
                     ),
                   ),
+                  clipBehavior: Clip.antiAlias,
+                  child: TabBarView(
+                    controller: _tabs,
+                    children: [
+                      _WeddingServicesPanel(data: _data),
+                      _TravelSection(
+                        data: _data,
+                        index: _travelIndex,
+                        onIndexChanged: (i) => setState(() => _travelIndex = i),
+                      ),
+                      _ShopPanel(data: _data),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -82,9 +180,7 @@ class MyBookingsScreen extends StatelessWidget {
             child: Text(
               'My Bookings',
               textAlign: TextAlign.center,
-              style: AppText.pageTitle.copyWith(
-                color: AppColors.textOnPrimary,
-              ),
+              style: AppText.pageTitle.copyWith(color: AppColors.textOnPrimary),
             ),
           ),
           const SizedBox(width: 44),
@@ -94,180 +190,28 @@ class MyBookingsScreen extends StatelessWidget {
   }
 }
 
-// =============================================================
-// Shared booking fetch — same endpoint, same auth header, same parsing.
-// =============================================================
+/// Count chip on a category tab. Renders nothing until the list resolves, so
+/// a still-loading or failed category never claims a number.
+class _CategoryBadge extends StatelessWidget {
+  const _CategoryBadge({required this.count});
 
-/// Result of a bookings fetch, split into upcoming and past.
-class _BookingsResult {
-  const _BookingsResult(this.upcoming, this.past);
-
-  final List<dynamic> upcoming;
-  final List<dynamic> past;
-}
-
-/// Thrown when no auth token is stored, so the caller can route to login.
-class _NotSignedIn implements Exception {}
-
-Future<_BookingsResult> _fetchBookings() async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString("auth_token");
-
-  if (token == null) throw _NotSignedIn();
-
-  final res = await http.get(
-    Uri.parse("${ApiConfig.apiBase}/request-pricing/user/quotations"),
-    headers: {"Authorization": "Bearer $token"},
-  );
-
-  if (res.statusCode != 200) {
-    throw Exception('HTTP ${res.statusCode}');
-  }
-
-  final data = jsonDecode(res.body);
-  final upcoming = <dynamic>[];
-  final past = <dynamic>[];
-
-  if (data["success"] == true) {
-    final List<dynamic> allBookings = data["quotations"] ?? [];
-    final now = DateTime.now();
-
-    for (final b in allBookings) {
-      final String? dateStr = b["eventDate"];
-      if (dateStr == null || dateStr.isEmpty) {
-        debugPrint("Missing eventDate for booking: $b");
-        continue;
-      }
-      try {
-        final bookingDate = DateTime.parse(dateStr);
-        if (bookingDate.isAfter(now)) {
-          upcoming.add(b);
-        } else {
-          past.add(b);
-        }
-      } catch (e) {
-        debugPrint("Error parsing eventDate '$dateStr': $e");
-      }
-    }
-  }
-
-  return _BookingsResult(upcoming, past);
-}
-
-/// Orders placed on the store (store.happywedz.com), a separate service with
-/// its own database. The HappyWedz backend resolves which store customer
-/// this user is and reshapes the orders before they arrive here, so this
-/// fetch looks like [_fetchBookings] even though the data crossed a service
-/// boundary to get here.
-///
-/// A user who has never shopped gets back `{success: true, orders: []}` (or
-/// `linked: false`) — an empty list, not an error.
-Future<List<dynamic>> _fetchShopOrders() async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString("auth_token");
-
-  if (token == null) throw _NotSignedIn();
-
-  final res = await http.get(
-    Uri.parse("${ApiConfig.apiBase}/store/orders/mine"),
-    headers: {"Authorization": "Bearer $token"},
-  );
-
-  if (res.statusCode != 200) {
-    throw Exception('HTTP ${res.statusCode}');
-  }
-
-  final data = jsonDecode(res.body);
-  if (data["success"] == true) {
-    return (data["orders"] as List<dynamic>?) ?? [];
-  }
-  return [];
-}
-
-/// Maps one quotation object onto a [BookingCard]. Field lookups unchanged.
-BookingCard _cardFor(dynamic b) {
-  return BookingCard(
-    imageUrl:
-        b["vendor"]?["cover_photo"] ?? "${ApiConfig.baseUrl}/images/no-image.jpg",
-    vendorName: b["vendor"]?["businessName"] ?? "Vendor",
-    serviceName: b["vendor"]?["category"] ?? "Service",
-    price: "${b["quote"]?["price"] ?? "N/A"}",
-    bookingDate: b["eventDate"] ?? "",
-    address: b["vendor"]?["address"] ?? "No address provided",
-    rating: double.tryParse(b["vendor"]?["rating"].toString() ?? "0") ?? 0,
-    reviewCount: b["vendor"]?["reviewCount"] ?? 0,
-  );
-}
-
-/// Shared list body: shimmer → error → empty → cards.
-class _BookingsList extends StatelessWidget {
-  const _BookingsList({
-    required this.loading,
-    required this.error,
-    required this.bookings,
-    required this.onRetry,
-    required this.emptyTitle,
-    required this.emptyMessage,
-    this.cardBuilder = _cardFor,
-  });
-
-  final bool loading;
-  final Object? error;
-  final List<dynamic> bookings;
-  final Future<void> Function() onRetry;
-  final String emptyTitle;
-  final String emptyMessage;
-
-  /// Defaults to the vendor-quotation [BookingCard]; [ShopOrdersTab] passes
-  /// [_shopOrderCardFor] instead since the fields don't match.
-  final Widget Function(dynamic) cardBuilder;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Skeletons.listCards(count: 3, height: 300),
-      );
-    }
-
-    if (error != null) {
-      return ErrorState(error: error, onRetry: onRetry);
-    }
-
-    if (bookings.isEmpty) {
-      return RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: onRetry,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(height: MediaQuery.of(context).size.height * 0.08),
-            EmptyState(
-              title: emptyTitle,
-              message: emptyMessage,
-              icon: Icons.event_note_outlined,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: AppColors.primary,
-      onRefresh: onRetry,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.xxxl,
-        ),
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: bookings.length,
-        itemBuilder: (context, index) => FadeSlideIn(
-          delay: AppMotion.staggerFor(index),
-          child: cardBuilder(bookings[index]),
+    if (count == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(left: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$count',
+        style: AppText.caption.copyWith(
+          color: AppColors.textOnPrimary,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -275,172 +219,691 @@ class _BookingsList extends StatelessWidget {
 }
 
 // =============================================================
-// UPCOMING TAB
+// TRAVEL SECTION — four sub-tabs over the shared card
 // =============================================================
-class UpcomingBookingsTab extends StatefulWidget {
-  const UpcomingBookingsTab({super.key});
 
-  @override
-  State<UpcomingBookingsTab> createState() => _UpcomingBookingsTabState();
-}
+class _TravelSection extends StatelessWidget {
+  const _TravelSection({
+    required this.data,
+    required this.index,
+    required this.onIndexChanged,
+  });
 
-class _UpcomingBookingsTabState extends State<UpcomingBookingsTab> {
-  bool loading = true;
-  Object? error;
-  List<dynamic> upcomingBookings = [];
-
-  @override
-  void initState() {
-    super.initState();
-    fetchBookings();
-  }
-
-  Future<void> fetchBookings() async {
-    if (mounted) setState(() => error = null);
-    try {
-      final result = await _fetchBookings();
-      if (!mounted) return;
-      setState(() {
-        upcomingBookings = result.upcoming;
-        loading = false;
-      });
-    } on _NotSignedIn {
-      if (mounted) Navigator.pushNamed(context, "/customer-login");
-    } catch (e) {
-      debugPrint("Exception during fetch: $e");
-      if (!mounted) return;
-      setState(() {
-        error = e;
-        loading = false;
-      });
-    }
-  }
+  final BookingsController data;
+  final int index;
+  final ValueChanged<int> onIndexChanged;
 
   @override
   Widget build(BuildContext context) {
-    return _BookingsList(
-      loading: loading,
-      error: error,
-      bookings: upcomingBookings,
-      onRetry: fetchBookings,
-      emptyTitle: 'No upcoming bookings',
-      emptyMessage: 'Bookings you make will show up here.',
+    final active = _travelTabs[index];
+
+    return Column(
+      children: [
+        // The web uses a left rail here; on a phone that width is better spent
+        // on the cards, so the same four choices run as a scrolling chip row.
+        SizedBox(
+          height: 46,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              0,
+            ),
+            itemCount: _travelTabs.length,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+            itemBuilder: (context, i) {
+              final tab = _travelTabs[i];
+              final selected = i == index;
+              final count = data.slice(tab.source).count;
+
+              return Pressable(
+                onTap: () => onIndexChanged(i),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primary : AppColors.blush,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        tab.icon,
+                        size: 15,
+                        color: selected
+                            ? AppColors.textOnPrimary
+                            : AppColors.primary,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        count == null ? tab.label : '${tab.label} ($count)',
+                        style: AppText.caption.copyWith(
+                          color: selected
+                              ? AppColors.textOnPrimary
+                              : AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Expanded(
+          child: switch (active.source) {
+            BookingSource.hotels => _HotelPanel(data: data),
+            BookingSource.flights => _FlightPanel(data: data),
+            BookingSource.cabs => _CabPanel(data: data),
+            _ => _InsurancePanel(data: data),
+          },
+        ),
+      ],
     );
   }
 }
 
 // =============================================================
-// PAST TAB
+// PANEL CHROME — status pills, and the shimmer → error → empty → list body
 // =============================================================
-class PastBookingsTab extends StatefulWidget {
-  const PastBookingsTab({super.key});
+
+/// One panel's frame: the status filter row, then whatever state the list is
+/// in. Every panel is this widget plus a card builder.
+class _Panel extends StatefulWidget {
+  const _Panel({
+    required this.data,
+    required this.source,
+    required this.filterSet,
+    required this.statusOf,
+    required this.cardBuilder,
+    required this.emptyIcon,
+    required this.emptyTitle,
+    required this.emptyMessage,
+  });
+
+  final BookingsController data;
+  final BookingSource source;
+  final FilterSet filterSet;
+  final BookingStatus Function(dynamic) statusOf;
+  final Widget Function(dynamic row, BookingStatus status) cardBuilder;
+  final IconData emptyIcon;
+  final String emptyTitle;
+  final String emptyMessage;
 
   @override
-  State<PastBookingsTab> createState() => _PastBookingsTabState();
+  State<_Panel> createState() => _PanelState();
 }
 
-class _PastBookingsTabState extends State<PastBookingsTab> {
-  bool loading = true;
-  Object? error;
-  List<dynamic> pastBookings = [];
-
-  @override
-  void initState() {
-    super.initState();
-    fetchBookings();
-  }
-
-  Future<void> fetchBookings() async {
-    if (mounted) setState(() => error = null);
-    try {
-      final result = await _fetchBookings();
-      if (!mounted) return;
-      setState(() {
-        pastBookings = result.past;
-        loading = false;
-      });
-    } on _NotSignedIn {
-      if (mounted) Navigator.pushNamed(context, "/customer-login");
-    } catch (e) {
-      debugPrint("Exception during fetch: $e");
-      if (!mounted) return;
-      setState(() {
-        error = e;
-        loading = false;
-      });
-    }
-  }
+class _PanelState extends State<_Panel> {
+  String _filter = 'all';
 
   @override
   Widget build(BuildContext context) {
-    return _BookingsList(
-      loading: loading,
-      error: error,
-      bookings: pastBookings,
-      onRetry: fetchBookings,
-      emptyTitle: 'No past bookings yet',
-      emptyMessage: 'Completed bookings will be listed here.',
+    final slice = widget.data.slice(widget.source);
+    Future<void> retry() => widget.data.load(widget.source);
+
+    if (slice.loading) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Skeletons.listCards(count: 3, height: 220),
+      );
+    }
+
+    if (slice.error != null) {
+      return ErrorState(error: slice.error, onRetry: retry);
+    }
+
+    final rows = slice.rows;
+    final filters = buildStatusFilters(
+      widget.filterSet,
+      rows,
+      (row) => widget.statusOf(row).key,
+    );
+    final visible = _filter == 'all'
+        ? rows
+        : rows.where((r) => widget.statusOf(r).key == _filter).toList();
+
+    return Column(
+      children: [
+        if (rows.isNotEmpty)
+          _StatusPills(
+            filters: filters,
+            active: _filter,
+            onChanged: (key) => setState(() => _filter = key),
+          ),
+        Expanded(
+          child: visible.isEmpty
+              ? RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: retry,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.06,
+                      ),
+                      EmptyState(
+                        icon: widget.emptyIcon,
+                        title: rows.isEmpty
+                            ? widget.emptyTitle
+                            : 'Nothing to show',
+                        message: rows.isEmpty
+                            ? widget.emptyMessage
+                            : 'No ${_filter.toLowerCase()} bookings at the moment.',
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: retry,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                      AppSpacing.xxxl,
+                    ),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final row = visible[index];
+                      return FadeSlideIn(
+                        delay: AppMotion.staggerFor(index),
+                        child: widget.cardBuilder(row, widget.statusOf(row)),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Horizontal status filter row. Pills stay put at zero so the row does not
+/// reflow as data loads.
+class _StatusPills extends StatelessWidget {
+  const _StatusPills({
+    required this.filters,
+    required this.active,
+    required this.onChanged,
+  });
+
+  final List<StatusFilter> filters;
+  final String active;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          0,
+        ),
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final selected = filter.key == active;
+
+          return Pressable(
+            onTap: () => onChanged(filter.key),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : AppColors.surface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: selected ? AppColors.primary : AppColors.divider,
+                ),
+              ),
+              child: Text(
+                '${filter.label} (${filter.count})',
+                style: AppText.caption.copyWith(
+                  color: selected
+                      ? AppColors.textOnPrimary
+                      : AppColors.textSecondary,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 // =============================================================
-// SHOP ORDERS TAB
+// TRAVEL CARD — one shell for hotels, flights, cabs and insurance
 // =============================================================
-class ShopOrdersTab extends StatefulWidget {
-  const ShopOrdersTab({super.key});
 
-  @override
-  State<ShopOrdersTab> createState() => _ShopOrdersTabState();
-}
+/// The travel equivalent of [BookingCard]: type chip and status pill on top,
+/// title, detail rows, price. Only `rows` differs per booking type, which is
+/// what lets the four travel lists scan as one.
+class _TravelCard extends StatelessWidget {
+  const _TravelCard({
+    required this.typeIcon,
+    required this.typeLabel,
+    required this.status,
+    required this.title,
+    this.subtitle,
+    this.rows = const [],
+    this.price,
+  });
 
-class _ShopOrdersTabState extends State<ShopOrdersTab> {
-  bool loading = true;
-  Object? error;
-  List<dynamic> orders = [];
-
-  @override
-  void initState() {
-    super.initState();
-    fetchOrders();
-  }
-
-  Future<void> fetchOrders() async {
-    if (mounted) setState(() => error = null);
-    try {
-      final result = await _fetchShopOrders();
-      if (!mounted) return;
-      setState(() {
-        orders = result;
-        loading = false;
-      });
-    } on _NotSignedIn {
-      if (mounted) Navigator.pushNamed(context, "/customer-login");
-    } catch (e) {
-      debugPrint("Exception during shop orders fetch: $e");
-      if (!mounted) return;
-      setState(() {
-        error = e;
-        loading = false;
-      });
-    }
-  }
+  final IconData typeIcon;
+  final String typeLabel;
+  final BookingStatus status;
+  final String title;
+  final String? subtitle;
+  final List<({String label, String value})> rows;
+  final String? price;
 
   @override
   Widget build(BuildContext context) {
-    return _BookingsList(
-      loading: loading,
-      error: error,
-      bookings: orders,
-      onRetry: fetchOrders,
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(typeIcon, size: 14, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                typeLabel.toUpperCase(),
+                style: AppText.caption.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const Spacer(),
+              _StatusPill(status: status),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            title,
+            style: AppText.cardTitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (subtitle != null && subtitle!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              subtitle!,
+              style: AppText.bodySm.copyWith(color: AppColors.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          if (rows.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1, color: AppColors.divider),
+            const SizedBox(height: AppSpacing.sm),
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 92,
+                      child: Text(
+                        row.label,
+                        style: AppText.caption.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        row.value,
+                        style: AppText.bodySm.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          if (price != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              price!,
+              style: AppText.sectionTitle.copyWith(color: AppColors.primary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+
+  final BookingStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = status.tone.color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(status.tone.icon, size: 12, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            status.label,
+            style: AppText.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================
+// FORMAT HELPERS — ported from the web's panels/format.js
+// =============================================================
+
+/// `₹1,24,600.00` — falls back to a dash rather than printing `₹NaN`.
+String _money(Object? value, [Object? currency]) {
+  final amount = double.tryParse(value?.toString() ?? '');
+  if (amount == null) return '—';
+  final code = currency?.toString().isNotEmpty == true
+      ? currency.toString()
+      : 'INR';
+  try {
+    return NumberFormat.simpleCurrency(locale: 'en_IN', name: code)
+        .format(amount);
+  } catch (_) {
+    return '₹ ${NumberFormat('#,##,##0.00', 'en_IN').format(amount)}';
+  }
+}
+
+String _day(Object? value) {
+  final raw = value?.toString();
+  if (raw == null || raw.isEmpty) return '—';
+  final parsed = DateTime.tryParse(raw);
+  return parsed == null ? raw : DateFormat('d MMM yyyy').format(parsed);
+}
+
+String _dayTime(Object? value) {
+  final raw = value?.toString();
+  if (raw == null || raw.isEmpty) return '—';
+  final parsed = DateTime.tryParse(raw);
+  return parsed == null ? raw : DateFormat('d MMM yyyy, h:mm a').format(parsed);
+}
+
+/// Whole nights between two dates, or null when either is unusable.
+int? _nightsBetween(Object? from, Object? to) {
+  final start = DateTime.tryParse(from?.toString() ?? '');
+  final end = DateTime.tryParse(to?.toString() ?? '');
+  if (start == null || end == null) return null;
+  final nights = end.difference(start).inDays;
+  return nights > 0 ? nights : null;
+}
+
+String _text(Object? value, [String fallback = '—']) {
+  final raw = value?.toString().trim();
+  return raw == null || raw.isEmpty ? fallback : raw;
+}
+
+// =============================================================
+// PANELS
+// =============================================================
+
+class _WeddingServicesPanel extends StatelessWidget {
+  const _WeddingServicesPanel({required this.data});
+
+  final BookingsController data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      data: data,
+      source: BookingSource.quotations,
+      filterSet: FilterSet.quotation,
+      statusOf: (row) => normalizeStatus(row['status'], StatusSource.quotation),
+      emptyIcon: Icons.event_note_outlined,
+      emptyTitle: 'No service bookings found',
+      emptyMessage:
+          "You haven't requested pricing from any vendor yet. Browse vendors "
+          'to send your first request.',
+      cardBuilder: (row, status) => BookingCard(
+        imageUrl:
+            row['vendor']?['cover_photo'] ??
+            '${ApiConfig.baseUrl}/images/no-image.jpg',
+        vendorName: row['vendor']?['businessName'] ?? 'Vendor',
+        serviceName: row['vendor']?['category'] ?? 'Service',
+        price: '${row['quote']?['price'] ?? 'N/A'}',
+        bookingDate: row['eventDate'] ?? '',
+        address: row['vendor']?['address'] ?? 'No address provided',
+        rating: double.tryParse(row['vendor']?['rating'].toString() ?? '0') ?? 0,
+        reviewCount: row['vendor']?['reviewCount'] ?? 0,
+      ),
+    );
+  }
+}
+
+class _HotelPanel extends StatelessWidget {
+  const _HotelPanel({required this.data});
+
+  final BookingsController data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      data: data,
+      source: BookingSource.hotels,
+      filterSet: FilterSet.travel,
+      statusOf: (row) => normalizeStatus(row['status'], StatusSource.hotel),
+      emptyIcon: Icons.hotel_outlined,
+      emptyTitle: 'No hotel bookings found',
+      emptyMessage: "You haven't booked a hotel through HappyWedz yet.",
+      cardBuilder: (row, status) {
+        final nights = _nightsBetween(row['checkIn'], row['checkOut']);
+        return _TravelCard(
+          typeIcon: Icons.hotel_rounded,
+          typeLabel: 'Hotel',
+          status: status,
+          title: _text(row['hotelName'], 'Booked Hotel'),
+          subtitle: 'Booking ID ${_text(row['bookingId'])}',
+          rows: [
+            (
+              label: 'Stay',
+              value:
+                  '${_day(row['checkIn'])} – ${_day(row['checkOut'])}'
+                  '${nights == null ? '' : ' · $nights night${nights > 1 ? 's' : ''}'}',
+            ),
+            (label: 'Payment', value: _text(row['paymentStatus'], 'PENDING')),
+            (label: 'Booked', value: _day(row['createdAt'])),
+          ],
+          price: _money(row['amount'], row['currency']),
+        );
+      },
+    );
+  }
+}
+
+class _FlightPanel extends StatelessWidget {
+  const _FlightPanel({required this.data});
+
+  final BookingsController data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      data: data,
+      source: BookingSource.flights,
+      filterSet: FilterSet.travel,
+      statusOf: (row) =>
+          normalizeStatus(row['booking_status'], StatusSource.flight),
+      emptyIcon: Icons.flight_outlined,
+      emptyTitle: 'No flight bookings found',
+      emptyMessage: "You haven't booked a flight through HappyWedz yet.",
+      cardBuilder: (row, status) {
+        final from = _text(row['from_iata'], '');
+        final to = _text(row['to_iata'], '');
+        final route = from.isEmpty || to.isEmpty ? 'Flight Booking' : '$from → $to';
+        return _TravelCard(
+          typeIcon: Icons.flight_rounded,
+          typeLabel: 'Flight',
+          status: status,
+          title: route,
+          subtitle: [
+            _text(row['airline'], ''),
+            _text(row['flight_no'], ''),
+          ].where((s) => s.isNotEmpty).join(' · '),
+          rows: [
+            (label: 'Depart', value: _dayTime(row['departure'])),
+            (label: 'Arrive', value: _dayTime(row['arrival'])),
+            (
+              label: 'PNR / Ref',
+              value: _text(row['pnr'] ?? row['order_id']),
+            ),
+            (label: 'Cabin', value: _text(row['cabin_class'])),
+            (label: 'Booked', value: _day(row['booked_at'] ?? row['createdAt'])),
+          ],
+          price: _money(row['price']),
+        );
+      },
+    );
+  }
+}
+
+class _CabPanel extends StatelessWidget {
+  const _CabPanel({required this.data});
+
+  final BookingsController data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      data: data,
+      source: BookingSource.cabs,
+      filterSet: FilterSet.travel,
+      statusOf: (row) => normalizeStatus(row['bookingStatus'], StatusSource.cab),
+      emptyIcon: Icons.local_taxi_outlined,
+      emptyTitle: 'No cab bookings found',
+      emptyMessage: "You haven't booked a cab through HappyWedz yet.",
+      cardBuilder: (row, status) => _TravelCard(
+        typeIcon: Icons.local_taxi_rounded,
+        typeLabel: 'Cab',
+        status: status,
+        title: _text(row['route'], 'Cab Booking #${_text(row['id'], '')}'),
+        subtitle: row['tripjackBookingId'] == null
+            ? null
+            : 'Ref ${row['tripjackBookingId']}',
+        rows: [
+          (label: 'From', value: _text(row['pickupLocation'])),
+          (label: 'To', value: _text(row['dropoffLocation'])),
+          (label: 'Pickup', value: _dayTime(row['pickupAt'])),
+          (label: 'Passenger', value: _text(row['passengerName'])),
+          (label: 'Booked', value: _day(row['createdAt'])),
+        ],
+        price: _money(row['amount'], row['currency']),
+      ),
+    );
+  }
+}
+
+class _InsurancePanel extends StatelessWidget {
+  const _InsurancePanel({required this.data});
+
+  final BookingsController data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      data: data,
+      source: BookingSource.insurance,
+      filterSet: FilterSet.travel,
+      statusOf: (row) =>
+          normalizeStatus(row['booking_status'], StatusSource.insurance),
+      emptyIcon: Icons.shield_outlined,
+      emptyTitle: 'No insurance bookings found',
+      emptyMessage: "You haven't bought travel insurance through HappyWedz yet.",
+      cardBuilder: (row, status) {
+        final travellers = row['traveller_count'];
+        return _TravelCard(
+          typeIcon: Icons.shield_rounded,
+          typeLabel: 'Insurance',
+          status: status,
+          title: _text(row['plan_label'], 'Insurance Plan'),
+          subtitle: _text(row['insurer'], ''),
+          rows: [
+            (label: 'Cover', value: _money(row['coverage_amount'])),
+            (label: 'Region', value: _text(row['region_name'])),
+            (
+              label: 'Valid',
+              value: '${_day(row['start_date'])} – ${_day(row['end_date'])}',
+            ),
+            (
+              label: 'Travellers',
+              value: travellers == null ? '—' : '$travellers',
+            ),
+            (label: 'Policy', value: _text(row['tripjack_booking_id'])),
+          ],
+          price: _money(row['amount'], row['currency']),
+        );
+      },
+    );
+  }
+}
+
+class _ShopPanel extends StatelessWidget {
+  const _ShopPanel({required this.data});
+
+  final BookingsController data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      data: data,
+      source: BookingSource.orders,
+      filterSet: FilterSet.shop,
+      statusOf: (row) => normalizeStatus(row['status'], StatusSource.shop),
+      emptyIcon: Icons.shopping_bag_outlined,
       emptyTitle: 'No shop orders found',
-      emptyMessage: "You haven't ordered anything from the HappyWedz store yet.",
-      cardBuilder: _shopOrderCardFor,
+      emptyMessage:
+          "You haven't ordered anything from the HappyWedz store yet.",
+      cardBuilder: (row, status) => _ShopOrderCard(order: row),
     );
   }
 }
-
-Widget _shopOrderCardFor(dynamic order) => _ShopOrderCard(order: order);
 
 // =============================================================
 // SHOP ORDER STATUS

@@ -253,6 +253,10 @@ class HotelResult {
     this.currency = 'INR',
     this.facilities = const [],
     this.optionId = '',
+    this.propertyType = '',
+    this.mealBasis = '',
+    this.isRefundable = false,
+    this.reviewLabel = '',
   });
 
   final String id;
@@ -269,6 +273,20 @@ class HotelResult {
 
   /// Needed by `hotels/detail` when the caller drills into a property.
   final String optionId;
+
+  /// "Hotel", "Resort", "Apartment"… — the Property Type filter groups on this.
+  final String propertyType;
+
+  /// Board basis on the cheapest option ("Room Only", "Breakfast"…). The Meal
+  /// Type filter groups on this.
+  final String mealBasis;
+
+  /// Whether the cheapest option can be cancelled for a refund. Drives the
+  /// Free Cancellation filter and the card's badge.
+  final bool isRefundable;
+
+  /// The supplier's own wording for [reviewScore] — "Excellent", "Very good".
+  final String reviewLabel;
 
   bool get hasPrice => price > 0;
 
@@ -339,6 +357,58 @@ class HotelResult {
       }
     }
 
+    // Board basis and refundability live on the cheapest rate/option, which
+    // TripJack exposes under `rate[0]` on some responses and `options[0]` on
+    // others. Same fallback chain the web client walks.
+    final rates = asList(_get(json, 'rate') ?? _get(hotel, 'rate'));
+    final rate = rates.isEmpty ? null : rates.first;
+    final opts = asList(_get(json, 'options') ?? _get(json, 'ops'));
+    final option = opts.isEmpty ? null : opts.first;
+
+    final mealBasis = firstNonEmpty([
+      _get(rate, 'mealbasis'),
+      _get(rate, 'mealBasis'),
+      _get(option, 'mealBasis'),
+      _get(hotel, 'mealBasis'),
+    ], fallback: 'Room Only');
+
+    final refundable =
+        _dig(rate, ['cancellation', 'isRefundable']) ??
+        _dig(option, ['cancellation', 'isRefundable']) ??
+        _dig(hotel, ['cancellation', 'isRefundable']);
+
+    // `userRating.score` is out of 100; the portal divides by 20 to show it on
+    // the familiar 5-point scale.
+    final userScore = _dig(hotel, ['userRating', 'score']);
+    final reviewScore = userScore != null
+        ? asDouble(userScore) / 20
+        : asDouble(
+            _dig(hotel, ['reviews', 0, 'rating']) ?? _get(hotel, 'reviewScore'),
+          );
+
+    // TripJack's own amenity groups (`tja[].am[]`) are richer than the flat
+    // facilities list, so they win when present.
+    final amenities = <String>[];
+    final seen = <String>{};
+    void addAmenity(dynamic item) {
+      final name = (item is String ? item : asString(_get(item, 'name'))).trim();
+      if (name.isEmpty || !seen.add(name.toLowerCase())) return;
+      amenities.add(name);
+    }
+
+    for (final group in asList(_get(hotel, 'tja'))) {
+      for (final item in asList(_get(group, 'am'))) {
+        addAmenity(item);
+      }
+    }
+    if (amenities.isEmpty) {
+      for (final item in asList(
+        _get(hotel, 'facilities') ?? _get(hotel, 'fac'),
+      )) {
+        addAmenity(item);
+      }
+    }
+
     return HotelResult(
       id: id,
       name: firstNonEmpty([
@@ -358,18 +428,26 @@ class HotelResult {
         _get(hotel, 'cityName'),
       ]),
       starRating: asDouble(_get(hotel, 'rt') ?? _get(hotel, 'starRating')),
-      reviewScore: asDouble(
-        _dig(hotel, ['reviews', 0, 'rating']) ?? _get(hotel, 'reviewScore'),
-      ),
+      reviewScore: reviewScore,
       reviewCount: asInt(
-        _dig(hotel, ['reviews', 0, 'count']) ?? _get(hotel, 'reviewCount'),
+        _dig(hotel, ['userRating', 'rc']) ??
+            _dig(hotel, ['reviews', 0, 'count']) ??
+            _get(hotel, 'reviewCount'),
       ),
+      reviewLabel: asString(_dig(hotel, ['userRating', 'label'])),
       price: price,
-      currency: firstNonEmpty([_get(json, 'currency')], fallback: 'INR'),
-      facilities: asList(
-        _get(hotel, 'facilities') ?? _get(hotel, 'fac'),
-      ).map((f) => f is String ? f : asString(_get(f, 'name'))).where((f) => f.isNotEmpty).toList(),
+      currency: firstNonEmpty([
+        _get(rate, 'currency'),
+        _get(json, 'currency'),
+      ], fallback: 'INR'),
+      facilities: amenities,
       optionId: optionId,
+      propertyType: firstNonEmpty([
+        _get(hotel, 'propertyType'),
+        _get(hotel, 'categoryName'),
+      ]),
+      mealBasis: mealBasis,
+      isRefundable: refundable == true,
     );
   }
 }
@@ -511,6 +589,17 @@ class FlightResult {
       if (asString(readKey(f, 'id')) == id) return asJsonMap(f);
     }
     return asJsonMap(fares.first);
+  }
+
+  /// A copy of this trip carrying only [fares].
+  ///
+  /// Fare-level filters (fare type, cancellation, baggage, price) narrow a
+  /// trip's `totalPriceList` rather than dropping it, so the card must re-read
+  /// its bookable fare from what survived — otherwise `id` still points at a
+  /// fare the user just filtered out.
+  FlightResult withFares(List<dynamic> fares) {
+    if (fares.isEmpty) return this;
+    return FlightResult.fromTripJack({...raw, 'totalPriceList': fares});
   }
 
   String get durationLabel {
@@ -1083,4 +1172,116 @@ class FlightSearchResult {
 
   List<FlightResult> get sortedInbound =>
       List<FlightResult>.from(inbound)..sort((a, b) => a.price.compareTo(b.price));
+}
+
+// ---------------------------------------------------------------------------
+// Multi-city
+// ---------------------------------------------------------------------------
+
+/// One requested hop of a multi-city search.
+class FlightLeg {
+  const FlightLeg({required this.from, required this.to, required this.date});
+
+  final FlightLocation from;
+  final FlightLocation to;
+  final DateTime date;
+
+  String get routeLabel => '${from.code} → ${to.code}';
+
+  Map<String, dynamic> toRouteInfo(String Function(DateTime) formatDate) =>
+      <String, dynamic>{
+        'fromCityOrAirport': {'code': from.code},
+        'toCityOrAirport': {'code': to.code},
+        'travelDate': formatDate(date),
+      };
+}
+
+/// Multi-city results, kept bucketed by route.
+///
+/// TripJack answers a multi-city search in one of two shapes, and they mean
+/// very different things:
+///
+///  * **Per-route** (typically domestic) — numeric keys `"0"`, `"1"`, … one
+///    bucket per requested leg. Each entry is an independent itinerary with its
+///    own priceId, so the traveller picks one flight per leg and the booking
+///    session is opened with every chosen priceId.
+///  * **COMBO** (typically international) — a single combined itinerary
+///    covering every leg under one priceId. There is nothing to pick per leg:
+///    choosing one option books the whole journey.
+///
+/// Collapsing these into one list would either lose the per-leg choice or make
+/// a combined fare look like it only covers the first hop, so the distinction
+/// is carried through to the UI.
+class MultiCitySearchResult {
+  const MultiCitySearchResult({
+    this.routes = const {},
+    this.isCombo = false,
+  });
+
+  /// Route index → the itineraries offered for it. For a COMBO response there
+  /// is exactly one bucket, keyed 0, holding the combined itineraries.
+  final Map<int, List<FlightResult>> routes;
+
+  final bool isCombo;
+
+  bool get isEmpty => routes.values.every((list) => list.isEmpty);
+
+  /// Route indices that actually came back with options, in order. A leg the
+  /// supplier could not serve simply has no bucket, and must not be treated as
+  /// an outstanding selection.
+  List<int> get bookableRoutes {
+    final keys = routes.entries
+        .where((e) => e.value.isNotEmpty)
+        .map((e) => e.key)
+        .toList()
+      ..sort();
+    return keys;
+  }
+
+  List<FlightResult> forRoute(int index) => routes[index] ?? const [];
+
+  /// Buckets a `tj/fms/search` response whose query carried several
+  /// `routeInfos`. [legCount] is how many hops were asked for, which is what
+  /// tells a single-bucket `ONWARD` reply covering a whole multi-hop journey
+  /// apart from a plain one-way.
+  factory MultiCitySearchResult.fromJson(dynamic json, int legCount) {
+    final tripInfos =
+        _dig(json, ['searchResult', 'tripInfos']) ??
+        _dig(json, ['data', 'searchResult', 'tripInfos']) ??
+        _get(json, 'tripInfos');
+
+    List<FlightResult> parse(dynamic entry) => asList(entry)
+        .map(FlightResult.fromTripJack)
+        .where((f) => f.id.isNotEmpty)
+        .toList();
+
+    if (tripInfos is! Map) return const MultiCitySearchResult();
+
+    // Per-route buckets keyed "0", "1", … — one per requested leg.
+    final numeric = <int, List<FlightResult>>{};
+    for (final entry in tripInfos.entries) {
+      final index = int.tryParse(asString(entry.key));
+      if (index == null) continue;
+      numeric[index] = parse(entry.value);
+    }
+    if (numeric.isNotEmpty) return MultiCitySearchResult(routes: numeric);
+
+    // One combined itinerary covering every leg under a single priceId.
+    final combo = parse(_get(tripInfos, 'COMBO'));
+    if (combo.isNotEmpty) {
+      return MultiCitySearchResult(routes: {0: combo}, isCombo: true);
+    }
+
+    // Some responses fall back to the one-way key even for several legs. It
+    // still carries the whole journey on one fare, so it behaves like a combo.
+    final onward = parse(_get(tripInfos, 'ONWARD'));
+    if (onward.isNotEmpty) {
+      return MultiCitySearchResult(
+        routes: {0: onward},
+        isCombo: legCount > 1,
+      );
+    }
+
+    return const MultiCitySearchResult();
+  }
 }

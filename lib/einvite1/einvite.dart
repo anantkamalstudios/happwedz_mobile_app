@@ -1019,17 +1019,12 @@ final einviteProvider = FutureProvider<List<EInviteCard>>((ref) async {
   final List rawData = body['data'];
 
   final List<EInviteCard> cards = rawData.map((item) {
-    // Fix incorrect image domain for thumbnail
-    String thumb = (item['thumbnailUrl'] ?? "").replaceFirst(
-      "happywedz.com",
-      "happywedzbackend.happywedz.com",
-    );
-
-    // Fix domain for background image
-    String bg = (item['backgroundUrl'] ?? "").replaceFirst(
-      "happywedz.com",
-      "happywedzbackend.happywedz.com",
-    );
+    // The backend already returns absolute `api.happywedz.com` URLs — the
+    // old rewrite to `happywedzbackend.happywedz.com` targeted a host that no
+    // longer resolves (consolidated into `api.happywedz.com`), which broke
+    // every thumbnail/background image.
+    String thumb = item['thumbnailUrl'] ?? "";
+    String bg = item['backgroundUrl'] ?? "";
 
     // Parse editable fields
     final List<EInviteEditableField> fields =

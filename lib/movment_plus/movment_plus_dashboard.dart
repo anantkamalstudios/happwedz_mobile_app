@@ -5,7 +5,11 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:shimmer/shimmer.dart';
 import 'package:happy_wedz/core/config/api_config.dart';
+import '../core/core.dart';
 import 'custome_theme.dart';
+import 'guest_token_screen.dart';
+import 'guest_token_store.dart';
+import 'upload_selfie_screen.dart';
 
 // import 'custome_theme.dart';
 
@@ -123,6 +127,30 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
   void initState() {
     super.initState();
     _coupleFuture = fetchCoupleSays();
+  }
+
+  /// "Free Signup" describes the AI selfie-matching feature, so this jumps
+  /// straight into that flow for whichever gallery the guest last unlocked.
+  /// Without a token yet (first-time guest), there's nothing to match
+  /// against, so send them to enter one first — same guard the website uses
+  /// before letting a guest reach the selfie screen.
+  Future<void> _openFindMyPhotos(BuildContext context) async {
+    final token = await GuestTokenStore.read();
+    if (!context.mounted) return;
+
+    if (token == null) {
+      AppSnackbar.info(context, "Enter your gallery access code first.");
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const GuestTokenScreen()),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MomentPrivacyDialog(token: token)),
+    );
   }
 
   @override
@@ -326,7 +354,12 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                     Center(
                       child: pinkGradientButton(
                         text: "Have a private access code?",
-                        onPressed: () {},
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const GuestTokenScreen(),
+                          ),
+                        ),
                         showArrow: true,
                       ),
                     ),
@@ -415,7 +448,18 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                             Center(
                               child: pinkGradientButton(
                                 text: "Try Now",
-                                onPressed: () {},
+                                // There's no guest-facing "create an event"
+                                // flow — event creation only exists in the
+                                // photographer/vendor dashboard on the
+                                // website. The closest real entry point for
+                                // a guest is entering the access code their
+                                // photographer already gave them.
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const GuestTokenScreen(),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -505,7 +549,7 @@ class _Moment_plus_homeState extends State<Moment_plus_home> {
                         const SizedBox(height: 16),
                         pinkGradientButton(
                           text: "Free Signup",
-                          onPressed: () {},
+                          onPressed: () => _openFindMyPhotos(context),
                         ),
                       ],
                     ),

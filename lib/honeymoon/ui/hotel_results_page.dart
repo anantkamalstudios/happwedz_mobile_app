@@ -5,25 +5,37 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../data/honeymoon_api.dart';
+import '../data/hotel_filters.dart';
 import '../models/honeymoon_models.dart';
 import 'hotel_detail_page.dart';
+import 'widgets/hotel_filter_sheet.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 /// Sort values accepted by the search endpoint's `sortOrder` field.
 enum HotelSort { popularity, priceLowToHigh, priceHighToLow, rating }
 
-extension on HotelSort {
+extension HotelSortLabel on HotelSort {
   String get label => switch (this) {
-    HotelSort.popularity => 'Recommended',
-    HotelSort.priceLowToHigh => 'Price: low to high',
-    HotelSort.priceHighToLow => 'Price: high to low',
+    HotelSort.popularity => 'Most popular',
+    HotelSort.priceLowToHigh => 'Price (lowest first)',
+    HotelSort.priceHighToLow => 'Price (highest first)',
+    HotelSort.rating => 'Star rating (high to low)',
+  };
+
+  String get shortLabel => switch (this) {
+    HotelSort.popularity => 'Popular',
+    HotelSort.priceLowToHigh => 'Price ↑',
+    HotelSort.priceHighToLow => 'Price ↓',
     HotelSort.rating => 'Rating',
   };
 
+  /// The literal strings the backend's `mapSortOrderToAPI` accepts. These are
+  /// snake_case on the wire even though the web's own select uses camelCase
+  /// values — sending `priceAsc` is silently treated as "popularity".
   String get apiValue => switch (this) {
     HotelSort.popularity => 'popularity',
-    HotelSort.priceLowToHigh => 'priceAsc',
-    HotelSort.priceHighToLow => 'priceDesc',
+    HotelSort.priceLowToHigh => 'price_asc',
+    HotelSort.priceHighToLow => 'price_desc',
     HotelSort.rating => 'rating',
   };
 }
@@ -57,7 +69,16 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
   late List<HotelResult> _hotels = List.of(widget.initialResult.hotels);
 
   HotelSort _sort = HotelSort.popularity;
-  Set<int> _ratings = {};
+
+  /// Sorting is a server concern (it decides which hotels the next page even
+  /// contains); filtering is a client one, applied over everything loaded so
+  /// far. That split is what the website does, and it keeps ticking a checkbox
+  /// instant instead of costing a round trip.
+  HotelFilters _filters = HotelFilters.empty;
+
+  List<HotelFacetGroup> get _facets => buildHotelFacets(_hotels);
+
+  List<HotelResult> get _visible => filterHotels(_hotels, _filters);
 
   bool _loading = false;
   bool _loadingMore = false;
@@ -89,7 +110,11 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
 
   int get _nights => widget.checkOut.difference(widget.checkIn).inDays;
 
-  /// Re-runs the search from page one — used by sort, filters and retry.
+  /// Re-runs the search from page one — used by sort and by retry.
+  ///
+  /// Filters deliberately do not come through here: they are applied to the
+  /// loaded list, so changing one costs nothing and never re-orders the
+  /// results underneath the user.
   Future<void> _reload() async {
     setState(() {
       _loading = true;
@@ -102,13 +127,14 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
         checkIn: widget.checkIn,
         checkOut: widget.checkOut,
         rooms: widget.rooms,
-        ratings: _ratings.toList()..sort(),
         sortOrder: _sort.apiValue,
       );
       if (!mounted) return;
       setState(() {
         _result = result;
         _hotels = List.of(result.hotels);
+        // A fresh result set may not offer every option the old one did.
+        _filters = _filters.reconcile(buildHotelFacets(_hotels));
         _loading = false;
       });
     } on HoneymoonApiException catch (e) {
@@ -128,7 +154,6 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
         checkIn: widget.checkIn,
         checkOut: widget.checkOut,
         rooms: widget.rooms,
-        ratings: _ratings.toList()..sort(),
         sortOrder: _sort.apiValue,
         lastHotelId: _result.lastHotelId,
         searchId: _result.searchId,
@@ -139,6 +164,18 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
         _result = next;
         _loadingMore = false;
       });
+
+      // Filtering happens after paging, so a narrow filter can leave too few
+      // cards to scroll — and with nothing to scroll, the infinite loader never
+      // fires again and the user is stranded on a near-empty list while more
+      // matches sit unfetched. Keep pulling pages until there is enough on
+      // screen to scroll for the rest.
+      if (mounted &&
+          _filters.activeCount > 0 &&
+          _result.hasMore &&
+          _visible.length < 8) {
+        await _loadMore();
+      }
     } on HoneymoonApiException {
       // A failed page-append should not destroy results already on screen.
       if (!mounted) return;
@@ -197,95 +234,16 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
   }
 
   Future<void> _openFilterSheet() async {
-    final draft = Set<int>.from(_ratings);
+    final facets = _facets;
+    if (facets.isEmpty) return;
 
-    await AppBottomSheet.show(
+    final result = await showHotelFilterSheet(
       context,
-      title: 'Filters',
-      child: StatefulBuilder(
-        builder: (sheetContext, setSheetState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Star rating', style: AppText.formLabel),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final star in [5, 4, 3, 2, 1])
-                    Pressable(
-                      onTap: () => setSheetState(() {
-                        if (!draft.remove(star)) draft.add(star);
-                      }),
-                      borderRadius: AppRadii.rPill,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          color: draft.contains(star)
-                              ? AppColors.pinkSurface
-                              : AppColors.surface,
-                          borderRadius: AppRadii.rPill,
-                          border: Border.all(
-                            color: draft.contains(star)
-                                ? AppColors.primary
-                                : AppColors.divider,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star_rounded,
-                              size: 15,
-                              color: AppColors.warning,
-                            ),
-                            const SizedBox(width: AppSpacing.xxs),
-                            Text('$star', style: AppText.labelSm),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-
-              const SizedBox(height: AppSpacing.xl),
-              Row(
-                children: [
-                  Expanded(
-                    child: PremiumButton.outlined(
-                      label: 'Reset',
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        if (_ratings.isNotEmpty) {
-                          setState(() => _ratings = {});
-                          _reload();
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: PremiumButton(
-                      label: 'Apply',
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        setState(() => _ratings = draft);
-                        _reload();
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
+      facets: facets,
+      current: _filters,
+      hotels: _hotels,
     );
+    if (result != null && mounted) setState(() => _filters = result);
   }
 
   @override
@@ -317,6 +275,7 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
       body: Column(
         children: [
           _buildToolbar(),
+          _buildChipsRail(),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -338,24 +297,42 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
             child: Text(
               _loading
                   ? 'Searching…'
-                  : '${_hotels.length} stay${_hotels.length == 1 ? '' : 's'}',
+                  : '${_visible.length} stay${_visible.length == 1 ? '' : 's'}',
               style: AppText.labelSm,
             ),
           ),
           _ToolbarButton(
             icon: Icons.swap_vert_rounded,
-            label: 'Sort',
-            active: _sort != HotelSort.popularity,
+            label: _sort.shortLabel,
+            active: true,
             onTap: _openSortSheet,
           ),
           const SizedBox(width: AppSpacing.sm),
           _ToolbarButton(
             icon: Icons.tune_rounded,
-            label: 'Filters',
-            active: _ratings.isNotEmpty,
+            label: _filters.activeCount > 0
+                ? 'Filters (${_filters.activeCount})'
+                : 'Filters',
+            active: _filters.activeCount > 0,
             onTap: _openFilterSheet,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Removable chips for whatever is currently applied, so a filter can be
+  /// undone without reopening the sheet.
+  Widget _buildChipsRail() {
+    final chips = describeHotelFilters(_filters, _facets);
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: HotelAppliedFiltersRail(
+        chips: chips,
+        onRemove: (chip) =>
+            setState(() => _filters = removeHotelChip(_filters, chip)),
+        onClearAll: () => setState(() => _filters = HotelFilters.empty),
       ),
     );
   }
@@ -378,7 +355,13 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
       );
     }
 
-    if (_hotels.isEmpty) {
+    final visible = _visible;
+
+    if (visible.isEmpty) {
+      // Two different dead ends: the search itself came back empty, or the
+      // user's own filters excluded every loaded stay. Only the second one is
+      // recoverable without changing the search.
+      final filtered = _hotels.isNotEmpty;
       return RefreshIndicator(
         color: AppColors.primary,
         onRefresh: _reload,
@@ -387,16 +370,20 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
           children: [
             SizedBox(height: MediaQuery.of(context).size.height * 0.08),
             EmptyState(
-              title: 'No stays found',
-              message: 'Try changing your destination, dates or filters.',
-              icon: Icons.hotel_outlined,
-              actionLabel: _ratings.isEmpty ? null : 'Clear filters',
-              onAction: _ratings.isEmpty
-                  ? null
-                  : () {
-                      setState(() => _ratings = {});
-                      _reload();
-                    },
+              title: filtered
+                  ? 'No stays match your filters'
+                  : 'No stays found',
+              message: filtered
+                  ? 'Clear a filter or two to see the ${_hotels.length} '
+                        'stay${_hotels.length == 1 ? '' : 's'} we found.'
+                  : 'Try changing your destination or dates.',
+              icon: filtered
+                  ? Icons.filter_alt_off_rounded
+                  : Icons.hotel_outlined,
+              actionLabel: filtered ? 'Clear filters' : null,
+              onAction: filtered
+                  ? () => setState(() => _filters = HotelFilters.empty)
+                  : null,
             ),
           ],
         ),
@@ -415,10 +402,10 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
           AppSpacing.lg,
           AppSpacing.xxxl,
         ),
-        itemCount: _hotels.length + (_loadingMore ? 1 : 0),
+        itemCount: visible.length + (_loadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
         itemBuilder: (context, i) {
-          if (i >= _hotels.length) {
+          if (i >= visible.length) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
               child: AppLoader(),
@@ -427,14 +414,14 @@ class _HotelResultsPageState extends State<HotelResultsPage> {
           return FadeSlideIn(
             delay: AppMotion.staggerFor(i),
             child: HotelCard(
-              hotel: _hotels[i],
+              hotel: visible[i],
               nights: _nights,
               onTap: () => Navigator.push(
                 context,
                 AnimatedPageRoute(
                   page: HotelDetailPage(
                     api: widget.api,
-                    hotel: _hotels[i],
+                    hotel: visible[i],
                     searchId: _result.searchId,
                     checkIn: widget.checkIn,
                     checkOut: widget.checkOut,
@@ -582,9 +569,13 @@ class HotelCard extends StatelessWidget {
                       borderRadius: AppRadii.rSm,
                     ),
                     child: Text(
-                      hotel.reviewCount > 0
-                          ? '${hotel.reviewScore.toStringAsFixed(1)} · ${hotel.reviewCount}'
-                          : hotel.reviewScore.toStringAsFixed(1),
+                      [
+                        hotel.reviewScore.toStringAsFixed(1),
+                        // The supplier's own wording ("Excellent") reads better
+                        // than a bare number, so it leads when present.
+                        if (hotel.reviewLabel.isNotEmpty) hotel.reviewLabel,
+                        if (hotel.reviewCount > 0) '${hotel.reviewCount}',
+                      ].join(' · '),
                       style: AppText.caption.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -629,17 +620,27 @@ class HotelCard extends StatelessWidget {
                   ),
                 ],
 
-                if (hotel.facilities.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      for (final f in hotel.facilities.take(3))
-                        MetaChip(label: f),
-                    ],
-                  ),
-                ],
+                // Board basis and refundability are what actually separate two
+                // otherwise identical listings, so they lead the chip row.
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    if (hotel.isRefundable)
+                      const MetaChip(
+                        label: 'Free cancellation',
+                        icon: Icons.verified_rounded,
+                      ),
+                    if (hotel.mealBasis.isNotEmpty)
+                      MetaChip(
+                        label: hotel.mealBasis,
+                        icon: Icons.restaurant_rounded,
+                      ),
+                    for (final f in hotel.facilities.take(2))
+                      MetaChip(label: f),
+                  ],
+                ),
 
                 const SizedBox(height: AppSpacing.md),
                 Row(

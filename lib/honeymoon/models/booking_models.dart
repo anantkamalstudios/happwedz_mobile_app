@@ -357,6 +357,9 @@ class FareConditions {
     this.infantDobRequired = true,
     this.sessionSeconds = 0,
     this.sessionStartedAt,
+    this.seatSelectable = true,
+    this.mealSelectable = true,
+    this.baggageSelectable = true,
   });
 
   /// International itineraries need passport details; domestic ones do not.
@@ -384,6 +387,14 @@ class FareConditions {
   final bool childDobRequired;
   final bool infantDobRequired;
 
+  /// Whether the fare lets seats, meals and extra baggage be bought up front
+  /// (`fsc.issi` / `ismi` / `isbi`). Each defaults to true: the supplier omits
+  /// the flag when the add-on is allowed and only sends `false` to forbid it,
+  /// so absence must not read as "not offered".
+  final bool seatSelectable;
+  final bool mealSelectable;
+  final bool baggageSelectable;
+
   /// How long the quoted fare is held for, and when the clock started.
   final int sessionSeconds;
   final DateTime? sessionStartedAt;
@@ -406,6 +417,7 @@ class FareConditions {
     final anlm = readKey(json, 'anlm');
     final dc = readKey(json, 'dc');
     final dob = readKey(json, 'dob');
+    final fsc = readKey(json, 'fsc');
 
     // `pcs` is only present on international fares, and `pm: false` opts an
     // international fare *out* of requiring a passport.
@@ -428,6 +440,9 @@ class FareConditions {
       infantDobRequired: readKey(dob, 'idobr') != false,
       sessionSeconds: asInt(readKey(json, 'st')),
       sessionStartedAt: DateTime.tryParse(asString(readKey(json, 'sct'))),
+      seatSelectable: readKey(fsc, 'issi') != false,
+      mealSelectable: readKey(fsc, 'ismi') != false,
+      baggageSelectable: readKey(fsc, 'isbi') != false,
     );
   }
 }
@@ -553,6 +568,7 @@ class FareBreakdown {
     required Map<PaxType, int> paxCounts,
     double supplierTotal = 0,
     double serviceCharge = 0,
+    Map<String, double> addOns = const {},
   }) {
     double base = 0;
     double taxes = 0;
@@ -576,9 +592,15 @@ class FareBreakdown {
         if (base > 0) FareLine('Base fare', base, detail: paxLabel(paxCounts)),
         if (taxes > 0) FareLine('Taxes & fees', taxes),
         if (adjustment.abs() >= 1) FareLine('Fare adjustment', adjustment),
+        // Seats, meals and baggage are priced outside the fare, so they are
+        // listed after it and added to the total.
+        for (final entry in addOns.entries) FareLine(entry.key, entry.value),
         if (serviceCharge > 0) FareLine('Service charge', serviceCharge),
       ],
-      total: flightTotal + serviceCharge,
+      total:
+          flightTotal +
+          serviceCharge +
+          addOns.values.fold(0.0, (sum, amount) => sum + amount),
     );
   }
 
@@ -1010,7 +1032,28 @@ class FlightTripContext {
     this.children = 0,
     this.infants = 0,
     this.cabinClass = 'ECONOMY',
+    this.multiCityLegs = const [],
   });
+
+  /// A multi-city trip. [from], [to] and [departure] mirror the first leg so
+  /// everything built from this context — the payment payload, the summary
+  /// strip, the traveller forms — keeps working unchanged.
+  factory FlightTripContext.multiCity({
+    required List<FlightLeg> legs,
+    int adults = 1,
+    int children = 0,
+    int infants = 0,
+    String cabinClass = 'ECONOMY',
+  }) => FlightTripContext(
+    from: legs.first.from,
+    to: legs.last.to,
+    departure: legs.first.date,
+    adults: adults,
+    children: children,
+    infants: infants,
+    cabinClass: cabinClass,
+    multiCityLegs: legs,
+  );
 
   final FlightLocation from;
   final FlightLocation to;
@@ -1021,7 +1064,35 @@ class FlightTripContext {
   final int infants;
   final String cabinClass;
 
+  /// The requested hops when this is a multi-city trip; empty otherwise.
+  final List<FlightLeg> multiCityLegs;
+
+  bool get isMultiCity => multiCityLegs.isNotEmpty;
+
   bool get isRoundTrip => returnDate != null;
+
+  /// Heading for the nth booked leg.
+  ///
+  /// A multi-city journey sold as one combined fare comes back as a single
+  /// itinerary covering every hop, so labelling it "Flight 1" would wrongly
+  /// suggest the rest are missing.
+  String legTitle(int index, int legCount) {
+    if (isMultiCity) {
+      if (legCount == 1) return 'Your itinerary';
+      final leg = index < multiCityLegs.length ? multiCityLegs[index] : null;
+      return leg == null
+          ? 'Flight ${index + 1}'
+          : 'Flight ${index + 1} · ${leg.routeLabel}';
+    }
+    return index == 0 ? 'Departure' : 'Return';
+  }
+
+  DateTime? legDate(int index) {
+    if (isMultiCity) {
+      return index < multiCityLegs.length ? multiCityLegs[index].date : null;
+    }
+    return index == 0 ? departure : returnDate;
+  }
 
   int get travellerCount => adults + children + infants;
 

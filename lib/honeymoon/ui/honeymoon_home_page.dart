@@ -73,7 +73,10 @@ class _HoneymoonHomePageState extends State<HoneymoonHomePage> {
                       opacity: anim,
                       child: SizeTransition(
                         sizeFactor: anim,
-                        axisAlignment: -1,
+                        // Grow downward from the top edge, so swapping tabs
+                        // never makes the card jump under the tab strip.
+                        // alignment: Alignment.topCenter,
+                        axisAlignment: -1.0,
                         child: child,
                       ),
                     ),

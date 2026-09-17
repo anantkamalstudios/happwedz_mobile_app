@@ -7,14 +7,11 @@ import 'package:http/http.dart' as http;
 class EInviteAPI {
   final String base = '${ApiConfig.apiBase}/einvites';
 
-  // Replace main domain with backend domain to avoid corrupted images
-  String fixImageUrl(String url) {
-    if (url.isEmpty) return url;
-    if (url.contains('happywedz.com')) {
-      return url.replaceFirst('happywedz.com', 'happywedzbackend.happywedz.com');
-    }
-    return url;
-  }
+  // The backend already returns absolute `api.happywedz.com` URLs for
+  // thumbnails/backgrounds — no rewrite needed. `happywedzbackend.happywedz.com`
+  // (the old rewrite target) no longer resolves at all: it was consolidated
+  // into `api.happywedz.com`, same as [ApiConfig] documents.
+  String fixImageUrl(String url) => url;
 
   Future<List<EInviteTemplate>> fetchTemplates() async {
     final res = await http.get(Uri.parse('$base/cards'));

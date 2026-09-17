@@ -1050,17 +1050,24 @@ class ChatService {
     required String eventDate,
     required String message,
   }) async {
-    final url = Uri.parse("${ApiConfig.baseUrl}/request-pricing");
+    // AUDIT FIX: this previously hit `${ApiConfig.baseUrl}/request-pricing`
+    // (`happywedz.com/request-pricing`, the marketing page) instead of the
+    // `/api` route, so every request silently "succeeded" against HTML while
+    // nothing was recorded. Confirmed live: `POST ${ApiConfig.apiBase}
+    // /request-pricing` with this exact body returns 201 with a JSON
+    // `{message, request: {...}}` — this is the same endpoint the website's
+    // `PricingModal.jsx` posts to.
+    final url = Uri.parse("${ApiConfig.apiBase}/request-pricing");
 
-    debugPrint("➡ POST PricingRequest: $url");
-    debugPrint("   BODY: vendorId:$vendorId firstName:$firstName lastName:$lastName "
-        "email:$email phone:$phone eventDate:$eventDate message:$message");
+    debugPrint("[PRICING] POST $url");
+    debugPrint("[PRICING] vendorId=$vendorId eventDate=$eventDate");
+
+    final headers = await _headers();
+    headers["Content-Type"] = "application/json";
 
     final res = await http.post(
       url,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: headers,
       body: jsonEncode({
         "vendorId": vendorId,
         "firstName": firstName,
@@ -1072,32 +1079,16 @@ class ChatService {
       }),
     );
 
-    if (kDebugMode) debugPrint("⬅ PRICING RESPONSE → ${res.statusCode} ${res.body}");
+    if (kDebugMode) debugPrint("[PRICING] response ${res.statusCode} ${res.body}");
 
-    // AUDIT FIX (API that silently fails): this URL is the *website* page
-    // `happywedz.com/request-pricing`, not an API route — every other call in
-    // the app goes through `/api/…`. Verified against the live server: a POST
-    // here returns `200 text/html` (the marketing page), so the old
-    // `statusCode == 200 || 201` check reported SUCCESS on every request while
-    // the quotation was never recorded. `GET /api/request-pricing/user/quotations`
-    // (used by My Bookings) then showed nothing, with no error anywhere.
-    //
-    // The correct submit route could not be determined — `/api/request-pricing`
-    // returns 404 for both GET and POST — so it is NOT guessed here. What this
-    // change does is stop the lie: an HTML response is now treated as the
-    // failure it is, so the problem is visible instead of silent.
-    //
-    // ⚠️ BACKEND CONFIRMATION NEEDED: supply the real endpoint for submitting a
-    // pricing request, then point `url` at it.
     final contentType = res.headers['content-type'] ?? '';
     final ok = (res.statusCode == 200 || res.statusCode == 201) &&
         contentType.contains('application/json');
 
     if (!ok) {
       debugPrint(
-        '❌ Pricing request was NOT accepted '
-        '(status ${res.statusCode}, content-type "$contentType"). '
-        'The endpoint is serving HTML, not an API response.',
+        '[PRICING] request was NOT accepted '
+        '(status ${res.statusCode}, content-type "$contentType").',
       );
     }
 

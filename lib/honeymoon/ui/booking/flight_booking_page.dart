@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/core.dart';
 import '../../data/honeymoon_api.dart';
+import '../../models/addon_models.dart';
 import '../../models/booking_models.dart';
 import '../../models/honeymoon_models.dart';
 import '../../payment/razorpay_checkout.dart';
@@ -24,6 +25,7 @@ import '../widgets/honeymoon_widgets.dart';
 import '../bookings/my_trips_page.dart';
 import 'booking_confirmation_page.dart';
 import 'booking_widgets.dart';
+import 'flight_addon_step.dart';
 import 'flight_traveller_step.dart';
 
 class FlightBookingPage extends StatefulWidget {
@@ -33,21 +35,51 @@ class FlightBookingPage extends StatefulWidget {
     required this.trip,
     required this.outbound,
     this.inbound,
+    this.extraLegs = const [],
   });
+
+  /// Multi-city entry point: every chosen leg, in route order.
+  ///
+  /// A combined (COMBO) fare covers the whole journey on one priceId, so it
+  /// arrives as a single leg and books exactly like a one-way.
+  factory FlightBookingPage.multiCity({
+    Key? key,
+    required HoneymoonApi api,
+    required FlightTripContext trip,
+    required List<FlightResult> legs,
+  }) => FlightBookingPage(
+    key: key,
+    api: api,
+    trip: trip,
+    outbound: legs.first,
+    inbound: legs.length > 1 ? legs[1] : null,
+    extraLegs: legs.length > 2 ? legs.sublist(2) : const [],
+  );
 
   final HoneymoonApi api;
   final FlightTripContext trip;
   final FlightResult outbound;
 
-  /// The return leg on a round trip. Both legs are priced in one session.
+  /// The return leg on a round trip, or the second hop of a multi-city
+  /// itinerary. Every leg is priced in one session.
   final FlightResult? inbound;
+
+  /// Third and later hops of a multi-city itinerary.
+  final List<FlightResult> extraLegs;
+
+  /// Every leg the session must price, in route order.
+  List<FlightResult> get legs => [
+    outbound,
+    if (inbound != null) inbound!,
+    ...extraLegs,
+  ];
 
   @override
   State<FlightBookingPage> createState() => _FlightBookingPageState();
 }
 
 class _FlightBookingPageState extends State<FlightBookingPage> {
-  static const _steps = ['Trip', 'Travellers', 'Review'];
+  static const _steps = ['Trip', 'Travellers', 'Add-ons', 'Review'];
 
   // --- Session -------------------------------------------------------------
 
@@ -65,6 +97,10 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
   final EmergencyContact _emergency = EmergencyContact();
   GstDetails? _gst;
 
+  /// Seats, meals and baggage picked on the add-on step. Held here rather
+  /// than in the step so it survives stepping back and forth.
+  final FlightAddOns _addOns = FlightAddOns();
+
   bool _submitting = false;
   String? _submitError;
 
@@ -78,10 +114,17 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
   // Session
   // -------------------------------------------------------------------------
 
-  List<String> get _priceIds => [
-    widget.outbound.id,
-    if (widget.inbound != null) widget.inbound!.id,
-  ].where((id) => id.isNotEmpty).toList();
+  /// One priceId per leg, de-duplicated.
+  ///
+  /// A COMBO multi-city fare repeats the same priceId across routes, and
+  /// sending it twice is rejected, so identical ids collapse to one.
+  List<String> get _priceIds {
+    final ids = <String>[];
+    for (final leg in widget.legs) {
+      if (leg.id.isNotEmpty && !ids.contains(leg.id)) ids.add(leg.id);
+    }
+    return ids;
+  }
 
   /// Re-prices the chosen fare and opens a booking session.
   ///
@@ -178,8 +221,7 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
     if (fromReview.isNotEmpty) return fromReview;
 
     return <dynamic>[
-      widget.outbound.selectedFare,
-      if (widget.inbound != null) widget.inbound!.selectedFare,
+      for (final leg in widget.legs) leg.selectedFare,
     ];
   }
 
@@ -187,6 +229,7 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
     fares: _fares,
     paxCounts: widget.trip.paxCounts,
     supplierTotal: _review?.totalFare ?? 0,
+    addOns: _addOns.breakdown,
   );
 
   // -------------------------------------------------------------------------
@@ -202,14 +245,21 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
       // The supplier validates this against its own session quote, so it
       // carries the fare and nothing else.
       'paymentInfos': [
-        {'amount': review.supplierPayableAmount},
+        {'amount': review.supplierPayableAmount + _addOns.total},
       ],
       'travellerInfo': [
-        for (final t in _travellers)
-          t.toJson(
-            passportRequired: conditions.passportRequired,
-            docIdApplicable: conditions.docIdApplicable,
-          ),
+        for (final (index, t) in _travellers.indexed)
+          {
+            ...t.toJson(
+              passportRequired: conditions.passportRequired,
+              docIdApplicable: conditions.docIdApplicable,
+            ),
+            // Seats/meals/bags ride along on the traveller they belong to.
+            ..._addOns.ssrForTraveller(
+              index,
+              sellableSegments: _baggageSellableSegments(review),
+            ),
+          },
       ],
       'deliveryInfo': {
         'emails': [_contact.email.trim()],
@@ -228,6 +278,27 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
     };
   }
 
+  /// "ADULT-1", "CHILD-1" … in booking order, matching the web's add-on
+  /// passenger tabs.
+  List<String> get _passengerLabels {
+    final seen = <PaxType, int>{};
+    return [
+      for (final t in _travellers)
+        () {
+          final n = (seen[t.type] = (seen[t.type] ?? 0) + 1);
+          return '${t.type.name.toUpperCase()}-$n';
+        }(),
+    ];
+  }
+
+  /// Legs the supplier prices excess baggage on. Bags chosen against any
+  /// other leg are dropped: on a connecting journey the bag is checked
+  /// through, and buying against a later leg is rejected with error 1129.
+  Set<String> _baggageSellableSegments(FlightReview review) => {
+    for (final segment in AddOnSegment.fromReview(review.raw))
+      if (segment.baggageSellable) segment.id,
+  };
+
   /// The envelope our own payment endpoints take around that payload.
   Map<String, dynamic> _paymentPayload(FlightReview review) {
     final segments = widget.outbound.segments;
@@ -237,7 +308,9 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
     return <String, dynamic>{
       'provider': 'tripjack',
       'offer_id': review.bookingId,
-      'trip_type': widget.inbound != null ? 'round' : 'oneway',
+      'trip_type': widget.trip.isMultiCity
+          ? 'multicity'
+          : (widget.inbound != null ? 'round' : 'oneway'),
       'from': asString(digPath(first, ['da', 'code'])),
       'to': asString(digPath(last, ['aa', 'code'])),
       'departure': asString(readKey(first, 'dt')),
@@ -452,6 +525,10 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
       });
       return;
     }
+    if (_step == 2) {
+      setState(() => _step = 3);
+      return;
+    }
     _pay();
   }
 
@@ -553,10 +630,11 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
             ? null
             : BookingActionBar(
                 fare: _fare,
-                priceLabel: _step == 2 ? 'Total payable' : 'From',
+                priceLabel: _step == 3 ? 'Total payable' : 'From',
                 actionLabel: switch (_step) {
                   0 => 'Add travellers',
-                  1 => 'Review booking',
+                  1 => 'Add-ons',
+                  2 => 'Review booking',
                   _ => 'Pay securely',
                 },
                 isLoading: _submitting,
@@ -569,7 +647,7 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
                       'booking is confirmed.',
                 ),
                 secondaryLabel:
-                    _step == 2 && review.conditions.blockAllowed
+                    _step == 3 && review.conditions.blockAllowed
                     ? 'Hold this fare'
                     : null,
                 onSecondary: _hold,
@@ -586,8 +664,7 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
         0 => _ItineraryStep(
           key: const ValueKey('step-trip'),
           trip: widget.trip,
-          outbound: widget.outbound,
-          inbound: widget.inbound,
+          legs: widget.legs,
           review: review,
         ),
         1 => FlightTravellerStep(
@@ -599,11 +676,18 @@ class _FlightBookingPageState extends State<FlightBookingPage> {
           contact: _contact,
           emergency: _emergency,
         ),
+        2 => FlightAddOnStep(
+          key: const ValueKey('step-addons'),
+          api: widget.api,
+          review: review,
+          passengerLabels: _passengerLabels,
+          addOns: _addOns,
+          onChanged: () => setState(() {}),
+        ),
         _ => _ReviewStep(
           key: const ValueKey('step-review'),
           trip: widget.trip,
-          outbound: widget.outbound,
-          inbound: widget.inbound,
+          legs: widget.legs,
           travellers: _travellers,
           contact: _contact,
           gst: _gst,
@@ -656,14 +740,12 @@ class _ItineraryStep extends StatelessWidget {
   const _ItineraryStep({
     super.key,
     required this.trip,
-    required this.outbound,
-    required this.inbound,
+    required this.legs,
     required this.review,
   });
 
   final FlightTripContext trip;
-  final FlightResult outbound;
-  final FlightResult? inbound;
+  final List<FlightResult> legs;
   final FlightReview review;
 
   @override
@@ -676,17 +758,12 @@ class _ItineraryStep extends StatelessWidget {
         AppSpacing.xxxl,
       ),
       children: [
-        FlightLegCard(
-          title: 'Departure',
-          date: trip.departure,
-          flight: outbound,
-        ),
-        if (inbound != null) ...[
-          const SizedBox(height: AppSpacing.md),
+        for (var i = 0; i < legs.length; i++) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.md),
           FlightLegCard(
-            title: 'Return',
-            date: trip.returnDate,
-            flight: inbound!,
+            title: trip.legTitle(i, legs.length),
+            date: trip.legDate(i),
+            flight: legs[i],
           ),
         ],
         const SizedBox(height: AppSpacing.lg),
@@ -869,8 +946,7 @@ class _ReviewStep extends StatelessWidget {
   const _ReviewStep({
     super.key,
     required this.trip,
-    required this.outbound,
-    required this.inbound,
+    required this.legs,
     required this.travellers,
     required this.contact,
     required this.gst,
@@ -879,8 +955,7 @@ class _ReviewStep extends StatelessWidget {
   });
 
   final FlightTripContext trip;
-  final FlightResult outbound;
-  final FlightResult? inbound;
+  final List<FlightResult> legs;
   final List<TravellerInput> travellers;
   final ContactDetails contact;
   final GstDetails? gst;
@@ -906,17 +981,12 @@ class _ReviewStep extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
         ],
 
-        FlightLegCard(
-          title: 'Departure',
-          date: trip.departure,
-          flight: outbound,
-        ),
-        if (inbound != null) ...[
-          const SizedBox(height: AppSpacing.md),
+        for (var i = 0; i < legs.length; i++) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.md),
           FlightLegCard(
-            title: 'Return',
-            date: trip.returnDate,
-            flight: inbound!,
+            title: trip.legTitle(i, legs.length),
+            date: trip.legDate(i),
+            flight: legs[i],
           ),
         ],
         const SizedBox(height: AppSpacing.md),

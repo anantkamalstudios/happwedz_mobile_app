@@ -1738,7 +1738,12 @@ class RealWedding {
           if (decoded is List) {
             return decoded.map((e) => Map<String, String>.from(e)).toList();
           }
-        } catch (_) {}
+        } catch (e) {
+          // AUDIT FIX: was a silent empty catch — a genuine parse failure was
+          // indistinguishable from a legitimate empty list. Logged so it can
+          // be told apart from "no data" during debugging.
+          debugPrint('parseListOfMaps: failed to decode value: $e');
+        }
         return [];
       } else if (value is List) {
         return value.map((e) => Map<String, String>.from(e)).toList();

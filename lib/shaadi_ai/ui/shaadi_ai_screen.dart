@@ -1,9 +1,13 @@
 /// ShaadiAI — the wedding-planning assistant ported from `ShaadiAI.jsx`.
 ///
-/// This is a different feature from the already-ported Genie chat
-/// (`lib/ai_chat_screen/`, `lib/Bottombars/GenieScreen.dart`) despite both
-/// being "AI chat" — different backend host, different endpoints, and this
-/// one carries quiz/budget/vendor-comparison results inline.
+/// AUDIT FIX: an earlier pass here assumed this was a different feature from
+/// `lib/ai_chat_screen/` ("ShaadiAi Assistant") because the two used
+/// different backend hosts. That was wrong — `ai_chat_screen.dart`'s host
+/// (ported from the old `Genie.jsx`/`shaadiai.happywedz.com`) turned out to
+/// be dead with no replacement, so that screen now calls this same `/ai/chat`
+/// endpoint via `ShaadiAiApi`/`ShaadiChatMessage` too. This screen additionally
+/// carries the quiz/budget/vendor-comparison inline results the other one
+/// doesn't surface.
 library;
 
 import 'package:flutter/material.dart';
@@ -421,12 +425,17 @@ class _ShaadiAiScreenState extends State<ShaadiAiScreen> {
         onLoadChat: _handleLoadChat,
         onDeleteChat: _handleDeleteChat,
       ),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0.5,
-        title: Text('Shaadi AI', style: AppText.pageTitle),
+      appBar: AppTopBar(
+        title: 'Shaadi AI',
+        elevated: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history, size: 22),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            tooltip: 'Chat History',
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
       ),
       body: SafeArea(
         child: _isInitialState ? _buildHome() : _buildChat(),

@@ -3406,8 +3406,11 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import 'package:mailer/mailer.dart';
-import 'package:mailer/smtp_server/gmail.dart';
+// AUDIT FIX (security, see _sendWelcomeEmail below): these only backed the
+// client-side SMTP send that shipped a real personal Gmail password in the
+// compiled app. Commented out, not deleted, alongside the code that used them.
+// import 'package:mailer/mailer.dart';
+// import 'package:mailer/smtp_server/gmail.dart';
 
 import 'core/core.dart';
 import 'core/config/api_config.dart';
@@ -3525,16 +3528,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
   };
 
 
+  // AUDIT FIX (security): this called Google's siteverify directly from the
+  // device with the reCAPTCHA *secret* key hardcoded in client Dart. Secret
+  // keys are meant to stay server-side — shipping one in the APK lets anyone
+  // who decompiles the app extract it and either forge a passing verification
+  // or call siteverify themselves, defeating the anti-bot check it exists for.
+  // There is no backend in this repo to move the real check to, so this now
+  // only confirms a token was obtained (which `RecaptchaHandler.executeV3`
+  // already guarantees before this is called) rather than performing a
+  // verification that was never actually trustworthy once the secret shipped.
+  // Real verification needs to happen in a backend `/register` handler that
+  // holds the secret key, not the client.
   Future<bool> verifyRecaptchaServerSide(String token) async {
-    final response = await http.post(
-      Uri.parse('https://www.google.com/recaptcha/api/siteverify'),
-      body: {
-        'secret': '6Lfh29UrAAAAAELnNO3hztAwReacEmVjtz8XVSZm',
-        'response': token,
-      },
-    );
-    final data = jsonDecode(response.body);
-    return data['success'] == true && (data['score'] ?? 0.0) > 0.5;
+    return token.isNotEmpty;
   }
 
   void _selectDate() async {
@@ -3564,24 +3570,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
   //   }
   // }
 
+  // AUDIT FIX (CRITICAL security): this sent SMTP mail authenticated with a
+  // real personal Gmail account password hardcoded in client Dart — every
+  // compiled APK/AAB shipped that credential, extractable by decompiling the
+  // app, and separately emailed the user's own signup password back to them
+  // in plaintext. Disabled rather than "fixed" in place because there is no
+  // way to send mail from a mobile client without embedding some credential
+  // in it; this needs a backend endpoint that sends the welcome email
+  // server-side instead. The Gmail account password above must be rotated —
+  // it has already shipped in production builds and cannot be un-exposed by
+  // an in-app code change.
+  // ignore: unused_element
   Future<void> _sendWelcomeEmail(String toEmail, String userName, String userPassword) async {
-    try {
-      final smtpServer = gmail("harshada.anantkamalstudios@gmail.com", "Pass@123"); // use app password
-      final message = Message()
-        ..from = Address("your-email@gmail.com", "HappyWeds Team")
-        ..recipients.add(toEmail)
-        ..subject = "Welcome to HappyWeds"
-        ..html = """
-          <h2>Hello $userName!</h2>
-          <p>Your account has been created.</p>
-          <p>Email: $toEmail</p>
-          <p>Password: ${_isGoogleSignUp ? "Secured with Google" : userPassword}</p>
-        """;
-      await send(message, smtpServer);
-      debugPrint("Email sent to $toEmail");
-    } catch (e) {
-      debugPrint("Email send failed: $e");
-    }
+    // final smtpServer = gmail("harshada.anantkamalstudios@gmail.com", "Pass@123"); // use app password
+    // final message = Message()
+    //   ..from = Address("your-email@gmail.com", "HappyWeds Team")
+    //   ..recipients.add(toEmail)
+    //   ..subject = "Welcome to HappyWeds"
+    //   ..html = """
+    //     <h2>Hello $userName!</h2>
+    //     <p>Your account has been created.</p>
+    //     <p>Email: $toEmail</p>
+    //     <p>Password: ${_isGoogleSignUp ? "Secured with Google" : userPassword}</p>
+    //   """;
+    // await send(message, smtpServer);
+    // debugPrint("Email sent to $toEmail");
+    debugPrint(
+      'Welcome email skipped for $toEmail — client-side SMTP send was removed '
+      '(hardcoded credential security issue); needs a backend endpoint.',
+    );
   }
 
   Future<void> _handleSignUp() async {
@@ -3642,7 +3659,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       "signupMethod": _isGoogleSignUp ? "google" : "email",
     };
 
-    debugPrint('Payload: $payload');
+    // AUDIT FIX (security): this logged the payload verbatim, including the
+    // user's plaintext signup password, to the device log on every signup.
+    // debugPrint is not compiled out of release builds.
+    debugPrint('Payload: ${{...payload}..remove('password')}');
 
     try {
       final response = await http.post(

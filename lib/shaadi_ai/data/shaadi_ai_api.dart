@@ -3,9 +3,10 @@
 /// All 5 endpoints go through the same host as everything else in the app
 /// (`ApiConfig.apiBase`) — confirmed from the React source (`ShaadiAI.jsx`,
 /// `ChatFeatures.jsx`) that they use the *default* `axiosInstance`, never
-/// `aiAxiosInstance` and never the `shaadiai.happywedz.com` host the
-/// already-ported Genie chat (`lib/ai_chat_screen/`) uses — these are two
-/// unrelated features that happen to share the word "AI".
+/// `aiAxiosInstance` or the dead `shaadiai.happywedz.com` host. `sendChat`
+/// (`POST /ai/chat`) below is also what `lib/ai_chat_screen/` ("ShaadiAi
+/// Assistant") calls now — that screen's own endpoints were ported from the
+/// old `Genie.jsx`/`shaadiai.happywedz.com` and never migrated anywhere.
 ///
 /// Auth mirrors the web `axiosInstance` request interceptor: attach
 /// `Authorization: Bearer <token>` when a token is stored, omit it
@@ -96,6 +97,7 @@ class ShaadiAiApi {
     required List<Map<String, String>> conversationHistory,
   }) async {
     try {
+
       final json = await _post('ai/chat', {
         'message': message,
         'conversationHistory': conversationHistory,

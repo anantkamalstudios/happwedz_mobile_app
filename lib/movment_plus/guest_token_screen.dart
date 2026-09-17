@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 
 import 'custome_theme.dart';
 import 'full_image_viewer.dart';
+import 'guest_token_store.dart';
+import 'upload_selfie_screen.dart';
 class GuestTokenScreen extends StatefulWidget {
   const GuestTokenScreen({super.key});
 
@@ -215,11 +217,14 @@ class _GuestTokenScreenState extends State<GuestTokenScreen> {
 
                                 try {
                                   final galleryData = await fetchGallery(token);
+                                  await GuestTokenStore.save(token);
+                                  if (!context.mounted) return;
 
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => MomentGalleryHome(
+                                        token: token,
                                         collections: galleryData,
                                       ),
                                     ),
@@ -361,10 +366,12 @@ class _RecentMomentCard extends StatelessWidget {
 
 
 class MomentGalleryHome extends StatelessWidget {
+  final String token;
   final Map<String, List<GalleryImage>> collections;
 
   const MomentGalleryHome({
     super.key,
+    required this.token,
     required this.collections,
   });
 
@@ -398,7 +405,17 @@ class MomentGalleryHome extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 48),
+                    IconButton(
+                      icon: const Icon(Icons.face_retouching_natural,
+                          color: Colors.white),
+                      tooltip: "Find My Photos",
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MomentPrivacyDialog(token: token),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

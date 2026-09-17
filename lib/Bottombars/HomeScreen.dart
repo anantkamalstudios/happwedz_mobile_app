@@ -898,28 +898,43 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
 
-            // Center floating avatar
+            // Center floating avatar — opens the Shaadi AI assistant
+            // (same destination/API as the gif FAB on WeddingHomePage's
+            // search bar: AiChatScreen, backed by
+            // shaadiai.happywedz.com/api/user_chat).
             Positioned(
               top: -18,
               left: MediaQuery.of(context).size.width / 2 - 28,
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  image: const DecorationImage(
-                    image: AssetImage('assets/virtualstudio.jpg'),
-                    fit: BoxFit.cover,
+              child: Pressable(
+                scale: 0.92,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    AnimatedPageRoute(
+                      page: const AiChatScreen(),
+                      style: PageTransitionStyle.scaleFade,
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    image: const DecorationImage(
+                      image: AssetImage('assets/virtualstudio.jpg'),
+                      fit: BoxFit.cover,
+                    ),
+                    border: Border.all(width: 4, color: Color(0xFFE83580)),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x3F000000),
+                        spreadRadius: 0,
+                        offset: Offset(0, 4),
+                        blurRadius: 4,
+                      )
+                    ],
                   ),
-                  border: Border.all(width: 4, color: Color(0xFFE83580)),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x3F000000),
-                      spreadRadius: 0,
-                      offset: Offset(0, 4),
-                      blurRadius: 4,
-                    )
-                  ],
                 ),
               ),
             ),
@@ -929,49 +944,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 class WeddingHomePage extends StatefulWidget {
   const WeddingHomePage({super.key});
@@ -1101,7 +1073,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     setState(() => _isSearching = true);
 
     try {
-      final uri = Uri.https('happywedz.com', '/api/vendor-services', {
+      final uri = Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(queryParameters: {
         'page': '1',
         'limit': '$_searchPageSize',
         'search': query,
@@ -1400,7 +1372,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     String? city,
     int limit = _railPageSize,
   }) {
-    return Uri.https('happywedz.com', '/api/vendor-services', {
+    return Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(queryParameters: {
       'subCategory': subCategory,
       'page': '1',
       'limit': '$limit',
@@ -3620,10 +3592,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return "Select Location";
   }
 }
-
 /// Sentinel row that clears the city filter and shows results from everywhere.
 const String _kAllCitiesOption = 'All cities (India)';
-
 // Simple SearchDelegate for city selection
 class _CitySearchDelegate extends SearchDelegate<String> {
   final List<String> cities;
@@ -3761,7 +3731,6 @@ class _CitySearchDelegate extends SearchDelegate<String> {
   @override
   Widget buildSuggestions(BuildContext context) => _buildList(context);
 }
-
 // Placeholder VendorCategory model - replace with your actual model
 class VendorCategory {
   final String name;
@@ -3942,7 +3911,10 @@ class _BottomBarsState extends State<BottomBars> {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
+          // The centre item is the tallest: 42 (raised circle) + 3 + label +
+          // 3 + 2.5 (indicator). At the default text scale that comes to
+          // 64.5, so 64 overflowed by half a pixel — 70 leaves headroom.
+          height: 70,
           child: Row(
             children: List.generate(_navItems.length, (index) {
               final item = _navItems[index];
@@ -4002,20 +3974,24 @@ class _BottomBarsState extends State<BottomBars> {
                             ),
                           ),
                         const SizedBox(height: 3),
-                        AnimatedDefaultTextStyle(
-                          duration: AppMotion.fast,
-                          style: AppText.caption.copyWith(
-                            fontSize: 10.5,
-                            color: selected
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.66),
-                            fontWeight:
-                                selected ? FontWeight.w600 : FontWeight.w400,
-                          ),
-                          child: Text(
-                            item.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        // Flexible so a large system text scale shrinks the
+                        // label instead of overflowing the bar.
+                        Flexible(
+                          child: AnimatedDefaultTextStyle(
+                            duration: AppMotion.fast,
+                            style: AppText.caption.copyWith(
+                              fontSize: 10.5,
+                              color: selected
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.66),
+                              fontWeight:
+                                  selected ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                            child: Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                         // Active indicator

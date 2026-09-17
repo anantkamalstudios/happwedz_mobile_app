@@ -13,8 +13,11 @@ class HoneymoonConfig {
   // API
   // ---------------------------------------------------------------------------
 
-  /// Matches the web client's `VITE_API_URL` default.
-  static const String apiBase = 'https://happywedz.com/api';
+  /// The web client's `VITE_API_URL` fallback is stale (`happywedz.com/api`
+  /// now serves the SPA shell, not JSON — confirmed live, same issue fixed
+  /// in [ApiConfig]). The backend was consolidated onto `api.happywedz.com`
+  /// with no `/api` prefix; confirmed live against `/tj/meta/locations`.
+  static const String apiBase = 'https://api.happywedz.com';
 
   /// SharedPreferences key the rest of the app already stores the JWT under.
   static const String authTokenKey = 'auth_token';
@@ -69,3 +72,86 @@ class HoneymoonStat {
   final String value;
   final String label;
 }
+
+/// A cabin the supplier prices separately. The wire value is the label
+/// upper-cased with spaces replaced by underscores, which is what
+/// `searchQuery.cabinClass` expects.
+enum CabinClass { economy, premiumEconomy, business, first }
+
+extension CabinClassInfo on CabinClass {
+  String get label => switch (this) {
+    CabinClass.economy => 'Economy',
+    CabinClass.premiumEconomy => 'Premium Economy',
+    CabinClass.business => 'Business',
+    CabinClass.first => 'First',
+  };
+
+  String get apiValue => label.toUpperCase().replaceAll(' ', '_');
+}
+
+/// TripJack's `pft` search modifier. Student and senior fares carry different
+/// baggage and cancellation terms, so they are a search input rather than a
+/// filter over regular results.
+enum FareType { regular, student, seniorCitizen }
+
+extension FareTypeInfo on FareType {
+  String get label => switch (this) {
+    FareType.regular => 'Regular',
+    FareType.student => 'Student',
+    FareType.seniorCitizen => 'Senior Citizen',
+  };
+
+  String get apiValue => switch (this) {
+    FareType.regular => 'REGULAR',
+    FareType.student => 'STUDENT',
+    FareType.seniorCitizen => 'SENIOR_CITIZEN',
+  };
+
+  /// What the airline will ask for at check-in, shown beside the option so the
+  /// traveller does not pick a fare they cannot produce documents for.
+  String? get note => switch (this) {
+    FareType.regular => null,
+    FareType.student =>
+      'Valid student ID required at check-in. Extra baggage on some airlines.',
+    FareType.seniorCitizen =>
+      'For travellers aged 60+. Photo ID required at check-in.',
+  };
+}
+
+/// Airlines offered by the Preferred Airline picker.
+///
+/// The TripJack search API has no "list airlines" endpoint — `preferredAirline`
+/// is only a filter field — so this list is static, exactly as the web client
+/// and TripJack's own portal hardcode it.
+class AirlineOption {
+  const AirlineOption(this.code, this.name);
+
+  final String code;
+  final String name;
+}
+
+const List<AirlineOption> kPreferredAirlines = [
+  AirlineOption('6E', 'IndiGo'),
+  AirlineOption('SG', 'SpiceJet'),
+  AirlineOption('AI', 'Air India'),
+  AirlineOption('QP', 'Akasa Air'),
+  AirlineOption('IX', 'AI Express'),
+  AirlineOption('EK', 'Emirates'),
+  AirlineOption('EY', 'Etihad Airways'),
+  AirlineOption('SQ', 'Singapore Airlines'),
+  AirlineOption('QR', 'Qatar Airways'),
+  AirlineOption('TK', 'Turkish Airlines'),
+  AirlineOption('LH', 'Lufthansa'),
+  AirlineOption('BA', 'British Airways'),
+  AirlineOption('CX', 'Cathay Pacific'),
+  AirlineOption('TG', 'Thai Airways'),
+  AirlineOption('MH', 'Malaysia Airlines'),
+  AirlineOption('UL', 'SriLankan Airlines'),
+  AirlineOption('WY', 'Oman Air'),
+  AirlineOption('SV', 'Saudia'),
+  AirlineOption('G9', 'Air Arabia'),
+  AirlineOption('FZ', 'Flydubai'),
+];
+
+/// The supplier caps `preferredAirline` at ten entries.
+const int kMaxPreferredAirlines = 10;

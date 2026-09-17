@@ -18,18 +18,34 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../authservice.dart';
 import '../honeymoon_config.dart';
+import '../models/addon_models.dart';
 import '../models/booking_models.dart';
 import '../models/honeymoon_models.dart';
 
 /// A failure the UI can render without leaking internals.
 class HoneymoonApiException implements Exception {
-  HoneymoonApiException(this.message, {this.statusCode});
+  HoneymoonApiException(this.message, {this.statusCode}) {
+    // AUDIT FIX: `isUnauthorized` was defined but never read anywhere in the
+    // app, so an expired/invalid token surfaced only as an inline error
+    // message on whatever screen made the call — the user was never actually
+    // signed out or returned to the login screen. Firing sign-out here, at
+    // the one place every honeymoon API failure already flows through, makes
+    // an expired session behave the same way everywhere in this module
+    // without having to touch each of the ~30 call sites individually.
+    if (isUnauthorized) {
+      // ignore: discarded_futures
+      AuthSession.instance.signOut();
+    }
+  }
 
   final String message;
   final int? statusCode;
@@ -194,6 +210,57 @@ class HoneymoonApi {
     'POST $path',
     auth: auth,
   );
+
+  /// Fetches a binary document (PDF voucher, receipt, policy) and saves it to
+  /// a temporary file, returning the path.
+  ///
+  /// These endpoints answer with `application/pdf` on success but with a JSON
+  /// error body on failure, so the content type decides which it is — parsing
+  /// the bytes as a PDF regardless would save an error message as a .pdf and
+  /// hand the user a file that will not open.
+  Future<String> _download(String path, String filename) async {
+    late final http.Response res;
+    try {
+      final headers = await _headers();
+      headers['Accept'] = 'application/pdf';
+      res = await _client
+          .get(_uri(path), headers: headers)
+          .timeout(HoneymoonConfig.requestTimeout);
+    } on TimeoutException {
+      throw HoneymoonApiException(
+        'That took too long. Please check your connection and try again.',
+      );
+    } catch (e) {
+      debugPrint('[HoneymoonApi] GET $path transport error: $e');
+      throw HoneymoonApiException(
+        "We couldn't reach our travel partner. Please check your connection.",
+      );
+    }
+
+    final contentType = res.headers['content-type'] ?? '';
+    if (res.statusCode < 200 ||
+        res.statusCode >= 300 ||
+        !contentType.contains('pdf')) {
+      throw HoneymoonApiException(
+        _extractMessage(res.body).isNotEmpty
+            ? _extractMessage(res.body)
+            : _messageForStatus(res.statusCode, res.body),
+        statusCode: res.statusCode,
+      );
+    }
+
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(res.bodyBytes, flush: true);
+      return file.path;
+    } catch (e) {
+      debugPrint('[HoneymoonApi] could not save $filename: $e');
+      throw HoneymoonApiException(
+        "The document downloaded but couldn't be saved to this device.",
+      );
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Destinations — hotelApi.js
@@ -395,6 +462,8 @@ class HoneymoonApi {
     int infants = 0,
     String cabinClass = 'ECONOMY',
     bool directOnly = false,
+    String paxType = 'REGULAR',
+    List<String> preferredAirlines = const [],
   }) async {
     final routeInfos = <Map<String, dynamic>>[
       {
@@ -421,13 +490,74 @@ class HoneymoonApi {
       'searchModifiers': {
         'isDirectFlight': directOnly,
         'isConnectingFlight': !directOnly,
+        // TripJack puts the fare type inside searchModifiers, not at the root,
+        // and only when it is not the default. REGULAR / STUDENT / SENIOR_CITIZEN.
+        if (paxType.isNotEmpty && paxType.toUpperCase() != 'REGULAR')
+          'pft': paxType.toUpperCase(),
       },
     };
+
+    // `preferredAirline` is an array of { code }, capped at 10 by the supplier.
+    final airlineCodes = preferredAirlines
+        .map((c) => c.trim().toUpperCase())
+        .where((c) => c.isNotEmpty)
+        .take(10)
+        .map((code) => {'code': code})
+        .toList();
+    if (airlineCodes.isNotEmpty) {
+      searchQuery['preferredAirline'] = airlineCodes;
+    }
 
     final json = await _post('tj/fms/search', {'searchQuery': searchQuery});
     _throwIfHandledFailure(json, 'Flight search is unavailable right now.');
     return _extractFlights(json);
   }
+
+  /// `POST tj/fms/search` for a multi-city itinerary.
+  ///
+  /// Same endpoint as a one-way or return search — the only difference is that
+  /// `routeInfos` carries one entry per leg. The supplier always treats these
+  /// as connecting rather than direct, which is what the web client sends too.
+  Future<MultiCitySearchResult> searchMultiCityFlights({
+    required List<FlightLeg> legs,
+    int adults = 1,
+    int children = 0,
+    int infants = 0,
+    String cabinClass = 'ECONOMY',
+    String paxType = 'REGULAR',
+    List<String> preferredAirlines = const [],
+  }) async {
+    final searchQuery = <String, dynamic>{
+      'cabinClass': cabinClass.toUpperCase().replaceAll(RegExp(r'\s+'), '_'),
+      'paxInfo': {
+        'ADULT': '$adults',
+        'CHILD': '$children',
+        'INFANT': '$infants',
+      },
+      'routeInfos': [for (final leg in legs) leg.toRouteInfo(_apiDate)],
+      'searchModifiers': {
+        'isDirectFlight': false,
+        'isConnectingFlight': true,
+        if (paxType.isNotEmpty && paxType.toUpperCase() != 'REGULAR')
+          'pft': paxType.toUpperCase(),
+      },
+    };
+
+    final airlineCodes = preferredAirlines
+        .map((c) => c.trim().toUpperCase())
+        .where((c) => c.isNotEmpty)
+        .take(10)
+        .map((code) => {'code': code})
+        .toList();
+    if (airlineCodes.isNotEmpty) {
+      searchQuery['preferredAirline'] = airlineCodes;
+    }
+
+    final json = await _post('tj/fms/search', {'searchQuery': searchQuery});
+    _throwIfHandledFailure(json, 'Flight search is unavailable right now.');
+    return MultiCitySearchResult.fromJson(json, legs.length);
+  }
+
 
   /// TripJack groups trips under `searchResult.tripInfos.{ONWARD, RETURN}`.
   ///
@@ -600,6 +730,50 @@ class HoneymoonApi {
       );
     }
     return review;
+  }
+
+  /// `POST tj/fms/seat` — the seat map for a priced itinerary, keyed by
+  /// segment id.
+  ///
+  /// Seat selection is a convenience, never a blocker: a supplier that cannot
+  /// serve a map (or an aircraft with no seat data) comes back as an empty
+  /// map with [SeatMapResult.error] set, so the add-on step can say why
+  /// instead of failing the booking.
+  Future<SeatMapResult> fetchSeatMap(String bookingId) async {
+    if (bookingId.isEmpty) {
+      return const SeatMapResult(
+        error: 'Seat selection is not available for this flight.',
+      );
+    }
+    try {
+      final json = asJsonMap(await _post('tj/fms/seat', {
+        'bookingId': bookingId,
+      }));
+      if (digPath(json, ['status', 'success']) != true) {
+        final errors = asList(readKey(json, 'errors'));
+        final message = errors.isEmpty
+            ? null
+            : asString(readKey(errors.first, 'message'));
+        return SeatMapResult(
+          error: message == null || message.isEmpty
+              ? 'Seat selection is not available for this flight.'
+              : message,
+        );
+      }
+      return SeatMapResult.fromJson(
+        asJsonMap(digPath(json, ['tripSeatMap', 'tripSeat'])),
+      );
+    } catch (e) {
+      debugPrint('Seat map failed: $e');
+      return const SeatMapResult(error: 'Could not load the seat map.');
+    }
+  }
+
+  /// `POST tj/fms/farerule` — the cancellation and change rules behind a fare.
+  Future<Map<String, dynamic>> fetchFareRule(String id, String flowType) async {
+    return asJsonMap(
+      await _post('tj/fms/farerule', {'id': id, 'flowType': flowType}),
+    );
   }
 
   /// `GET Flight_booking/travellers` — people this account has booked for
@@ -1170,6 +1344,142 @@ class HoneymoonApi {
 
   static Object? _nameOf(dynamic v) =>
       v is Map ? (v['name'] ?? v['countryName'] ?? v['label']) : null;
+
+  // ---------------------------------------------------------------------------
+  // Documents and post-booking actions
+  //
+  // These complete the set the web client exposes but the app had not yet
+  // reached: hotel vouchers and receipts, the insurance policy PDF, the
+  // insurance cancellation pair, and the two lookups the web booking screens
+  // use to fill in payment details.
+  // ---------------------------------------------------------------------------
+
+  /// `GET hotels/:bookingId/voucher` — the stay voucher, saved to a temp file.
+  Future<String> downloadHotelVoucher(String bookingId) => _download(
+    'hotels/${Uri.encodeComponent(bookingId)}/voucher',
+    'hotel-voucher-$bookingId.pdf',
+  );
+
+  /// `GET hotels/:bookingId/receipt` — the payment receipt.
+  Future<String> downloadHotelReceipt(String bookingId) => _download(
+    'hotels/${Uri.encodeComponent(bookingId)}/receipt',
+    'hotel-receipt-$bookingId.pdf',
+  );
+
+  /// `GET insurance_payment/policy/:bookingId` — the issued policy document.
+  Future<String> downloadInsurancePolicy(String bookingId) => _download(
+    'insurance_payment/policy/${Uri.encodeComponent(bookingId)}',
+    'insurance-policy-$bookingId.pdf',
+  );
+
+  /// `POST hotels/recent-bookings` — the few most recent stays, for the
+  /// landing screen's "Recent bookings" strip.
+  Future<List<TravelBooking>> fetchRecentHotelBookings({int limit = 3}) async {
+    final json = await _post('hotels/recent-bookings', {'limit': limit});
+    return _unwrapList(json, const ['bookings', 'data', 'results'])
+        .map(TravelBooking.fromHotelRow)
+        .where((b) => b.reference.isNotEmpty)
+        .toList();
+  }
+
+  /// `GET tj/booking-record/:orderId` — our own record for a flight booking
+  /// (booking date and the Razorpay payment), which the supplier's
+  /// booking-details response does not carry.
+  Future<Map<String, dynamic>> fetchFlightBookingRecord(String orderId) async {
+    final json = await _get(
+      'tj/booking-record/${Uri.encodeComponent(orderId)}',
+    );
+    final data = _digDynamic(json, ['data']);
+    return asJsonMap(data ?? json);
+  }
+
+  /// `GET tripjack-cabs/payment/summary/:bookingId` — the amount actually due.
+  /// For a round trip the summary also carries the paired booking ids.
+  Future<Map<String, dynamic>> fetchCabPaymentSummary(String bookingId) async {
+    final json = await _get(
+      'tripjack-cabs/payment/summary/${Uri.encodeComponent(bookingId)}',
+    );
+    return asJsonMap(_digDynamic(json, ['data']) ?? json);
+  }
+
+  /// The `travellerKeys` block both insurance amendment calls expect:
+  /// `{ <planId>: { <productId>: [{ id }] } }`.
+  ///
+  /// Passing no ids cancels the whole policy; passing a subset cancels only
+  /// those travellers.
+  static Map<String, dynamic> buildInsuranceCancellationPayload({
+    required String bookingId,
+    required String planId,
+    required String productId,
+    required List<String> travellerIds,
+  }) => <String, dynamic>{
+    'bookingId': bookingId,
+    'type': 'CANCELLATION',
+    'travellerKeys': {
+      planId: {
+        productId: [
+          for (final id in travellerIds) {'id': int.tryParse(id) ?? id},
+        ],
+      },
+    },
+  };
+
+  /// `POST tripsafe/amendment/raise` — step one of cancelling a policy.
+  /// Returns the `amendmentId` the confirm step needs.
+  ///
+  /// Like the rest of tripsafe, this is called without an Authorization header
+  /// to match the web client's bare-axios calls.
+  Future<String> raiseInsuranceCancellation(
+    Map<String, dynamic> payload,
+  ) async {
+    final json = await _post(
+      'tripsafe/amendment/raise',
+      payload,
+      auth: false,
+    );
+    _assertTripSafeOk(json, 'Failed to raise cancellation');
+
+    final id = firstNonEmpty([
+      _digDynamic(json, ['data', 'amendmentId']),
+      _digDynamic(json, ['data', 'amendment', 'amendmentId']),
+      _digDynamic(json, ['data', 'amendment', 'id']),
+      _digDynamic(json, ['amendmentId']),
+    ]);
+    if (id.isEmpty) {
+      throw HoneymoonApiException(
+        'The insurer did not return a cancellation reference. Please try again.',
+      );
+    }
+    return id;
+  }
+
+  /// `POST tripsafe/amendment/confirm-cancellation` — step two, which actually
+  /// cancels. [amendmentId] comes from [raiseInsuranceCancellation].
+  Future<Map<String, dynamic>> confirmInsuranceCancellation({
+    required Map<String, dynamic> payload,
+    required String amendmentId,
+  }) async {
+    final json = await _post('tripsafe/amendment/confirm-cancellation', {
+      ...payload,
+      'amendmentId': amendmentId,
+    }, auth: false);
+    _assertTripSafeOk(json, 'Failed to confirm cancellation');
+    return asJsonMap(_digDynamic(json, ['data']) ?? json);
+  }
+
+  /// The tripsafe endpoints report failure as HTTP 200 with `status: false`,
+  /// so a non-throwing response still has to be checked or the caller reads a
+  /// refusal as success.
+  static void _assertTripSafeOk(dynamic json, String fallback) {
+    final ok = _digDynamic(json, ['status']) ?? _digDynamic(json, ['success']);
+    if (ok == false) {
+      final message = firstNonEmpty([
+        _digDynamic(json, ['message']),
+        _digDynamic(json, ['details', 'message']),
+      ], fallback: fallback);
+      throw HoneymoonApiException(message);
+    }
+  }
 
   void dispose() => _client.close();
 }

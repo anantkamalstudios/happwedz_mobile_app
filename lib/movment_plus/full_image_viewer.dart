@@ -10,26 +10,42 @@ class FullImageViewer extends StatelessWidget {
 
   const FullImageViewer({super.key, required this.imageUrl});
 
+  /// App-private folder to save into. `getExternalStorageDirectory` is
+  /// Android-only — on iOS it throws, so fall back to the documents
+  /// directory there (and on any Android device that reports no external
+  /// storage).
+  Future<Directory> _saveDirectory() async {
+    Directory? base;
+    if (Platform.isAndroid) {
+      base = await getExternalStorageDirectory();
+    }
+    base ??= await getApplicationDocumentsDirectory();
+
+    final dir = Directory("${base.path}/HappyWedz");
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
   Future<void> _downloadImage(BuildContext context) async {
     try {
-      final dir = await getExternalStorageDirectory();
-      final downloadDir = Directory("${dir!.path}/HappyWedz");
-
-      if (!await downloadDir.exists()) {
-        await downloadDir.create(recursive: true);
-      }
+      final downloadDir = await _saveDirectory();
 
       final filePath =
           "${downloadDir.path}/img_${DateTime.now().millisecondsSinceEpoch}.jpg";
 
       await Dio().download(imageUrl, filePath);
 
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Image saved inside app storage"),
         ),
       );
     } catch (e) {
+      debugPrint("Image download failed: $e");
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Download failed")),
       );

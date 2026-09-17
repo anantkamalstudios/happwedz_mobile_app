@@ -6,9 +6,13 @@ import '../core/core.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'custome_theme.dart';
+import 'moment_my_photos_screen.dart';
+import 'movment_plus_api.dart';
 
 class MomentPrivacyDialog extends StatelessWidget {
-  const MomentPrivacyDialog({super.key});
+  const MomentPrivacyDialog({super.key, required this.token});
+
+  final String token;
 
   static const Color primary = Color(0xFFC31162);
 
@@ -139,7 +143,7 @@ class MomentPrivacyDialog extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const MomentFindPhotos(),
+                          builder: (_) => MomentFindPhotos(token: token),
                         ),
                       );
                     },
@@ -189,7 +193,9 @@ class MomentPrivacyDialog extends StatelessWidget {
 /// FIND PHOTOS
 /// =======================================================
 class MomentFindPhotos extends StatelessWidget {
-  const MomentFindPhotos({super.key});
+  const MomentFindPhotos({super.key, required this.token});
+
+  final String token;
 
   @override
   Widget build(BuildContext context) {
@@ -200,10 +206,10 @@ class MomentFindPhotos extends StatelessWidget {
       buttons: [
         _actionBtn(context, "Selfie Mode",
                 () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const MomentCaptureSelfie()))),
+                MaterialPageRoute(builder: (_) => MomentCaptureSelfie(token: token)))),
         _actionBtn(context, "Upload Photo",
                 () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const MomentUploadSelfie()))),
+                MaterialPageRoute(builder: (_) => MomentUploadSelfie(token: token)))),
       ],
     );
   }
@@ -213,7 +219,9 @@ class MomentFindPhotos extends StatelessWidget {
 /// CAPTURE SELFIE
 /// =======================================================
 class MomentCaptureSelfie extends StatelessWidget {
-  const MomentCaptureSelfie({super.key});
+  const MomentCaptureSelfie({super.key, required this.token});
+
+  final String token;
 
   Future<void> _takeSelfie(BuildContext context) async {
     try {
@@ -226,26 +234,11 @@ class MomentCaptureSelfie extends StatelessWidget {
       );
 
       if (image == null) return;
+      if (!context.mounted) return;
 
-      final File selfieFile = File(image.path);
-
-      // 🔹 Temporary preview (replace with upload / save logic)
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text("Selfie Preview"),
-          content: Image.file(selfieFile),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            )
-          ],
-        ),
-      );
-
+      await _uploadAndFindPhotos(context, File(image.path), token);
     } catch (e) {
-      AppSnackbar.info(context, "Unable to open camera");
+      if (context.mounted) AppSnackbar.info(context, "Unable to open camera");
     }
   }
 
@@ -275,6 +268,7 @@ final ImagePicker _picker = ImagePicker();
 Future<void> pickSelfie({
   required BuildContext context,
   required ImageSource source,
+  required String token,
 }) async {
   try {
     final XFile? image = await _picker.pickImage(
@@ -284,24 +278,50 @@ Future<void> pickSelfie({
     );
 
     if (image == null) return;
+    if (!context.mounted) return;
 
-    File file = File(image.path);
-
-    // 🔹 For now just preview
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        content: Image.file(file),
-      ),
-    );
-
-    // TODO: upload / save / pass to next screen
+    await _uploadAndFindPhotos(context, File(image.path), token);
   } catch (e) {
-    AppSnackbar.info(context, "Failed to pick image");
+    if (context.mounted) AppSnackbar.info(context, "Failed to pick image");
   }
 }
+
+/// Shared by both capture paths (camera / gallery picker): submits the
+/// selfie to the AI service, then hands off to [MomentMyPhotos] to poll for
+/// matches — matching itself is a separate, much slower call
+/// (`MovmentPlusApi.getMyPhotos`), so this only waits on the upload.
+Future<void> _uploadAndFindPhotos(
+  BuildContext context,
+  File selfieFile,
+  String token,
+) async {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Center(
+      child: CircularProgressIndicator(color: MpTheme.primaryColor),
+    ),
+  );
+
+  try {
+    await MovmentPlusApi.uploadSelfie(token: token, file: selfieFile);
+    if (!context.mounted) return;
+    Navigator.pop(context); // close the loading dialog
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => MomentMyPhotos(token: token)),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    Navigator.pop(context); // close the loading dialog
+    AppSnackbar.info(context, e.toString());
+  }
+}
+
 class MomentUploadSelfie extends StatelessWidget {
-  const MomentUploadSelfie({super.key});
+  const MomentUploadSelfie({super.key, required this.token});
+
+  final String token;
 
   @override
   Widget build(BuildContext context) {
@@ -317,6 +337,7 @@ class MomentUploadSelfie extends StatelessWidget {
             pickSelfie(
               context: context,
               source: ImageSource.gallery,
+              token: token,
             );
           },
         ),
