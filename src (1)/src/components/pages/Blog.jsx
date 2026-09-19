@@ -4,6 +4,12 @@ import BlogLists from "./BlogLists";
 import BlogDetails from "./BlogDetails";
 import { useLoader } from "../context/LoaderContext";
 import SEO from "../common/SEO";
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../../config/constants";
+
+const IMAGE_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const Blog = () => {
   const { blogId } = useParams();
@@ -33,7 +39,7 @@ const Blog = () => {
       (async () => {
         try {
           const res = await fetch(
-            `https://happywedz.com/api/blogs/all?categoryId=${cId}&type=${t}&limit=10`
+            `${API_BASE_URL}/blogs/all?categoryId=${cId}&type=${t}&limit=10`
           );
           const json = await res.json();
           setFilteredBlogs(Array.isArray(json.data) ? json.data : []);
@@ -81,14 +87,14 @@ const Blog = () => {
                           typeof b.image === "string"
                             ? b.image.startsWith("http")
                               ? b.image
-                              : `https://happywedzbackend.happywedz.com/${b.image.replace(
+                              : `${IMAGE_BASE_URL}/${b.image.replace(
                                   /^\/+/,
                                   ""
                                 )}`
                             : Array.isArray(b.image)
                             ? b.image[0].startsWith("http")
                               ? b.image[0]
-                              : `https://happywedzbackend.happywedz.com/${b.image[0].replace(
+                              : `${IMAGE_BASE_URL}/${b.image[0].replace(
                                   /^\/+/,
                                   ""
                                 )}`

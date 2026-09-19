@@ -1,8 +1,9 @@
 // Photography API service
 import axios from "axios";
+import { API_BASE_URL } from "../../config/constants";
 
 const getBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL || "https://happywedz.com/api";
+  const envUrl = API_BASE_URL;
   if (envUrl.includes("localhost")) {
     return envUrl.replace(/\/api$/, "");
   }

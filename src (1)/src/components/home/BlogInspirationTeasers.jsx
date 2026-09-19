@@ -7,6 +7,7 @@ import axios from "axios";
 import { FiArrowUpRight } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import { formatDate } from "../../utils/dateFormat";
+import { API_BASE_URL, resolveMediaUrl } from "../../config/constants";
 
 const BlogsCarousel = () => {
   const [blogs, setBlogs] = useState([]);
@@ -17,16 +18,14 @@ const BlogsCarousel = () => {
   useEffect(() => {
     const fetchBlogs = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || "https://happywedz.com/api";
-        const response = await fetch(`${apiBase}/blogs/all`);
+        const response = await fetch(`${API_BASE_URL}/blogs/all`);
         const result = await response.json();
 
         // Map API fields to component fields
         const mappedBlogs = result.data.map((blog) => {
-          const cleanedImageUrl = blog.image.replace(
-            "https://happywedz.com:4000",
-            "https://happywedzbackend.happywedz.com/"
-          );
+          // Blog media has been on S3 for a while, but older rows still carry
+          // the retired shared origin.
+          const cleanedImageUrl = resolveMediaUrl(blog.image);
 
           return {
             id: blog.id,

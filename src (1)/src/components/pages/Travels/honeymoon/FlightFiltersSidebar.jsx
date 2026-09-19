@@ -4,6 +4,14 @@ import AppliedFilters from './components/AppliedFilters';
 import { WiMoonAltNew } from 'react-icons/wi';
 import { TbSunrise, TbSun, TbSunset2 } from 'react-icons/tb';
 import { formatMinutes, TIME_OPTIONS, parseKey } from '../../../../utils/flightFilters';
+import { airlineLogo } from '../../../../utils/airlineLogo';
+
+// A popular chip from the return leg's facets targets the return-leg key.
+const RETURN_KEY = {
+  stops: 'stops_return',
+  departure_time: 'departure_return_time',
+  airlines: 'airlines_return',
+};
 
 const TIME_SLOTS = [
   { value: '00-06', label: '00-06', icon: WiMoonAltNew },
@@ -14,6 +22,9 @@ const TIME_SLOTS = [
 
 export default function FlightFiltersSidebar({
   filtersMeta,
+  returnFiltersMeta,
+  specialReturnOptions = [],
+  onSpecialReturnPick,
   filters,
   onFilterChange,
   onClearFilters,
@@ -25,7 +36,10 @@ export default function FlightFiltersSidebar({
 }) {
   const [expanded, setExpanded] = useState({
     popularFilters: true,
+    popularOnward: true,
+    popularReturn: true,
     stops: true,
+    specialReturn: true,
     departureFrom: true,
     arrivalFrom: true,
     departureReturn: true,
@@ -42,6 +56,9 @@ export default function FlightFiltersSidebar({
     layoverDuration: false,
   });
   const [airlineQuery, setAirlineQuery] = useState('');
+  // Which leg the Stops / Airlines sections are editing on a round trip.
+  const [stopsLeg, setStopsLeg] = useState('onward');
+  const [airlinesLeg, setAirlinesLeg] = useState('onward');
   const [timeframeOpen, setTimeframeOpen] = useState({ departure: false, arrival: false });
   // The price range is a draft until Apply is pressed, so dragging a handle or
   // typing a bound does not re-filter the list on every keystroke.
@@ -79,6 +96,47 @@ export default function FlightFiltersSidebar({
   const fromCity = filtersMeta?.fromCity || searchParams?.from || 'Origin';
   const toCity = filtersMeta?.toCity || searchParams?.to || 'Destination';
   const isRoundTrip = searchParams?.tripType === 'round';
+  const stopsKey = isRoundTrip && stopsLeg === 'return' ? 'stops_return' : 'stops';
+  const airlinesKey = isRoundTrip && airlinesLeg === 'return' ? 'airlines_return' : 'airlines';
+  const airlinesMeta = airlinesKey === 'airlines_return' ? returnFiltersMeta : filtersMeta;
+
+  // "PNQ-BOM | BOM-PNQ" switch above a per-leg section, as on the portal.
+  const LegTabs = ({ value, onChange }) => {
+    if (!isRoundTrip) return null;
+    const from = searchParams?.from || '';
+    const to = searchParams?.to || '';
+    return (
+      <div className="rt-leg-tabs">
+        {[['onward', `${from}-${to}`], ['return', `${to}-${from}`]].map(([leg, label]) => (
+          <button
+            key={leg}
+            type="button"
+            className={`rt-leg-tab ${value === leg ? 'is-active' : ''}`}
+            onClick={() => onChange(leg)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const PopularChips = ({ meta, leg }) => (
+    <div className="tj-route-pills">
+      {(meta?.popular || []).map((chip) => {
+        const key = leg === 'return' ? RETURN_KEY[chip.key] || chip.key : chip.key;
+        return (
+          <div
+            key={`${key}-${chip.value}`}
+            className={`tj-route-pill ${isActive(key, chip.value) ? 'active' : ''}`}
+            onClick={() => onFilterChange(key, chip.value)}
+          >
+            {chip.label}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const Header = ({ id, title, clearKey, alwaysOpen = false }) => (
     <div className="tj-filter-section-header" onClick={() => !alwaysOpen && toggle(id)}>
@@ -312,7 +370,23 @@ export default function FlightFiltersSidebar({
 
       <div className="tj-filter-section">
         <Header id="popularFilters" title="Popular Filters" />
-        {expanded.popularFilters && (
+        {expanded.popularFilters && isRoundTrip && (
+          <div className="tj-filter-section-body">
+            {[
+              ['popularOnward', 'Onward', filtersMeta, 'onward'],
+              ['popularReturn', 'Return', returnFiltersMeta, 'return'],
+            ].map(([id, title, meta, leg]) => (
+              <div key={id} className="rt-popular-leg">
+                <div className="rt-subsection-header" onClick={() => toggle(id)}>
+                  <span>{title}</span>
+                  {expanded[id] ? <Minus size={14} /> : <Plus size={14} />}
+                </div>
+                {expanded[id] && <PopularChips meta={meta} leg={leg} />}
+              </div>
+            ))}
+          </div>
+        )}
+        {expanded.popularFilters && !isRoundTrip && (
           <div className="tj-filter-section-body">
             <div className="tj-route-pills">
               {(filtersMeta?.popular || []).map((chip) => (
@@ -333,16 +407,17 @@ export default function FlightFiltersSidebar({
       </div>
 
       <div className="tj-filter-section">
-        <Header id="stops" title="Stops" clearKey="stops" />
+        <Header id="stops" title="Stops" clearKey={stopsKey} />
         {expanded.stops && (
           <div className="tj-filter-section-body">
+            <LegTabs value={stopsLeg} onChange={setStopsLeg} />
             <div className="tj-stop-pills">
               {[0, 1, 2, 3].map((stop) => {
                 return (
                   <div
                     key={stop}
-                    className={`tj-stop-pill ${filters.stops.includes(stop) ? 'active' : ''}`}
-                    onClick={() => onFilterChange('stops', stop)}
+                    className={`tj-stop-pill ${(filters[stopsKey] || []).includes(stop) ? 'active' : ''}`}
+                    onClick={() => onFilterChange(stopsKey, stop)}
                   >
                     <div className="tj-stop-pill-label">{stop === 3 ? '3+' : stop}</div>
                   </div>
@@ -352,6 +427,32 @@ export default function FlightFiltersSidebar({
           </div>
         )}
       </div>
+
+      {isRoundTrip && specialReturnOptions.length > 0 && (
+        <div className="tj-filter-section">
+          <Header id="specialReturn" title="Return Special" clearKey="specialReturn" />
+          {expanded.specialReturn && (
+            <div className="tj-filter-section-body">
+              <div className="rt-special-tiles">
+                {specialReturnOptions.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    className={`rt-special-tile ${isActive('specialReturn', option.code) ? 'is-active' : ''}`}
+                    onClick={() => onSpecialReturnPick?.(option)}
+                    title={`${option.name} Special Return`}
+                  >
+                    <img src={airlineLogo(option.code)} alt={option.name} className="rt-special-logo" />
+                    <span className="rt-special-price">
+                      ₹{Number(option.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="tj-filter-section">
         <Header id="departureFrom" title={`Departure From ${fromCity}`} clearKey="departure_time" />
@@ -461,9 +562,10 @@ export default function FlightFiltersSidebar({
 
       {filtersMeta?.airlines?.length > 0 && (
         <div className="tj-filter-section">
-          <Header id="airlines" title="Airlines" clearKey="airlines" />
+          <Header id="airlines" title="Airlines" clearKey={airlinesKey} />
           {expanded.airlines && (
             <div className="tj-filter-section-body">
+              <LegTabs value={airlinesLeg} onChange={setAirlinesLeg} />
               <div className="tj-facet-search-wrap">
                 <Search size={13} className="tj-facet-search-icon" />
                 <input
@@ -475,13 +577,13 @@ export default function FlightFiltersSidebar({
                 />
               </div>
               <div className="tj-facet-list">
-                {filtersMeta.airlines
+                {(airlinesMeta?.airlines || [])
                   .filter((a) => !airlineQuery ||
                     `${a.name} ${a.code}`.toLowerCase().includes(airlineQuery.toLowerCase()))
                   .map((airline) => (
                     <CheckRow key={airline.code}
-                      checked={filters.airlines.includes(airline.code)}
-                      onChange={() => onFilterChange('airlines', airline.code)}
+                      checked={(filters[airlinesKey] || []).includes(airline.code)}
+                      onChange={() => onFilterChange(airlinesKey, airline.code)}
                       label={airline.name} count={airline.count} price={airline.min_price} />
                   ))}
               </div>

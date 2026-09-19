@@ -6,7 +6,6 @@ import {
   FiCheckCircle,
   FiMessageSquare,
   FiCornerUpLeft,
-  FiTrash2,
   FiEdit3,
   FiCalendar,
   FiUser,
@@ -141,24 +140,6 @@ const ReviewsPage = () => {
           rev.id === reviewId ? { ...rev, reply: replyText } : rev
         )
       );
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleDelete = async (reviewId) => {
-    if (!window.confirm("Are you sure you want to delete this review?")) {
-      return;
-    }
-
-    try {
-      await axiosInstance.delete(`/reviews/${reviewId}`, {
-        headers: {
-          Authorization: `Bearer ${vendorToken}`,
-        },
-      });
-
-      setReviews((prev) => prev.filter((rev) => rev.id !== reviewId));
     } catch (err) {
       setError(err.message);
     }
@@ -408,7 +389,6 @@ const ReviewsPage = () => {
                         review={review}
                         renderStars={renderStars}
                         onReplySubmit={handleReplySubmit}
-                        onDelete={handleDelete}
                       />
                     ))}
                   </div>
@@ -422,7 +402,7 @@ const ReviewsPage = () => {
   );
 };
 
-const ReviewItem = ({ review, renderStars, onReplySubmit, onDelete }) => {
+const ReviewItem = ({ review, renderStars, onReplySubmit }) => {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState(review.reply || "");
 
@@ -604,6 +584,7 @@ const ReviewItem = ({ review, renderStars, onReplySubmit, onDelete }) => {
                 color: "#ed1173",
                 borderColor: "#fce7f3",
                 backgroundColor: "#fff1f6",
+                flex: "0 0 auto",
               }}
               onClick={() => {
                 setReplyText(review.reply || "");
@@ -614,20 +595,6 @@ const ReviewItem = ({ review, renderStars, onReplySubmit, onDelete }) => {
               <span>{review.reply ? "Edit Reply" : "Reply"}</span>
             </button>
           )}
-
-          <button
-            type="button"
-            className="btn btn-outline-danger btn-sm rounded-pill px-3 fs-13 d-inline-flex align-items-center gap-1"
-            style={{
-              color: "#ef4444",
-              borderColor: "#fee2e2",
-              backgroundColor: "#fef2f2",
-            }}
-            onClick={() => onDelete(review.id)}
-          >
-            <FiTrash2 size={13} />
-            <span>Delete</span>
-          </button>
         </div>
       </div>
     </div>

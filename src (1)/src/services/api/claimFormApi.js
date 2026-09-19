@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const BASE_URL = "https://happywedz.com/api";
+import { API_BASE_URL as BASE_URL } from "../../config/constants";
 
 export const fetchVendorServiceDetails = async (vendorServiceId) => {
   try {
@@ -20,11 +19,13 @@ export const fetchVendorServiceDetails = async (vendorServiceId) => {
   }
 };
 
-export const submitBusinessClaim = async (formData) => {
+export const submitBusinessClaim = async (payload) => {
   try {
-    const response = await axios.post(`${BASE_URL}/business/claims`, formData, {
+    // JSON, not multipart: the claim form no longer carries documents. Leaving the
+    // multipart header on would send a JSON body the server parses as an empty form.
+    const response = await axios.post(`${BASE_URL}/business/claims`, payload, {
       headers: {
-        "Content-Type": "multipart/form-data",
+        "Content-Type": "application/json",
       },
     });
     return {

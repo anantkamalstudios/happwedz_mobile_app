@@ -1,7 +1,6 @@
 import axios from "axios";
-
-const API_BASE_URL = "https://happywedz.com/api";
-// const API_BASE_URL = "http://localhost:4000";
+import { API_BASE_URL } from "../../config/constants";
+// const API_BASE_URL = "https://happywedz.com";
 
 const vendorServicesApi = {
   getVendorServiceById: async (id) => {
@@ -35,7 +34,7 @@ const vendorServicesApi = {
             ...vendorServicesApi.getAuthHeaders(token),
           },
           withCredentials: true,
-        }
+        },
       );
       return response.data;
     } catch (error) {
@@ -56,7 +55,7 @@ const vendorServicesApi = {
             ...vendorServicesApi.getAuthHeaders(token),
           },
           withCredentials: true,
-        }
+        },
       );
       // Extract just the ID from the response
       if (response.data && Array.isArray(response.data)) {

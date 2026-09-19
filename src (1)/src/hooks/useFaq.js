@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../config/constants";
 
 export const useFaqFrontend = (navbarId = null) => {
   const [faqs, setFaqs] = useState([]);
@@ -11,7 +12,7 @@ export const useFaqFrontend = (navbarId = null) => {
       setLoading(true);
       setError(null);
       setLoading(true);
-      const response = await axios.get("https://happywedz.com/api/faq");
+      const response = await axios.get(`${API_BASE_URL}/faq`);
       let data = response.data.faqs || [];
 
       if (navbarId) {

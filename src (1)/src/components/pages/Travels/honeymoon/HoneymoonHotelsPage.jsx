@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { API_BASE_URL } from "../../../../config/constants";
 
 const mapHotelFromApi = (hotel) => {
   const images = Array.isArray(hotel.images) ? hotel.images : [];
@@ -159,7 +160,7 @@ export default function HoneymoonHotelsPage() {
 
     let active = true;
     setLoading(true);
-    fetch("https://happywedz.com/api/manage/hotel")
+    fetch(`${API_BASE_URL}/manage/hotel`)
       .then((res) => res.json())
       .then((data) => {
         if (!active) return;

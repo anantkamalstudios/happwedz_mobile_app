@@ -163,11 +163,13 @@ class _FlightFilterSheetState extends State<_FlightFilterSheet> {
                       id: 'departureTime',
                       title: 'Departure time',
                       activeCount: _draft.departureTime.length,
-                      onClear: () => _update(_draft.clearGroup('departureTime')),
+                      onClear: () =>
+                          _update(_draft.clearGroup('departureTime')),
                       child: _slotGrid(
                         slots: f.departureSlots,
                         selected: _draft.departureTime,
-                        onTap: (v) => _update(_draft.toggle('departureTime', v)),
+                        onTap: (v) =>
+                            _update(_draft.toggle('departureTime', v)),
                       ),
                     ),
 
@@ -203,7 +205,8 @@ class _FlightFilterSheetState extends State<_FlightFilterSheet> {
                         min: f.durationMin,
                         max: f.durationMax,
                         value: _draft.durationMax,
-                        onChanged: (v) => _update(_draft.copyWith(durationMax: v)),
+                        onChanged: (v) =>
+                            _update(_draft.copyWith(durationMax: v)),
                       ),
                     ),
 
@@ -217,7 +220,8 @@ class _FlightFilterSheetState extends State<_FlightFilterSheet> {
                         min: f.layoverMin,
                         max: f.layoverMax,
                         value: _draft.layoverMax,
-                        onChanged: (v) => _update(_draft.copyWith(layoverMax: v)),
+                        onChanged: (v) =>
+                            _update(_draft.copyWith(layoverMax: v)),
                       ),
                     ),
 
@@ -449,7 +453,9 @@ class _FlightFilterSheetState extends State<_FlightFilterSheet> {
                       textCapitalization: TextCapitalization.characters,
                       onChanged: (v) => _update(
                         _draft.copyWith(
-                          flightNumbers: v.trim().isEmpty ? const [] : [v.trim()],
+                          flightNumbers: v.trim().isEmpty
+                              ? const []
+                              : [v.trim()],
                         ),
                       ),
                     ),
@@ -542,9 +548,7 @@ class _FlightFilterSheetState extends State<_FlightFilterSheet> {
         label: count == 0
             ? 'No flights match'
             : 'Show $count flight${count == 1 ? '' : 's'}',
-        onPressed: count == 0
-            ? null
-            : () => Navigator.of(context).pop(_draft),
+        onPressed: count == 0 ? null : () => Navigator.of(context).pop(_draft),
       ),
     );
   }
@@ -615,10 +619,7 @@ class _FlightFilterSheetState extends State<_FlightFilterSheet> {
   }
 
   Widget _groupHeading(String text) => Padding(
-    padding: const EdgeInsets.only(
-      top: AppSpacing.sm,
-      bottom: AppSpacing.xxs,
-    ),
+    padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.xxs),
     child: Align(
       alignment: Alignment.centerLeft,
       child: Text(text, style: AppText.overline),
@@ -759,8 +760,7 @@ class _FlightFilterSheetState extends State<_FlightFilterSheet> {
           activeColor: AppColors.primary,
           inactiveColor: AppColors.divider,
           label: formatFilterMinutes(current.round()),
-          onChanged: (v) =>
-              onChanged(v.round() >= max ? null : v.round()),
+          onChanged: (v) => onChanged(v.round() >= max ? null : v.round()),
         ),
       ],
     );
@@ -1002,9 +1002,7 @@ class AppliedFiltersRail extends StatelessWidget {
                   children: [
                     Text(
                       chip.label,
-                      style: AppText.labelSm.copyWith(
-                        color: AppColors.primary,
-                      ),
+                      style: AppText.labelSm.copyWith(color: AppColors.primary),
                     ),
                     const SizedBox(width: AppSpacing.xxs),
                     const Icon(

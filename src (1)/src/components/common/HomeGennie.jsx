@@ -1,28 +1,49 @@
-import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Menu, Plus, SendHorizonal } from "lucide-react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaChevronLeft } from "react-icons/fa6";
-import { MdOutlineCancel } from "react-icons/md";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { History, Minimize2, Plus, SendHorizonal, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FaMagic } from "react-icons/fa";
+import useShaadiAI, { STARTER_PROMPTS } from "../shaadiai/useShaadiAI";
+import styles from "./HomeGennie.module.css";
+
+// MessageBody carries the four guided-feature forms and the whole /shaadi-ai
+// stylesheet — ~71KB that only matters once there is a reply to draw. This
+// component mounts on idle on every page of the site, so importing it eagerly
+// would put all of that back in the idle-load budget the launcher was tuned to
+// keep small. It is fetched when the panel opens instead (see handleOpenClick),
+// which is well before the first response can arrive.
+const MessageBody = lazy(() => import("../shaadiai/MessageBody"));
+
+// The corner assistant used to be a second, separate AI: it posted to
+// shaadiai.happywedz.com/api/user_chat and could only ever render a summary
+// plus generic name/location cards. It now runs the same engine as /shaadi-ai
+// — POST /ai/chat, the four guided features, vendor/product/order/budget cards
+// and the shared chat history — so an answer is the same answer in both places.
+
+// /ai/chat is optionalAuthenticate: it answers anyone and only personalises for
+// a signed-in visitor, which is exactly how the full page behaves. The widget
+// used to bounce visitors to /customer-login before they could even open it.
+// Flip this back to true to restore that gate.
+const REQUIRE_LOGIN = false;
 
 const HomeGennie = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
+  const [showRecent, setShowRecent] = useState(false);
 
-  const handleNewChat = () => {
-    setSessionId(null);
-    setMessages([
-      {
-        type: "ai",
-        text: "Hi! I am ShaadiAI 👋\n\nHow can I help you plan your dream wedding today?",
-      },
-    ]);
-    setInputValue("");
-  };
+  const {
+    messages,
+    input,
+    setInput,
+    loading,
+    chatList,
+    activeChatId,
+    isInitialState,
+    handleSend,
+    handleFeatureComplete,
+    handleNewChat,
+    handleLoadChat,
+    handleDeleteChat,
+  } = useShaadiAI();
 
   const messageContainerRef = useRef(null);
 
@@ -72,129 +93,42 @@ const HomeGennie = () => {
     };
   }, [isChatOpen]);
 
-  // Persist session ID for full page navigation
-  useEffect(() => {
-    if (sessionId) {
-      localStorage.setItem("genie_session_id", sessionId);
-    }
-  }, [sessionId]);
-
-  const getIdFromToken = (token) => {
-    try {
-      const payload = token.split(".")[1];
-      const decoded = JSON.parse(atob(payload));
-      return decoded.id || decoded.userId || null;
-    } catch (_) {
-      return null;
-    }
-  };
-  const tokenId = localStorage.getItem("token");
-  const userId = getIdFromToken(tokenId);
-
-  const handleOpenClick = () => {
-    if (tokenId) {
-      setIsChatOpen(true);
-    } else {
-      navigate("/customer-login", { state: { from: "/shaadi-ai" } });
-    }
-  };
-
-  const callChatApi = async (query) => {
-    if (!query) return null;
-
-    try {
-      const payload = { user_query: query, user_id: userId };
-      if (sessionId) payload.session_id = sessionId;
-
-      const res = await fetch("https://shaadiai.happywedz.com/api/user_chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(tokenId ? { Authorization: `Bearer ${tokenId}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const raw = await res.json();
-      const wrapped = raw?.data ? raw.data : raw;
-      if (wrapped?.session_id) setSessionId(wrapped.session_id);
-      const response = wrapped?.response || {};
-      return {
-        summary: response?.summary || "No response received.",
-        results: Array.isArray(response?.results) ? response.results : null,
-      };
-    } catch (err) {
-      console.error("API ERROR:", err);
-      return {
-        summary: "⚠️ Server not responding. Try again later.",
-        results: null,
-      };
-    }
-  };
-
   useEffect(() => {
     const el = messageContainerRef.current;
     if (!el) return;
     requestAnimationFrame(() => {
       el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     });
-  }, [messages, isTyping]);
+  }, [messages, loading]);
 
-  useEffect(() => {
-    if (isChatOpen && messages.length === 0) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        setMessages([
-          {
-            type: "ai",
-            text: "Hi! I am ShaadiAI 👋\n\nHow can I help you plan your dream wedding today?",
-          },
-        ]);
-      }, 800);
-    }
-  }, [isChatOpen]);
-
-  const handleSendMessage = async () => {
-    if (inputValue.trim() && !isTyping) {
-      const userMessage = inputValue.trim();
-      setMessages((prev) => [...prev, { type: "user", text: userMessage }]);
-      setInputValue("");
-      setIsTyping(true);
-      const apiResponse = await callChatApi(userMessage);
-      setIsTyping(false);
-
-      if (apiResponse) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            type: "ai",
-            text: apiResponse.summary,
-            results: apiResponse.results,
-          },
-        ]);
-      }
+  const handleOpenClick = () => {
+    if (!REQUIRE_LOGIN || localStorage.getItem("token")) {
+      setIsChatOpen(true);
+      // Warm the reply renderer while the visitor is still reading the openers,
+      // so it is never the thing a first answer waits on. Vite dedupes this
+      // against the lazy() import above.
+      import("../shaadiai/MessageBody");
+    } else {
+      navigate("/customer-login", { state: { from: "/shaadi-ai" } });
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleSendMessage();
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!loading) handleSend();
     }
   };
 
-  const quickActions = [
-    { icon: "💰", label: "Budget", action: "budget" },
-    { icon: "🏛️", label: "Venues", action: "venues" },
-    { icon: "📋", label: "Checklist", action: "checklist" },
-    { icon: "🎨", label: "Themes", action: "themes" },
-  ];
+  const openRecentChat = (chatId) => {
+    handleLoadChat(chatId);
+    setShowRecent(false);
+  };
 
-  const popularQuestions = [
-    "Plan my dream destination wedding",
-    "Show me the best wedding venues",
-  ];
+  const startNewChat = () => {
+    handleNewChat();
+    setShowRecent(false);
+  };
 
   return (
     <div
@@ -273,689 +207,183 @@ const HomeGennie = () => {
       )}
 
       {isChatOpen && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: window.innerWidth <= 576 ? "0" : "24px",
-            right: window.innerWidth <= 576 ? "0" : "24px",
-            width: window.innerWidth <= 576 ? "100vw" : "440px",
-            height: window.innerWidth <= 576 ? "80dvh" : "650px",
-            maxHeight: window.innerWidth <= 576 ? "80vh" : "650px",
-            backgroundColor: "white",
-            borderRadius: window.innerWidth <= 576 ? "0" : "24px",
-            boxShadow:
-              "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 99999,
-            overflowY: "visible",
-            overflowX: "visible",
-          }}
-        >
-          <div
-            style={{
-              padding: "16px 20px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginTop: "10px",
-                gap: "8px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
-                <button
-                  onClick={() => setIsChatOpen(false)}
-                  style={{
-                    width: window.innerWidth <= 576 ? "32px" : "36px",
-                    height: window.innerWidth <= 576 ? "32px" : "36px",
-                    borderRadius: "50%",
-                    backgroundColor: "rgba(255, 255, 255, 0.2)",
-                    backdropFilter: "blur(10px)",
-                    border: "none",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    transition: "background-color 0.2s",
-                    flexShrink: 0,
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      "rgba(255, 255, 255, 0.3)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      "rgba(255, 255, 255, 0.2)")
-                  }
-                >
-                  <MdOutlineCancel
-                    style={{ width: "18px", height: "18px", color: "#ec4899" }}
-                  />
-                </button>
-                <div
-                  style={{
-                    width: window.innerWidth <= 576 ? "32px" : "35px",
-                    height: window.innerWidth <= 576 ? "32px" : "35px",
-                    borderRadius: "50%",
-                    backgroundColor: "white",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <img
-                    src="/shaadi.jpg"
-                    alt="logo"
-                    style={{
-                      height: "100%",
-                      width: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h5
-                    style={{
-                      fontWeight: 600,
-                      fontSize: window.innerWidth <= 576 ? "16px" : "18px",
-                      margin: 0,
-                      color: "#ec4899",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    Ask our AI anything
-                  </h5>
-                </div>
+        <div className={styles.panel}>
+          <div className={styles.header}>
+            <div className={styles.headerMain}>
+              <div className={styles.headerLogo}>
+                <img src="/shaadi.jpg" alt="" />
               </div>
-              <Link
-                to="/shaadi-ai"
-                style={{
-                  border: "none",
-                  borderRadius: "50%",
-                  width: window.innerWidth <= 576 ? "32px" : "35px",
-                  height: window.innerWidth <= 576 ? "32px" : "35px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  background: "rgba(255, 255, 255, 0.2)",
-                  flexShrink: 0,
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background =
-                    "rgba(255, 255, 255, 0.3)")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.background =
-                    "rgba(255, 255, 255, 0.2)")
-                }
-              >
-                <Menu
-                  style={{ width: "18px", height: "18px", color: "#ec4899" }}
-                />
-              </Link>
+              <h5 className={styles.headerTitle}>Ask our AI anything</h5>
             </div>
+
+            <button
+              className={`${styles.iconBtn} ${showRecent ? styles.iconBtnActive : ""}`}
+              onClick={() => setShowRecent((v) => !v)}
+              aria-label="Recent chats"
+              aria-expanded={showRecent}
+            >
+              <History size={17} />
+            </button>
+
+            {/* Collapses the panel back to the launcher. The conversation is
+                kept — reopening resumes it, and it is saved to the shared
+                history either way. */}
+            <button
+              className={styles.iconBtn}
+              onClick={() => setIsChatOpen(false)}
+              aria-label="Minimize chat"
+            >
+              <Minimize2 size={16} />
+            </button>
           </div>
 
-          <div
-            ref={messageContainerRef}
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              overflowX: "hidden",
-              padding: window.innerWidth <= 576 ? "12px" : "16px",
-              background:
-                "linear-gradient(180deg, rgba(252, 231, 243, 0.3) 0%, white 100%)",
-            }}
-          >
-            {messages.length === 0 && !isTyping && (
-              <div>
+          {showRecent && (
+            <div className={styles.recentDrawer}>
+              <span className={styles.recentLabel}>Recent</span>
+              {chatList.length === 0 && (
+                <p className={styles.recentEmpty}>No saved chats yet</p>
+              )}
+              {chatList.map((chat) => (
                 <div
-                  style={{
-                    textAlign: "center",
-                    padding: window.innerWidth <= 576 ? "20px 0" : "32px 0",
-                  }}
+                  key={chat.id}
+                  className={`${styles.recentItem} ${
+                    activeChatId === chat.id ? styles.recentItemActive : ""
+                  }`}
+                  onClick={() => openRecentChat(chat.id)}
                 >
-                  <div
-                    style={{
-                      width: window.innerWidth <= 576 ? "64px" : "80px",
-                      height: window.innerWidth <= 576 ? "64px" : "80px",
-                      margin: "0 auto 16px",
-                      borderRadius: "50%",
-                      background:
-                        "linear-gradient(135deg, #fce7f3 0%, #f3e8ff 100%)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
+                  <span className={styles.recentTitle}>{chat.title}</span>
+                  <button
+                    className={styles.recentDelete}
+                    onClick={(e) => handleDeleteChat(e, chat.id)}
+                    aria-label="Delete chat"
                   >
-                    <img
-                      src="/shaadi.jpg"
-                      alt="logo"
-                      style={{
-                        height: "100%",
-                        width: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div ref={messageContainerRef} className={styles.messages}>
+            {isInitialState && !loading && (
+              <div>
+                <div className={styles.welcome}>
+                  <div className={styles.welcomeLogo}>
+                    <img src="/shaadi.jpg" alt="" />
                   </div>
-                  <h3
-                    style={{
-                      fontWeight: 600,
-                      color: "#ec4899",
-                      marginBottom: "8px",
-                      fontSize: window.innerWidth <= 576 ? "16px" : "18px",
-                    }}
-                  >
+                  <h3 className={styles.welcomeTitle}>
                     Welcome to Wedding ShaadiAI! ✨
                   </h3>
-                  <p
-                    style={{
-                      fontSize: window.innerWidth <= 576 ? "12px" : "14px",
-                      color: "#ec4899",
-                    }}
-                  >
-                    Let's plan your dream wedding together
+                  <p className={styles.welcomeSub}>
+                    Let&apos;s plan your dream wedding together
                   </p>
                 </div>
 
-                <div className="row g-2 mb-4" style={{ padding: "0 8px" }}>
-                  {quickActions.map((action, idx) => (
-                    <div key={idx} className="col-3" style={{ minWidth: 0 }}>
-                      <button
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: window.innerWidth <= 576 ? "4px" : "8px",
-                          padding: window.innerWidth <= 576 ? "8px" : "12px",
-                          borderRadius: "16px",
-                          backgroundColor: "white",
-                          border: "1px solid #fce7f3",
-                          cursor: "pointer",
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "#fbcfe8";
-                          e.currentTarget.style.boxShadow =
-                            "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = "#fce7f3";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize:
-                              window.innerWidth <= 576 ? "20px" : "24px",
-                          }}
-                        >
-                          {action.icon}
-                        </span>
-                        <span
-                          style={{
-                            fontSize:
-                              window.innerWidth <= 576 ? "10px" : "12px",
-                            fontWeight: 500,
-                            color: "#374151",
-                          }}
-                        >
-                          {action.label}
-                        </span>
-                      </button>
-                    </div>
-                  ))}
+                {/* The same openers the full page offers — the last four open a
+                    guided feature inline rather than calling the model. */}
+                <div className={styles.startersLabel}>
+                  <FaMagic /> Try Shaadi AI
                 </div>
-
-                <div style={{ padding: "0 8px" }}>
-                  <p
-                    style={{
-                      fontSize: window.innerWidth <= 576 ? "11px" : "12px",
-                      fontWeight: 600,
-                      color: "#6b7280",
-                      padding: "0 4px",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    Popular questions for you!
-                  </p>
-                  {popularQuestions.map((question, idx) => (
+                <div className={styles.starterGrid}>
+                  {STARTER_PROMPTS.map((prompt) => (
                     <button
-                      key={idx}
-                      onClick={() => setInputValue(question)}
-                      style={{
-                        width: "100%",
-                        textAlign: "left",
-                        padding: window.innerWidth <= 576 ? "12px" : "16px",
-                        borderRadius: "16px",
-                        backgroundColor: "white",
-                        border: "1px solid #fce7f3",
-                        cursor: "pointer",
-                        marginBottom: "8px",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#fbcfe8";
-                        e.currentTarget.style.boxShadow =
-                          "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "#fce7f3";
-                        e.currentTarget.style.boxShadow = "none";
-                      }}
+                      key={prompt.send}
+                      className={styles.starterPill}
+                      onClick={() => handleSend(prompt.send)}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "8px",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize:
-                              window.innerWidth <= 576 ? "12px" : "14px",
-                            color: "#374151",
-                            fontWeight: 500,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                          }}
-                        >
-                          {question}
-                        </span>
-                        <ArrowLeft
-                          style={{
-                            width: "14px",
-                            height: "14px",
-                            color: "#ec4899",
-                            transform: "rotate(180deg)",
-                            flexShrink: 0,
-                          }}
-                        />
-                      </div>
+                      <span className={styles.starterTitle}>
+                        {prompt.icon} {prompt.title}
+                      </span>
+                      <p className={styles.starterSub}>{prompt.subtitle}</p>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {messages.map((msg, index) => (
-              <div
-                key={index}
-                style={{
-                  display: "flex",
-                  marginBottom: "16px",
-                  justifyContent:
-                    msg.type === "user" ? "flex-end" : "flex-start",
-                  alignItems: "flex-end",
-                }}
-              >
-                {msg.type === "ai" && (
-                  <div
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "end",
-                      justifyContent: "center",
-                      marginRight: "2px",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <img
-                      src="/shaadi.jpg"
-                      alt="logo"
-                      style={{
-                        height: "100%",
-                        width: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  </div>
-                )}
-                <div
-                  style={{
-                    maxWidth: "80%",
-                    padding: "12px 16px",
-                    borderRadius:
-                      msg.type === "user"
-                        ? "24px 24px 4px 24px"
-                        : "24px 24px 24px 4px",
-                    background: "white",
-                    color: "#1f2937",
-                    border: "1px solid #f3f4f6",
-                    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "14px",
-                      lineHeight: "1.6",
-                      margin: 0,
-                      whiteSpace: "pre-line",
-                    }}
-                  >
-                    {msg.text}
-                  </p>
+            {messages.map((msg, index) => {
+              // index 0 is the greeting the empty state already covers.
+              if (index === 0) return null;
 
-                  {msg.results && msg.results.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: "12px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                      }}
-                    >
-                      {msg.results.map((result, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            background: "#f9fafb",
-                            padding: "12px",
-                            borderRadius: "12px",
-                            border: "1px solid #e5e7eb",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontWeight: "600",
-                              color: "#ec4899",
-                              marginBottom: "6px",
-                              fontSize: "13px",
-                            }}
-                          >
-                            {result.name}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "#6b7280",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            📍 {result.location}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "#9ca3af",
-                              marginBottom: "6px",
-                            }}
-                          >
-                            {result.type}
-                          </div>
-                          {result.rating > 0 && (
-                            <div
-                              style={{
-                                fontSize: "12px",
-                                color: "#6b7280",
-                                marginBottom: "8px",
-                              }}
-                            >
-                              ⭐ {result.rating}
-                            </div>
-                          )}
-                          {result.why_consider &&
-                            result.why_consider.length > 0 && (
-                              <div style={{ marginTop: "8px" }}>
-                                <div
-                                  style={{
-                                    fontSize: "11px",
-                                    fontWeight: "600",
-                                    color: "#4b5563",
-                                    marginBottom: "4px",
-                                  }}
-                                >
-                                  Why consider:
-                                </div>
-                                <ul
-                                  style={{
-                                    margin: "0",
-                                    paddingLeft: "16px",
-                                    fontSize: "11px",
-                                    color: "#6b7280",
-                                    lineHeight: "1.4",
-                                  }}
-                                >
-                                  {result.why_consider.map((reason, i) => (
-                                    <li key={i} style={{ marginBottom: "3px" }}>
-                                      {reason}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                        </div>
-                      ))}
+              return (
+                <div
+                  key={index}
+                  className={`${styles.row} ${
+                    msg.role === "user" ? styles.rowUser : styles.rowAi
+                  }`}
+                >
+                  {msg.role === "ai" && (
+                    <div className={styles.avatar}>
+                      <img src="/shaadi.jpg" alt="" />
                     </div>
                   )}
+                  <div
+                    className={`${styles.bubble} ${
+                      msg.role === "user" ? styles.bubbleUser : styles.bubbleAi
+                    }`}
+                  >
+                    {msg.role === "user" ? (
+                      msg.content
+                    ) : (
+                      <Suspense fallback={<div className={styles.typingDots}><span /><span /><span /></div>}>
+                        <MessageBody
+                          msg={msg}
+                          compact
+                          onFeatureComplete={handleFeatureComplete}
+                        />
+                      </Suspense>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
-            {isTyping && (
-              <div style={{ display: "flex", marginBottom: "16px" }}>
-                <div
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    background:
-                      "linear-gradient(135deg, #ec4899 0%, #9333ea 100%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: "8px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <img
-                    src="/shaadi.jpg"
-                    alt="logo"
-                    style={{
-                      height: "100%",
-                      width: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
+            {loading && (
+              <div className={`${styles.row} ${styles.rowAi}`}>
+                <div className={styles.avatar}>
+                  <img src="/shaadi.jpg" alt="" />
                 </div>
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    border: "1px solid #f3f4f6",
-                    borderRadius: "24px 24px 24px 4px",
-                    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                    padding: "12px 20px",
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "4px" }}>
-                    <div
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        backgroundColor: "#9ca3af",
-                        borderRadius: "50%",
-                        animation: "bounce 1s infinite",
-                      }}
-                    ></div>
-                    <div
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        backgroundColor: "#9ca3af",
-                        borderRadius: "50%",
-                        animation: "bounce 1s infinite 0.1s",
-                      }}
-                    ></div>
-                    <div
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        backgroundColor: "#9ca3af",
-                        borderRadius: "50%",
-                        animation: "bounce 1s infinite 0.2s",
-                      }}
-                    ></div>
+                <div className={styles.typingBubble}>
+                  <div className={styles.typingDots}>
+                    <span />
+                    <span />
+                    <span />
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div
-            style={{
-              borderTop: "1px solid #f3f4f6",
-              padding: window.innerWidth <= 576 ? "12px" : "16px",
-              backgroundColor: "white",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: window.innerWidth <= 576 ? "6px" : "8px",
-              }}
+          <div className={styles.composer}>
+            <button
+              className={styles.newChatBtn}
+              onClick={startNewChat}
+              aria-label="New chat"
             >
+              <Plus size={20} />
+            </button>
+            <div className={styles.inputWrap}>
+              <input
+                type="text"
+                className={styles.input}
+                placeholder="Ask anything about your wedding..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={loading}
+              />
               <button
-                style={{
-                  width: window.innerWidth <= 576 ? "36px" : "40px",
-                  height: window.innerWidth <= 576 ? "36px" : "40px",
-                  borderRadius: "50%",
-                  backgroundColor: "#fce7f3",
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                  transition: "background-color 0.2s",
-                }}
-                onClick={handleNewChat}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#fbcfe8")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#fce7f3")
-                }
+                className={styles.sendBtn}
+                onClick={() => handleSend()}
+                disabled={!input.trim() || loading}
+                aria-label="Send"
               >
-                <span
-                  style={{
-                    fontSize: window.innerWidth <= 576 ? "18px" : "20px",
-                  }}
-                >
-                  <Plus style={{ color: "#ec4899" }} />
-                </span>
+                <SendHorizonal size={16} />
               </button>
-              <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
-                <input
-                  type="text"
-                  placeholder={
-                    window.innerWidth <= 576 ? "Ask..." : "Ask me questions..."
-                  }
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={isTyping}
-                  style={{
-                    width: "100%",
-                    padding:
-                      window.innerWidth <= 576
-                        ? "10px 40px 10px 14px"
-                        : "12px 48px 12px 16px",
-                    borderRadius: "50px",
-                    border: "1px solid #e5e7eb",
-                    fontSize: window.innerWidth <= 576 ? "12px" : "14px",
-                    outline: "none",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#fbcfe8";
-                    e.target.style.boxShadow =
-                      "0 0 0 3px rgba(252, 231, 243, 0.5)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "#e5e7eb";
-                    e.target.style.boxShadow = "none";
-                  }}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isTyping}
-                  style={{
-                    position: "absolute",
-                    right: "4px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: window.innerWidth <= 576 ? "32px" : "36px",
-                    height: window.innerWidth <= 576 ? "32px" : "36px",
-                    borderRadius: "50%",
-                    border: "none",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor:
-                      inputValue.trim() && !isTyping
-                        ? "pointer"
-                        : "not-allowed",
-                    transition: "transform 0.2s",
-                    opacity: inputValue.trim() && !isTyping ? 1 : 0.5,
-                    background: "transparent",
-                    flexShrink: 0,
-                  }}
-                  onMouseEnter={(e) =>
-                    inputValue.trim() &&
-                    !isTyping &&
-                    (e.currentTarget.style.transform =
-                      "translateY(-50%) scale(1.05)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.transform =
-                      "translateY(-50%) scale(1)")
-                  }
-                >
-                  <SendHorizonal
-                    style={{ width: "16px", height: "16px", color: "#ec4899" }}
-                  />
-                </button>
-              </div>
             </div>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
-        }
-      `}</style>
     </div>
   );
 };

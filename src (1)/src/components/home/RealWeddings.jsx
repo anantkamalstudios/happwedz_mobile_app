@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { Link } from "react-router-dom";
+import { resolveMediaUrl } from "../../config/constants";
 
 const RealWeddings = ({
   icon,
@@ -12,8 +13,9 @@ const RealWeddings = ({
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const normalizeUrl = (u) =>
-    typeof u === "string" ? u.replace(/`/g, "").trim() : u;
+  // Rows predating the S3 cutover hold /src/uploads/... paths, which the API
+  // now serves; newer ones are absolute bucket URLs.
+  const normalizeUrl = (u) => resolveMediaUrl(u);
   const images =
     Array.isArray(apiImages) && apiImages.length > 0
       ? apiImages.map(normalizeUrl).map((url, idx) => ({

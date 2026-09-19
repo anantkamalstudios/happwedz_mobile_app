@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { FaMapMarkerAlt } from "react-icons/fa";
 import RealWeddingDetails from "../layouts/realWedding/RealWeddingDetails";
+import { API_BASE_URL } from "../../config/constants";
 
 export default function RealWeddingsStatic() {
   const [weddings, setWeddings] = useState([]);
@@ -77,7 +78,7 @@ export default function RealWeddingsStatic() {
       try {
         setLoading(true);
         const response = await axios.get(
-          "https://happywedz.com/api/realwedding/public/"
+          `${API_BASE_URL}/realwedding/public/`
         );
 
         const dataArray = response.data.weddings || response.data;

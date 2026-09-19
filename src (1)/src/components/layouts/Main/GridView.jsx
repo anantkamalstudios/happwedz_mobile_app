@@ -11,6 +11,7 @@ import QuickInquiryModal from "../QuickInquiryModal";
 import { trackView } from "../../../services/localStorageService";
 import { prioritizeRecentlyViewed, isRecentlyViewed } from "../../../utils/recentlyViewedHelper";
 import { hasView360 } from "../../../utils/view360Helper";
+import { API_BASE_URL } from "../../../config/constants";
 
 const extractMainCity = (rawCity) => {
   if (!rawCity) return "all";
@@ -124,7 +125,7 @@ const GridView = ({ subVenuesData, handleShow, colLg, fluid, currentCity }) => {
 
     const fetchWishlist = async () => {
       try {
-        const res = await fetch(`https://happywedz.com/api/wishlist`, {
+        const res = await fetch(`${API_BASE_URL}/wishlist`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -221,7 +222,7 @@ const GridView = ({ subVenuesData, handleShow, colLg, fluid, currentCity }) => {
     // Track wishlist interaction when adding
     if (!wasFavorite && token) {
       try {
-        await fetch(`https://happywedz.com/api/interactions/add`, {
+        await fetch(`${API_BASE_URL}/interactions/add`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -253,7 +254,7 @@ const GridView = ({ subVenuesData, handleShow, colLg, fluid, currentCity }) => {
 
     if (token) {
       try {
-        await fetch(`https://happywedz.com/api/interactions/add`, {
+        await fetch(`${API_BASE_URL}/interactions/add`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

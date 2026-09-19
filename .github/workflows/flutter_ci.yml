@@ -1,53 +1,53 @@
-name: Flutter CI
-
-on:
-  push:
-    branches:
-      - recovered-local-code
-
-jobs:
-  flutter-check:
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Create key.properties
-        shell: pwsh
-        run: |
-          $keystoreBytes = [Convert]::FromBase64String("${{ secrets.KEYSTORE_BASE64 }}")
-          [IO.File]::WriteAllBytes("android/app/upload-keystore.jks", $keystoreBytes)
-
-          @"
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=upload-keystore.jks
-          "@ | Set-Content -Path android/key.properties
-
-      - name: Build signed AAB
-        run: flutter build appbundle --release
-
-      - name: Upload AAB to Google Play Production
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.happy.happy_wedz
-          releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: production
-#      - name: Upload AAB to Google Play Internal Testing
+#name: Flutter CI
+#
+#on:
+#  push:
+#    branches:
+#      - recovered-local-code
+#
+#jobs:
+#  flutter-check:
+#    runs-on: windows-latest
+#
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#
+#      - name: Setup Flutter
+#        uses: subosito/flutter-action@v2
+#        with:
+#          channel: stable
+#
+#      - name: Install dependencies
+#        run: flutter pub get
+#
+#      - name: Create key.properties
+#        shell: pwsh
+#        run: |
+#          $keystoreBytes = [Convert]::FromBase64String("${{ secrets.KEYSTORE_BASE64 }}")
+#          [IO.File]::WriteAllBytes("android/app/upload-keystore.jks", $keystoreBytes)
+#
+#          @"
+#          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+#          keyPassword=${{ secrets.KEY_PASSWORD }}
+#          keyAlias=${{ secrets.KEY_ALIAS }}
+#          storeFile=upload-keystore.jks
+#          "@ | Set-Content -Path android/key.properties
+#
+#      - name: Build signed AAB
+#        run: flutter build appbundle --release
+#
+#      - name: Upload AAB to Google Play Production
 #        uses: r0adkll/upload-google-play@v1
 #        with:
 #          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
 #          packageName: com.happy.happy_wedz
 #          releaseFiles: build/app/outputs/bundle/release/app-release.aab
-#          track: internal
+#          track: production
+##      - name: Upload AAB to Google Play Internal Testing
+##        uses: r0adkll/upload-google-play@v1
+##        with:
+##          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+##          packageName: com.happy.happy_wedz
+##          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+##          track: internal

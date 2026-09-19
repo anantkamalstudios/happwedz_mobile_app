@@ -1,10 +1,12 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/config/api_config.dart';
 import '../core/core.dart';
+import '../honeymoon/data/honeymoon_api.dart';
+import '../honeymoon/ui/bookings/cab_booking_detail_page.dart';
 import 'booking_status.dart';
 import 'bookings_api.dart';
 
@@ -37,7 +39,8 @@ const List<({_Category key, String label})> _categories = [
   (key: _Category.shop, label: 'Shop Orders'),
 ];
 
-const List<({BookingSource source, String label, IconData icon})> _travelTabs = [
+const List<({BookingSource source, String label, IconData icon})>
+_travelTabs = [
   (source: BookingSource.hotels, label: 'Hotels', icon: Icons.hotel_rounded),
   (source: BookingSource.flights, label: 'Flights', icon: Icons.flight_rounded),
   (source: BookingSource.cabs, label: 'Cabs', icon: Icons.local_taxi_rounded),
@@ -507,7 +510,12 @@ class _TravelCard extends StatelessWidget {
     this.subtitle,
     this.rows = const [],
     this.price,
+    this.actions,
   });
+
+  /// Buttons under the price (cabs: View Details and Invoice, as the web's
+  /// `CabPanel` has them). Null keeps the card as it was.
+  final Widget? actions;
 
   final IconData typeIcon;
   final String typeLabel;
@@ -596,6 +604,10 @@ class _TravelCard extends StatelessWidget {
               style: AppText.sectionTitle.copyWith(color: AppColors.primary),
             ),
           ],
+          if (actions != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            actions!,
+          ],
         ],
       ),
     );
@@ -611,7 +623,10 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = status.tone.color;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
@@ -646,8 +661,10 @@ String _money(Object? value, [Object? currency]) {
       ? currency.toString()
       : 'INR';
   try {
-    return NumberFormat.simpleCurrency(locale: 'en_IN', name: code)
-        .format(amount);
+    return NumberFormat.simpleCurrency(
+      locale: 'en_IN',
+      name: code,
+    ).format(amount);
   } catch (_) {
     return '₹ ${NumberFormat('#,##,##0.00', 'en_IN').format(amount)}';
   }
@@ -711,7 +728,8 @@ class _WeddingServicesPanel extends StatelessWidget {
         price: '${row['quote']?['price'] ?? 'N/A'}',
         bookingDate: row['eventDate'] ?? '',
         address: row['vendor']?['address'] ?? 'No address provided',
-        rating: double.tryParse(row['vendor']?['rating'].toString() ?? '0') ?? 0,
+        rating:
+            double.tryParse(row['vendor']?['rating'].toString() ?? '0') ?? 0,
         reviewCount: row['vendor']?['reviewCount'] ?? 0,
       ),
     );
@@ -777,7 +795,9 @@ class _FlightPanel extends StatelessWidget {
       cardBuilder: (row, status) {
         final from = _text(row['from_iata'], '');
         final to = _text(row['to_iata'], '');
-        final route = from.isEmpty || to.isEmpty ? 'Flight Booking' : '$from → $to';
+        final route = from.isEmpty || to.isEmpty
+            ? 'Flight Booking'
+            : '$from → $to';
         return _TravelCard(
           typeIcon: Icons.flight_rounded,
           typeLabel: 'Flight',
@@ -790,12 +810,12 @@ class _FlightPanel extends StatelessWidget {
           rows: [
             (label: 'Depart', value: _dayTime(row['departure'])),
             (label: 'Arrive', value: _dayTime(row['arrival'])),
-            (
-              label: 'PNR / Ref',
-              value: _text(row['pnr'] ?? row['order_id']),
-            ),
+            (label: 'PNR / Ref', value: _text(row['pnr'] ?? row['order_id'])),
             (label: 'Cabin', value: _text(row['cabin_class'])),
-            (label: 'Booked', value: _day(row['booked_at'] ?? row['createdAt'])),
+            (
+              label: 'Booked',
+              value: _day(row['booked_at'] ?? row['createdAt']),
+            ),
           ],
           price: _money(row['price']),
         );
@@ -815,7 +835,8 @@ class _CabPanel extends StatelessWidget {
       data: data,
       source: BookingSource.cabs,
       filterSet: FilterSet.travel,
-      statusOf: (row) => normalizeStatus(row['bookingStatus'], StatusSource.cab),
+      statusOf: (row) =>
+          normalizeStatus(row['bookingStatus'], StatusSource.cab),
       emptyIcon: Icons.local_taxi_outlined,
       emptyTitle: 'No cab bookings found',
       emptyMessage: "You haven't booked a cab through HappyWedz yet.",
@@ -835,6 +856,7 @@ class _CabPanel extends StatelessWidget {
           (label: 'Booked', value: _day(row['createdAt'])),
         ],
         price: _money(row['amount'], row['currency']),
+        actions: _CabActions(row: row),
       ),
     );
   }
@@ -855,7 +877,8 @@ class _InsurancePanel extends StatelessWidget {
           normalizeStatus(row['booking_status'], StatusSource.insurance),
       emptyIcon: Icons.shield_outlined,
       emptyTitle: 'No insurance bookings found',
-      emptyMessage: "You haven't bought travel insurance through HappyWedz yet.",
+      emptyMessage:
+          "You haven't bought travel insurance through HappyWedz yet.",
       cardBuilder: (row, status) {
         final travellers = row['traveller_count'];
         return _TravelCard(
@@ -1009,11 +1032,7 @@ class _ShopOrderCardState extends State<_ShopOrderCard> {
               ClipRRect(
                 borderRadius: AppRadii.rSm,
                 child: firstImage != null && firstImage.isNotEmpty
-                    ? NetworkImageWidget(
-                        url: firstImage,
-                        height: 64,
-                        width: 64,
-                      )
+                    ? NetworkImageWidget(url: firstImage, height: 64, width: 64)
                     : Container(
                         height: 64,
                         width: 64,
@@ -1055,7 +1074,9 @@ class _ShopOrderCardState extends State<_ShopOrderCard> {
                 decoration: BoxDecoration(
                   color: status.color.withValues(alpha: 0.12),
                   borderRadius: AppRadii.rPill,
-                  border: Border.all(color: status.color.withValues(alpha: 0.35)),
+                  border: Border.all(
+                    color: status.color.withValues(alpha: 0.35),
+                  ),
                 ),
                 child: Text(
                   status.label,
@@ -1083,7 +1104,10 @@ class _ShopOrderCardState extends State<_ShopOrderCard> {
             text: order["shipTo"]?.toString() ?? '—',
           ),
           const SizedBox(height: AppSpacing.sm),
-          _InfoRow(icon: Icons.calendar_today_rounded, text: _formattedPlacedAt),
+          _InfoRow(
+            icon: Icons.calendar_today_rounded,
+            text: _formattedPlacedAt,
+          ),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
@@ -1096,10 +1120,7 @@ class _ShopOrderCardState extends State<_ShopOrderCard> {
                   color: AppColors.pinkSurface,
                   borderRadius: AppRadii.rSm,
                 ),
-                child: Text(
-                  '₹${order["total"] ?? "—"}',
-                  style: AppText.price,
-                ),
+                child: Text('₹${order["total"] ?? "—"}', style: AppText.price),
               ),
               if (discount > 0) ...[
                 const SizedBox(width: AppSpacing.sm),
@@ -1138,9 +1159,7 @@ class _ShopOrderCardState extends State<_ShopOrderCard> {
                 final price = item["price"] ?? 0;
                 final lineTotal = item["lineTotal"] ?? 0;
                 return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.xs,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   child: Row(
                     children: [
                       Expanded(
@@ -1308,9 +1327,7 @@ class BookingCard extends StatelessWidget {
 
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                   decoration: BoxDecoration(
                     color: AppColors.success.withValues(alpha: 0.12),
                     borderRadius: AppRadii.rMd,
@@ -1359,6 +1376,72 @@ class _InfoRow extends StatelessWidget {
         Icon(icon, size: 16, color: AppColors.textTertiary),
         const SizedBox(width: AppSpacing.sm),
         Expanded(child: Text(text, style: AppText.body)),
+      ],
+    );
+  }
+}
+
+/// The web's cab card actions: View Details (by the invoice row's `id`) and
+/// the Invoice PDF (by its Razorpay `orderId`), each shown only when that id
+/// is present.
+class _CabActions extends StatefulWidget {
+  const _CabActions({required this.row});
+
+  final Map<String, dynamic> row;
+
+  @override
+  State<_CabActions> createState() => _CabActionsState();
+}
+
+class _CabActionsState extends State<_CabActions> {
+  bool _downloading = false;
+
+  String get _invoiceId => widget.row['id']?.toString() ?? '';
+  String get _orderId => widget.row['razorpayOrderId']?.toString() ?? '';
+
+  Future<void> _downloadInvoice() async {
+    if (_downloading) return;
+    setState(() => _downloading = true);
+    final api = HoneymoonApi();
+    try {
+      final path = await api.downloadCabInvoice(
+        _orderId,
+        invoiceNumber: _invoiceId,
+      );
+      await OpenFilex.open(path);
+    } catch (_) {
+      if (mounted) AppSnackbar.error(context, 'Failed to download invoice');
+    } finally {
+      api.dispose();
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.xs,
+      children: [
+        if (_invoiceId.isNotEmpty)
+          PremiumButton.text(
+            label: 'View Details',
+            size: PremiumButtonSize.small,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CabBookingDetailPage(
+                  invoiceId: _invoiceId,
+                  orderId: _orderId,
+                ),
+              ),
+            ),
+          ),
+        if (_orderId.isNotEmpty)
+          PremiumButton.text(
+            label: _downloading ? 'Downloading…' : 'Invoice',
+            size: PremiumButtonSize.small,
+            onPressed: _downloading ? null : _downloadInvoice,
+          ),
       ],
     );
   }

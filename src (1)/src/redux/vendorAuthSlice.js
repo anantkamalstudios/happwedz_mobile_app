@@ -1,5 +1,4 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { logout } from "./authSlice";
 
 // Fallback to 1 hour if the backend does not provide an expiry in the token.
 const DEFAULT_VENDOR_TOKEN_EXPIRATION_MS = 60 * 60 * 1000;
@@ -25,9 +24,15 @@ const decodeTokenExpiry = (token) => {
   }
 };
 
+import {
+  safeSetItem,
+  safeGetItem,
+  safeRemoveItem,
+  sanitizeForStorage,
+} from "../utils/safeStorage";
+
 const getVendorTokenExpiry = () => {
-  if (typeof localStorage === "undefined") return null;
-  const expiry = localStorage.getItem("vendorTokenExpiry");
+  const expiry = safeGetItem("vendorTokenExpiry");
   return expiry ? parseInt(expiry, 10) : null;
 };
 
@@ -40,12 +45,8 @@ export const isVendorTokenExpired = () => {
 let persistedVendor = null;
 let persistedToken = null;
 try {
-  const vendorStr =
-    typeof localStorage !== "undefined" ? localStorage.getItem("vendor") : null;
-  const vendorToken =
-    typeof localStorage !== "undefined"
-      ? localStorage.getItem("vendorToken")
-      : null;
+  const vendorStr = safeGetItem("vendor");
+  const vendorToken = safeGetItem("vendorToken");
 
   const expiry = getVendorTokenExpiry();
   const hasValidToken = vendorToken && expiry && Date.now() < expiry;
@@ -54,9 +55,9 @@ try {
   persistedToken = hasValidToken ? vendorToken : null;
 
   if (!hasValidToken) {
-    localStorage.removeItem("vendor");
-    localStorage.removeItem("vendorToken");
-    localStorage.removeItem("vendorTokenExpiry");
+    safeRemoveItem("vendor");
+    safeRemoveItem("vendorToken");
+    safeRemoveItem("vendorTokenExpiry");
   }
 } catch {
   persistedVendor = null;
@@ -81,20 +82,22 @@ const vendorAuthSlice = createSlice({
       const expiresAt =
         fromToken || Date.now() + DEFAULT_VENDOR_TOKEN_EXPIRATION_MS;
 
-      localStorage.setItem("vendor", JSON.stringify(action.payload.vendor));
-      localStorage.setItem("vendorToken", action.payload.token);
-      localStorage.setItem("vendorTokenExpiry", expiresAt.toString());
+      const cleanVendor = sanitizeForStorage(action.payload.vendor);
+      safeSetItem("vendor", JSON.stringify(cleanVendor));
+      safeSetItem("vendorToken", action.payload.token);
+      safeSetItem("vendorTokenExpiry", expiresAt.toString());
     },
     vendorLogout: (state) => {
       state.vendor = null;
       state.token = null;
-      localStorage.removeItem("vendor");
-      localStorage.removeItem("vendorToken");
-      localStorage.removeItem("vendorTokenExpiry");
+      safeRemoveItem("vendor");
+      safeRemoveItem("vendorToken");
+      safeRemoveItem("vendorTokenExpiry");
     },
     setVendor: (state, action) => {
       state.vendor = action.payload;
-      localStorage.setItem("vendor", JSON.stringify(action.payload));
+      const cleanVendor = sanitizeForStorage(action.payload);
+      safeSetItem("vendor", JSON.stringify(cleanVendor));
     },
   },
 });

@@ -1,7 +1,8 @@
-import axiosInstance from './axiosInstance';
+import axiosInstance from "./axiosInstance";
+import { API_BASE_URL } from "../../config/constants";
 
-const LEGACY_BASE_URL = 'https://happywedz.com/api/Flight_booking';
-// const LEGACY_BASE_URL = 'http://localhost:4000/Flight_booking';
+const LEGACY_BASE_URL = `${API_BASE_URL}/Flight_booking`;
+// const LEGACY_BASE_URL = 'https://happywedz.com/Flight_booking';
 
 const isTripJackSearchQuery = (payload) =>
   Boolean(payload?.routeInfos || payload?.searchModifiers);
@@ -9,7 +10,7 @@ const isTripJackSearchQuery = (payload) =>
 // --- Location search (TripJack) ---
 
 export const searchLocations = async (q, signal) => {
-  const response = await axiosInstance.get('/tj/meta/locations', {
+  const response = await axiosInstance.get("/tj/meta/locations", {
     params: { q },
     signal,
   });
@@ -25,7 +26,7 @@ export const searchAirports = async (keyword, signal) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error searching airports:', error);
+    console.error("Error searching airports:", error);
     throw error;
   }
 };
@@ -35,9 +36,9 @@ export const searchAirports = async (keyword, signal) => {
 export const searchFlights = async (searchQueryOrParams, signal) => {
   if (isTripJackSearchQuery(searchQueryOrParams)) {
     const response = await axiosInstance.post(
-      '/tj/fms/search',
+      "/tj/fms/search",
       { searchQuery: searchQueryOrParams },
-      signal ? { signal } : undefined
+      signal ? { signal } : undefined,
     );
     return response.data;
   }
@@ -46,11 +47,11 @@ export const searchFlights = async (searchQueryOrParams, signal) => {
     const response = await axiosInstance.post(
       `${LEGACY_BASE_URL}/search`,
       searchQueryOrParams,
-      signal ? { signal } : undefined
+      signal ? { signal } : undefined,
     );
     return response.data;
   } catch (error) {
-    console.error('Error searching flights:', error);
+    console.error("Error searching flights:", error);
     throw error;
   }
 };
@@ -58,17 +59,20 @@ export const searchFlights = async (searchQueryOrParams, signal) => {
 // --- TripJack FMS ---
 
 export const reviewFlight = async (priceIds) => {
-  const response = await axiosInstance.post('/tj/fms/review', { priceIds });
+  const response = await axiosInstance.post("/tj/fms/review", { priceIds });
   return response.data;
 };
 
 export const getFareRule = async (id, flowType) => {
-  const response = await axiosInstance.post('/tj/fms/farerule', { id, flowType });
+  const response = await axiosInstance.post("/tj/fms/farerule", {
+    id,
+    flowType,
+  });
   return response.data;
 };
 
 export const getSeatMap = async (bookingId) => {
-  const response = await axiosInstance.post('/tj/fms/seat', { bookingId });
+  const response = await axiosInstance.post("/tj/fms/seat", { bookingId });
   return response.data;
 };
 
@@ -79,7 +83,7 @@ export const getSeatMap = async (bookingId) => {
  * @param {object} payload  TripJack booking payload (includes paymentInfos)
  */
 export const bookFlight = async (payload) => {
-  const response = await axiosInstance.post('/tj/oms/book', payload);
+  const response = await axiosInstance.post("/tj/oms/book", payload);
   return response.data;
 };
 
@@ -88,7 +92,7 @@ export const bookFlight = async (payload) => {
  * @param {object} payload  bookingId + travellerInfo + deliveryInfo
  */
 export const holdFlight = async (payload) => {
-  const response = await axiosInstance.post('/tj/oms/hold', payload);
+  const response = await axiosInstance.post("/tj/oms/hold", payload);
   return response.data;
 };
 
@@ -97,7 +101,7 @@ export const holdFlight = async (payload) => {
  * @param {object} payload
  */
 export const fareValidate = async (payload) => {
-  const response = await axiosInstance.post('/tj/oms/fare-validate', payload);
+  const response = await axiosInstance.post("/tj/oms/fare-validate", payload);
   return response.data;
 };
 
@@ -106,7 +110,10 @@ export const fareValidate = async (payload) => {
  * @param {object} payload
  */
 export const bookFareValidate = async (payload) => {
-  const response = await axiosInstance.post('/tj/oms/book-fare-validate', payload);
+  const response = await axiosInstance.post(
+    "/tj/oms/book-fare-validate",
+    payload,
+  );
   return response.data;
 };
 
@@ -115,7 +122,7 @@ export const bookFareValidate = async (payload) => {
  * @param {object} payload
  */
 export const confirmBook = async (payload) => {
-  const response = await axiosInstance.post('/tj/oms/confirm-book', payload);
+  const response = await axiosInstance.post("/tj/oms/confirm-book", payload);
   return response.data;
 };
 
@@ -124,30 +131,46 @@ export const confirmBook = async (payload) => {
  * @param {string} bookingId
  * @param {boolean} requirePaxPricing  include traveller-level pricing (default true)
  */
-export const getBookingDetails = async (bookingId, requirePaxPricing = true) => {
-  const response = await axiosInstance.post('/tj/oms/booking-details', { bookingId, requirePaxPricing });
+export const getBookingDetails = async (
+  bookingId,
+  requirePaxPricing = true,
+) => {
+  const response = await axiosInstance.post("/tj/oms/booking-details", {
+    bookingId,
+    requirePaxPricing,
+  });
   return response.data;
 };
 
 export const getAmendmentCharges = async (payload) => {
-  const response = await axiosInstance.post('/tj/oms/amendment/charges', payload);
+  const response = await axiosInstance.post(
+    "/tj/oms/amendment/charges",
+    payload,
+  );
   return response.data;
 };
 
 export const submitAmendment = async (payload) => {
-  const response = await axiosInstance.post('/tj/oms/amendment/submit', payload);
+  const response = await axiosInstance.post(
+    "/tj/oms/amendment/submit",
+    payload,
+  );
   return response.data;
 };
 
 export const pollAmendment = async (amendmentId) => {
-  const response = await axiosInstance.post('/tj/oms/amendment/poll', { amendmentId });
+  const response = await axiosInstance.post("/tj/oms/amendment/poll", {
+    amendmentId,
+  });
   return response.data;
 };
 
 // --- Legacy helpers ---
 
 export const getFlightDetails = async (offerId) => {
-  const response = await axiosInstance.get(`${LEGACY_BASE_URL}/flight/${offerId}`);
+  const response = await axiosInstance.get(
+    `${LEGACY_BASE_URL}/flight/${offerId}`,
+  );
   return response.data;
 };
 
@@ -161,7 +184,7 @@ export const verifyOffer = async (provider, offerId) => {
 
 export const cancelBooking = async (bookingId) => {
   const response = await axiosInstance.post(
-    `${LEGACY_BASE_URL}/booking/${bookingId}/cancel`
+    `${LEGACY_BASE_URL}/booking/${bookingId}/cancel`,
   );
   return response.data;
 };
@@ -199,8 +222,8 @@ export const createFlightPaymentOrder = async (bookingData) => {
   };
 
   const response = await axiosInstance.post(
-    '/flight_payment/create_order',
-    paymentPayload
+    "/flight_payment/create_order",
+    paymentPayload,
   );
   return response.data;
 };
@@ -225,7 +248,7 @@ export const holdFlightBooking = async (holdData) => {
     contact: holdData.contact,
     booking_payload: holdData.booking_payload,
   };
-  const response = await axiosInstance.post('/flight_payment/hold', payload);
+  const response = await axiosInstance.post("/flight_payment/hold", payload);
   return response.data;
 };
 
@@ -234,7 +257,10 @@ export const holdFlightBooking = async (holdData) => {
  * @param {object} payload
  */
 export const verifyAndBookFlight = async (payload) => {
-  const response = await axiosInstance.post('/flight_payment/verify_and_book', payload);
+  const response = await axiosInstance.post(
+    "/flight_payment/verify_and_book",
+    payload,
+  );
   return response.data;
 };
 
@@ -245,7 +271,7 @@ export const verifyAndBookFlight = async (payload) => {
  * Returns rows enriched with passenger_name, passenger_count, payment_status, amount_paid.
  */
 export const getMyFlightBookings = async () => {
-  const response = await axiosInstance.get('/tj/my-bookings');
+  const response = await axiosInstance.get("/tj/my-bookings");
   return response.data;
 };
 
@@ -253,7 +279,9 @@ export const getMyFlightBookings = async () => {
  * Our DB record for one booking (booking date + Razorpay payment) — GET /tj/booking-record/:orderId
  */
 export const getFlightBookingRecord = async (orderId) => {
-  const response = await axiosInstance.get(`/tj/booking-record/${encodeURIComponent(orderId)}`);
+  const response = await axiosInstance.get(
+    `/tj/booking-record/${encodeURIComponent(orderId)}`,
+  );
   return response.data;
 };
 
@@ -263,8 +291,8 @@ export const getFlightBookingRecord = async (orderId) => {
  * Preview cancellation charges/refund (does NOT cancel) — POST /tj/oms/cancel-charges
  */
 export const getFlightCancelCharges = async (orderId) => {
-  const response = await axiosInstance.post('/tj/oms/cancel-charges', {
-    provider: 'tripjack',
+  const response = await axiosInstance.post("/tj/oms/cancel-charges", {
+    provider: "tripjack",
     order_id: orderId,
   });
   return response.data;
@@ -274,8 +302,8 @@ export const getFlightCancelCharges = async (orderId) => {
  * Cancel a booking (amendment submit + poll) — POST /tj/oms/cancel
  */
 export const cancelFlightBooking = async (orderId, opts = {}) => {
-  const response = await axiosInstance.post('/tj/oms/cancel', {
-    provider: 'tripjack',
+  const response = await axiosInstance.post("/tj/oms/cancel", {
+    provider: "tripjack",
     order_id: orderId,
     ...opts,
   });
@@ -286,7 +314,9 @@ export const cancelFlightBooking = async (orderId, opts = {}) => {
  * Release a HELD booking (unhold) — POST /tj/oms/release-hold
  */
 export const releaseHeldBooking = async (orderId) => {
-  const response = await axiosInstance.post('/tj/oms/release-hold', { order_id: orderId });
+  const response = await axiosInstance.post("/tj/oms/release-hold", {
+    order_id: orderId,
+  });
   return response.data;
 };
 
@@ -297,7 +327,9 @@ export const releaseHeldBooking = async (orderId) => {
  */
 export const getSavedTravellers = async (signal) => {
   try {
-    const response = await axiosInstance.get(`${LEGACY_BASE_URL}/travellers`, { signal });
+    const response = await axiosInstance.get(`${LEGACY_BASE_URL}/travellers`, {
+      signal,
+    });
     return Array.isArray(response.data?.data) ? response.data.data : [];
   } catch {
     return [];
@@ -310,6 +342,8 @@ export const getSavedTravellers = async (signal) => {
  * on-demand resend behind the confirmation page's "Email Ticket".
  */
 export const emailTicket = async (orderId) => {
-  const response = await axiosInstance.post('/flight_payment/email-ticket', { order_id: orderId });
+  const response = await axiosInstance.post("/flight_payment/email-ticket", {
+    order_id: orderId,
+  });
   return response.data;
 };

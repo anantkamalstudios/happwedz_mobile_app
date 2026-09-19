@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import LocationModalWithCategories from "./LocationModalWithCategories";
 import { RiMenuFill } from "react-icons/ri";
@@ -7,12 +7,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/authSlice";
 import { vendorLogout } from "../../redux/vendorAuthSlice";
 import { setLocation } from "../../redux/locationSlice";
-import { FiMail, FiPhone, FiMapPin, FiSearch, FiEdit3, FiSmartphone } from "react-icons/fi";
-import { FaArrowRightLong, FaChevronDown, FaChevronUp } from "react-icons/fa6";
+import { FiMail, FiPhone, FiMapPin, FiSearch, FiEdit3, FiSmartphone, FiUser, FiLogOut, FiGrid } from "react-icons/fi";
+import { FaArrowRightLong, FaChevronDown, FaChevronUp, FaCaretDown } from "react-icons/fa6";
 import usePhotography from "../../hooks/usePhotography";
 import { useFilter } from "../../context/realWedding.context";
 import axiosInstance from "../../services/api/axiosInstance";
 import { fetchVendorTypesWithSubcategoriesApi } from "../../services/api/vendorTypesWithSubcategoriesApi";
+import { API_BASE_URL, STORE_ORIGIN } from "../../config/constants";
 
 const Header = () => {
   // Add state to track window width for responsive UI
@@ -29,8 +30,36 @@ const Header = () => {
   const [activeTab, setActiveTab] = useState("");
   const [selectedCity, setSelectedCity] = useState(reduxLocation);
   const [openMenu, setOpenMenu] = useState(null);
+  const megaMenuTimeoutRef = useRef(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSubmenu, setMobileSubmenu] = useState(null);
+
+  // Small delay before closing a mega-dropdown so moving the mouse across the
+  // gap between the nav tab and the dropdown panel doesn't close it early.
+  const handleMegaMenuEnter = (name) => {
+    if (megaMenuTimeoutRef.current) {
+      clearTimeout(megaMenuTimeoutRef.current);
+      megaMenuTimeoutRef.current = null;
+    }
+    setOpenMenu(name);
+  };
+
+  const handleMegaMenuLeave = () => {
+    if (megaMenuTimeoutRef.current) {
+      clearTimeout(megaMenuTimeoutRef.current);
+    }
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setOpenMenu(null);
+    }, 280);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (megaMenuTimeoutRef.current) {
+        clearTimeout(megaMenuTimeoutRef.current);
+      }
+    };
+  }, []);
   const navigate = useNavigate();
   const {
     setSelectCity,
@@ -47,11 +76,10 @@ const Header = () => {
   const [mostSearchedBlogs, setMostSearchedBlogs] = useState([]);
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || "https://happywedz.com/api";
     const fetchCategories = async (type, setter) => {
       try {
         const res = await fetch(
-          `${apiBase}/blog-categories/all?type=${type}&status=active`,
+          `${API_BASE_URL}/blog-categories/all?type=${type}&status=active`,
         );
         const json = await res.json();
         const arr = Array.isArray(json.data) ? json.data : [];
@@ -89,6 +117,10 @@ const Header = () => {
     setMobileMenuOpen(false);
   };
 
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuTimeoutRef = useRef(null);
+  const profileMenuContainerRef = useRef(null);
+
   const { user, isAuthenticated } = useSelector((state) => state.auth);
   const { vendor, token: vendorToken } = useSelector(
     (state) => state.vendorAuth,
@@ -97,6 +129,70 @@ const Header = () => {
   const isUserLoggedIn = !!user && !!isAuthenticated;
   const isVendorLoggedIn = !!vendorToken && !!vendor;
   const isLoggedIn = isUserLoggedIn || isVendorLoggedIn;
+
+  const handleProfileMouseEnter = () => {
+    if (profileMenuTimeoutRef.current) {
+      clearTimeout(profileMenuTimeoutRef.current);
+      profileMenuTimeoutRef.current = null;
+    }
+    if (isLoggedIn) {
+      setProfileMenuOpen(true);
+    }
+  };
+
+  const handleProfileMouseLeave = () => {
+    if (profileMenuTimeoutRef.current) {
+      clearTimeout(profileMenuTimeoutRef.current);
+    }
+    profileMenuTimeoutRef.current = setTimeout(() => {
+      setProfileMenuOpen(false);
+    }, 280);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        profileMenuContainerRef.current &&
+        !profileMenuContainerRef.current.contains(e.target)
+      ) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      if (profileMenuTimeoutRef.current) {
+        clearTimeout(profileMenuTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const profileName =
+    user?.name ||
+    user?.userName ||
+    user?.username ||
+    user?.data?.name ||
+    vendor?.businessName ||
+    vendor?.name ||
+    vendor?.vendor?.businessName ||
+    "";
+  const profileInitial = profileName ? profileName.trim().charAt(0).toUpperCase() : "";
+  const profileAvatar =
+    user?.profileImage ||
+    user?.profile_picture ||
+    user?.profilePic ||
+    user?.avatar ||
+    vendor?.profileImage ||
+    vendor?.logo ||
+    null;
+  const profileEmail =
+    user?.email ||
+    user?.userEmail ||
+    user?.mail ||
+    user?.data?.email ||
+    vendor?.email ||
+    vendor?.vendor?.email ||
+    "";
 
   const toSlug = (text) =>
     text
@@ -562,7 +658,7 @@ const Header = () => {
                   )}
                 </li>
 
-                {/* Photography */}
+                {/* Wedding Inspiration */}
                 <li className="mb-2">
                   <button
                     className="btn w-100 text-start d-flex justify-content-between align-items-center p-3 border-0 bg-light"
@@ -573,7 +669,7 @@ const Header = () => {
                       role="button"
                       onClick={() => navigate("/photography")}
                     >
-                      Photography
+                      Wedding Inspiration
                     </span>
                     {mobileSubmenu === "photography" ? (
                       <FaChevronUp
@@ -621,6 +717,22 @@ const Header = () => {
                   )}
                 </li>
 
+                {/* Photography */}
+                <li className="mb-2">
+                  <Link
+                    to="/movment-plus/home"
+                    className="btn w-100 text-start p-3 border-0 bg-light fw-semibold text-dark"
+                    onClick={(e) => {
+                      handleMobileLinkClick(e);
+                      window.dispatchEvent(
+                        new CustomEvent("open-movment-sidebar")
+                      );
+                    }}
+                  >
+                    Photography
+                  </Link>
+                </li>
+
                 {/* E-Invites */}
                 <li className="mb-2">
                   <button
@@ -663,7 +775,7 @@ const Header = () => {
                 {/* Shop */}
                 <li className="mb-2">
                   <a
-                    href="https://store.happywedz.com/"
+                    href={`${STORE_ORIGIN}/`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn w-100 text-start p-3 border-0 bg-light fw-semibold text-dark"
@@ -916,7 +1028,7 @@ const Header = () => {
                   }}
                 >
                   <a
-                    href="https://play.google.com/store/apps/details?id=com.happy.happy_weds_vendors"
+                    href="https://play.google.com/store/apps/details?id=com.happy.happy_wedz&pcampaignid=web_share"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -937,7 +1049,7 @@ const Header = () => {
                   </a>
                   <div style={{ width: "1px", height: "18px", backgroundColor: "rgba(255,255,255,0.4)" }} />
                   <a
-                    href="https://apps.apple.com/app/happywedz/id123456789"
+                    href="https://apps.apple.com/in/app/happy-wedz/id6756042192"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -983,7 +1095,7 @@ const Header = () => {
                     <div className="d-flex align-items-center gap-2">
                       {/* Google Play Badge */}
                       <a
-                        href="https://play.google.com/store/apps/details?id=com.happy.happy_weds_vendors"
+                        href="https://play.google.com/store/apps/details?id=com.happy.happy_wedz&pcampaignid=web_share"
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Google Play"
@@ -1017,7 +1129,7 @@ const Header = () => {
 
                       {/* App Store Badge */}
                       <a
-                        href="https://apps.apple.com/app/happywedz/id123456789"
+                        href="https://apps.apple.com/in/app/happy-wedz/id6756042192"
                         target="_blank"
                         rel="noopener noreferrer"
                         title="App Store"
@@ -1052,26 +1164,82 @@ const Header = () => {
 
               {/* TIER 2: Main Navbar Bar (Vibrant Pink) */}
               <div className="col-12 p-0 primary-bg d-flex align-items-center" style={{ backgroundColor: "#ed1173", height: "50px", minHeight: "50px" }}>
-                <div className="container-fluid px-4 w-100" style={{ height: "50px" }}>
-                  <div className="d-flex w-100 align-items-center justify-content-between flex-nowrap" style={{ height: "50px" }}>
-                    <div className="d-flex align-items-center">
-                      <Link className="navbar-brand-logo me-4 d-flex align-items-center" to="/">
+                <style>{`
+                  .header-mainnav {
+                    display: flex !important;
+                    flex-direction: row !important;
+                    /* Stretch, not center. Centred, each tab was only as tall as its
+                       link, leaving about 10px of dead space between the tab and the
+                       dropdown below it. Moving the cursor down crossed that strip,
+                       hover ended, and the dropdown closed. Stretched, the tab reaches
+                       the bottom of the bar, which is exactly where the dropdown starts.
+                       Each .nav-item still centres its own link, so nothing moves. */
+                    align-items: stretch !important;
+                    gap: 6px !important;
+                    margin: 0 0 0 14px !important;
+                    padding: 0 !important;
+                    list-style: none !important;
+                  }
+                  @media (min-width: 1400px) {
+                    .header-mainnav {
+                      gap: 12px !important;
+                      margin-left: 22px !important;
+                    }
+                  }
+                  .header-mainnav .nav-item {
+                    display: flex !important;
+                    align-items: center !important;
+                    padding-top: 0 !important;
+                    padding-bottom: 0 !important;
+                  }
+                  .header-mainnav .nav-link {
+                    font-size: 15.5px !important;
+                    padding: 6px 7px !important;
+                    color: #ffffff !important;
+                    white-space: nowrap !important;
+                    font-weight: 500 !important;
+                    line-height: 1.2 !important;
+                    text-decoration: none !important;
+                    border-radius: 4px !important;
+                    transition: background-color 0.15s ease, opacity 0.15s ease !important;
+                    transform: none !important;
+                  }
+                  @media (min-width: 1400px) {
+                    .header-mainnav .nav-link {
+                      font-size: 16px !important;
+                      padding: 6px 10px !important;
+                    }
+                  }
+                  .header-mainnav .nav-link:hover {
+                    background-color: rgba(255, 255, 255, 0.18) !important;
+                    color: #ffffff !important;
+                    transform: none !important;
+                  }
+                  .header-mainnav .dropdown-toggle::after {
+                    margin-left: 4px !important;
+                    vertical-align: 1px !important;
+                  }
+                `}</style>
+                <div className="container-fluid px-2 px-xl-3 w-100" style={{ height: "50px" }}>
+                  <div className="d-flex w-100 align-items-center flex-nowrap" style={{ height: "50px" }}>
+                    <div className="d-flex align-items-center flex-shrink-0">
+                      <Link className="navbar-brand-logo me-1 me-xl-2 d-flex align-items-center" to="/">
                         <img
                           src="/images/logo-sm-300.webp"
                           alt="HappyWedz"
-                          width="140"
-                          height="32"
+                          width="135"
+                          height="30"
                           className="d-block"
-                          style={{ filter: "brightness(0) invert(1)", height: "32px", objectFit: "contain" }}
+                          style={{ filter: "brightness(0) invert(1)", height: "30px", objectFit: "contain" }}
                         />
                       </Link>
                     </div>
-                    <ul className="navbar-nav header-mainnav d-flex flex-row align-items-center justify-content-center gap-3 m-0 p-0" style={{ height: "50px", minHeight: "50px" }}>
+                    <ul className="navbar-nav header-mainnav d-flex flex-row justify-content-start m-0 p-0" style={{ height: "50px", minHeight: "50px" }}>
                         {/* Planning Tools Dropdown */}
                         <li
                           className="py-0 nav-item dropdown mega-dropdown-wrapper position-static"
-                          onMouseEnter={() => setOpenMenu("planning")}
-                          onMouseLeave={() => setOpenMenu(null)}
+                          onMouseEnter={() => handleMegaMenuEnter("planning")}
+                          onMouseLeave={handleMegaMenuLeave}
                         >
                           <div className="dropdown-wrapper">
                             <button
@@ -1174,7 +1342,7 @@ const Header = () => {
                                           desc: "Plan your wedding on the go with the HappyWedz app.",
                                           image: "/images/header/playstore.png",
                                           route:
-                                            "https://play.google.com/store/apps/details?id=com.happy.happy_weds_vendors",
+                                            "https://play.google.com/store/apps/details?id=com.happy.happy_wedz&pcampaignid=web_share",
                                         },
                                         {
                                           title: "Happywedz Website",
@@ -1282,8 +1450,8 @@ const Header = () => {
                         {/* Venues Dropdown */}
                         <li
                           className="py-2 nav-item dropdown mega-dropdown-wrapper position-static"
-                          onMouseEnter={() => setOpenMenu("venues")}
-                          onMouseLeave={() => setOpenMenu(null)}
+                          onMouseEnter={() => handleMegaMenuEnter("venues")}
+                          onMouseLeave={handleMegaMenuLeave}
                         >
                           <Link
                             to="/venues"
@@ -1447,8 +1615,8 @@ const Header = () => {
                         {/* Vendors Dropdown */}
                         <li
                           className="py-2 nav-item dropdown mega-dropdown-wrapper position-static"
-                          onMouseEnter={() => setOpenMenu("vendors")}
-                          onMouseLeave={() => setOpenMenu(null)}
+                          onMouseEnter={() => handleMegaMenuEnter("vendors")}
+                          onMouseLeave={handleMegaMenuLeave}
                         >
                           <div className="dropdown-wrapper">
                             <Link
@@ -1515,11 +1683,11 @@ const Header = () => {
                           </div>
                         </li>
 
-                        {/* Photography Dropdown */}
+                        {/* Wedding Inspiration Dropdown */}
                         <li
                           className="py-2 nav-item dropdown mega-dropdown-wrapper position-static"
-                          onMouseEnter={() => setOpenMenu("photography")}
-                          onMouseLeave={() => setOpenMenu(null)}
+                          onMouseEnter={() => handleMegaMenuEnter("photography")}
+                          onMouseLeave={handleMegaMenuLeave}
                         >
                           <div className="dropdown-wrapper">
                             <Link
@@ -1529,7 +1697,7 @@ const Header = () => {
                               role="button"
                               onClick={() => setOpenMenu(null)}
                             >
-                              Photography
+                              Wedding Inspiration
                             </Link>
                             <div
                               className="dropdown-menu mega-dropdown w-75 shadow border-0 mt-0 p-4 rounded-0"
@@ -1590,11 +1758,16 @@ const Header = () => {
                                     <Link
                                       to="/movment-plus/home"
                                       className="text-decoration-none"
+                                      onClick={() => {
+                                        window.dispatchEvent(
+                                          new CustomEvent("open-movment-sidebar")
+                                        );
+                                      }}
                                     >
                                       <div className="h-100 d-flex flex-column justify-content-center align-items-center text-center p-1 rounded">
                                         <img
                                           src="https://img.freepik.com/free-photo/bride-groom-having-their-wedding-beach_23-2149043965.jpg?semt=ais_hybrid&w=740&q=80"
-                                          alt="Movments Plus"
+                                          alt="Moments Plus"
                                           className="mb-3 rounded"
                                           style={{
                                             width: "100%",
@@ -1603,11 +1776,11 @@ const Header = () => {
                                           }}
                                         />
                                         <div className="fw-bold primary-text text-uppercase fs-16">
-                                          Movments Plus
+                                          Moments Plus
                                         </div>
                                         <div className="small mt-2 fs-14 text-black">
                                           All-new gallery experience for
-                                          photographers with Movments+.
+                                          photographers with Moments+.
                                         </div>
                                       </div>
                                     </Link>
@@ -1618,11 +1791,30 @@ const Header = () => {
                           </div>
                         </li>
 
+                        {/* Photography */}
+                        <li className="py-2 nav-item dropdown mega-dropdown-wrapper position-static">
+                          <div className="dropdown-wrapper">
+                            <Link
+                              className="nav-link text-white fs-16"
+                              to="/movment-plus/home"
+                              id="photographyLink"
+                              role="button"
+                              onClick={() => {
+                                window.dispatchEvent(
+                                  new CustomEvent("open-movment-sidebar")
+                                );
+                              }}
+                            >
+                              Photography
+                            </Link>
+                          </div>
+                        </li>
+
                         {/* E-Invites Dropdown */}
                         {/* <li
                           className="py-2 nav-item dropdown mega-dropdown-wrapper position-static"
-                          onMouseEnter={() => setOpenMenu("einvites")}
-                          onMouseLeave={() => setOpenMenu(null)}
+                          onMouseEnter={() => handleMegaMenuEnter("einvites")}
+                          onMouseLeave={handleMegaMenuLeave}
                         >
                           <div className="dropdown-wrapper">
                             <Link
@@ -1674,8 +1866,8 @@ const Header = () => {
                         </li> */}
                         <li
                           className="py-2 nav-item dropdown mega-dropdown-wrapper position-static"
-                          onMouseEnter={() => setOpenMenu("einvites")}
-                          onMouseLeave={() => setOpenMenu(null)}
+                          onMouseEnter={() => handleMegaMenuEnter("einvites")}
+                          onMouseLeave={handleMegaMenuLeave}
                         >
                           <div className="dropdown-wrapper">
                             <Link
@@ -1764,7 +1956,7 @@ const Header = () => {
                           <div className="dropdown-wrapper">
                             <a
                               className="nav-link text-white fs-16"
-                              href="https://store.happywedz.com/"
+                              href={`${STORE_ORIGIN}/`}
                               id="shopLink"
                               role="button"
                               target="_blank"
@@ -2086,88 +2278,311 @@ const Header = () => {
                         </li> */}
 
                       </ul>
-
-                      {/* Right Actions: Log In / Dashboard / Logout Pill Buttons */}
-                      <div className="d-flex align-items-center gap-2 ms-2 me-1">
-                        {/* Log In / Dashboard Pill Button */}
-                        {isUserLoggedIn ? (
-                          <Link
-                            to="/user-dashboard"
-                            style={{
-                              backgroundColor: "rgba(0, 0, 0, 0.18)",
-                              color: "#ffffff",
-                              borderRadius: "20px",
-                              padding: "4px 14px",
-                              fontWeight: "600",
-                              fontSize: "13px",
-                              textDecoration: "none",
-                              whiteSpace: "nowrap",
-                              transition: "background-color 0.2s",
+                      {/* Right Actions: Circular Profile Avatar (Only shows dropdown when logged in) */}
+                      <div
+                        ref={profileMenuContainerRef}
+                        className="position-relative d-inline-flex align-items-center ms-auto me-1 flex-shrink-0"
+                        onMouseEnter={handleProfileMouseEnter}
+                        onMouseLeave={handleProfileMouseLeave}
+                        style={{ height: "100%", zIndex: 1050 }}
+                      >
+                        {isLoggedIn ? (
+                          /* Logged-in Profile Avatar Button with Dropdown Triangle */
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (profileMenuTimeoutRef.current) {
+                                clearTimeout(profileMenuTimeoutRef.current);
+                                profileMenuTimeoutRef.current = null;
+                              }
+                              setProfileMenuOpen((prev) => !prev);
                             }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.3)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.18)"; }}
-                          >
-                            User Dashboard
-                          </Link>
-                        ) : isVendorLoggedIn ? (
-                          <Link
-                            to="/vendor-dashboard"
+                            aria-label="User profile and menu"
+                            aria-expanded={profileMenuOpen}
                             style={{
-                              backgroundColor: "rgba(0, 0, 0, 0.18)",
-                              color: "#ffffff",
-                              borderRadius: "20px",
-                              padding: "4px 14px",
-                              fontWeight: "600",
-                              fontSize: "13px",
-                              textDecoration: "none",
-                              whiteSpace: "nowrap",
-                              transition: "background-color 0.2s",
+                              backgroundColor: "transparent",
+                              border: "none",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              cursor: "pointer",
+                              padding: "2px 0",
+                              transition: "all 0.2s ease",
                             }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.3)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.18)"; }}
+                            title={profileName || "Profile Menu"}
                           >
-                            Vendor Dashboard
-                          </Link>
+                            <div
+                              style={{
+                                width: "36px",
+                                height: "36px",
+                                borderRadius: "50%",
+                                backgroundColor: "#ffffff",
+                                border: "2px solid rgba(255, 255, 255, 0.9)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow: profileMenuOpen
+                                  ? "0 0 0 3px rgba(255, 255, 255, 0.45)"
+                                  : "0 2px 6px rgba(0, 0, 0, 0.16)",
+                                transition: "all 0.2s ease",
+                                transform: profileMenuOpen ? "scale(1.05)" : "scale(1)",
+                              }}
+                            >
+                              <FiUser
+                                style={{
+                                  color: isVendorLoggedIn ? "#7c3aed" : "#ed1173",
+                                  fontSize: "19px",
+                                }}
+                              />
+                            </div>
+                            <FaCaretDown
+                              style={{
+                                color: "#ffffff",
+                                fontSize: "13px",
+                                transition: "transform 0.2s ease",
+                                transform: profileMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                                filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25))",
+                              }}
+                            />
+                          </button>
                         ) : (
+                          /* Guest: Direct link to Customer Login without any popup dropdown */
                           <Link
                             to="/customer-login"
+                            aria-label="Customer Log In"
+                            title="Log In"
                             style={{
-                              backgroundColor: "rgba(0, 0, 0, 0.18)",
-                              color: "#ffffff",
-                              borderRadius: "20px",
-                              padding: "5px 16px",
-                              fontWeight: "600",
-                              fontSize: "13px",
+                              width: "36px",
+                              height: "36px",
+                              borderRadius: "50%",
+                              backgroundColor: "#ffffff",
+                              border: "2px solid rgba(255, 255, 255, 0.9)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                              boxShadow: "0 2px 6px rgba(0, 0, 0, 0.16)",
+                              transition: "all 0.2s ease",
                               textDecoration: "none",
-                              whiteSpace: "nowrap",
-                              transition: "background-color 0.2s",
                             }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.3)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.18)"; }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = "scale(1.05)";
+                              e.currentTarget.style.boxShadow =
+                                "0 0 0 3px rgba(255, 255, 255, 0.45)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = "scale(1)";
+                              e.currentTarget.style.boxShadow =
+                                "0 2px 6px rgba(0, 0, 0, 0.16)";
+                            }}
                           >
-                            Log In
+                            <FiUser
+                              style={{
+                                color: "#ed1173",
+                                fontSize: "19px",
+                              }}
+                            />
                           </Link>
                         )}
 
-                        {isLoggedIn && (
-                          <button
-                            onClick={handleLogout}
+                        {/* Dropdown Menu (ONLY rendered when logged in) */}
+                        {isLoggedIn && profileMenuOpen && (
+                          <div
+                            onMouseEnter={handleProfileMouseEnter}
+                            onMouseLeave={handleProfileMouseLeave}
                             style={{
-                              backgroundColor: "rgba(0, 0, 0, 0.18)",
-                              color: "#ffffff",
-                              borderRadius: "20px",
-                              padding: "4px 12px",
-                              fontWeight: "600",
-                              fontSize: "13px",
-                              border: "none",
-                              cursor: "pointer",
-                              transition: "background-color 0.2s",
+                              position: "absolute",
+                              top: "100%",
+                              right: 0,
+                              paddingTop: "6px",
+                              zIndex: 1050,
+                              minWidth: "230px",
                             }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.3)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.18)"; }}
                           >
-                            Logout
-                          </button>
+                            {/* Invisible hover bridge connecting button to card */}
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "-15px",
+                                left: "-50px",
+                                right: 0,
+                                height: "20px",
+                                backgroundColor: "transparent",
+                                pointerEvents: "auto",
+                              }}
+                            />
+                            <div
+                              style={{
+                                backgroundColor: "#ffffff",
+                                borderRadius: "14px",
+                                boxShadow:
+                                  "0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06)",
+                                border: "1px solid #eaeaea",
+                                overflow: "hidden",
+                                textAlign: "left",
+                                position: "relative",
+                              }}
+                            >
+                              {/* Logged-In User/Vendor Header */}
+                              <div
+                                style={{
+                                  padding: "12px 16px",
+                                  background:
+                                    "linear-gradient(135deg, #fff2f6 0%, #ffffff 100%)",
+                                  borderBottom: "1px solid #f0f0f0",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontWeight: "700",
+                                    fontSize: "14px",
+                                    color: "#1f2937",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {profileName ||
+                                    (isVendorLoggedIn ? "Vendor Partner" : "My Account")}
+                                </div>
+                                {profileEmail && (
+                                  <div
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "#6b7280",
+                                      marginTop: "2px",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    }}
+                                  >
+                                    {profileEmail}
+                                  </div>
+                                )}
+                                <span
+                                  style={{
+                                    display: "inline-block",
+                                    fontSize: "10px",
+                                    fontWeight: "700",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                    padding: "2px 8px",
+                                    borderRadius: "10px",
+                                    backgroundColor: isVendorLoggedIn
+                                      ? "#7c3aed"
+                                      : "#e72e76",
+                                    color: "#ffffff",
+                                    marginTop: "6px",
+                                  }}
+                                >
+                                  {isVendorLoggedIn ? "Vendor" : "Customer"}
+                                </span>
+                              </div>
+
+                              {/* Menu Options */}
+                              <div style={{ padding: "6px 0" }}>
+                                {isUserLoggedIn && (
+                                  <Link
+                                    to="/user-dashboard"
+                                    onClick={() => setProfileMenuOpen(false)}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "10px",
+                                      padding: "10px 16px",
+                                      color: "#374151",
+                                      textDecoration: "none",
+                                      fontSize: "13px",
+                                      fontWeight: "600",
+                                      transition: "background-color 0.15s",
+                                    }}
+                                    onMouseEnter={(e) =>
+                                      (e.currentTarget.style.backgroundColor =
+                                        "#fff0f5")
+                                    }
+                                    onMouseLeave={(e) =>
+                                      (e.currentTarget.style.backgroundColor =
+                                        "transparent")
+                                    }
+                                  >
+                                    <FiGrid size={16} color="#e72e76" />
+                                    <span>User Dashboard</span>
+                                  </Link>
+                                )}
+
+                                {isVendorLoggedIn && (
+                                  <Link
+                                    to="/vendor-dashboard"
+                                    onClick={() => setProfileMenuOpen(false)}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "10px",
+                                      padding: "10px 16px",
+                                      color: "#374151",
+                                      textDecoration: "none",
+                                      fontSize: "13px",
+                                      fontWeight: "600",
+                                      transition: "background-color 0.15s",
+                                    }}
+                                    onMouseEnter={(e) =>
+                                      (e.currentTarget.style.backgroundColor =
+                                        "#f5f3ff")
+                                    }
+                                    onMouseLeave={(e) =>
+                                      (e.currentTarget.style.backgroundColor =
+                                        "transparent")
+                                    }
+                                  >
+                                    <FiGrid size={16} color="#7c3aed" />
+                                    <span>Vendor Dashboard</span>
+                                  </Link>
+                                )}
+
+                                <div
+                                  style={{
+                                    height: "1px",
+                                    backgroundColor: "#f0f0f0",
+                                    margin: "4px 0",
+                                  }}
+                                />
+
+                                <button
+                                  onClick={() => {
+                                    setProfileMenuOpen(false);
+                                    handleLogout();
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    padding: "10px 16px",
+                                    color: "#dc2626",
+                                    backgroundColor: "transparent",
+                                    border: "none",
+                                    fontSize: "13px",
+                                    fontWeight: "600",
+                                    cursor: "pointer",
+                                    transition: "background-color 0.15s",
+                                    textAlign: "left",
+                                  }}
+                                  onMouseEnter={(e) =>
+                                    (e.currentTarget.style.backgroundColor =
+                                      "#fef2f2")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.currentTarget.style.backgroundColor =
+                                      "transparent")
+                                  }
+                                >
+                                  <FiLogOut size={16} color="#dc2626" />
+                                  <span>Logout</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>

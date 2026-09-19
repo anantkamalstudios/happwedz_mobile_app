@@ -2,24 +2,23 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { loginVendor, setVendorCredentials } from "../../redux/vendorAuthSlice";
+import { loginVendor } from "../../redux/vendorAuthSlice";
 import vendorsAuthApi from "../../services/api/vendorAuthApi";
+import { VENDOR_STOREFRONT_ROUTE, pinStorefrontTab } from "../../utils/vendorLanding";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FaEyeSlash, FaEye } from "react-icons/fa";
 import axiosInstance from "../../services/api/axiosInstance";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "https://happywedz.com/api";
+import { safeSetItem, sanitizeForStorage } from "../../utils/safeStorage";
 
 const VendorRegister = () => {
   const persistVendorSession = (vendorData, tokenValue) => {
     const expiry = Date.now() + 60 * 60 * 1000;
-    localStorage.setItem("vendor", JSON.stringify(vendorData));
-    localStorage.setItem("vendorToken", tokenValue);
-    localStorage.setItem("vendorTokenExpiry", expiry.toString());
+    const cleanVendor = sanitizeForStorage(vendorData);
+    safeSetItem("vendor", JSON.stringify(cleanVendor));
+    safeSetItem("vendorToken", tokenValue);
+    safeSetItem("vendorTokenExpiry", expiry.toString());
   };
 
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -215,13 +214,24 @@ const VendorRegister = () => {
           email: formData.email,
           phone: formData.phone,
           city: formData.city,
-          vendor_type_id: formData.vendorType,
+          // Number, not the raw <select> string — the dashboard compares this id
+          // strictly and a string silently hides the Moments+ tab.
+          vendor_type_id: Number(formData.vendorType),
         };
 
       if (token && vendor) {
         persistVendorSession(vendor, token);
         dispatch(loginVendor({ token, vendor }));
-        navigate("/vendor-dashboard/vendor-home", { replace: true });
+
+        // A brand new vendor always goes to Business details — that is where they
+        // complete their information and upload the documents that get them verified.
+        // vendorLandingRoute is not used here because a freshly created vendor may not
+        // carry verification_status back in the register response.
+        pinStorefrontTab(vendor?.id);
+        toast.success(
+          "Registration complete. Check your email, then finish your business details below."
+        );
+        navigate(VENDOR_STOREFRONT_ROUTE, { replace: true });
       } else {
         navigate("/vendor-login", { replace: true });
       }

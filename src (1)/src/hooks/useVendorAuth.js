@@ -1,7 +1,8 @@
 import { useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../config/constants";
 
-const API_URL = "https://happywedz.com/api/vendor";
+const API_URL = `${API_BASE_URL}/vendor`;
 
 export const useVendorAuth = () => {
   const [loading, setLoading] = useState(false);

@@ -6,8 +6,7 @@ import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { Button, Card, Modal } from "react-bootstrap";
 import { formatDate } from "../../utils/dateFormat";
-
-const API_BASE_URL = "https://happywedz.com/api";
+import { API_BASE_URL } from "../../config/constants";
 
 const getReviewerName = (review) => review?.user?.name || "Anonymous";
 const getReviewerInitial = (review) =>

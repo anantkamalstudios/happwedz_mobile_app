@@ -3,11 +3,11 @@ import axiosInstance from "../../../../services/api/axiosInstance";
 import { getAllHotelBookings } from "../../../../services/api/hotelApi";
 import { getMyFlightBookings } from "../../../../services/api/flightApi";
 import { getMyInsuranceBookings } from "../../../../services/api/tripSafeApi";
+import { API_BASE_URL } from "../../../../config/constants";
 
 // Absolute, as the original Booking tab had it. axiosInstance's baseURL points
 // at the same host in production; leaving it absolute keeps behaviour identical.
-export const QUOTATIONS_URL =
-  "https://happywedz.com/api/request-pricing/user/quotations";
+export const QUOTATIONS_URL = `${API_BASE_URL}/request-pricing/user/quotations`;
 
 // The cab list is served off the invoice endpoint, so rows arrive in invoice
 // shape and get flattened into the booking shape the card expects.

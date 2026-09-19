@@ -5,8 +5,19 @@ import vendorsAuthApi, {
 } from "../../../../services/api/vendorAuthApi";
 import { setVendor } from "../../../../redux/vendorAuthSlice";
 import { useToast } from "../../../layouts/toasts/Toast";
+import vendorVerificationApi from "../../../../services/api/vendorVerificationApi";
+import VerificationStatusBanner from "./kyc/VerificationStatusBanner";
+import BusinessDocumentsSection, {
+  MAX_BUSINESS_DOCS,
+} from "./kyc/BusinessDocumentsSection";
 
-const BusinessDetails = ({ formData, setFormData }) => {
+const emptyBusinessDoc = () => ({
+  id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  label: "",
+  file: null,
+});
+
+const BusinessDetails = ({ formData, setFormData, onVerificationSubmitted }) => {
   const { addToast } = useToast();
   const [showPasswordFields, setShowPasswordFields] = React.useState(false);
   const [currentPassword, setCurrentPassword] = React.useState("");
@@ -26,6 +37,152 @@ const BusinessDetails = ({ formData, setFormData }) => {
 
   const { vendor, token } = useSelector((state) => state.vendorAuth || {});
   const dispatch = useDispatch();
+
+  // ── Onboarding verification ────────────────────────────────────────────────
+  const [access, setAccess] = React.useState(null);
+  const [existingDocs, setExistingDocs] = React.useState({});
+  const [kyc, setKyc] = React.useState({
+    aadhaar: null,
+    pan: null,
+    businessDocs: [emptyBusinessDoc()],
+  });
+  const [kycErrors, setKycErrors] = React.useState({});
+
+  const loadVerificationStatus = React.useCallback(async () => {
+    try {
+      const data = await vendorVerificationApi.getStatus();
+      setAccess(data.access || null);
+
+      // Group what is already on file so the form can show "already uploaded" and let a
+      // rejected vendor replace only the document that was wrong.
+      const grouped = { business: [] };
+      (data.documents || []).forEach((doc) => {
+        if (doc.doc_type === "business") grouped.business.push(doc);
+        else grouped[doc.doc_type] = doc;
+      });
+      setExistingDocs(grouped);
+    } catch (err) {
+      console.error("Failed to load verification status:", err);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (vendor?.id) loadVerificationStatus();
+  }, [vendor?.id, loadVerificationStatus]);
+
+  const isUnderReview = access?.stage === "kyc_pending";
+  const needsVerification = Boolean(access?.canSubmitVerification);
+
+  const updateKyc = (patch) => {
+    setKyc((prev) => ({ ...prev, ...patch }));
+    // Clear the errors for whatever the vendor just touched, so corrections feel
+    // responsive instead of leaving stale red text on a field they already fixed.
+    setKycErrors((prev) => {
+      const next = { ...prev };
+      Object.keys(patch).forEach((key) => delete next[key]);
+      if (patch.businessDocs) {
+        Object.keys(next)
+          .filter((k) => k.startsWith("businessDoc"))
+          .forEach((k) => delete next[k]);
+      }
+      return next;
+    });
+  };
+
+  /** @returns {object} field -> message; empty when the submission is valid */
+  const validateKyc = () => {
+    const errors = {};
+    const filled = kyc.businessDocs.filter((d) => d.file || d.label.trim());
+
+    if (!kyc.aadhaar && !existingDocs.aadhaar) {
+      errors.aadhaar = "Please upload your Aadhaar card.";
+    }
+    if (!kyc.pan && !existingDocs.pan) {
+      errors.pan = "Please upload your PAN card.";
+    }
+
+    const hasExistingBusiness = (existingDocs.business || []).length > 0;
+    if (!filled.length && !hasExistingBusiness) {
+      errors.businessDocs = "Please add at least one business document.";
+    }
+
+    // A half-filled row is a mistake, not an intent — flag whichever half is missing.
+    kyc.businessDocs.forEach((doc, i) => {
+      const hasLabel = Boolean(doc.label.trim());
+      const hasFile = Boolean(doc.file);
+      if (hasFile && !hasLabel) {
+        errors[`businessDocLabel-${i}`] = "Give this document a name.";
+      }
+      if (hasLabel && !hasFile) {
+        errors[`businessDocFile-${i}`] = "Choose a file for this document.";
+      }
+    });
+
+    return errors;
+  };
+
+  const handleSubmitVerification = async () => {
+    setError("");
+    setSuccess("");
+    setValidationErrors({});
+
+    const payload = buildRegisterPayload();
+    const requiredFields = ["businessName", "email", "phone", "city"];
+    const fieldErrors = {};
+    requiredFields.forEach((f) => {
+      if (!payload[f] || String(payload[f]).trim() === "") {
+        fieldErrors[f] = "This field is required";
+      }
+    });
+
+    const docErrors = validateKyc();
+    setValidationErrors(fieldErrors);
+    setKycErrors(docErrors);
+
+    if (Object.keys(fieldErrors).length || Object.keys(docErrors).length) {
+      const first = Object.values(fieldErrors)[0] || Object.values(docErrors)[0];
+      setError(first);
+      addToast?.(first, "error");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const data = await vendorVerificationApi.submit({
+        fields: {
+          businessName: payload.businessName,
+          phone: payload.phone,
+          city: payload.city,
+          state: payload.state || "",
+          zip: payload.zip || "",
+          firstName: payload.firstName || "",
+          lastName: payload.lastName || "",
+          website: payload.website || "",
+        },
+        aadhaar: kyc.aadhaar,
+        pan: kyc.pan,
+        businessDocs: kyc.businessDocs.filter((d) => d.file && d.label.trim()),
+      });
+
+      setAccess(data.access || null);
+      setKyc({ aadhaar: null, pan: null, businessDocs: [emptyBusinessDoc()] });
+      setSuccess(data.message);
+      addToast?.(data.message, "success");
+
+      await loadVerificationStatus();
+      onVerificationSubmitted?.(data.access);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "We could not submit your documents. Please try again.";
+      setError(msg);
+      addToast?.(msg, "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Fetch fresh vendor data from API when component loads
   useEffect(() => {
@@ -392,7 +549,15 @@ const BusinessDetails = ({ formData, setFormData }) => {
   return (
     <div className="">
       <div className="p-3 border rounded bg-white">
-        <h4 className="mb-3 fw-bold">Bussiness Details</h4>
+        <h4 className="mb-3 fw-bold">Business Details</h4>
+
+        <VerificationStatusBanner
+          access={access}
+          onAction={(action) => {
+            if (action?.href) window.location.assign(action.href);
+          }}
+        />
+
         <div className="mb-3">
           <label className="form-label fs-16">Profile Image</label>
           <div className="d-flex align-items-start gap-3">
@@ -723,6 +888,19 @@ const BusinessDetails = ({ formData, setFormData }) => {
             onChange={handleAttributeChange}
           />
         </div>
+        {/* Hidden once the business is verified — there is nothing left to submit. */}
+        {access && access.verificationStatus !== "approved" && (
+          <BusinessDocumentsSection
+            aadhaar={kyc.aadhaar}
+            pan={kyc.pan}
+            businessDocs={kyc.businessDocs}
+            existing={existingDocs}
+            errors={kycErrors}
+            disabled={isUnderReview || submitting}
+            onChange={updateKyc}
+          />
+        )}
+
         <div className="p-3 border rounded mb-4 bg-white">
           <h6 className="mb-3 fw-bold">Change Password</h6>
           {!showPasswordFields ? (
@@ -835,13 +1013,35 @@ const BusinessDetails = ({ formData, setFormData }) => {
       {error && <div className="alert alert-danger mt-2">{error}</div>}
       {success && <div className="alert alert-success mt-2">{success}</div>}
 
-      <button
-        className="btn btn-primary mt-2 fs-14"
-        onClick={handleSubmitRegister}
-        disabled={submitting}
-      >
-        {submitting ? "Saving..." : "Save Business Details"}
-      </button>
+      {/* One button, three meanings. While onboarding is outstanding, saving and
+          submitting for verification are the same action from the vendor's point of
+          view, so splitting them into two buttons would only invite half-submissions. */}
+      {isUnderReview ? (
+        <button className="btn btn-secondary mt-2 fs-14" disabled>
+          Under review
+        </button>
+      ) : (
+        <button
+          className="btn btn-primary mt-2 fs-14"
+          onClick={needsVerification ? handleSubmitVerification : handleSubmitRegister}
+          disabled={submitting}
+        >
+          {submitting
+            ? needsVerification
+              ? "Submitting..."
+              : "Saving..."
+            : needsVerification
+              ? "Submit for verification"
+              : "Save Business Details"}
+        </button>
+      )}
+
+      {needsVerification && !submitting && (
+        <p className="text-muted small mt-2 mb-0">
+          Your details and documents go to our verification team. You can add up to{" "}
+          {MAX_BUSINESS_DOCS} business documents.
+        </p>
+      )}
     </div>
   );
 };

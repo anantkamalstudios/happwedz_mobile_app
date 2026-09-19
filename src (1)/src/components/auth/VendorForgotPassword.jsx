@@ -3,6 +3,7 @@ import { FiMail, FiLock, FiCheck, FiArrowLeft, FiLoader, FiEye, FiEyeOff } from 
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { API_BASE_URL } from "../../config/constants";
 
 const VendorForgotPassword = () => {
   const [activeStep, setActiveStep] = useState("forgotPassword");
@@ -31,7 +32,7 @@ const VendorForgotPassword = () => {
     setMessage("");
 
     try {
-      const res = await axios.post("https://happywedz.com/api/vendor/forgot-password", { email });
+      const res = await axios.post(`${API_BASE_URL}/vendor/forgot-password`, { email });
 
       setMessage(res.data.message || `OTP sent to ${email}`);
       setActiveStep("otpVerification");
@@ -70,7 +71,7 @@ const VendorForgotPassword = () => {
     }
 
     try {
-      const res = await axios.post("https://happywedz.com/api/vendor/reset-password", {
+      const res = await axios.post(`${API_BASE_URL}/vendor/reset-password`, {
         email,
         otp: otp.join(""), // combine 6 digits
         newPassword,
@@ -118,7 +119,7 @@ const VendorForgotPassword = () => {
     setIsLoading(true);
     setMessage("");
     try {
-      const res = await axios.post("https://happywedz.com/api/vendor/forgot-password", { email });
+      const res = await axios.post(`${API_BASE_URL}/vendor/forgot-password`, { email });
       setMessage(res.data.message || "OTP resent successfully");
     } catch (err) {
       setMessage(err.response?.data?.message || "Failed to resend OTP");

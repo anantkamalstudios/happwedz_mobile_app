@@ -916,6 +916,50 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// One row in the inbox list — mirrors `normalizeConversation` in the
+/// source's `userDashboard/messages/Messages.jsx`.
+class ConversationSummary {
+  ConversationSummary({
+    required this.id,
+    required this.vendorId,
+    required this.vendorName,
+    this.vendorImage,
+    this.lastMessagePreview = '',
+    this.lastMessageAt,
+    this.unreadCount = 0,
+  });
+
+  final int id;
+  final int vendorId;
+  String vendorName;
+  String? vendorImage;
+  final String lastMessagePreview;
+  final DateTime? lastMessageAt;
+  final int unreadCount;
+
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    return DateTime.tryParse(v.toString());
+  }
+
+  factory ConversationSummary.fromJson(Map<String, dynamic> json) {
+    final vendor = json['vendor'] is Map
+        ? Map<String, dynamic>.from(json['vendor'])
+        : const <String, dynamic>{};
+    return ConversationSummary(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      vendorId: (json['vendorId'] as num?)?.toInt() ?? 0,
+      vendorName: (vendor['businessName'] ?? vendor['name'] ?? 'Vendor').toString(),
+      vendorImage: (vendor['profileImage'] ?? vendor['image'])?.toString(),
+      lastMessagePreview: (json['lastMessagePreview'] ?? '').toString(),
+      lastMessageAt: _parseDate(
+        json['lastMessageAt'] ?? json['updatedAt'] ?? json['createdAt'],
+      ),
+      unreadCount: (json['userUnreadCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 // ---------------------------
 // ChatService (all APIs)
 // ---------------------------
@@ -937,6 +981,143 @@ class ChatService {
       "Accept": "application/json",
       "Authorization": "Bearer $token",
     };
+  }
+
+  // --------------------------
+  // 0️⃣ LIST CONVERSATIONS — GET messages/user/conversations
+  // (`services/api/messagesApi.js`'s `getConversations`). Previously never
+  // called anywhere in this app — the inbox screen just showed a hardcoded
+  // empty state regardless of whether real conversations existed.
+  // --------------------------
+  static Future<List<ConversationSummary>> fetchConversations() async {
+    final url = Uri.parse("$baseUrl/conversations");
+    final res = await http.get(url, headers: await _headers());
+
+    if (res.statusCode != 200) {
+      throw Exception('HTTP ${res.statusCode}');
+    }
+
+    final decoded = jsonDecode(res.body);
+    final List list = decoded is List
+        ? decoded
+        : (decoded is Map
+            ? (decoded['data'] ?? decoded['conversations'] ?? const [])
+            : const []);
+
+    var conversations = list
+        .whereType<Map>()
+        .map((e) => ConversationSummary.fromJson(Map<String, dynamic>.from(e)))
+        .where((c) => c.vendorId != 0)
+        .toList();
+
+    // Enrich any conversation whose `vendor` object didn't come embedded —
+    // same customer-facing endpoint every other vendor screen in this app
+    // already uses, not the vendor-only admin API.
+    final missingVendorIds = conversations
+        .where((c) => c.vendorName == 'Vendor' || c.vendorImage == null)
+        .map((c) => c.vendorId)
+        .toSet();
+    if (missingVendorIds.isNotEmpty) {
+      final details = await Future.wait(
+        missingVendorIds.map((id) => _fetchVendorSummary(id)),
+      );
+      final byId = {
+        for (final d in details)
+          if (d != null) d.$1: d.$2,
+      };
+      for (final c in conversations) {
+        final v = byId[c.vendorId];
+        if (v == null) continue;
+        if (c.vendorName == 'Vendor') c.vendorName = v.$1;
+        c.vendorImage ??= v.$2;
+      }
+    }
+
+    // Deduplicate by vendor, keep the most recent thread, sum unread counts —
+    // mirrors `deduplicateConversations` in the source.
+    final byVendor = <int, ConversationSummary>{};
+    for (final c in conversations) {
+      final existing = byVendor[c.vendorId];
+      if (existing == null) {
+        byVendor[c.vendorId] = c;
+        continue;
+      }
+      final existingTime = existing.lastMessageAt;
+      final currentTime = c.lastMessageAt;
+      final combinedUnread = existing.unreadCount + c.unreadCount;
+      final keepCurrent = existingTime == null ||
+          (currentTime != null && currentTime.isAfter(existingTime));
+      final kept = keepCurrent ? c : existing;
+      byVendor[c.vendorId] = ConversationSummary(
+        id: kept.id,
+        vendorId: kept.vendorId,
+        vendorName: kept.vendorName,
+        vendorImage: kept.vendorImage,
+        lastMessagePreview: kept.lastMessagePreview,
+        lastMessageAt: kept.lastMessageAt,
+        unreadCount: combinedUnread,
+      );
+    }
+
+    conversations = byVendor.values.toList()
+      ..sort((a, b) {
+        final at = a.lastMessageAt;
+        final bt = b.lastMessageAt;
+        if (at == null && bt == null) return 0;
+        if (at == null) return 1;
+        if (bt == null) return -1;
+        return bt.compareTo(at);
+      });
+    return conversations;
+  }
+
+  /// (name, image) for one vendor, via the same `GET vendor-services/:id`
+  /// endpoint and field-priority order used across the app (see
+  /// `vendordetailsscreen.dart`'s `_buildServiceCard`/`_resolveImageUrl`).
+  static Future<(int, (String, String?))?> _fetchVendorSummary(int vendorId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.apiBase}/vendor-services/$vendorId'),
+        headers: await _headers(),
+      );
+      if (res.statusCode != 200) return null;
+      final decoded = jsonDecode(res.body);
+      final service = decoded is Map
+          ? (decoded['data'] is Map ? decoded['data'] : decoded)
+          : <String, dynamic>{};
+      final attributes = service['attributes'] ?? {};
+      final vendor = service['vendor'] ?? {};
+
+      final name = (vendor['businessName'] ??
+              attributes['vendor_name'] ??
+              attributes['Name'])
+          ?.toString();
+      if (name == null || name.isEmpty) return null;
+
+      String image = '';
+      final media = service['media'];
+      if (media is List && media.isNotEmpty) {
+        final first = media[0];
+        image = first is String ? first : (first['url'] ?? '').toString();
+      } else if (media is String) {
+        image = media;
+      } else if (media is Map && media['coverImage'] != null) {
+        image = media['coverImage'].toString();
+      }
+      if (image.isEmpty) {
+        final portfolio = attributes['Portfolio'] ??
+            attributes['portfolio_urls'] ??
+            attributes['portfolio'] ??
+            '';
+        if (portfolio is String && portfolio.isNotEmpty) {
+          image = portfolio.split('|').first;
+        }
+      }
+
+      return (vendorId, (name, image.isEmpty ? null : image));
+    } catch (_) {
+      return null;
+    }
   }
 
   // --------------------------

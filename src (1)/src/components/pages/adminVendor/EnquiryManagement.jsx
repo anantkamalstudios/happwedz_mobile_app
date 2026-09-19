@@ -22,8 +22,7 @@ import { useToast } from "../../layouts/toasts/Toast";
 import axiosInstance from "../../../services/api/axiosInstance";
 import { formatDate } from "../../../utils/dateFormat";
 import "./EnquiryManagement.css";
-
-const API_BASE_URL = "https://happywedz.com/api";
+import { API_BASE_URL } from "../../../config/constants";
 
 const EnquiryManagement = () => {
   const [activeFolder, setActiveFolder] = useState("all");

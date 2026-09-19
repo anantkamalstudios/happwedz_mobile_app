@@ -42,8 +42,13 @@
 
 /* Ensure scroll positions look good */
 #about,
+#pricing-packages,
+#menus,
+#facilities,
+#venue-faq,
 #FAQ,
 #reviews, 
 #map {
   scroll-margin-top: 100px; /* adjust for sticky header */
 }
+

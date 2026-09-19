@@ -20,10 +20,9 @@ const String _supportEmail = 'support@happywedz.com';
 // Policy readers
 // ---------------------------------------------------------------------------
 
-List<String> _stringList(dynamic value) => asList(value)
-    .map((e) => asString(e).trim())
-    .where((e) => e.isNotEmpty)
-    .toList();
+List<String> _stringList(dynamic value) => asList(
+  value,
+).map((e) => asString(e).trim()).where((e) => e.isNotEmpty).toList();
 
 List<dynamic> _cancellationRules(CabQuote quote) =>
     asList(readKey(quote.policies, 'cancellationPolicy'));
@@ -54,9 +53,11 @@ String _windowLabel(dynamic rule) {
 }
 
 /// Meet and greet is listed among the inclusions rather than as its own flag.
-bool _hasMeetAndGreet(CabQuote quote) => _stringList(
-  readKey(quote.policies, 'inclusions'),
-).any((i) => RegExp(r'meet\s*(and|&)\s*greet', caseSensitive: false).hasMatch(i));
+bool _hasMeetAndGreet(CabQuote quote) =>
+    _stringList(readKey(quote.policies, 'inclusions')).any(
+      (i) =>
+          RegExp(r'meet\s*(and|&)\s*greet', caseSensitive: false).hasMatch(i),
+    );
 
 // ---------------------------------------------------------------------------
 // Compare table
@@ -75,36 +76,55 @@ class _CompareRow {
 }
 
 final List<_CompareRow> _compareRows = [
+  // The web's row labels and values (`CabCompareTable.jsx`): capacity is the
+  // group's, else the quote's; the type is the model, else the similar type.
   _CompareRow(
     Icons.people_alt_rounded,
-    'Passengers',
-    (q) => '${q.seats > 0 ? q.seats : q.paxCount} pax',
+    'Passenger capacity',
+    (q) => '${q.seats > 0 ? q.seats : '-'} pax',
   ),
   _CompareRow(
     Icons.luggage_rounded,
-    'Luggage',
-    (q) => '${q.luggage > 0 ? q.luggage : q.luggageCount} bags',
+    'Luggage capacity',
+    (q) => '${q.luggage > 0 ? q.luggage : '-'} bags',
   ),
   _CompareRow(
     Icons.directions_car_rounded,
-    'Vehicle',
-    (q) => q.model.isNotEmpty ? q.model : (q.vehicleName.isEmpty ? '-' : q.vehicleName),
+    'Vehicle type',
+    (q) => q.model.isNotEmpty
+        ? q.model
+        : (q.similarType.isNotEmpty ? q.similarType : '-'),
   ),
   _CompareRow(
     Icons.event_available_rounded,
     'Free cancellation',
     freeCancellationLabel,
   ),
-  _CompareRow(
-    Icons.schedule_rounded,
-    'Waiting time',
-    (q) {
-      final v = asString(readKey(q.policies, 'waitingTime'));
-      return v.isEmpty ? '-' : v;
-    },
-  ),
+  _CompareRow(Icons.schedule_rounded, 'Waiting time', (q) {
+    final v = asString(readKey(q.policies, 'waitingTime'));
+    return v.isEmpty ? '-' : v;
+  }),
   const _CompareRow(Icons.sell_rounded, 'Meet and greet', null),
 ];
+
+// Previous rows, kept for reference:
+//   _CompareRow(
+//     Icons.people_alt_rounded,
+//     'Passengers',
+//     (q) => '${q.seats > 0 ? q.seats : q.paxCount} pax',
+//   ),
+//   _CompareRow(
+//     Icons.luggage_rounded,
+//     'Luggage',
+//     (q) => '${q.luggage > 0 ? q.luggage : q.luggageCount} bags',
+//   ),
+//   _CompareRow(
+//     Icons.directions_car_rounded,
+//     'Vehicle',
+//     (q) => q.model.isNotEmpty
+//         ? q.model
+//         : (q.vehicleName.isEmpty ? '-' : q.vehicleName),
+//   ),
 
 /// The quotes that share a vehicle class, side by side over a fixed set of
 /// rows. Scrolls horizontally: on a phone there is no room for three columns
@@ -155,11 +175,7 @@ class CabCompareTable extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Row(
                       children: [
-                        Icon(
-                          row.icon,
-                          size: 14,
-                          color: AppColors.textTertiary,
-                        ),
+                        Icon(row.icon, size: 14, color: AppColors.textTertiary),
                         const SizedBox(width: AppSpacing.xxs),
                         Expanded(
                           child: Text(
@@ -184,10 +200,7 @@ class CabCompareTable extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   for (final quote in quotes)
-                    SizedBox(
-                      width: _columnWidth,
-                      child: _column(quote),
-                    ),
+                    SizedBox(width: _columnWidth, child: _column(quote)),
                 ],
               ),
             ),
@@ -213,11 +226,34 @@ class CabCompareTable extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(formatPrice(quote.price), style: AppText.bodyStrong),
-                PremiumButton.text(
-                  label: 'View policies',
-                  size: PremiumButtonSize.small,
-                  onPressed: () => onPolicies(quote),
+                // One line each, so the fixed-height header never overflows.
+                Text(
+                  formatPrice(quote.price),
+                  style: AppText.bodyStrong,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                // PremiumButton.text(
+                //   label: 'View policies',
+                //   size: PremiumButtonSize.small,
+                //   onPressed: () => onPolicies(quote),
+                // ),
+                // A compact link: the button's padding pushed the fixed-height
+                // header over its bottom edge at large text.
+                InkWell(
+                  onTap: () => onPolicies(quote),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      'View policies',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.caption.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -342,11 +378,10 @@ class _CabPolicySheetState extends State<_CabPolicySheet> {
               height: 42,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 itemCount: _tabs.length,
-                separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(width: AppSpacing.sm),
                 itemBuilder: (context, i) => Center(
                   child: Pressable(
                     onTap: () => setState(() => _tab = i),
@@ -398,13 +433,13 @@ class _CabPolicySheetState extends State<_CabPolicySheet> {
                     // The fallback names our own contact details, not the
                     // supplier's — amendments are handled by us.
                     'Please contact us at $_supportPhone or $_supportEmail for '
-                        'any amendments or modifications to the booking. Extra '
-                        'charges may apply.',
+                    'any amendments or modifications to the booking. Extra '
+                    'charges may apply.',
                   ),
                   _ => _note(
                     asString(readKey(widget.quote.policies, 'baggagePolicy')),
                     'Excess luggage requires guests to either arrange a '
-                        'separate vehicle or upgrade the vehicle in advance.',
+                    'separate vehicle or upgrade the vehicle in advance.',
                   ),
                 },
               ),
@@ -473,7 +508,10 @@ class _CabPolicySheetState extends State<_CabPolicySheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 6, right: AppSpacing.sm),
+                    padding: const EdgeInsets.only(
+                      top: 6,
+                      right: AppSpacing.sm,
+                    ),
                     child: Container(
                       width: 4,
                       height: 4,
@@ -547,8 +585,6 @@ class _CabPolicySheetState extends State<_CabPolicySheet> {
     );
   }
 
-  Widget _note(String supplied, String fallback) => Text(
-    supplied.isNotEmpty ? supplied : fallback,
-    style: AppText.body,
-  );
+  Widget _note(String supplied, String fallback) =>
+      Text(supplied.isNotEmpty ? supplied : fallback, style: AppText.body);
 }

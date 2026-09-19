@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
+import { API_BASE_URL } from "../config/constants";
 
 const apiFetch = async (url, options = {}, token) => {
   const headers = {
@@ -27,7 +28,7 @@ export function useBudget() {
     const loadVendorTypes = async () => {
       try {
         const response = await fetch(
-          "https://happywedz.com/api/vendor-types/with-subcategories/all"
+          `${API_BASE_URL}/vendor-types/with-subcategories/all`
         );
         const data = await response.json();
 
@@ -73,7 +74,7 @@ export function useBudget() {
     const loadUserBudgets = async () => {
       try {
         const response = await apiFetch(
-          `https://happywedz.com/api/budgets/user/${user.id}`,
+          `${API_BASE_URL}/budgets/user/${user.id}`,
           {},
           token
         );
@@ -194,7 +195,7 @@ export function useBudget() {
       };
 
       const response = await apiFetch(
-        `https://happywedz.com/api/budgets/`,
+        `${API_BASE_URL}/budgets/`,
         {
           method: "POST",
           body: JSON.stringify(payload),
@@ -251,7 +252,7 @@ export function useBudget() {
       };
 
       const response = await apiFetch(
-        `https://happywedz.com/api/budgets/${id}`,
+        `${API_BASE_URL}/budgets/${id}`,
         { method: "PUT", body: JSON.stringify(payload) },
         token
       );
@@ -276,7 +277,16 @@ export function useBudget() {
             (sum, r) => sum + Number(r.estimated || 0),
             0
           );
-          return { ...cat, budgets: updatedBudgets, amount: newAmount };
+          const newFinalAmount = updatedBudgets.reduce(
+            (sum, r) => sum + Number(r.final || 0),
+            0
+          );
+          return {
+            ...cat,
+            budgets: updatedBudgets,
+            amount: newAmount,
+            finalAmount: newFinalAmount,
+          };
         })
       );
       return true;
@@ -288,7 +298,7 @@ export function useBudget() {
     async ({ id, vendorTypeId }) => {
       if (!id) return false;
       const response = await apiFetch(
-        `https://happywedz.com/api/budgets/${id}`,
+        `${API_BASE_URL}/budgets/${id}`,
         { method: "DELETE" },
         token
       );
@@ -301,7 +311,14 @@ export function useBudget() {
           const row = existing.find((r) => r.id === id);
           const filtered = existing.filter((r) => r.id !== id);
           const newAmount = (cat.amount || 0) - Number(row?.estimated || 0);
-          return { ...cat, budgets: filtered, amount: Math.max(0, newAmount) };
+          const newFinalAmount =
+            (cat.finalAmount || 0) - Number(row?.final || 0);
+          return {
+            ...cat,
+            budgets: filtered,
+            amount: Math.max(0, newAmount),
+            finalAmount: Math.max(0, newFinalAmount),
+          };
         })
       );
       return true;

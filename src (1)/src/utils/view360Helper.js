@@ -6,6 +6,7 @@
  *   - top level string columns  : view360_image / view360_video
  *   - top level arrays          : view360_images / view360_video
  *   - inside attributes         : attributes.view360_images / attributes.view360_video
+ *   - a pasted link             : attributes.view360_url
  *   - sub-vendor media object   : media.view360 { embedCode, panoImage, modelUrl }
  * The listing card / detail page must only show the 360° button when at least
  * one of these holds a real asset.
@@ -19,6 +20,25 @@ const isUsableUrl = (value) => {
     return false;
   }
   return true;
+};
+
+/**
+ * The vendor's pasted 360° link, but only when it is a plain http(s) URL.
+ * Vendors can enter any text, so anything else (javascript:, data:, junk) must
+ * never reach an href or iframe src.
+ * @param {string} value
+ * @returns {string|null}
+ */
+export const getSafe360Url = (value) => {
+  if (!isUsableUrl(value)) return null;
+  try {
+    const parsed = new URL(value.replace(/^\s*`|`\s*$/g, "").trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.href
+      : null;
+  } catch {
+    return null;
+  }
 };
 
 const normalizeEntry = (entry) => {
@@ -37,10 +57,10 @@ const toList = (value) => {
 /**
  * Collect every 360° asset a vendor service carries.
  * @param {Object} item - raw vendor-service record or a transformed card object
- * @returns {{ images: string[], videos: string[] }}
+ * @returns {{ images: string[], videos: string[], url: string|null }}
  */
 export const get360Assets = (item) => {
-  if (!item || typeof item !== "object") return { images: [], videos: [] };
+  if (!item || typeof item !== "object") return { images: [], videos: [], url: null };
 
   const attributes = item.attributes || {};
   const media = item.media && !Array.isArray(item.media) ? item.media : {};
@@ -67,6 +87,7 @@ export const get360Assets = (item) => {
   return {
     images: [...new Set(images)],
     videos: [...new Set(videos)],
+    url: getSafe360Url(attributes.view360_url ?? item.view360_url),
   };
 };
 
@@ -84,8 +105,8 @@ export const hasView360 = (item) => {
   const media = item.media && !Array.isArray(item.media) ? item.media : {};
   if (isUsableUrl(media.view360?.embedCode)) return true;
 
-  const { images, videos } = get360Assets(item);
-  return images.length > 0 || videos.length > 0;
+  const { images, videos, url } = get360Assets(item);
+  return images.length > 0 || videos.length > 0 || Boolean(url);
 };
 
 export default hasView360;

@@ -13,6 +13,12 @@ import "swiper/css";
 import { Link, useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
 import { MdLocationOn } from "react-icons/md";
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../../../../config/constants";
+
+const BACKEND_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const toSlug = (text) =>
   (text || "")
@@ -29,7 +35,6 @@ const VenueVendorComponent = ({ type = "vendor" }) => {
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [selectedLabel, setSelectedLabel] = useState("");
 
-  const BACKEND_BASE_URL = "https://happywedzbackend.happywedz.com";
   const buildImageUrl = (path) => {
     if (!path) return null;
     if (typeof path !== "string") return null;
@@ -44,7 +49,7 @@ const VenueVendorComponent = ({ type = "vendor" }) => {
       try {
         setLoadingCategories(true);
         const res = await fetch(
-          "https://happywedz.com/api/vendor-subcategories"
+          `${API_BASE_URL}/vendor-subcategories`
         );
         const data = await res.json();
         const cats = Array.isArray(data) ? data : [];
@@ -231,7 +236,7 @@ const VenueVendorComponent = ({ type = "vendor" }) => {
               {(selectedSlug ? vendorItems : []).map((item, idx) => (
                 <SwiperSlide key={item.id || idx}>
                   <Link
-                    to={`/details/info/${item.id}`}
+                    to={`/details/info/${item.slug || item.id}`}
                     className="text-decoration-none d-block"
                     style={{ color: "inherit", height: "100%" }}
                   >
@@ -400,7 +405,6 @@ export default VenueVendorComponent;
 const VenueSwiper = () => {
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(false);
-  const BACKEND_BASE_URL = "https://happywedzbackend.happywedz.com";
 
   const truncateWords = (str, numWords) => {
     if (!str) return "";
@@ -430,7 +434,7 @@ const VenueSwiper = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          "https://happywedz.com/api/vendor-services?vendorType=Venues&page=1&limit=9&image_exists=true"
+          `${API_BASE_URL}/vendor-services?vendorType=Venues&page=1&limit=9&image_exists=true`
         );
         const result = await response.json();
 
@@ -438,6 +442,7 @@ const VenueSwiper = () => {
           result.data
             ?.map((item) => ({
               id: item.id,
+              slug: item.attributes?.slug || item.slug || "",
               name:
                 item.attributes?.vendor_name ||
                 item.vendor?.businessName ||
@@ -488,7 +493,7 @@ const VenueSwiper = () => {
       {venues.map((venue) => (
         <SwiperSlide key={venue.id} style={{ height: "auto" }}>
           <Link
-            to={`/details/info/${venue.id}`}
+            to={`/details/info/${venue.slug || venue.id}`}
             className="text-decoration-none d-block"
             style={{ color: "inherit", height: "100%" }}
           >

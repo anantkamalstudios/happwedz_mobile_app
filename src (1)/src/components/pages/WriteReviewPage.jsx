@@ -38,8 +38,7 @@ import {
   Send,
 } from "@mui/icons-material";
 import { styled, ThemeProvider, createTheme } from "@mui/material/styles";
-
-const API_BASE_URL = "https://happywedz.com/api";
+import { API_BASE_URL } from "../../config/constants";
 
 const customTheme = createTheme({
   typography: {

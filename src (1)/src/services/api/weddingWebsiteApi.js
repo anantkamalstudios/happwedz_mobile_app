@@ -162,10 +162,10 @@
 // };
 
 import axios from "axios";
+import { API_BASE_URL as SHARED_API_BASE_URL } from "../../config/constants";
 
 // Read from env, default to production API. Ensure exactly one trailing slash.
-const RAW_API_BASE =
-  import.meta?.env?.VITE_API_URL || "https://happywedz.com/api";
+const RAW_API_BASE = SHARED_API_BASE_URL;
 const API_BASE_URL = `${RAW_API_BASE.replace(/\/+$/, "")}/`;
 
 const getAuthHeader = (token) =>

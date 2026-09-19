@@ -19,7 +19,7 @@ import GroomeSlider from "../layouts/twoSoul/GroomeSlider";
 import BrideSlider from "../layouts/twoSoul/BrideSlider";
 import MainPhotages from "../layouts/twoSoul/MainPhotages";
 import PricingModal from "../layouts/PricingModal";
-import WeddingCardDesigns from "../layouts/eInvite/WeddingCardDesigns";
+import { EinviteCatalogSection } from "../layouts/einvites/EinviteCatalog";
 import MainSearch from "../layouts/Main/MainSearch";
 import RealWedding from "./RealWedding";
 import Genie from "./Genie";
@@ -403,7 +403,7 @@ const MainSection = () => {
       <>
         <SEO title={displayTitle} description={displayDescription} />
         <MainSearch title="E Invites" />
-        <WeddingCardDesigns />
+        <EinviteCatalogSection />
         <FaqsSection />
       </>
     );
@@ -412,7 +412,7 @@ const MainSection = () => {
     return (
       <>
         <SEO title={displayTitle} description={displayDescription} />
-        <WeddingCardDesigns />
+        <EinviteCatalogSection />
         <FactorsList />
         <FaqsSection />
       </>

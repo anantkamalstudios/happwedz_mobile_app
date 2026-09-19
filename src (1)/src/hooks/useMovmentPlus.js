@@ -41,7 +41,41 @@ const useMovmentPlus = () => {
     }
   };
 
-  return { fetchGalleryByToken, uploadFile, loading, error, data };
+  const uploadSelfie = async ({ token, file, userId }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await movmentPlusApi.uploadSelfie({ token, file, userId });
+    } catch (err) {
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMyPhotos = async ({ token, userId }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await movmentPlusApi.getMyPhotos({ token, userId });
+    } catch (err) {
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    fetchGalleryByToken,
+    uploadFile,
+    uploadSelfie,
+    fetchMyPhotos,
+    loading,
+    error,
+    data,
+  };
 };
 
 export default useMovmentPlus;

@@ -84,7 +84,7 @@ const tabs = [
     // takes precedence over `slug` in handleTabClick below.
     id: "movments-plus",
     slug: "movments-plus",
-    label: "Movments+",
+    label: "Moments+",
     path: "/movment-plus/home",
     // No /images/userDashboard asset for this one, so it falls back to the
     // react-icon — see the img/icon branch in the tab body.

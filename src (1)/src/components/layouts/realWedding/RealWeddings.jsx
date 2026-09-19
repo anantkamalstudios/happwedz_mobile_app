@@ -152,7 +152,7 @@ const RealWeddings = ({ onPostClick }) => {
       try {
         setLoading(true);
         const response = await axios.get(
-          "https://happywedz.com/api/realwedding/public/"
+          `${API_BASE_URL}/realwedding/public/`
         );
 
         const dataArray = response.data.weddings || response.data;

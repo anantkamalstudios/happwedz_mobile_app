@@ -581,7 +581,9 @@ FlightFacets? deriveFacets(
 
     final dur = tripDuration(trip);
     if (dur > 0) {
-      durationMin = durationMin == null || dur < durationMin ? dur : durationMin;
+      durationMin = durationMin == null || dur < durationMin
+          ? dur
+          : durationMin;
       if (dur > durationMax) durationMax = dur;
     }
     final lay = tripMaxLayover(trip);
@@ -634,8 +636,7 @@ FlightFacets? deriveFacets(
           ..sort((a, b) => b.count.compareTo(a.count)))
         .take(1)
         .map(
-          (s) =>
-              PopularFilter(key: 'stops', value: s.value, label: s.label),
+          (s) => PopularFilter(key: 'stops', value: s.value, label: s.label),
         ),
     ...(List<FacetItem>.from(departureList)
           ..sort((a, b) => b.count.compareTo(a.count)))
@@ -744,6 +745,7 @@ class FlightFilters {
     this.priceMax,
     this.durationMax,
     this.layoverMax,
+    this.specialReturn = const {},
   });
 
   final Set<int> stops;
@@ -772,6 +774,11 @@ class FlightFilters {
   final int? durationMax;
   final int? layoverMax;
 
+  /// Airline codes picked from the round-trip "Return Special" tiles. Keeps
+  /// both legs to that airline's SPECIAL_RETURN fares — the only fares that
+  /// may be combined with each other.
+  final Set<String> specialReturn;
+
   static const FlightFilters empty = FlightFilters();
 
   bool get isEmpty => activeCount == 0;
@@ -794,7 +801,8 @@ class FlightFilters {
       (durationMax != null ? 1 : 0) +
       (layoverMax != null ? 1 : 0) +
       (departureFrom != null || departureTo != null ? 1 : 0) +
-      (arrivalFrom != null || arrivalTo != null ? 1 : 0);
+      (arrivalFrom != null || arrivalTo != null ? 1 : 0) +
+      specialReturn.length;
 
   FlightFilters copyWith({
     Set<int>? stops,
@@ -819,6 +827,7 @@ class FlightFilters {
     Object? priceMax = _unset,
     Object? durationMax = _unset,
     Object? layoverMax = _unset,
+    Set<String>? specialReturn,
   }) {
     return FlightFilters(
       stops: stops ?? this.stops,
@@ -849,6 +858,7 @@ class FlightFilters {
           ? this.durationMax
           : durationMax as int?,
       layoverMax: layoverMax == _unset ? this.layoverMax : layoverMax as int?,
+      specialReturn: specialReturn ?? this.specialReturn,
     );
   }
 
@@ -883,6 +893,8 @@ class FlightFilters {
         return copyWith(departureTime: flip(departureTime, value as String));
       case 'arrivalTime':
         return copyWith(arrivalTime: flip(arrivalTime, value as String));
+      case 'specialReturn':
+        return copyWith(specialReturn: flip(specialReturn, value as String));
       default:
         return this;
     }
@@ -898,6 +910,7 @@ class FlightFilters {
     'layoverAirports' => layoverAirports.contains(value),
     'departureTime' => departureTime.contains(value),
     'arrivalTime' => arrivalTime.contains(value),
+    'specialReturn' => specialReturn.contains(value),
     _ => false,
   };
 
@@ -913,6 +926,7 @@ class FlightFilters {
     'departureTime' => copyWith(departureTime: const {}),
     'arrivalTime' => copyWith(arrivalTime: const {}),
     'flightNumbers' => copyWith(flightNumbers: const []),
+    'specialReturn' => copyWith(specialReturn: const {}),
     'price' => copyWith(priceMin: null, priceMax: null),
     'durationMax' => copyWith(durationMax: null),
     'layoverMax' => copyWith(layoverMax: null),
@@ -927,6 +941,88 @@ class FlightFilters {
 }
 
 const Object _unset = Object();
+
+// ---------------------------------------------------------------------------
+// Special Return — flightFilters.js `deriveSpecialReturn`
+// ---------------------------------------------------------------------------
+
+/// One "Return Special" tile: an airline's cheapest valid onward + return
+/// SPECIAL_RETURN pair.
+class SpecialReturnOption {
+  const SpecialReturnOption({
+    required this.code,
+    required this.name,
+    required this.price,
+    required this.outFareId,
+    required this.returnFareId,
+  });
+
+  final String code;
+  final String name;
+
+  /// Both legs, for the whole party.
+  final double price;
+  final String outFareId;
+  final String returnFareId;
+}
+
+/// Cheapest bookable Special Return pair per airline, cheapest first.
+///
+/// A SPECIAL_RETURN fare is only valid with a return-leg SPECIAL_RETURN fare
+/// whose `sri` appears in its `msri` list, so pairs are matched on those ids
+/// rather than by taking the cheapest fare of each leg.
+List<SpecialReturnOption> deriveSpecialReturn(
+  List<FlightResult> onward,
+  List<FlightResult> inbound, [
+  PaxCounts pax = PaxCounts.singleAdult,
+]) {
+  final returnBySri = <String, ({dynamic fare, double price})>{};
+  for (final trip in inbound) {
+    for (final fare in _fares(trip.raw)) {
+      if (asString(readKey(fare, 'fareIdentifier')) != 'SPECIAL_RETURN') {
+        continue;
+      }
+      final sri = asString(readKey(fare, 'sri'));
+      if (sri.isEmpty) continue;
+      final price = farePrice(fare, pax);
+      final known = returnBySri[sri];
+      if (known == null || price < known.price) {
+        returnBySri[sri] = (fare: fare, price: price);
+      }
+    }
+  }
+
+  final best = <String, SpecialReturnOption>{};
+  for (final trip in onward) {
+    final code = _tripAirlineCode(trip.raw);
+    if (code == null) continue;
+    final name = asString(
+      readKey(readKey(readKey(_firstSeg(trip.raw), 'fD'), 'aI'), 'name'),
+      fallback: code,
+    );
+    for (final fare in _fares(trip.raw)) {
+      if (asString(readKey(fare, 'fareIdentifier')) != 'SPECIAL_RETURN') {
+        continue;
+      }
+      for (final sri in asList(readKey(fare, 'msri'))) {
+        final match = returnBySri[asString(sri)];
+        if (match == null) continue;
+        final price = farePrice(fare, pax) + match.price;
+        final current = best[code];
+        if (current == null || price < current.price) {
+          best[code] = SpecialReturnOption(
+            code: code,
+            name: name,
+            price: price,
+            outFareId: asString(readKey(fare, 'id')),
+            returnFareId: asString(readKey(match.fare, 'id')),
+          );
+        }
+      }
+    }
+  }
+  return best.values.toList()..sort((a, b) => a.price.compareTo(b.price));
+}
 
 // ---------------------------------------------------------------------------
 // Filtering
@@ -974,11 +1070,16 @@ List<FlightResult> filterFlights(
     final from = segs.first;
     final to = segs.last;
 
-    if (filters.stops.isNotEmpty && !filters.stops.contains(stopsBucket(trip))) {
+    if (filters.stops.isNotEmpty &&
+        !filters.stops.contains(stopsBucket(trip))) {
       continue;
     }
     if (filters.airlines.isNotEmpty &&
         !filters.airlines.contains(_tripAirlineCode(trip))) {
+      continue;
+    }
+    if (filters.specialReturn.isNotEmpty &&
+        !filters.specialReturn.contains(_tripAirlineCode(trip))) {
       continue;
     }
     if (!_matchesSlots(readKey(from, 'dt'), filters.departureTime)) continue;
@@ -1043,6 +1144,13 @@ List<FlightResult> filterFlights(
     var fares = _fares(trip);
     final total = fares.length;
 
+    if (filters.specialReturn.isNotEmpty) {
+      fares = fares
+          .where(
+            (f) => asString(readKey(f, 'fareIdentifier')) == 'SPECIAL_RETURN',
+          )
+          .toList();
+    }
     if (filters.fareTypes.isNotEmpty) {
       fares = fares
           .where(
@@ -1056,27 +1164,27 @@ List<FlightResult> filterFlights(
     }
     if (filters.cancellationTypes.isNotEmpty) {
       fares = fares
-          .where((f) => filters.cancellationTypes.contains(
-                fareCancellationType(f),
-              ))
+          .where(
+            (f) => filters.cancellationTypes.contains(fareCancellationType(f)),
+          )
           .toList();
     }
     if (filters.baggageOnly) {
       fares = fares.where(fareHasCheckinBaggage).toList();
     }
     if (filters.priceMin != null) {
-      fares = fares.where((f) => farePrice(f, pax) >= filters.priceMin!).toList();
+      fares = fares
+          .where((f) => farePrice(f, pax) >= filters.priceMin!)
+          .toList();
     }
     if (filters.priceMax != null) {
-      fares = fares.where((f) => farePrice(f, pax) <= filters.priceMax!).toList();
+      fares = fares
+          .where((f) => farePrice(f, pax) <= filters.priceMax!)
+          .toList();
     }
     if (fares.isEmpty) continue;
 
-    out.add(
-      fares.length == total
-          ? flight
-          : flight.withFares(fares),
-    );
+    out.add(fares.length == total ? flight : flight.withFares(fares));
   }
 
   return out;
@@ -1130,13 +1238,17 @@ List<FlightResult> sortFlights(
       list.sort((a, b) => tripDuration(a.raw).compareTo(tripDuration(b.raw)));
     case FlightSort.departure:
       list.sort(
-        (a, b) =>
-            byTime(readKey(_firstSeg(a.raw), 'dt'), readKey(_firstSeg(b.raw), 'dt')),
+        (a, b) => byTime(
+          readKey(_firstSeg(a.raw), 'dt'),
+          readKey(_firstSeg(b.raw), 'dt'),
+        ),
       );
     case FlightSort.arrival:
       list.sort(
-        (a, b) =>
-            byTime(readKey(_lastSeg(a.raw), 'at'), readKey(_lastSeg(b.raw), 'at')),
+        (a, b) => byTime(
+          readKey(_lastSeg(a.raw), 'at'),
+          readKey(_lastSeg(b.raw), 'at'),
+        ),
       );
   }
   return list;
@@ -1167,16 +1279,27 @@ String _facetLabel(List<FacetItem>? list, String value, String fallback) =>
 List<AppliedFilterChip> describeFilters(FlightFilters f, FlightFacets? meta) {
   final chips = <AppliedFilterChip>[];
 
+  for (final v in f.specialReturn) {
+    final name = meta?.airlines.where((a) => a.value == v).firstOrNull?.name;
+    chips.add(
+      AppliedFilterChip(
+        group: 'specialReturn',
+        value: v,
+        label: 'Return Special: ${name ?? v}',
+      ),
+    );
+  }
   for (final v in f.stops) {
     chips.add(
-      AppliedFilterChip(group: 'stops', value: v, label: 'Stops: ${stopLabel(v)}'),
+      AppliedFilterChip(
+        group: 'stops',
+        value: v,
+        label: 'Stops: ${stopLabel(v)}',
+      ),
     );
   }
   for (final v in f.airlines) {
-    final name = meta?.airlines
-        .where((a) => a.value == v)
-        .firstOrNull
-        ?.name;
+    final name = meta?.airlines.where((a) => a.value == v).firstOrNull?.name;
     chips.add(
       AppliedFilterChip(
         group: 'airlines',
@@ -1365,18 +1488,15 @@ FlightFilters reconcileFilters(FlightFilters f, FlightFacets? facets) {
       f.cancellationTypes,
       allowed(facets.cancellationTypes),
     ),
-    terminals: keep(
-      f.terminals,
-      {...allowed(facets.departureTerminals), ...allowed(facets.arrivalTerminals)},
-    ),
-    airports: keep(
-      f.airports,
-      {...allowed(facets.departureAirports), ...allowed(facets.arrivalAirports)},
-    ),
-    layoverAirports: keep(
-      f.layoverAirports,
-      allowed(facets.layoverAirports),
-    ),
+    terminals: keep(f.terminals, {
+      ...allowed(facets.departureTerminals),
+      ...allowed(facets.arrivalTerminals),
+    }),
+    airports: keep(f.airports, {
+      ...allowed(facets.departureAirports),
+      ...allowed(facets.arrivalAirports),
+    }),
+    layoverAirports: keep(f.layoverAirports, allowed(facets.layoverAirports)),
     departureTime: keep(f.departureTime, allowed(facets.departureSlots)),
     arrivalTime: keep(f.arrivalTime, allowed(facets.arrivalSlots)),
   );

@@ -291,7 +291,7 @@ const BulkImportModal = ({
       for (const newGrpName of missingGroupNames) {
         try {
           const createRes = await axiosInstance.post(
-            "https://happywedz.com/api/groups/add",
+            "/groups/add",
             { name: newGrpName }
           );
           if (createRes.data?.success && createRes.data?.group?.id) {
@@ -335,7 +335,7 @@ const BulkImportModal = ({
       let successCount = 0;
       try {
         const bulkRes = await axiosInstance.post(
-          "https://happywedz.com/api/guestlist/bulk",
+          "/guestlist/bulk",
           {
             userId: userIdToSend,
             guests: payloadGuests,
@@ -350,7 +350,7 @@ const BulkImportModal = ({
         // Fallback: batch individual calls
         const results = await Promise.allSettled(
           payloadGuests.map((guestPayload) =>
-            axiosInstance.post("https://happywedz.com/api/guestlist", {
+            axiosInstance.post("/guestlist", {
               ...guestPayload,
               userId: userIdToSend,
             })

@@ -2,9 +2,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
-const API_BASE_URL = "https://happywedz.com";
 import ShimmerCards from "../ui/ShimmerCards";
 import ErrorState from "../ui/ErrorState";
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../../config/constants";
+
+const IMAGE_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const AllCategories = ({ onSelect }) => {
   const [categories, setCategories] = useState([]);
@@ -21,13 +26,12 @@ const AllCategories = ({ onSelect }) => {
     setLoading(true);
     setError(null);
     try {
-      const cleanApiBase = API_BASE_URL.replace(/\/api$/, "");
       const response = await axios.get(
-        `${cleanApiBase}/api/vendor-types/with-subcategories/all`
+        `${API_BASE_URL}/vendor-types/with-subcategories/all`
       );
       const apiData = response.data.map((cat) => {
         const imageSrc = cat.hero_image
-          ? "https://happywedzbackend.happywedz.com" + cat.hero_image
+          ? IMAGE_BASE_URL + cat.hero_image
           : "logo-no-bg.png";
         return {
           id: cat.id,

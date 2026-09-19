@@ -1,3 +1,5 @@
+import { BEAUTY_API_BASE_URL } from "../../config/constants";
+
 // const API_BASE_URL =
 //   import.meta.env.VITE_API_BASE_URL ||
 //   (import.meta.env.DEV ? "/ai" : "https://www.happywedz.com/ai");
@@ -114,12 +116,6 @@
 
 // export const beautyApi = new BeautyApiService();
 // export { BeautyApiService };
-
-// Set VITE_BEAUTY_API_BASE_URL in .env to point at a local AI service.
-// Falls back to production when unset (e.g. deployed builds).
-const BEAUTY_API_BASE_URL = (
-  import.meta.env.VITE_BEAUTY_API_BASE_URL || "https://www.happywedz.com/ai/api"
-).replace(/\/+$/, "");
 
 // The upload API rejects files above 1 MB. Instead of blocking the user, shrink
 // any image below that ceiling before sending it, so photos of any size work.

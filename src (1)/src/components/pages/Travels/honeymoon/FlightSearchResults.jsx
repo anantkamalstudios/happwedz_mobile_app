@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FiEdit2, FiBriefcase } from "react-icons/fi";
 import { MdFlight } from "react-icons/md";
 import "./tripjack-styles.css";
+import "./roundtrip-results.css";
 import FlightFiltersSidebar from "./FlightFiltersSidebar";
 import FlightSearchForm from "./components/FlightSearchForm";
 import FlightSearchHeader from "./components/FlightSearchHeader";
@@ -27,6 +28,7 @@ import {
   countActiveFilters,
   paxFromSearch,
   farePrice,
+  deriveSpecialReturn,
   EMPTY_FILTERS,
 } from "../../../../utils/flightFilters";
 import { airlineLogo } from '../../../../utils/airlineLogo';
@@ -155,6 +157,20 @@ const getArrivalDayOffset = (trip) => {
   return Number.isFinite(diff) && diff > 0 ? diff : 0;
 };
 
+// "Thu, Sep 17th 2026" — the route title above each round-trip column.
+const WEEKDAYS_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const getLongDate = (dtStr) => {
+  const d = new Date(dtStr);
+  if (Number.isNaN(d.getTime())) return "";
+  const n = d.getDate();
+  const ord =
+    n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
+  return `${WEEKDAYS_SHORT[d.getDay()]}, ${MONTHS_SHORT[d.getMonth()]} ${n}${ord} ${d.getFullYear()}`;
+};
+const getCityName = (airport) => airport?.city || airport?.name || airport?.code || "";
+// The portal shows three fares per card and folds the rest behind "+N more fares".
+const RT_VISIBLE_FARES = 3;
+
 const SORT_LABELS = {
   duration: "Duration",
   departure: "Departure",
@@ -198,6 +214,11 @@ export default function FlightSearchResults() {
   const [markups, setMarkups] = useState({});
   const [markupOpen, setMarkupOpen] = useState(null);
   const [markupDraft, setMarkupDraft] = useState("");
+  // Round trip only: "Return Special" tiles and the « sidebar toggle.
+  const [specialReturns, setSpecialReturns] = useState([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Fare pair a Return Special tile asked for, applied once the filtered lists land.
+  const pendingPairRef = useRef(null);
 
   useEffect(() => {
     if (!searchParams || !initialResults) return navigate("/honeymoon");
@@ -224,14 +245,24 @@ export default function FlightSearchResults() {
     const outboundFacets = deriveFacets(onwardKeyed, facetPax);
     const returnFacets = deriveFacets(returnKeyed, facetPax);
     setFiltersMeta({ outbound: outboundFacets, return: returnFacets });
+    const specialOptions = deriveSpecialReturn(onwardKeyed, returnKeyed, facetPax);
+    setSpecialReturns(specialOptions);
     // Filters persist across a date change, so drop any selection the new
     // results can no longer satisfy — otherwise the list silently empties.
-    setFilters((prev) => reconcileFilters(prev, outboundFacets, returnFacets).filters);
+    setFilters((prev) => {
+      const next = reconcileFilters(prev, outboundFacets, returnFacets).filters;
+      const offered = new Set(specialOptions.map((o) => o.code));
+      const special = (next.specialReturn || []).filter((code) => offered.has(code));
+      return special.length === (next.specialReturn || []).length
+        ? next
+        : { ...next, specialReturn: special };
+    });
   }, [searchParams, initialResults, navigate]);
 
   // `_key` is stamped once on load, so a card keeps its identity (and the
   // user's fare selection) across sorting and filtering.
   const pax = paxFromSearch(searchParams);
+  const isRoundTrip = searchParams?.tripType === "round";
   const markupOf = (fare) => Number(markups[fare?.id] || 0);
   const displayFarePrice = (fare) => getFarePrice(fare, pax) + markupOf(fare);
   const displayTripPrice = (trip) => {
@@ -324,6 +355,65 @@ export default function FlightSearchResults() {
     );
   const cheapestOutbound = pickBest(filteredOutbound, displayTripPrice);
   const fastestOutbound = pickBest(filteredOutbound, getTripDurationMinutes);
+  const cheapestReturn = pickBest(filteredReturn, displayTripPrice);
+  const fastestReturn = pickBest(filteredReturn, getTripDurationMinutes);
+
+  // A round trip always has one flight picked per leg, as on the portal: the
+  // top card is chosen until the user picks another, and a pick that a filter
+  // removes falls back to the new top card so the bottom bar never goes stale.
+  //
+  // The kept pick is swapped for the trip object now on screen, because a fare
+  // filter can shorten its fare list: the stored fare index is re-pointed at
+  // the same fare, so the radio and the bottom bar never disagree.
+  useEffect(() => {
+    if (!isRoundTrip) return;
+    const pair = pendingPairRef.current;
+    pendingPairRef.current = null;
+    const fareIndexes = {};
+
+    const choose = (list, type, current, wantedFareId) => {
+      const idOf = (t) => `${type}-${getFlightKey(t)}`;
+      const fareIndexOf = (t, fareId) =>
+        fareId ? (t.totalPriceList || []).findIndex((f) => f.id === fareId) : -1;
+      let trip = wantedFareId
+        ? list.find((t) => fareIndexOf(t, wantedFareId) >= 0)
+        : null;
+      let fareIdx = trip ? fareIndexOf(trip, wantedFareId) : -1;
+      if (!trip && current) {
+        trip = list.find((t) => idOf(t) === current.id);
+        if (trip) fareIdx = fareIndexOf(trip, getSelectedFareOption(current)?.id);
+      }
+      if (!trip) trip = list[0];
+      if (!trip) return null;
+      if (current?.id === idOf(trip) && current.totalPriceList === trip.totalPriceList && !wantedFareId) {
+        return current;
+      }
+      fareIndexes[idOf(trip)] = Math.max(fareIdx, 0);
+      return { ...trip, id: idOf(trip) };
+    };
+
+    const nextOut = choose(filteredOutbound, "outbound", selectedOutbound, pair?.outFareId);
+    const nextRet = choose(filteredReturn, "return", selectedReturn, pair?.retFareId);
+    if (Object.keys(fareIndexes).length) {
+      setSelectedFareByFlight((p) => ({ ...p, ...fareIndexes }));
+    }
+    if (nextOut !== selectedOutbound) setSelectedOutbound(nextOut);
+    if (nextRet !== selectedReturn) setSelectedReturn(nextRet);
+  }, [isRoundTrip, filteredOutbound, filteredReturn, selectedOutbound, selectedReturn]);
+
+  /** Toggle a Return Special tile: one airline at a time, its cheapest valid pair picked. */
+  const handleSpecialReturnPick = (option) => {
+    const isOn = (filters.specialReturn || []).includes(option.code);
+    pendingPairRef.current = isOn ? null : option;
+    setFilters((p) => ({ ...p, specialReturn: isOn ? [] : [option.code] }));
+  };
+
+  // "Pune, India" under each code in the round-trip header.
+  const headerPlaces = (() => {
+    const segs = outboundFlights[0]?.sI || [];
+    const place = (a) => [a?.city, a?.country].filter(Boolean).join(", ");
+    return { from: place(segs[0]?.da), to: place(segs[segs.length - 1]?.aa) };
+  })();
 
   const selectFlight = (flight, type) => {
     if (type === "outbound") setSelectedOutbound(flight);
@@ -483,6 +573,196 @@ export default function FlightSearchResults() {
       <div className="no-results">No flights found</div>
     );
 
+  const renderMarkupBox = (fare) => (
+    <div className="markup-box" onClick={(e) => e.stopPropagation()}>
+      <button type="button" className="markup-close" onClick={closeMarkup} aria-label="Close">
+        ×
+      </button>
+      <label className="markup-field">
+        <span>Markup Price</span>
+        <input
+          type="number"
+          autoFocus
+          value={markupDraft}
+          onChange={(e) => setMarkupDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") applyMarkup(fare);
+            if (e.key === "Escape") closeMarkup();
+          }}
+        />
+      </label>
+      <div className="markup-actions">
+        <button type="button" onClick={() => applyMarkup(fare)}>
+          Update
+        </button>
+        <button type="button" onClick={applyMarkupToAll}>
+          Update All
+        </button>
+      </div>
+    </div>
+  );
+
+  /**
+   * Round-trip card, laid out like the TripJack portal's half-width card:
+   * airline and route on the left, the fare list on the right. There is no
+   * per-card BOOK — picking a fare selects the flight for that leg and the
+   * bottom bar books the pair.
+   */
+  const renderRoundTripCard = (flight, type) => {
+    const first = flight.sI[0];
+    const last = flight.sI[flight.sI.length - 1];
+    const airline = first.fD.aI;
+    const flightId = `${type}-${getFlightKey(flight)}`;
+    const fares = flight.totalPriceList || [];
+    const expanded = expandedFares[flightId];
+    const visibleFares = expanded ? fares : fares.slice(0, RT_VISIBLE_FARES);
+    const selectedFareIndex = getSelectedFareIndex(flightId);
+    const selectedLeg = type === "outbound" ? selectedOutbound : selectedReturn;
+    const isSelected = selectedLeg?.id === flightId;
+    const isDetailsOpen = showDetails[flightId] || false;
+    const arrivalDayOffset = getArrivalDayOffset(flight);
+    const seatsLeft = fares[selectedFareIndex]?.fd?.ADULT?.sR ?? fares[0]?.fd?.ADULT?.sR ?? null;
+    const flightNumbers = flight.sI.map((s) => `${s.fD.aI.code}-${s.fD.fN}`).join(", ");
+
+    const pickFare = (fareIdx) => {
+      setSelectedFareByFlight((p) => ({ ...p, [flightId]: fareIdx }));
+      selectFlight({ ...flight, id: flightId }, type);
+    };
+
+    return (
+      <div key={flightId} className={`rt-card ${isSelected ? "is-selected" : ""}`}>
+        <div className="rt-card-body">
+          <div className="rt-card-info">
+            <div className="rt-card-top">
+              <div className="rt-airline">
+                {logoLoadError[flightId] ? (
+                  <div className="rt-airline-initials">{airline.code}</div>
+                ) : (
+                  <img
+                    src={airlineLogo(airline.code)}
+                    alt={airline.name}
+                    className="rt-airline-logo"
+                    onError={() => setLogoLoadError((p) => ({ ...p, [flightId]: true }))}
+                  />
+                )}
+                <div className="rt-airline-name">{airline.name}</div>
+                <div className="rt-airline-num" title={flightNumbers}>
+                  {flightNumbers}
+                </div>
+              </div>
+              <div className="rt-route">
+                <div className="rt-point">
+                  <div className="rt-iata">{first.da.code}</div>
+                  <div className="rt-time">{getTime(first.dt)}</div>
+                  <div className="rt-date">{getDateLabel(first.dt)}</div>
+                </div>
+                <div className="rt-middle">
+                  <div className="rt-stops">{getStopsText(flight)}</div>
+                  <div className="rt-arrow" />
+                  <div className="rt-duration">{getTripDuration(flight)}</div>
+                </div>
+                <div className="rt-point">
+                  <div className="rt-iata">{last.aa.code}</div>
+                  <div className="rt-time">{getTime(last.at)}</div>
+                  <div className="rt-date">{getDateLabel(last.at)}</div>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="rt-details-btn"
+              onClick={() => setShowDetails((p) => ({ ...p, [flightId]: !p[flightId] }))}
+            >
+              {isDetailsOpen ? "Hide Details" : "View Details"}
+              <span className="rt-details-sign">{isDetailsOpen ? "−" : "+"}</span>
+            </button>
+            {arrivalDayOffset > 0 && (
+              <div className="rt-next-day">
+                <MdFlight size={14} className="rt-next-day-icon" />
+                Flight Arrives after {arrivalDayOffset} Day(s)
+              </div>
+            )}
+            {seatsLeft != null && (
+              <div className={`rt-seats ${seatsLeft <= 5 ? "is-low" : ""}`}>Seats left: {seatsLeft}</div>
+            )}
+          </div>
+
+          <div className="rt-fares">
+            {visibleFares.map((fare, idx) => {
+              const realIdx = fares.indexOf(fare);
+              const fareIdx = realIdx === -1 ? idx : realIdx;
+              const isPicked = isSelected && selectedFareIndex === fareIdx;
+              const refundable = isFareRefundable(fare);
+              return (
+                <div
+                  key={`${flightId}-${idx}`}
+                  className={`rt-fare ${isPicked ? "is-picked" : ""}`}
+                  onClick={() => pickFare(fareIdx)}
+                >
+                  <span className="rt-radio" aria-hidden="true" />
+                  <div className="rt-fare-text">
+                    <div className="rt-fare-top">
+                      <span className="rt-fare-price">{formatPrice(displayFarePrice(fare))}</span>
+                      <button
+                        type="button"
+                        className="rt-fare-edit"
+                        title="Edit markup"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markupOpen === fare.id ? closeMarkup() : openMarkup(fare);
+                        }}
+                      >
+                        <FiEdit2 size={12} />
+                      </button>
+                      {markupOf(fare) > 0 && (
+                        <span className="rt-fare-markup">+{formatPrice(markupOf(fare))}</span>
+                      )}
+                    </div>
+                    {(priceView.incv || priceView.net) && (
+                      <div className="rt-fare-extra">
+                        {priceView.incv && <span>INC {formatPrice(getFareIncentive(fare, pax))}</span>}
+                        {priceView.net && <span>NET {formatPrice(getFareNet(fare, pax))}</span>}
+                      </div>
+                    )}
+                    <div className="rt-fare-meta">
+                      <span className={`rt-badge ${getFareBadgeClass(fare?.fareIdentifier).replace("fare-badge ", "")}`}>
+                        {getFareLabel(fare?.fareIdentifier)}
+                      </span>
+                      <span className="rt-fare-cabin">
+                        {titleCaseFare(getFarePrefixText(fare))}
+                        {getFarePrefixText(fare) && ", "}
+                        <span className={refundable === "Refundable" ? "" : "rt-non-refundable"}>{refundable}</span>
+                      </span>
+                    </div>
+                  </div>
+                  {markupOpen === fare.id && renderMarkupBox(fare)}
+                </div>
+              );
+            })}
+            {fares.length > RT_VISIBLE_FARES && (
+              <button
+                type="button"
+                className="rt-more-fares"
+                onClick={() => setExpandedFares((p) => ({ ...p, [flightId]: !p[flightId] }))}
+              >
+                {expanded ? "Show less" : `+${fares.length - RT_VISIBLE_FARES} more fares`}
+                <span className={`rt-chevron ${expanded ? "is-up" : ""}`} />
+              </button>
+            )}
+          </div>
+        </div>
+        {isDetailsOpen && (
+          <FlightDetailsPanel
+            flight={flight}
+            fare={fares[selectedFareIndex] || fares[0]}
+            searchParams={searchParams}
+            onClose={() => setShowDetails((p) => ({ ...p, [flightId]: false }))}
+          />
+        )}
+      </div>
+    );
+  };
+
   const renderFlight = (flight, type, listIndex = 0) => {
     const first = flight.sI[0];
     const last = flight.sI[flight.sI.length - 1];
@@ -612,39 +892,7 @@ export default function FlightSearchResults() {
                         +{formatPrice(markupOf(fare))}
                       </span>
                     )}
-                    {markupOpen === fare.id && (
-                      <div className="markup-box" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="markup-close"
-                          onClick={closeMarkup}
-                          aria-label="Close"
-                        >
-                          ×
-                        </button>
-                        <label className="markup-field">
-                          <span>Markup Price</span>
-                          <input
-                            type="number"
-                            autoFocus
-                            value={markupDraft}
-                            onChange={(e) => setMarkupDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") applyMarkup(fare);
-                              if (e.key === "Escape") closeMarkup();
-                            }}
-                          />
-                        </label>
-                        <div className="markup-actions">
-                          <button type="button" onClick={() => applyMarkup(fare)}>
-                            Update
-                          </button>
-                          <button type="button" onClick={applyMarkupToAll}>
-                            Update All
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    {markupOpen === fare.id && renderMarkupBox(fare)}
                   </div>
                   <div className="fc-fare-option-meta">
                     <span className={getFareBadgeClass(fare?.fareIdentifier)}>
@@ -742,7 +990,6 @@ export default function FlightSearchResults() {
     );
   };
 
-  const isRoundTrip = searchParams?.tripType === "round";
   const {
     visibleItems: visibleOut,
     loaderRef: loaderOutRef,
@@ -767,10 +1014,158 @@ export default function FlightSearchResults() {
   // useVirtualList calls, so the hook order stays stable.
   if (!searchParams || !initialResults) return null;
 
+  const renderRoundTripColumn = (type) => {
+    const isOut = type === "outbound";
+    const list = isOut ? filteredOutbound : filteredReturn;
+    const visible = isOut ? visibleOut : visibleRet;
+    const hasMore = isOut ? hasMoreOut : hasMoreRet;
+    const loaderRef = isOut ? loaderOutRef : loaderRetRef;
+    const sortBy = isOut ? sortOutbound : sortReturn;
+    const setSort = isOut ? setSortOutbound : setSortReturn;
+    const cheapest = isOut ? cheapestOutbound : cheapestReturn;
+    const fastest = isOut ? fastestOutbound : fastestReturn;
+    const sourceCount = isOut ? outboundFlights.length : returnFlights.length;
+    const sample = list[0] || (isOut ? outboundFlights[0] : returnFlights[0]);
+    const fromCode = isOut ? searchParams.from : searchParams.to;
+    const toCode = isOut ? searchParams.to : searchParams.from;
+    const fromCity = getCityName(sample?.sI?.[0]?.da) || fromCode;
+    const toCity = getCityName(sample?.sI?.[sample.sI.length - 1]?.aa) || toCode;
+    const date = isOut ? searchParams.departureDate : searchParams.returnDate;
+
+    const sortButton = (key, label) => (
+      <button
+        type="button"
+        className={`rt-sort-btn ${sortBy === key ? "is-active" : ""}`}
+        onClick={() => setSort(key)}
+      >
+        {label}
+      </button>
+    );
+
+    return (
+      <div className="rt-column">
+        <div className="rt-quickpicks">
+          <button
+            type="button"
+            className={`rt-quickpick ${sortBy === "price" ? "is-active" : ""}`}
+            onClick={() => setSort("price")}
+            disabled={!cheapest}
+          >
+            <span className="rt-quickpick-icon is-rupee">₹</span>
+            <span>
+              <span className="rt-quickpick-title">Cheapest</span>
+              <span className="rt-quickpick-sub">
+                {cheapest ? `${formatPrice(displayTripPrice(cheapest))} · Duration: ${getTripDuration(cheapest)}` : "—"}
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`rt-quickpick ${sortBy === "duration" ? "is-active" : ""}`}
+            onClick={() => setSort("duration")}
+            disabled={!fastest}
+          >
+            <span className="rt-quickpick-icon">⚡</span>
+            <span>
+              <span className="rt-quickpick-title">Fastest</span>
+              <span className="rt-quickpick-sub">
+                {fastest ? `${formatPrice(displayTripPrice(fastest))} · Duration: ${getTripDuration(fastest)}` : "—"}
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div className="rt-route-title">
+          <span className="rt-route-cities">
+            {fromCity} <span className="rt-route-arrow">⟶</span> {toCity}
+          </span>
+          <span className="rt-route-date">{getLongDate(date)}</span>
+          {!isOut && (
+            <ShareBy
+              searchParams={searchParams}
+              resultCount={filteredOutbound.length + filteredReturn.length}
+            />
+          )}
+        </div>
+
+        <div className="rt-sort-row">
+          <span className="rt-sort-label">
+            Sort By : {SORT_LABELS[sortBy] || "Price"}
+          </span>
+          {sortButton("departure", "Departure")}
+          {sortButton("arrival", "Arrival")}
+          {sortButton("price", "Price")}
+        </div>
+
+        <div className="rt-list">
+          {loading ? (
+            [1, 2, 3, 4].map((i) => <ShimmerCard key={i} />)
+          ) : visible.length === 0 ? (
+            renderEmpty(sourceCount)
+          ) : (
+            <>
+              {visible.map((trip) => renderRoundTripCard(trip, type))}
+              {hasMore && (
+                <div ref={loaderRef} className="load-more-trigger">
+                  <ShimmerCard />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderBarLeg = (flight) => {
+    if (!flight) {
+      return <div className="rt-bar-leg is-empty">Select a flight</div>;
+    }
+    const first = flight.sI[0];
+    const last = flight.sI[flight.sI.length - 1];
+    const airline = first.fD.aI;
+    const fare = getSelectedFareOption(flight);
+    const flightNumbers = flight.sI.map((s) => `${s.fD.aI.code}-${s.fD.fN}`).join(", ");
+    return (
+      <div className="rt-bar-leg">
+        <div className="rt-bar-logo">
+          {logoLoadError[flight.id] ? (
+            <span>{airline.code}</span>
+          ) : (
+            <img
+              src={airlineLogo(airline.code)}
+              alt={airline.name}
+              onError={() => setLogoLoadError((p) => ({ ...p, [flight.id]: true }))}
+            />
+          )}
+        </div>
+        <div className="rt-bar-airline">
+          <div className="rt-bar-name">{airline.name}</div>
+          <div className="rt-bar-num" title={flightNumbers}>{flightNumbers}</div>
+        </div>
+        <div className="rt-bar-point">
+          <div className="rt-bar-time">{getTime(first.dt)}</div>
+          <div className="rt-bar-code">{first.da.code}</div>
+        </div>
+        <div className="rt-bar-arrow">⟶</div>
+        <div className="rt-bar-point">
+          <div className="rt-bar-time">{getTime(last.at)}</div>
+          <div className="rt-bar-code">{last.aa.code}</div>
+        </div>
+        <div className="rt-bar-price">{fare ? formatPrice(displayFarePrice(fare)) : "—"}</div>
+      </div>
+    );
+  };
+
+  const roundTripTotal =
+    (selectedOutbound ? displayFarePrice(getSelectedFareOption(selectedOutbound)) : 0) +
+    (selectedReturn ? displayFarePrice(getSelectedFareOption(selectedReturn)) : 0);
+
   return (
-    <div className="tj-results-page">
+    <div className={`tj-results-page ${isRoundTrip ? "is-round" : ""}`}>
       <FlightSearchHeader
         searchParams={searchParams}
+        places={headerPlaces}
         onModify={() => setModifyOpen(!modifyOpen)}
       />
       {modifyOpen && (
@@ -780,12 +1175,28 @@ export default function FlightSearchResults() {
           </div>
         </div>
       )}
+      {isRoundTrip && (
+        <button
+          type="button"
+          className="rt-sidebar-toggle"
+          onClick={() => setSidebarCollapsed((v) => !v)}
+          aria-label={sidebarCollapsed ? "Show filters" : "Hide filters"}
+          title={sidebarCollapsed ? "Show filters" : "Hide filters"}
+        >
+          {sidebarCollapsed ? "»" : "«"}
+        </button>
+      )}
       <div className="container mt-4">
         <div className="row">
-          <div className="col-lg-3">
+          <div
+            className={`col-lg-3 ${isRoundTrip ? "rt-sidebar-col" : ""}`}
+            hidden={isRoundTrip && sidebarCollapsed}
+          >
             <FlightFiltersSidebar
               filtersMeta={filtersMeta?.outbound}
               returnFiltersMeta={filtersMeta?.return}
+              specialReturnOptions={isRoundTrip ? specialReturns : []}
+              onSpecialReturnPick={handleSpecialReturnPick}
               resultCount={filteredOutbound.length + filteredReturn.length}
               filters={filters}
               onFilterChange={(k, v) => setFilters((p) => applyFilterChange(p, k, v))}
@@ -799,16 +1210,26 @@ export default function FlightSearchResults() {
               }
             />
           </div>
-          <div className="col-lg-9">
-            <FareDateStrip
-              searchParams={searchParams}
-              onPickDate={handlePickDate}
-              pendingDate={pendingDate}
-            />
-            <ShareBy
-              searchParams={searchParams}
-              resultCount={filteredOutbound.length + filteredReturn.length}
-            />
+          <div
+            className={
+              isRoundTrip
+                ? `rt-main-col ${sidebarCollapsed ? "col-12 is-wide" : "col-lg-9"}`
+                : "col-lg-9"
+            }
+          >
+            {!isRoundTrip && (
+              <>
+                <FareDateStrip
+                  searchParams={searchParams}
+                  onPickDate={handlePickDate}
+                  pendingDate={pendingDate}
+                />
+                <ShareBy
+                  searchParams={searchParams}
+                  resultCount={filteredOutbound.length + filteredReturn.length}
+                />
+              </>
+            )}
 
             {staleNotice && (
               <div className="stale-notice" role="status">
@@ -818,8 +1239,14 @@ export default function FlightSearchResults() {
                 </button>
               </div>
             )}
+            {isRoundTrip ? (
+              <div className="rt-columns">
+                {renderRoundTripColumn("outbound")}
+                {renderRoundTripColumn("return")}
+              </div>
+            ) : (
             <div className="row">
-              <div className={isRoundTrip ? "col-lg-6" : "col-12"}>
+              <div className="col-12">
                 <div className="tj-flights-column">
                   <div className="fc-quickpicks">
                     <button
@@ -900,47 +1327,31 @@ export default function FlightSearchResults() {
                   </div>
                 </div>
               </div>
-              {isRoundTrip && (
-                <div className="col-lg-6">
-                  <div className="tj-flights-column">
-                    <div className="fc-col-headers">
-                      <button className="fc-col-head fc-col-sort"
-                        onClick={() => setSortReturn("duration")} title="Sort by duration">
-                        Sort By : {SORT_LABELS[sortReturn] || "Duration"}
-                      </button>
-                      <button className="fc-col-head" onClick={() => setSortReturn("departure")}>Departure</button>
-                      <button className="fc-col-head" onClick={() => setSortReturn("arrival")}>Arrival</button>
-                      <button className="fc-col-head" onClick={() => setSortReturn("price")}>Price</button>
-                    </div>
-                    <div className="flight-list">
-                      {loading ? (
-                        [1, 2, 3, 4].map((i) => <ShimmerCard key={i} />)
-                      ) : visibleRet.length === 0 ? (
-                        renderEmpty(returnFlights.length)
-                      ) : (
-                        <>
-                          {visibleRet.map((trip, idx) =>
-                            renderFlight(trip, "return", idx),
-                          )}
-                          {hasMoreRet && (
-                            <div
-                              ref={loaderRetRef}
-                              className="load-more-trigger"
-                            >
-                              <ShimmerCard />
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
+            )}
           </div>
         </div>
       </div>
-      {(selectedOutbound || selectedReturn) && (
+      {isRoundTrip && (selectedOutbound || selectedReturn) && (
+        <div className="rt-bar">
+          <div className="rt-bar-inner">
+            {renderBarLeg(selectedOutbound)}
+            <span className="rt-bar-divider" />
+            {renderBarLeg(selectedReturn)}
+            <span className="rt-bar-divider" />
+            <div className="rt-bar-total">{formatPrice(roundTripTotal)}</div>
+            <button
+              type="button"
+              className="rt-bar-book"
+              onClick={handleBook}
+              disabled={loading || !selectedOutbound || !selectedReturn}
+            >
+              {loading ? "Processing..." : "BOOK"}
+            </button>
+          </div>
+        </div>
+      )}
+      {!isRoundTrip && (selectedOutbound || selectedReturn) && (
         <div className="tj-booking-bar">
           <div className="container-fluid">
             <div className="tj-booking-content">

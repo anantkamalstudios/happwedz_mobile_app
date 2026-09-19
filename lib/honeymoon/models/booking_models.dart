@@ -141,8 +141,7 @@ class ContactDetails {
 
   /// Dialling code and number with no plus — the shape `deliveryInfo.contacts`
   /// expects.
-  String get dialled =>
-      '${countryCode.replaceFirst('+', '')}${mobile.trim()}';
+  String get dialled => '${countryCode.replaceFirst('+', '')}${mobile.trim()}';
 
   bool get isValid =>
       mobile.trim().length >= 10 &&
@@ -156,11 +155,20 @@ class GstDetails {
     this.companyName = '',
     this.gstNumber = '',
     this.companyEmail = '',
+    this.phone = '',
+    this.address = '',
   });
 
   String companyName;
   String gstNumber;
   String companyEmail;
+
+  /// Collected in the form and kept for the saved-GST-history entry, but —
+  /// matching `BookingReview.jsx`'s actual submit payload exactly — never
+  /// sent to the booking API itself: [toJson] always uses the booking
+  /// contact's number for `mobile` and hardcodes `address` to `''`.
+  String phone;
+  String address;
 
   Map<String, dynamic> toJson(String contactNumber) => <String, dynamic>{
     'gstNumber': gstNumber.trim().toUpperCase(),
@@ -196,6 +204,11 @@ class TravellerInput {
   DateTime? passportIssueDate;
   String documentId = '';
 
+  /// Frequent-flyer programme, only offered for the airlines the fare lists
+  /// in `conditions.ffas` (`PassengerDetails.jsx` `ffAirline` / `ffNumber`).
+  String frequentFlyerAirline = '';
+  String frequentFlyerNumber = '';
+
   String get fullName => '${firstName.trim()} ${lastName.trim()}'.trim();
 
   /// The supplier's `travellerInfo` entry. Optional blocks are omitted rather
@@ -218,9 +231,19 @@ class TravellerInput {
       },
       if (docIdApplicable && documentId.trim().isNotEmpty)
         'di': documentId.trim(),
+      // Sent only when a number was entered, as the web does.
+      if (frequentFlyerNumber.trim().isNotEmpty) ...<String, dynamic>{
+        'fFNumber': frequentFlyerNumber.trim().toUpperCase(),
+        if (frequentFlyerAirline.isNotEmpty) 'fFAirline': frequentFlyerAirline,
+      },
     };
   }
 }
+
+/// `FIRST|LAST|DOB`, upper-cased — the identity the backend de-duplicates
+/// saved travellers on (`travellerStore.js` `travellerKey`).
+String travellerKey(String first, String last, String dob) =>
+    '${first.trim()}|${last.trim()}|$dob'.toUpperCase();
 
 /// One person on a cab booking. The supplier takes a single lead passenger.
 class CabPassengerInput {
@@ -259,6 +282,10 @@ class InsuranceTravellerInput {
   String pincode = '';
   String nomineeName = 'LEGAL HEIR';
   String nomineeRelation = 'LEGAL HEIR';
+
+  /// Collected on the form as the web does, but — exactly like the web's
+  /// `handleSubmit` — not part of the `iti` entry the insurer receives.
+  DateTime? dob;
 
   /// The insurer needs the name split, and treats a single-word name as both
   /// given and family name rather than rejecting it.
@@ -304,28 +331,47 @@ const List<String> kNomineeRelations = [
 ];
 
 /// One guest on a hotel room.
+///
+/// The web builds one of these per guest in the searched occupancy — every
+/// adult and every child of every room — and only the room's lead guest must
+/// be named; the backend pads the rest (`createInitialBookingForm`).
 class HotelGuestInput {
-  HotelGuestInput({this.isLead = false});
+  HotelGuestInput({this.isLead = false, this.isChild = false})
+    : title = isChild ? 'Master' : 'Mr';
 
   final bool isLead;
+  final bool isChild;
 
-  String title = 'Mr';
+  String title;
   String firstName = '';
   String lastName = '';
   String pan = '';
   String passportNumber = '';
 
+  /// Titles the supplier accepts: `Mr/Mrs/Ms/Miss` for adults,
+  /// `Master/Miss` for children.
+  List<String> get titles =>
+      isChild ? const ['Master', 'Miss'] : const ['Mr', 'Mrs', 'Ms', 'Miss'];
+
+  bool get hasAnyName =>
+      firstName.trim().isNotEmpty || lastName.trim().isNotEmpty;
+
+  /// Exactly the traveller entry the web's `buildBookingPayload` sends:
+  /// `{ti, pt, fN, lN}` plus `pan`/`pNum` on adults when the rate needs them.
+  /// The backend validates `pan` on every adult, so the booking page fills it
+  /// for each adult of a room from that room's PAN.
   Map<String, dynamic> toJson({
     bool panRequired = false,
     bool passportRequired = false,
   }) => <String, dynamic>{
     'ti': title,
+    'pt': isChild ? 'CHILD' : 'ADULT',
     'fN': firstName.trim(),
     'lN': lastName.trim(),
-    'pt': 'ADULT',
-    if (isLead) 'isLeadPax': true,
-    if (panRequired && pan.trim().isNotEmpty) 'pan': pan.trim().toUpperCase(),
-    if (passportRequired && passportNumber.trim().isNotEmpty)
+    // The web never sends a lead flag; the lead is the first adult of a room.
+    // if (isLead) 'isLeadPax': true,
+    if (panRequired && !isChild) 'pan': pan.trim().toUpperCase(),
+    if (passportRequired && !isChild)
       'pNum': passportNumber.trim().toUpperCase(),
   };
 }
@@ -360,6 +406,7 @@ class FareConditions {
     this.seatSelectable = true,
     this.mealSelectable = true,
     this.baggageSelectable = true,
+    this.frequentFlyerAirlines = const [],
   });
 
   /// International itineraries need passport details; domestic ones do not.
@@ -394,6 +441,10 @@ class FareConditions {
   final bool seatSelectable;
   final bool mealSelectable;
   final bool baggageSelectable;
+
+  /// Airlines on this itinerary that accept a frequent-flyer number
+  /// (`conditions.ffas`). Empty means the fare takes none.
+  final List<String> frequentFlyerAirlines;
 
   /// How long the quoted fare is held for, and when the clock started.
   final int sessionSeconds;
@@ -440,6 +491,11 @@ class FareConditions {
       infantDobRequired: readKey(dob, 'idobr') != false,
       sessionSeconds: asInt(readKey(json, 'st')),
       sessionStartedAt: DateTime.tryParse(asString(readKey(json, 'sct'))),
+      frequentFlyerAirlines: [
+        for (final a in asList(readKey(json, 'ffas')))
+          if (firstNonEmpty([a is Map ? readKey(a, 'code') : a]).isNotEmpty)
+            firstNonEmpty([a is Map ? readKey(a, 'code') : a]),
+      ],
       seatSelectable: readKey(fsc, 'issi') != false,
       mealSelectable: readKey(fsc, 'ismi') != false,
       baggageSelectable: readKey(fsc, 'isbi') != false,
@@ -490,8 +546,7 @@ class FlightReview {
   factory FlightReview.fromJson(dynamic json) {
     // Most endpoints answer at the root or behind `data`; the supplier's own
     // envelope (`payload`) shows up on some proxied routes.
-    final root =
-        readKey(json, 'data') ?? readKey(json, 'payload') ?? json;
+    final root = readKey(json, 'data') ?? readKey(json, 'payload') ?? json;
     final totalDetail = digPath(root, [
       'totalPriceInfo',
       'totalFareDetail',
@@ -520,14 +575,35 @@ class FlightReview {
 
 /// One row of the fare summary.
 class FareLine {
-  const FareLine(this.label, this.amount, {this.detail = ''});
+  const FareLine(
+    this.label,
+    this.amount, {
+    this.detail = '',
+    this.parts = const [],
+  });
 
   final String label;
   final double amount;
 
   /// Optional qualifier shown under the label, e.g. "2 adults".
   final String detail;
+
+  /// What this line is made of, shown indented beneath it — the web's
+  /// expandable "Taxes and fees" and "Meal, Baggage & Seat" rows.
+  final List<FareLine> parts;
 }
+
+/// Tax components TripJack returns under `afC.TAF`, in the web's order and
+/// wording (`FareSummary.jsx` `TAX_LABELS`).
+const Map<String, String> kFlightTaxLabels = {
+  'YQ': 'Fuel surcharge (YQ)',
+  'YR': 'Carrier charge (YR)',
+  'OT': 'Other taxes',
+  'AGST': 'GST',
+  'MF': 'Management fee',
+  'MFT': 'Management fee tax',
+  'OB': 'Payment fee',
+};
 
 /// The fare summary shown on every step of a booking.
 class FareBreakdown {
@@ -572,6 +648,8 @@ class FareBreakdown {
   }) {
     double base = 0;
     double taxes = 0;
+    // `afC.TAF` splits the taxes into their components, per passenger.
+    final taxParts = <String, double>{};
     for (final f in fares) {
       if (f == null) continue;
       final legBase = sumAcrossPax(f, 'BF', paxCounts);
@@ -579,6 +657,17 @@ class FareBreakdown {
       final legFees = sumAcrossPax(f, 'TAF', paxCounts);
       base += legBase;
       taxes += legFees > 0 ? legFees : (legTotal - legBase);
+
+      for (final pax in paxCounts.entries) {
+        if (pax.value <= 0) continue;
+        final components = digPath(f, ['fd', pax.key.code, 'afC', 'TAF']);
+        if (components is! Map) continue;
+        for (final c in components.entries) {
+          final code = asString(c.key);
+          taxParts[code] =
+              (taxParts[code] ?? 0) + asDouble(c.value) * pax.value;
+        }
+      }
     }
 
     final derived = base + taxes;
@@ -586,15 +675,36 @@ class FareBreakdown {
     final adjustment = supplierTotal > 0 && derived > 0
         ? supplierTotal - derived
         : 0.0;
+    final extras = addOns.entries.where((e) => e.value > 0).toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final extrasTotal = extras.fold<double>(0, (sum, e) => sum + e.value);
 
     return FareBreakdown(
       lines: [
         if (base > 0) FareLine('Base fare', base, detail: paxLabel(paxCounts)),
-        if (taxes > 0) FareLine('Taxes & fees', taxes),
+        if (taxes > 0)
+          FareLine(
+            'Taxes & fees',
+            taxes,
+            parts: [
+              for (final code in [
+                ...kFlightTaxLabels.keys.where(taxParts.containsKey),
+                ...taxParts.keys.where((k) => !kFlightTaxLabels.containsKey(k)),
+              ])
+                if ((taxParts[code] ?? 0) > 0)
+                  FareLine(kFlightTaxLabels[code] ?? code, taxParts[code]!),
+            ],
+          ),
         if (adjustment.abs() >= 1) FareLine('Fare adjustment', adjustment),
         // Seats, meals and baggage are priced outside the fare, so they are
-        // listed after it and added to the total.
-        for (final entry in addOns.entries) FareLine(entry.key, entry.value),
+        // listed after it and added to the total — one line, as the web's
+        // "Meal, Baggage & Seat", broken down beneath.
+        if (extrasTotal > 0)
+          FareLine(
+            'Meal, Baggage & Seat',
+            extrasTotal,
+            parts: [for (final e in extras) FareLine(e.key, e.value)],
+          ),
         if (serviceCharge > 0) FareLine('Service charge', serviceCharge),
       ],
       total:
@@ -796,12 +906,33 @@ class TravelBooking {
   // --- Per-product adapters -------------------------------------------------
 
   /// `GET /tj/my-bookings`
+  ///
+  /// BUG FIX: the rows name the route `from_iata` / `to_iata` — never `from`
+  /// or `to` — so every card fell back to the airline name as its title. The
+  /// fields are read the way the web's `FlightPanel` / `UpcomingBookings`
+  /// read them: route, "airline · flight · cabin", the booked `price`
+  /// (`amount_paid` is 0 on a held fare), `booked_at`, the party from
+  /// `adults` / `children` / `infants`, and `booking_status` (`on_hold`,
+  /// `confirmed`, `cancelled`, …).
   factory TravelBooking.fromFlightRow(dynamic json) {
-    final from = firstNonEmpty([readKey(json, 'from'), readKey(json, 'origin')]);
+    final from = firstNonEmpty([
+      readKey(json, 'from_iata'),
+      readKey(json, 'from'),
+      readKey(json, 'origin'),
+    ]);
     final to = firstNonEmpty([
+      readKey(json, 'to_iata'),
       readKey(json, 'to'),
       readKey(json, 'destination'),
     ]);
+    final adults = asInt(readKey(json, 'adults'));
+    final children = asInt(readKey(json, 'children'));
+    final infants = asInt(readKey(json, 'infants'));
+    final party = [
+      if (adults > 0) '$adults Adult${adults > 1 ? 's' : ''}',
+      if (children > 0) '$children Child${children > 1 ? 'ren' : ''}',
+      if (infants > 0) '$infants Infant${infants > 1 ? 's' : ''}',
+    ].join(' · ');
     final count = asInt(readKey(json, 'passenger_count'));
 
     return TravelBooking(
@@ -814,12 +945,14 @@ class TravelBooking {
       title: from.isNotEmpty && to.isNotEmpty
           ? '$from → $to'
           : firstNonEmpty([
+              readKey(json, 'order_id'),
               readKey(json, 'airline'),
             ], fallback: 'Flight booking'),
-      subtitle: firstNonEmpty([
-        readKey(json, 'airline'),
-        readKey(json, 'flight_no'),
-      ]),
+      subtitle: [
+        asString(readKey(json, 'airline')),
+        asString(readKey(json, 'flight_no')),
+        asString(readKey(json, 'cabin_class')),
+      ].where((v) => v.isNotEmpty).join(' · '),
       travelDate: DateTime.tryParse(
         firstNonEmpty([
           readKey(json, 'departure'),
@@ -828,6 +961,8 @@ class TravelBooking {
       ),
       bookedOn: DateTime.tryParse(
         firstNonEmpty([
+          readKey(json, 'booked_at'),
+          readKey(json, 'createdAt'),
           readKey(json, 'created_at'),
           readKey(json, 'booking_date'),
         ]),
@@ -837,25 +972,105 @@ class TravelBooking {
         readKey(json, 'status'),
       ]),
       paymentStatus: asString(readKey(json, 'payment_status')),
-      amount: asDouble(readKey(json, 'amount_paid') ?? readKey(json, 'amount')),
-      travellerSummary: [
-        asString(readKey(json, 'passenger_name')),
-        if (count > 1) '+${count - 1} more',
-      ].where((s) => s.isNotEmpty).join(' '),
+      amount: asDouble(
+        readKey(json, 'price') ??
+            readKey(json, 'amount_paid') ??
+            readKey(json, 'amount'),
+      ),
+      // "Asha Rao · 2 Adults · 1 Child" when the row carries the party;
+      // otherwise the older "Asha Rao +2 more".
+      travellerSummary: party.isNotEmpty
+          ? [
+              asString(readKey(json, 'passenger_name')),
+              party,
+            ].where((s) => s.isNotEmpty).join(' · ')
+          : [
+              asString(readKey(json, 'passenger_name')),
+              if (count > 1) '+${count - 1} more',
+            ].where((s) => s.isNotEmpty).join(' '),
       raw: asJsonMap(json),
     );
   }
 
+  /// A fare blocked without payment (`booking_status: on_hold`).
+  bool get isOnHold {
+    final s = status.toUpperCase();
+    return s == 'ON_HOLD' || s == 'HOLD';
+  }
+
+  // Previous flight-row adapter, kept for reference:
+  // /// `GET /tj/my-bookings`
+  // factory TravelBooking.fromFlightRow(dynamic json) {
+  //   final from = firstNonEmpty([
+  //     readKey(json, 'from'),
+  //     readKey(json, 'origin'),
+  //   ]);
+  //   final to = firstNonEmpty([
+  //     readKey(json, 'to'),
+  //     readKey(json, 'destination'),
+  //   ]);
+  //   final count = asInt(readKey(json, 'passenger_count'));
+  //
+  //   return TravelBooking(
+  //     product: TravelProduct.flight,
+  //     reference: firstNonEmpty([
+  //       readKey(json, 'order_id'),
+  //       readKey(json, 'booking_id'),
+  //       readKey(json, 'bookingId'),
+  //     ]),
+  //     title: from.isNotEmpty && to.isNotEmpty
+  //         ? '$from → $to'
+  //         : firstNonEmpty([
+  //             readKey(json, 'airline'),
+  //           ], fallback: 'Flight booking'),
+  //     subtitle: firstNonEmpty([
+  //       readKey(json, 'airline'),
+  //       readKey(json, 'flight_no'),
+  //     ]),
+  //     travelDate: DateTime.tryParse(
+  //       firstNonEmpty([
+  //         readKey(json, 'departure'),
+  //         readKey(json, 'travel_date'),
+  //       ]),
+  //     ),
+  //     bookedOn: DateTime.tryParse(
+  //       firstNonEmpty([
+  //         readKey(json, 'created_at'),
+  //         readKey(json, 'booking_date'),
+  //       ]),
+  //     ),
+  //     status: firstNonEmpty([
+  //       readKey(json, 'booking_status'),
+  //       readKey(json, 'status'),
+  //     ]),
+  //     paymentStatus: asString(readKey(json, 'payment_status')),
+  //     amount: asDouble(readKey(json, 'amount_paid') ?? readKey(json, 'amount')),
+  //     travellerSummary: [
+  //       asString(readKey(json, 'passenger_name')),
+  //       if (count > 1) '+${count - 1} more',
+  //     ].where((s) => s.isNotEmpty).join(' '),
+  //     raw: asJsonMap(json),
+  //   );
+  // }
+
   /// `GET hotels/all-bookings`
+  ///
+  /// BUG FIX: the rows come back camel-cased — `{bookingId, hotelName,
+  /// checkIn, checkOut, createdAt, amount, currency, status, paymentStatus,
+  /// bookingType}` per the web's `HotelBookingsPage` — so `checkIn`,
+  /// `checkOut` and `createdAt` are read first; the old snake_case keys stay
+  /// as fallbacks.
   factory TravelBooking.fromHotelRow(dynamic json) {
     final checkIn = DateTime.tryParse(
       firstNonEmpty([
+        readKey(json, 'checkIn'),
         readKey(json, 'checkin_date'),
         readKey(json, 'checkinDate'),
       ]),
     );
     final checkOut = DateTime.tryParse(
       firstNonEmpty([
+        readKey(json, 'checkOut'),
         readKey(json, 'checkout_date'),
         readKey(json, 'checkoutDate'),
       ]),
@@ -883,19 +1098,22 @@ class TravelBooking {
       travelDate: checkIn,
       bookedOn: DateTime.tryParse(
         firstNonEmpty([
+          readKey(json, 'createdAt'),
           readKey(json, 'created_at'),
           readKey(json, 'createdOn'),
         ]),
       ),
       status: firstNonEmpty([
-        readKey(json, 'booking_status'),
         readKey(json, 'status'),
+        readKey(json, 'booking_status'),
       ]),
       paymentStatus: firstNonEmpty([
         readKey(json, 'payment_status'),
         readKey(json, 'paymentStatus'),
       ]),
-      amount: asDouble(readKey(json, 'amount') ?? readKey(json, 'total_amount')),
+      amount: asDouble(
+        readKey(json, 'amount') ?? readKey(json, 'total_amount'),
+      ),
       travellerSummary: nights > 0
           ? '$nights night${nights == 1 ? '' : 's'}'
           : '',
@@ -971,29 +1189,49 @@ class TravelBooking {
   }
 
   /// `GET /insurance_payment/bookings`
+  /// `GET /insurance_payment/bookings`
+  ///
+  /// BUG FIX: rows identify the policy by `tripjack_booking_id` — the id the
+  /// web opens the policy and downloads its PDF with — and carry
+  /// `plan_label`, `coverage_amount`, `region_name`, `end_date`,
+  /// `traveller_count`, `currency` and `paid_at` (`InsurancePanel.jsx`). Read
+  /// by `booking_id` / `plan_name`, every row came back without a reference
+  /// and was dropped, so My Trips never showed a policy.
   factory TravelBooking.fromInsuranceRow(dynamic json) {
     final travellers = asList(readKey(json, 'travellers'));
+    final count = asInt(readKey(json, 'traveller_count')) > 0
+        ? asInt(readKey(json, 'traveller_count'))
+        : travellers.length;
+    final cover = [
+      asString(readKey(json, 'coverage_amount')),
+      asString(readKey(json, 'region_name')),
+    ].where((s) => s.isNotEmpty).join(' · ');
 
     return TravelBooking(
       product: TravelProduct.insurance,
       reference: firstNonEmpty([
+        readKey(json, 'tripjack_booking_id'),
         readKey(json, 'booking_id'),
         readKey(json, 'bookingId'),
       ]),
       title: firstNonEmpty([
+        readKey(json, 'plan_label'),
         readKey(json, 'plan_name'),
         readKey(json, 'planLabel'),
-      ], fallback: 'Travel insurance'),
-      subtitle: firstNonEmpty([
-        readKey(json, 'region_name'),
-        readKey(json, 'regionName'),
-        readKey(json, 'insurer'),
-      ]),
+      ], fallback: 'Insurance Plan'),
+      subtitle: cover.isNotEmpty
+          ? cover
+          : firstNonEmpty([
+              readKey(json, 'region_name'),
+              readKey(json, 'regionName'),
+              readKey(json, 'insurer'),
+            ]),
       travelDate: DateTime.tryParse(
         firstNonEmpty([readKey(json, 'start_date'), readKey(json, 'sd')]),
       ),
       bookedOn: DateTime.tryParse(
         firstNonEmpty([
+          readKey(json, 'paid_at'),
           readKey(json, 'created_at'),
           readKey(json, 'createdOn'),
         ]),
@@ -1004,13 +1242,54 @@ class TravelBooking {
       ]),
       paymentStatus: asString(readKey(json, 'payment_status')),
       amount: asDouble(readKey(json, 'amount')),
-      travellerSummary: travellers.isEmpty
+      travellerSummary: count <= 0
           ? ''
-          : '${travellers.length} traveller'
-                '${travellers.length == 1 ? '' : 's'}',
+          : '$count traveller${count == 1 ? '' : 's'}',
       raw: asJsonMap(json),
     );
   }
+
+  // Previous insurance-row adapter, kept for reference:
+  // factory TravelBooking.fromInsuranceRow(dynamic json) {
+  //   final travellers = asList(readKey(json, 'travellers'));
+  //
+  //   return TravelBooking(
+  //     product: TravelProduct.insurance,
+  //     reference: firstNonEmpty([
+  //       readKey(json, 'booking_id'),
+  //       readKey(json, 'bookingId'),
+  //     ]),
+  //     title: firstNonEmpty([
+  //       readKey(json, 'plan_name'),
+  //       readKey(json, 'planLabel'),
+  //     ], fallback: 'Travel insurance'),
+  //     subtitle: firstNonEmpty([
+  //       readKey(json, 'region_name'),
+  //       readKey(json, 'regionName'),
+  //       readKey(json, 'insurer'),
+  //     ]),
+  //     travelDate: DateTime.tryParse(
+  //       firstNonEmpty([readKey(json, 'start_date'), readKey(json, 'sd')]),
+  //     ),
+  //     bookedOn: DateTime.tryParse(
+  //       firstNonEmpty([
+  //         readKey(json, 'created_at'),
+  //         readKey(json, 'createdOn'),
+  //       ]),
+  //     ),
+  //     status: firstNonEmpty([
+  //       readKey(json, 'booking_status'),
+  //       readKey(json, 'status'),
+  //     ]),
+  //     paymentStatus: asString(readKey(json, 'payment_status')),
+  //     amount: asDouble(readKey(json, 'amount')),
+  //     travellerSummary: travellers.isEmpty
+  //         ? ''
+  //         : '${travellers.length} traveller'
+  //               '${travellers.length == 1 ? '' : 's'}',
+  //     raw: asJsonMap(json),
+  //   );
+  // }
 }
 
 // ---------------------------------------------------------------------------
@@ -1033,6 +1312,7 @@ class FlightTripContext {
     this.infants = 0,
     this.cabinClass = 'ECONOMY',
     this.multiCityLegs = const [],
+    this.paxType = 'REGULAR',
   });
 
   /// A multi-city trip. [from], [to] and [departure] mirror the first leg so
@@ -1044,6 +1324,7 @@ class FlightTripContext {
     int children = 0,
     int infants = 0,
     String cabinClass = 'ECONOMY',
+    String paxType = 'REGULAR',
   }) => FlightTripContext(
     from: legs.first.from,
     to: legs.last.to,
@@ -1053,6 +1334,7 @@ class FlightTripContext {
     infants: infants,
     cabinClass: cabinClass,
     multiCityLegs: legs,
+    paxType: paxType,
   );
 
   final FlightLocation from;
@@ -1066,6 +1348,16 @@ class FlightTripContext {
 
   /// The requested hops when this is a multi-city trip; empty otherwise.
   final List<FlightLeg> multiCityLegs;
+
+  /// The fare type searched for — `REGULAR`, `STUDENT` or `SENIOR_CITIZEN`.
+  final String paxType;
+
+  /// Whether a document id is collected: when the fare says so
+  /// (`dc.ida`), or for any student / senior-citizen search — the web's
+  /// `docIdApplicable`.
+  bool docIdApplicable(FareConditions conditions) =>
+      conditions.docIdApplicable ||
+      (paxType.isNotEmpty && paxType.toUpperCase() != 'REGULAR');
 
   bool get isMultiCity => multiCityLegs.isNotEmpty;
 

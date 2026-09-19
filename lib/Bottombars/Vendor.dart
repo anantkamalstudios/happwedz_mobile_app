@@ -112,11 +112,16 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
 
     if (!nowExpanded) return;
 
-    for (final sub in cat.subcategories) {
-      if (sub.services == null) {
-        await fetchSubcategoryServices(sub);
-      }
-    }
+    // Disabled: this fetched every subcategory's vendors one after another
+    // (~8 s each on the server) on each expand, yet nothing on this screen
+    // shows `sub.services` — and the body is a map, so the `List` cast threw
+    // and the same requests re-ran on every expand. Tapping a subcategory
+    // opens `VendorServicesScreen`, which loads its own page.
+    // for (final sub in cat.subcategories) {
+    //   if (sub.services == null) {
+    //     await fetchSubcategoryServices(sub);
+    //   }
+    // }
   }
 
   @override
@@ -204,7 +209,13 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                   context,
                   AnimatedPageRoute(
                     // Pass the exact subcategory name as returned from API
-                    page: VendorServicesScreen(subcategoryName: name),
+                    // page: VendorServicesScreen(subcategoryName: name),
+                    // With its vendor type, so "Photographers" means the
+                    // photographers — not every name containing the word.
+                    page: VendorServicesScreen(
+                      subcategoryName: name,
+                      vendorType: cat.name,
+                    ),
                     style: PageTransitionStyle.slideRight,
                   ),
                 );

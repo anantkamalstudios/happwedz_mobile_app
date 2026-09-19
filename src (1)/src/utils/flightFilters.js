@@ -36,7 +36,10 @@ export const ARR = 'ARR';
 /** Filter keys that hold an array of selected values (toggled, not replaced). */
 export const ARRAY_FILTER_KEYS = [
   'stops',
+  'stops_return',
   'airlines',
+  'airlines_return',
+  'specialReturn',
   'fareTypes',
   'cancellationTypes',
   'terminals',
@@ -49,8 +52,15 @@ export const ARRAY_FILTER_KEYS = [
 ];
 
 export const EMPTY_FILTERS = {
+  // On a round trip `stops` / `airlines` narrow the onward leg and the
+  // `_return` keys the return leg, as the time-slot keys already do.
   stops: [],
+  stops_return: [],
   airlines: [],
+  airlines_return: [],
+  // Airline codes picked under "Return Special": both legs keep only that
+  // airline's SPECIAL_RETURN fares.
+  specialReturn: [],
   fareTypes: [],
   cancellationTypes: [],
   terminals: [],
@@ -396,6 +406,54 @@ export const deriveFacets = (trips = [], pax = SINGLE_ADULT) => {
   };
 };
 
+// ── Special Return ──────────────────────────────────────────────────────────
+
+/**
+ * Cheapest bookable Special Return pair per airline, for the sidebar tiles.
+ *
+ * A SPECIAL_RETURN fare is only valid with a return-leg SPECIAL_RETURN fare
+ * whose `sri` appears in its `msri` list, so pairs are matched on those ids
+ * rather than by taking the cheapest fare of each leg.
+ *
+ * @returns {Array<{code,name,price,outFareId,retFareId}>} sorted by price
+ */
+export const deriveSpecialReturn = (onward = [], ret = [], pax = SINGLE_ADULT) => {
+  const returnBySri = new Map();
+  for (const trip of ret) {
+    for (const fare of trip.totalPriceList || []) {
+      if (fare?.fareIdentifier !== 'SPECIAL_RETURN' || !fare.sri) continue;
+      const price = farePrice(fare, pax);
+      const known = returnBySri.get(fare.sri);
+      if (!known || price < known.price) returnBySri.set(fare.sri, { fare, price });
+    }
+  }
+
+  const best = new Map();
+  for (const trip of onward) {
+    const airline = tripAirline(trip);
+    if (!airline?.code) continue;
+    for (const fare of trip.totalPriceList || []) {
+      if (fare?.fareIdentifier !== 'SPECIAL_RETURN') continue;
+      for (const sri of fare.msri || []) {
+        const match = returnBySri.get(sri);
+        if (!match) continue;
+        const price = farePrice(fare, pax) + match.price;
+        const current = best.get(airline.code);
+        if (!current || price < current.price) {
+          best.set(airline.code, {
+            code: airline.code,
+            name: airline.name,
+            price,
+            outFareId: fare.id,
+            retFareId: match.fare.id,
+          });
+        }
+      }
+    }
+  }
+  return [...best.values()].sort((a, b) => a.price - b.price);
+};
+
 // ── Filtering ───────────────────────────────────────────────────────────────
 
 /**
@@ -434,6 +492,9 @@ export const filterTrips = (
     layover_max: layoverMax = null,
   } = filters;
 
+  const stopSel = (isReturn ? filters.stops_return : stops) || [];
+  const airlineSel = (isReturn ? filters.airlines_return : airlines) || [];
+  const specialReturn = filters.specialReturn || [];
   const depSlots = isReturn ? filters.departure_return_time : filters.departure_time;
   const arrSlots = isReturn ? filters.arrival_return_time : filters.arrival_time;
   const searchedCodes = [searchFrom, searchTo]
@@ -454,8 +515,9 @@ export const filterTrips = (
     const from = segs[0];
     const to = segs[segs.length - 1];
 
-    if (stops.length && !stops.includes(stopsBucket(trip))) continue;
-    if (airlines.length && !airlines.includes(tripAirline(trip)?.code)) continue;
+    if (stopSel.length && !stopSel.includes(stopsBucket(trip))) continue;
+    if (airlineSel.length && !airlineSel.includes(tripAirline(trip)?.code)) continue;
+    if (specialReturn.length && !specialReturn.includes(tripAirline(trip)?.code)) continue;
     if (!matchesSlots(from.dt, depSlots)) continue;
     if (!matchesSlots(to.at, arrSlots)) continue;
     if (!matchesWindow(from.dt, filters.departure_from, filters.departure_to)) continue;
@@ -492,6 +554,7 @@ export const filterTrips = (
 
     // Fare-level narrowing.
     let fares = trip.totalPriceList || [];
+    if (specialReturn.length) fares = fares.filter((f) => f?.fareIdentifier === 'SPECIAL_RETURN');
     if (fareTypes.length) {
       fares = fares.filter((f) =>
         fareTypes.includes(isNdcFare(f?.fareIdentifier) ? 'NDC' : 'STANDARD'),
@@ -552,7 +615,9 @@ export const reconcileFilters = (filters = {}, outboundFacets, returnFacets) => 
 
   const SOURCES = {
     stops: [(f) => f.stops],
+    stops_return: [(f) => f.stops],
     airlines: [(f) => f.airlines],
+    airlines_return: [(f) => f.airlines],
     fareTypes: [(f) => f.fareTypes],
     cancellationTypes: [(f) => f.cancellationTypes],
     terminals: [(f) => f.departureTerminals, (f) => f.arrivalTerminals],
@@ -660,6 +725,13 @@ export const describeFilters = (filters = {}, meta = null) => {
   const push = (key, value, label) => chips.push({ id: `${key}:${value}`, key, value, label });
 
   for (const v of filters.stops || []) push('stops', v, `Stops: ${STOP_LABEL(v)}`);
+  for (const v of filters.stops_return || []) push('stops_return', v, `Return stops: ${STOP_LABEL(v)}`);
+  for (const v of filters.airlines_return || []) {
+    push('airlines_return', v, `Return airline: ${meta?.airlines?.find((a) => a.value === v)?.name || v}`);
+  }
+  for (const v of filters.specialReturn || []) {
+    push('specialReturn', v, `Return Special: ${meta?.airlines?.find((a) => a.value === v)?.name || v}`);
+  }
   for (const v of filters.airlines || []) {
     push('airlines', v, `Airline: ${meta?.airlines?.find((a) => a.value === v)?.name || v}`);
   }

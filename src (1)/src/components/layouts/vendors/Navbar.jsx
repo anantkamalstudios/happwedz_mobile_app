@@ -3,17 +3,20 @@ import { useSelector } from "react-redux";
 import { FaGift, FaStore, FaEnvelope, FaStar, FaCog } from "react-icons/fa";
 import { LiaHomeSolid } from "react-icons/lia";
 import { FaRegStar } from "react-icons/fa";
-import { PiOfficeChairLight } from "react-icons/pi";
+import { PiInstagramLogoLight, PiOfficeChairLight } from "react-icons/pi";
 import { GoMail } from "react-icons/go";
 import { IoSettingsOutline } from "react-icons/io5";
 import { IoStorefrontOutline } from "react-icons/io5";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import vendorServicesApi from "../../../services/api/vendorServicesApi";
+import { useVendorAccess } from "../../../context/VendorAccessContext";
+import { API_BASE_URL } from "../../../config/constants";
 
 const Navbar = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { token, vendor } = useSelector((state) => state.vendorAuth || {});
+  const vendorAccess = useVendorAccess();
   const [activeTab, setActiveTab] = useState("home");
   const [storedCompletion, setStoredCompletion] = useState(0);
   const [isMobile, setIsMobile] = useState(
@@ -61,7 +64,7 @@ const Navbar = () => {
 
       try {
         const response = await fetch(
-          `https://happywedz.com/api/vendor-services/${serviceId}/storefront-completion`,
+          `${API_BASE_URL}/vendor-services/${serviceId}/storefront-completion`,
           {
             method: "GET",
             headers: {
@@ -124,7 +127,7 @@ const Navbar = () => {
       if (!token) return;
 
       try {
-        const response = await fetch("https://happywedz.com/api/inbox", {
+        const response = await fetch(`${API_BASE_URL}/inbox`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -176,11 +179,17 @@ const Navbar = () => {
     };
   }, []);
 
-  // Check if vendor is a photographer (vendor type id = 1 or 12)
+  // Moments+ is photographer-only (vendor type 1 or 12).
+  //
+  // Coerced with Number() because the id is not reliably a number: registration stores
+  // whatever the <select> produced, which is the string "1", while the API returns 1.
+  // A strict === against the string silently hid the Moments+ tab for every vendor who
+  // had just signed up. The dependency list also watched vendor.vendorType.id while the
+  // value read vendor.vendor_type_id, so it never recomputed when the vendor refreshed.
   const isPhotographer = useMemo(() => {
-    const vendorTypeId = vendor?.vendor_type_id;
+    const vendorTypeId = Number(vendor?.vendor_type_id ?? vendor?.vendorType?.id);
     return vendorTypeId === 1 || vendorTypeId === 12;
-  }, [vendor?.vendorType?.id]);
+  }, [vendor?.vendor_type_id, vendor?.vendorType?.id]);
 
   const tabs = useMemo(() => {
     const baseTabs = [
@@ -221,10 +230,17 @@ const Navbar = () => {
       baseTabs.push({
         id: "movments-plus",
         slug: "movments-plus",
-        label: "Movments+",
+        label: "Moments+",
         icon: "/images/vendorsDashboard/live.png",
       });
     }
+
+    baseTabs.push({
+      id: "instagram",
+      slug: "vendor-instagram",
+      label: "Instagram",
+      Icon: PiInstagramLogoLight,
+    });
 
     baseTabs.push({
       id: "settings",
@@ -293,16 +309,25 @@ const Navbar = () => {
                 onClick={() => handleTabClick(tab)}
               >
                 <div style={{ position: "relative" }}>
-                  <img
-                    src={tab.icon}
-                    alt={tab.label}
-                    style={{
-                      width: isMobile ? 24 : 30,
-                      height: isMobile ? 24 : 30,
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
+                  {tab.Icon ? (
+                    <tab.Icon
+                      size={isMobile ? 24 : 30}
+                      color="#2c3e50"
+                      aria-hidden="true"
+                      style={{ display: "block" }}
+                    />
+                  ) : (
+                    <img
+                      src={tab.icon}
+                      alt={tab.label}
+                      style={{
+                        width: isMobile ? 24 : 30,
+                        height: isMobile ? 24 : 30,
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  )}
                   {tab.id === "enquiries" &&
                     showEnquiryBadge &&
                     unreadEnquiryCount > 0 && (
@@ -439,10 +464,21 @@ const Navbar = () => {
                       marginBottom: 2,
                     }}
                   >
-                    Grow Your Business
+                    {vendorAccess.subscription
+                      ? vendorAccess.subscription.planName + " plan"
+                      : "Grow Your Business"}
                   </span>
-                  <Link className="btn upgrade-btn border-0 p-0">
-                    Upgrade Now
+                  {/* Was a dead <Link> with no destination. It now goes to the plans
+                      page, and says what it will actually do for this vendor. */}
+                  <Link
+                    to="/vendor-dashboard/upgrade/vendor-plan"
+                    className="btn upgrade-btn border-0 p-0"
+                  >
+                    {vendorAccess.stage === "expired"
+                      ? "Renew Plan"
+                      : vendorAccess.subscription
+                        ? "Change Plan"
+                        : "Upgrade Now"}
                   </Link>
                 </div>
               </div>

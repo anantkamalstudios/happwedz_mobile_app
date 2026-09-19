@@ -17,6 +17,7 @@ import '../../data/honeymoon_api.dart';
 import '../../models/addon_models.dart';
 import '../../models/booking_models.dart';
 import 'booking_widgets.dart';
+import '../widgets/flight_widgets.dart';
 
 class FlightAddOnStep extends StatefulWidget {
   const FlightAddOnStep({
@@ -180,9 +181,14 @@ class _FlightAddOnStepState extends State<FlightAddOnStep> {
               deck: deck,
               bands: bands,
               bandFilter: _bandFilter,
-              selectedCode: widget.addOns.seatFor(_activePax, _seatSegment)?.code,
-              isTakenByOther: (seatNo) =>
-                  widget.addOns.isTakenByOther(_activePax, _seatSegment, seatNo),
+              selectedCode: widget.addOns
+                  .seatFor(_activePax, _seatSegment)
+                  ?.code,
+              isTakenByOther: (seatNo) => widget.addOns.isTakenByOther(
+                _activePax,
+                _seatSegment,
+                seatNo,
+              ),
               onPick: (seat) => _mutate(
                 () => widget.addOns.toggleSeat(_activePax, _seatSegment, seat),
               ),
@@ -291,8 +297,7 @@ class _FlightAddOnStepState extends State<FlightAddOnStep> {
           _SegmentTabs(
             segments: segments,
             active: active,
-            countFor: (id) =>
-                widget.addOns.ssrCountLabel(kind, id, _paxCount),
+            countFor: (id) => widget.addOns.ssrCountLabel(kind, id, _paxCount),
             onPick: onPick,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -302,7 +307,12 @@ class _FlightAddOnStepState extends State<FlightAddOnStep> {
             for (final option in options)
               _SsrTile(
                 option: option,
-                qty: widget.addOns.ssrQty(kind, _activePax, active, option.code),
+                qty: widget.addOns.ssrQty(
+                  kind,
+                  _activePax,
+                  active,
+                  option.code,
+                ),
                 onChanged: (qty) => _mutate(
                   () => widget.addOns.setSsrQty(
                     kind,
@@ -357,7 +367,9 @@ class _FlightAddOnStepState extends State<FlightAddOnStep> {
 // Pieces
 // =============================================================
 
-String money(double amount) => '₹${amount.toStringAsFixed(2)}';
+// Previous formatter, without thousands grouping:
+// String money(double amount) => '₹${amount.toStringAsFixed(2)}';
+String money(double amount) => formatFlightFare(amount);
 
 String _bandLabel(PriceBand band) {
   if (band.max == 0) return money(0);
@@ -431,10 +443,7 @@ class _AddOnBlock extends StatelessWidget {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: child,
-          ),
+          Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: child),
         ],
       ),
     );
@@ -657,10 +666,7 @@ class _SeatDeck extends StatelessWidget {
       for (final column in columns)
         _SeatRow(
           label: deck.letterFor(column),
-          children: [
-            for (final row in rows)
-              _seatCell(deck.at(row, column)),
-          ],
+          children: [for (final row in rows) _seatCell(deck.at(row, column))],
         ),
     ];
 

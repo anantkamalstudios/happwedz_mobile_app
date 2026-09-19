@@ -686,44 +686,38 @@
 
 // export default ShaadiAI;
 
-
 import React, { useState, useEffect, useRef } from "react";
-import axios from "../../services/api/axiosInstance";
 import styles from "./ShaadiAI.module.css";
-import { FaPaperPlane, FaMagic, FaUser, FaRobot, FaMapMarkerAlt, FaTags, FaWallet, FaPlus, FaTrash, FaBars, FaTimes, FaComment } from "react-icons/fa";
-import { 
-    PersonalityQuizInline, 
-    CultureBlenderInline, 
-    ConflictResolverInline, 
-    TimelineGeneratorInline,
-    PersonalityQuizResult,
-    CultureBlenderResult,
-    ConflictResolverResult,
-    TimelineGeneratorResult
-} from "./ChatFeatures";
+import { FaPaperPlane, FaMagic, FaPlus, FaTrash, FaBars, FaTimes, FaComment } from "react-icons/fa";
+import useShaadiAI, { STARTER_PROMPTS } from "../shaadiai/useShaadiAI";
+import MessageBody from "../shaadiai/MessageBody";
 
 const ShaadiAI = () => {
-    const INITIAL_MSG = {
-        role: "ai",
-        content: "Namaste! 🙏 I'm Shaadi AI, your personal wedding planning assistant.\n\nTell me what you're looking for — a venue, photographer, mehendi artist, decorator, DJ, or a full wedding plan?\n\n✨ Try these AI features:\n• /personality-quiz - Discover your wedding style\n• /culture-blender - Blend two cultures\n• /conflict-resolver - Resolve wedding decisions\n• /timeline-generator - Create your wedding timeline\n\n💡 Tip: You can also just say \"I want to take personality quiz\" or \"help me blend cultures\" and I'll understand!"
-    };
-
-    const [messages, setMessages] = useState([INITIAL_MSG]);
-    const [input, setInput] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [chatList, setChatList] = useState([]);
-    const [activeChatId, setActiveChatId] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [activeFeature, setActiveFeature] = useState(null);
     const chatEndRef = useRef(null);
     const textareaRef = useRef(null);
 
-    const isInitialState = messages.length === 1 && !activeChatId;
+    // The textarea auto-sizes, so a sent message has to put it back to one row.
+    const resetTextarea = () => {
+        if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    };
 
-    // Load chat list on mount
-    useEffect(() => {
-        fetchChatList();
-    }, []);
+    // Conversation state, routing and history all live in the hook — the corner
+    // widget runs the same one, so the two surfaces cannot drift apart.
+    const {
+        messages,
+        input,
+        setInput,
+        loading,
+        chatList,
+        activeChatId,
+        isInitialState,
+        handleSend,
+        handleFeatureComplete,
+        handleNewChat,
+        handleLoadChat,
+        handleDeleteChat
+    } = useShaadiAI({ onSubmit: resetTextarea });
 
     // scroll-padding used to be set on the document here, to stop scrollIntoView
     // from parking a new message behind the sticky header and sticky input bar.
@@ -737,19 +731,6 @@ const ShaadiAI = () => {
     // The clearance is only ever needed by the one element we scroll to, so it
     // lives on that element as scroll-margin instead. See .chatEndMarker.
 
-    const fetchChatList = () => {
-        try {
-            const saved = localStorage.getItem('shaadi_ai_chats');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                parsed.sort((a, b) => b.updatedAt - a.updatedAt);
-                setChatList(parsed);
-            }
-        } catch (err) {
-            console.error("Failed to load chats:", err);
-        }
-    };
-
     const prevMessagesLength = useRef(messages.length);
 
     const scrollToBottom = (behavior = "smooth") => {
@@ -761,7 +742,7 @@ const ShaadiAI = () => {
     useEffect(() => {
         // Determine scroll behavior: 'auto' for initial load/switching chats, 'smooth' for new messages
         const behavior = messages.length > prevMessagesLength.current ? "smooth" : "auto";
-        
+
         const timer = setTimeout(() => {
             scrollToBottom(behavior);
             prevMessagesLength.current = messages.length;
@@ -795,243 +776,6 @@ const ShaadiAI = () => {
         if (window.scrollY !== scrollY) window.scrollTo({ top: scrollY });
     };
 
-    // Auto-save chat after each AI response to Local Storage
-    const handleFeatureComplete = (featureType, result) => {
-        if (result.error) {
-            const errorMessages = [...messages, {
-                role: "ai",
-                content: result.error
-            }];
-            setMessages(errorMessages);
-            setActiveFeature(null);
-            return;
-        }
-
-        const resultMessage = {
-            role: "ai",
-            content: `Here are your ${featureType.replace('-', ' ')} results! Feel free to ask me any questions about them.`,
-            featureResult: result,
-            featureType: featureType
-        };
-
-        const newMessages = [...messages, resultMessage];
-        setMessages(newMessages);
-        setActiveFeature(null);
-
-        // Auto-save
-        const newId = saveChat(newMessages, activeChatId);
-        if (!activeChatId) setActiveChatId(newId);
-    };
-
-    const saveChat = (updatedMessages, chatId) => {
-        try {
-            const firstUserMsg = updatedMessages.find(m => m.role === "user");
-            const title = firstUserMsg
-                ? firstUserMsg.content.substring(0, 60) + (firstUserMsg.content.length > 60 ? "..." : "")
-                : "New Chat";
-
-            const messagesToSave = updatedMessages.map(m => ({
-                role: m.role,
-                content: m.content,
-                ...(m.vendors && { vendors: m.vendors }),
-                ...(m.products && m.products.length > 0 && { products: m.products }),
-                ...(m.orders && m.orders.length > 0 && { orders: m.orders }),
-                ...(m.comparisons && m.comparisons.length > 0 && { comparisons: m.comparisons }),
-                ...(m.budget_breakdown && Object.keys(m.budget_breakdown).length > 0 && { budget_breakdown: m.budget_breakdown }),
-                ...(m.suggestions && m.suggestions.length > 0 && { suggestions: m.suggestions }),
-                ...(m.featureType && { featureType: m.featureType }),
-                ...(m.featureResult && { featureResult: m.featureResult })
-            }));
-
-            let savedChats = [];
-            const saved = localStorage.getItem('shaadi_ai_chats');
-            if (saved) savedChats = JSON.parse(saved);
-
-            let newChatId = chatId;
-
-            if (chatId) {
-                const index = savedChats.findIndex(c => c.id === chatId);
-                if (index !== -1) {
-                    savedChats[index].title = title;
-                    savedChats[index].messages = messagesToSave;
-                    savedChats[index].updatedAt = Date.now();
-                } else {
-                    savedChats.push({ id: chatId, title, messages: messagesToSave, updatedAt: Date.now() });
-                }
-            } else {
-                newChatId = Date.now().toString() + Math.random().toString(36).substring(7);
-                savedChats.push({ id: newChatId, title, messages: messagesToSave, updatedAt: Date.now() });
-                setActiveChatId(newChatId);
-            }
-
-            localStorage.setItem('shaadi_ai_chats', JSON.stringify(savedChats));
-            fetchChatList();
-            return newChatId;
-        } catch (err) {
-            console.error("Failed to save chat:", err);
-            return chatId;
-        }
-    };
-
-    const handleSend = async (customMessage = null) => {
-        const userMsg = customMessage || input.trim();
-        if (!userMsg) return;
-
-        // Check for slash commands
-        const slashCommands = {
-            '/personality-quiz': 'personality-quiz',
-            '/culture-blender': 'culture-blender',
-            '/conflict-resolver': 'conflict-resolver',
-            '/timeline-generator': 'timeline-generator'
-        };
-
-        const command = Object.keys(slashCommands).find(cmd => userMsg.toLowerCase().startsWith(cmd));
-        
-        if (command) {
-            const updatedMessages = [...messages, { 
-                role: "user", 
-                content: userMsg 
-            }, {
-                role: "ai",
-                content: `Opening ${slashCommands[command].replace('-', ' ')}...`,
-                featureType: slashCommands[command]
-            }];
-            setMessages(updatedMessages);
-            setActiveFeature(slashCommands[command]);
-            if (!customMessage) setInput("");
-            if (textareaRef.current) textareaRef.current.style.height = 'auto';
-            
-            // Auto-save
-            const newId = saveChat(updatedMessages, activeChatId);
-            if (!activeChatId) setActiveChatId(newId);
-            return;
-        }
-
-        // Natural language keyword detection
-        const lowerMsg = userMsg.toLowerCase();
-        
-        // Personality Quiz keywords
-        const personalityKeywords = [
-            'personality quiz', 'personality test', 'wedding style', 'wedding quiz',
-            'discover my style', 'find my style', 'what style', 'wedding personality',
-            'take quiz', 'take the quiz', 'style quiz', 'vibe quiz'
-        ];
-        
-        // Culture Blender keywords
-        const cultureKeywords = [
-            'culture blend', 'blend culture', 'culture blender', 'mix culture',
-            'fusion wedding', 'multi cultural', 'multicultural', 'two culture',
-            'combine culture', 'merge culture', 'cultural fusion', 'blend my culture'
-        ];
-        
-        // Conflict Resolver keywords
-        const conflictKeywords = [
-            'conflict', 'disagree', 'disagreement', 'resolve conflict', 'conflict resolver',
-            'husband wife conflict', 'partner conflict', 'couple conflict',
-            'we disagree', 'can\'t agree', 'cannot agree', 'help us decide',
-            'mediate', 'resolve decision', 'solve conflict', 'fix conflict'
-        ];
-        
-        // Timeline Generator keywords
-        const timelineKeywords = [
-            'timeline', 'schedule', 'wedding timeline', 'day timeline', 'event timeline',
-            'generate timeline', 'create timeline', 'make timeline', 'plan timeline',
-            'wedding schedule', 'event schedule', 'day schedule', 'timing',
-            'time management', 'wedding day plan'
-        ];
-
-        let detectedFeature = null;
-        let featureName = '';
-
-        // Check for personality quiz
-        if (personalityKeywords.some(keyword => lowerMsg.includes(keyword))) {
-            detectedFeature = 'personality-quiz';
-            featureName = 'Personality Quiz';
-        }
-        // Check for culture blender
-        else if (cultureKeywords.some(keyword => lowerMsg.includes(keyword))) {
-            detectedFeature = 'culture-blender';
-            featureName = 'Culture Blender';
-        }
-        // Check for conflict resolver
-        else if (conflictKeywords.some(keyword => lowerMsg.includes(keyword))) {
-            detectedFeature = 'conflict-resolver';
-            featureName = 'Conflict Resolver';
-        }
-        // Check for timeline generator
-        else if (timelineKeywords.some(keyword => lowerMsg.includes(keyword))) {
-            detectedFeature = 'timeline-generator';
-            featureName = 'Timeline Generator';
-        }
-
-        // If a feature was detected, activate it
-        if (detectedFeature) {
-            const updatedMessages = [...messages, { 
-                role: "user", 
-                content: userMsg 
-            }, {
-                role: "ai",
-                content: `I detected you want to use the ${featureName}! Opening it for you...`,
-                featureType: detectedFeature
-            }];
-            setMessages(updatedMessages);
-            setActiveFeature(detectedFeature);
-            if (!customMessage) setInput("");
-            if (textareaRef.current) textareaRef.current.style.height = 'auto';
-            
-            // Auto-save
-            const newId = saveChat(updatedMessages, activeChatId);
-            if (!activeChatId) setActiveChatId(newId);
-            return;
-        }
-
-        const updatedMessages = [...messages, { role: "user", content: userMsg }];
-        setMessages(updatedMessages);
-        if (!customMessage) setInput("");
-        if (textareaRef.current) textareaRef.current.style.height = 'auto';
-        setLoading(true);
-
-        try {
-            const historyForBackend = updatedMessages
-                .filter((_, i) => i > 0)
-                .filter(m => !m.featureType) // Exclude feature messages from history
-                .map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
-
-            const response = await axios.post("/ai/chat", {
-                message: userMsg,
-                conversationHistory: historyForBackend
-            });
-            const data = response.data;
-
-            const newMessages = [...updatedMessages, {
-                role: "ai",
-                content: data.summary,
-                vendors: data.vendors,
-                products: data.products,
-                orders: data.orders,
-                comparisons: data.comparisons,
-                suggestions: data.suggestions,
-                budget_breakdown: data.budget_breakdown
-            }];
-
-            setMessages(newMessages);
-
-            // Auto-save to local storage
-            const newId = saveChat(newMessages, activeChatId);
-            if (!activeChatId) setActiveChatId(newId);
-
-        } catch (error) {
-            console.error("AI Error:", error);
-            const errorMessages = [...updatedMessages, {
-                role: "ai",
-                content: "Oops! Something went wrong. Please try again in a moment. 🙏"
-            }];
-            setMessages(errorMessages);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -1039,51 +783,10 @@ const ShaadiAI = () => {
         }
     };
 
-    const handleNewChat = () => {
-        setMessages([INITIAL_MSG]);
-        setActiveChatId(null);
-        setInput("");
-    };
-
-    const handleLoadChat = (chatId) => {
-        try {
-            const saved = localStorage.getItem('shaadi_ai_chats');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                const chat = parsed.find(c => c.id === chatId);
-                if (chat) {
-                    setMessages(chat.messages || [INITIAL_MSG]);
-                    setActiveChatId(chatId);
-                    if (window.innerWidth < 768) setSidebarOpen(false);
-                }
-            }
-        } catch (err) {
-            console.error("Failed to load chat:", err);
-        }
-    };
-
-    const handleDeleteChat = (e, chatId) => {
-        e.stopPropagation();
-        try {
-            const saved = localStorage.getItem('shaadi_ai_chats');
-            if (saved) {
-                let parsed = JSON.parse(saved);
-                parsed = parsed.filter(c => c.id !== chatId);
-                localStorage.setItem('shaadi_ai_chats', JSON.stringify(parsed));
-                
-                if (activeChatId === chatId) {
-                    handleNewChat();
-                }
-                fetchChatList();
-            }
-        } catch (err) {
-            console.error("Failed to delete chat:", err);
-        }
-    };
-
-    const formatBudget = (amount) => {
-        if (!amount) return "₹0";
-        return `₹${Number(amount).toLocaleString('en-IN')}`;
+    // On a phone the sidebar covers the conversation, so opening a chat from it
+    // has to close it again.
+    const loadChat = (chatId) => {
+        if (handleLoadChat(chatId) && window.innerWidth < 768) setSidebarOpen(false);
     };
 
     const renderInputArea = () => (
@@ -1131,7 +834,7 @@ const ShaadiAI = () => {
                         <div
                             key={chat.id}
                             className={`${styles.chatListItem} ${activeChatId === chat.id ? styles.chatListItemActive : ''}`}
-                            onClick={() => handleLoadChat(chat.id)}
+                            onClick={() => loadChat(chat.id)}
                         >
                             <FaComment className={styles.chatIcon} />
                             <span className={styles.chatTitle}>{chat.title}</span>
@@ -1184,30 +887,16 @@ const ShaadiAI = () => {
                                     <FaMagic /> Try Shaadi AI
                                 </div>
                                 <div className={styles.suggestionGrid}>
-                                    <div className={styles.suggestionPill} onClick={() => handleSend("Plan a full wedding in Mumbai for 15 lakhs")}>
-                                        <span>💍 Plan Wedding</span>
-                                        <p>Plan a full wedding in Mumbai for 15 lakhs</p>
-                                    </div>
-                                    <div className={styles.suggestionPill} onClick={() => handleSend("Find me a bohemian venue in Delhi")}>
-                                        <span>🏰 Bohemian Venue</span>
-                                        <p>Find me a bohemian venue in Delhi</p>
-                                    </div>
-                                    <div className={styles.suggestionPill} onClick={() => handleSend("/personality-quiz")}>
-                                        <span>💕 Personality Quiz</span>
-                                        <p>Discover your unique wedding style</p>
-                                    </div>
-                                    <div className={styles.suggestionPill} onClick={() => handleSend("/culture-blender")}>
-                                        <span>✨ Culture Blender</span>
-                                        <p>Blend two cultures beautifully</p>
-                                    </div>
-                                    <div className={styles.suggestionPill} onClick={() => handleSend("/conflict-resolver")}>
-                                        <span>⚖️ Conflict Resolver</span>
-                                        <p>Resolve wedding decisions together</p>
-                                    </div>
-                                    <div className={styles.suggestionPill} onClick={() => handleSend("/timeline-generator")}>
-                                        <span>📅 Timeline Generator</span>
-                                        <p>Create your wedding timeline</p>
-                                    </div>
+                                    {STARTER_PROMPTS.map(prompt => (
+                                        <div
+                                            key={prompt.send}
+                                            className={styles.suggestionPill}
+                                            onClick={() => handleSend(prompt.send)}
+                                        >
+                                            <span>{prompt.icon} {prompt.title}</span>
+                                            <p>{prompt.subtitle}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -1247,215 +936,10 @@ const ShaadiAI = () => {
                                         {msg.role === 'user' ? (
                                             <div className={styles.userText}>{msg.content}</div>
                                         ) : (
-                                            <>
-                                                <div className={styles.aiText}>
-                                                    {msg.content?.split('\n').map((line, i) => (
-                                                        <span key={i}>{line}<br /></span>
-                                                    ))}
-                                                </div>
-
-                                                {/* Render inline feature forms */}
-                                                {msg.featureType === 'personality-quiz' && !msg.featureResult && (
-                                                    <PersonalityQuizInline onComplete={(result) => handleFeatureComplete('personality-quiz', result)} />
-                                                )}
-                                                {msg.featureType === 'culture-blender' && !msg.featureResult && (
-                                                    <CultureBlenderInline onComplete={(result) => handleFeatureComplete('culture-blender', result)} />
-                                                )}
-                                                {msg.featureType === 'conflict-resolver' && !msg.featureResult && (
-                                                    <ConflictResolverInline onComplete={(result) => handleFeatureComplete('conflict-resolver', result)} />
-                                                )}
-                                                {msg.featureType === 'timeline-generator' && !msg.featureResult && (
-                                                    <TimelineGeneratorInline onComplete={(result) => handleFeatureComplete('timeline-generator', result)} />
-                                                )}
-
-                                                {/* Render feature results */}
-                                                {msg.featureResult && msg.featureType === 'personality-quiz' && (
-                                                    <PersonalityQuizResult result={msg.featureResult} />
-                                                )}
-                                                {msg.featureResult && msg.featureType === 'culture-blender' && (
-                                                    <CultureBlenderResult result={msg.featureResult} />
-                                                )}
-                                                {msg.featureResult && msg.featureType === 'conflict-resolver' && (
-                                                    <ConflictResolverResult result={msg.featureResult} />
-                                                )}
-                                                {msg.featureResult && msg.featureType === 'timeline-generator' && (
-                                                    <TimelineGeneratorResult result={msg.featureResult} />
-                                                )}
-
-                                                {msg.budget_breakdown && Object.keys(msg.budget_breakdown).length > 0 && (
-                                                    <div className={styles.budgetBreakdown}>
-                                                        <div className={styles.budgetTitle}>
-                                                            <FaWallet /> Budget Breakdown
-                                                        </div>
-                                                        <div className={styles.budgetGrid}>
-                                                            {Object.entries(msg.budget_breakdown).map(([cat, amt]) => (
-                                                                <div key={cat} className={styles.budgetItem}>
-                                                                    <span className={styles.budgetCategory}>{cat}</span>
-                                                                    <span className={styles.budgetAmount}>{formatBudget(amt)}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {msg.vendors && msg.vendors.length > 0 && (
-                                                    <div className={styles.vendorsContainer}>
-                                                        {msg.vendors.map((vendor, i) => (
-                                                            <div 
-                                                                key={i} 
-                                                                className={styles.vendorCard}
-                                                                onClick={() => {
-                                                                    if (vendor.vendor_id) {
-                                                                        window.location.href = `/details/info/${vendor.vendor_id}`;
-                                                                    }
-                                                                }}
-                                                                style={{ cursor: vendor.vendor_id ? 'pointer' : 'default' }}
-                                                            >
-                                                                <div className={styles.vendorHeader}>
-                                                                    <h4>{vendor.name}</h4>
-                                                                    <span className={styles.vendorCategory}>{vendor.category}</span>
-                                                                </div>
-                                                                <div className={styles.vendorDetails}>
-                                                                    <p><FaMapMarkerAlt /> {vendor.location}</p>
-                                                                    <p className={styles.price}>{vendor.price_range}</p>
-                                                                </div>
-                                                                <div className={styles.vendorWhy}>
-                                                                    <FaTags /> <span>{vendor.why_recommended?.join(" • ")}</span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* The user's own orders, when they asked about them.
-                                                    Only the orders the answer is about appear here —
-                                                    showing all of them under a reply about one would
-                                                    contradict the text above. */}
-                                                {msg.orders && msg.orders.length > 0 && (
-                                                    <div className={styles.ordersContainer}>
-                                                        {msg.orders.map((order) => (
-                                                            <div className={styles.orderCard} key={order.id}>
-                                                                <div className={styles.orderTop}>
-                                                                    <span className={styles.orderInvoice}>
-                                                                        Invoice #{order.invoice}
-                                                                    </span>
-                                                                    <span
-                                                                        className={`${styles.orderStatus} ${
-                                                                            styles["orderStatus" + String(order.status).replace(/\s/g, "")] || ""
-                                                                        }`}
-                                                                    >
-                                                                        {order.status}
-                                                                    </span>
-                                                                </div>
-                                                                <ul className={styles.orderItems}>
-                                                                    {order.items.map((item, k) => (
-                                                                        <li key={item.id || k}>
-                                                                            {item.image && (
-                                                                                <img src={item.image} alt="" loading="lazy" />
-                                                                            )}
-                                                                            <span className={styles.orderItemTitle}>
-                                                                                {item.title}
-                                                                            </span>
-                                                                            <span className={styles.orderItemQty}>
-                                                                                ×{item.quantity}
-                                                                            </span>
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                                <div className={styles.orderFoot}>
-                                                                    <span>{order.itemCount} item{order.itemCount === 1 ? "" : "s"}</span>
-                                                                    <strong>₹{Number(order.total).toLocaleString("en-IN")}</strong>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* Store products. Unlike vendor cards these leave the
-                                                    site — the store is a separate app on its own domain,
-                                                    so each card is an <a target="_blank"> rather than a
-                                                    click handler that pushes a route. */}
-                                                {msg.products && msg.products.length > 0 && (
-                                                    <div className={styles.productsContainer}>
-                                                        {msg.products.map((product, i) => (
-                                                            <a
-                                                                key={product.id || i}
-                                                                className={styles.productCard}
-                                                                href={product.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                            >
-                                                                <div className={styles.productThumb}>
-                                                                    {product.image
-                                                                        ? <img src={product.image} alt={product.title} loading="lazy" />
-                                                                        : <FaTags />}
-                                                                    {!product.inStock && (
-                                                                        <span className={styles.productSoldOut}>Sold out</span>
-                                                                    )}
-                                                                </div>
-                                                                <div className={styles.productBody}>
-                                                                    <span className={styles.productCategory}>{product.category}</span>
-                                                                    <h4 className={styles.productTitle}>{product.title}</h4>
-                                                                    <div className={styles.productPrice}>
-                                                                        <strong>₹{Number(product.price).toLocaleString("en-IN")}</strong>
-                                                                        {product.originalPrice > product.price && (
-                                                                            <s>₹{Number(product.originalPrice).toLocaleString("en-IN")}</s>
-                                                                        )}
-                                                                    </div>
-                                                                    {/* Why this was picked, when it was picked for a reason
-                                                                        specific to this shopper. Only the first — the card is
-                                                                        small, and the strongest reason is listed first. */}
-                                                                    {product.reasons?.length > 0 && (
-                                                                        <span className={styles.productReason}>
-                                                                            {product.reasons[0]}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {msg.comparisons && msg.comparisons.length > 0 && (
-                                                    <div className={styles.comparisonsContainer}>
-                                                        <div className={styles.budgetTitle}>
-                                                            <FaMagic /> Auto-Comparison
-                                                        </div>
-                                                        {msg.comparisons.map((comp, i) => (
-                                                            <div key={i} className={styles.comparisonCard}>
-                                                                <div className={styles.comparisonGrid}>
-                                                                    <div className={styles.compCol}>
-                                                                        <h4>{comp.vendor_1.name}</h4>
-                                                                        <p><strong>Price:</strong> {comp.vendor_1.price}</p>
-                                                                        <p><strong>Capacity:</strong> {comp.vendor_1.capacity}</p>
-                                                                        <p><strong>Setup:</strong> {comp.vendor_1.indoor_outdoor}</p>
-                                                                    </div>
-                                                                    <div className={styles.compVs}>VS</div>
-                                                                    <div className={styles.compCol}>
-                                                                        <h4>{comp.vendor_2.name}</h4>
-                                                                        <p><strong>Price:</strong> {comp.vendor_2.price}</p>
-                                                                        <p><strong>Capacity:</strong> {comp.vendor_2.capacity}</p>
-                                                                        <p><strong>Setup:</strong> {comp.vendor_2.indoor_outdoor}</p>
-                                                                    </div>
-                                                                </div>
-                                                                <div className={styles.compRecommendation}>
-                                                                    💡 {comp.recommendation}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {msg.suggestions && msg.suggestions.length > 0 && (
-                                                    <div className={styles.suggestionsContainer}>
-                                                        {msg.suggestions.map((sug, i) => (
-                                                            <div key={i} className={styles.suggestionAlert}>
-                                                                ✨ {sug}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </>
+                                            <MessageBody
+                                                msg={msg}
+                                                onFeatureComplete={handleFeatureComplete}
+                                            />
                                         )}
                                     </div>
                                 </div>

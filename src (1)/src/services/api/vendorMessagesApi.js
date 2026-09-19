@@ -1,8 +1,9 @@
 import axios from "axios";
+import { API_BASE_URL } from "../../config/constants";
 
 // Use a dedicated client that always sends vendor JWT from localStorage
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://happywedz.com/api",
+  baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
 });
 

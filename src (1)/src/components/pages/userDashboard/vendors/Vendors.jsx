@@ -5,6 +5,12 @@ import { useSelector } from "react-redux";
 import { Container, Row, Col } from "react-bootstrap";
 import axiosInstance from "../../../../services/api/axiosInstance";
 import randomColor from "randomcolor";
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../../../../config/constants";
+
+const BACKEND_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const Vendors = () => {
   const navigate = useNavigate();
@@ -21,7 +27,7 @@ const Vendors = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch("https://happywedz.com/api/vendor-types");
+        const response = await fetch(`${API_BASE_URL}/vendor-types`);
         const data = await response.json();
         setCategories(data);
       } catch (error) {
@@ -36,7 +42,7 @@ const Vendors = () => {
     const fetchBookings = async () => {
       try {
         const res = await axiosInstance.get(
-          "https://happywedz.com/api/request-pricing/user/quotations"
+          "/request-pricing/user/quotations"
         );
         if (res.data.success) {
           const bookedCount = res.data.quotations.length;
@@ -126,7 +132,7 @@ const Vendors = () => {
                     >
                       <img
                         src={
-                          "https://happywedzbackend.happywedz.com/" +
+                          `${BACKEND_BASE_URL}/` +
                           category.hero_image
                         }
                         alt={category.name}

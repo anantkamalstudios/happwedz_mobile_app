@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -12,10 +11,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/core.dart';
+import '../core/services/city_locator.dart';
+import '../core/services/response_cache.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../Wishlist/Wishlistscreen.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
+import '../budget/budget.dart';
 import '../einvite1/einvite.dart';
+import '../guestlist/guestlist.dart';
 import '../ideas.dart';
 import '../main.dart';
 import '../profile.dart';
@@ -24,7 +27,6 @@ import 'Vendor.dart';
 import 'VenuesScreen.dart';
 import 'designstudio1.dart';
 import 'morescreen.dart';
-
 
 // AUDIT NOTE:
 // `HomeScreen` (this class and `_HomeScreenState`, roughly lines 27–950) is an
@@ -63,32 +65,33 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedIndex = index;
     });
   }
+
   // ---- Data (provided by you) ----
   final List<Map<String, String>> categories = [
     {
       'label': 'Wedding Planners',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bEllipse%202.png?alt=media&token=126f43e7-fd80-4323-8f94-13f102b01688'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bEllipse%202.png?alt=media&token=126f43e7-fd80-4323-8f94-13f102b01688',
     },
     {
       'label': 'Photographer',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cEllipse%203.png?alt=media&token=50dae8bf-2c7d-4b69-a847-a88432b235b6'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cEllipse%203.png?alt=media&token=50dae8bf-2c7d-4b69-a847-a88432b235b6',
     },
     {
       'label': 'Venues',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F138e7fc800113229c148bb8e1c42d934b661828bEllipse%204.png?alt=media&token=cdb01134-472d-448c-8530-ae7557a78233'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F138e7fc800113229c148bb8e1c42d934b661828bEllipse%204.png?alt=media&token=cdb01134-472d-448c-8530-ae7557a78233',
     },
     {
       'label': 'Bridal makeup',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Ellipse%205.png?alt=media&token=5c7554ea-e064-4a0e-9fac-9fe9a779da08'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Ellipse%205.png?alt=media&token=5c7554ea-e064-4a0e-9fac-9fe9a779da08',
     },
     {
       'label': 'All Categories',
       'image':
-      'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F74d0bec9-682b-4ea0-8c61-f23d309a3de7.png'
+          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F74d0bec9-682b-4ea0-8c61-f23d309a3de7.png',
     },
   ];
 
@@ -98,14 +101,14 @@ class _HomeScreenState extends State<HomeScreen> {
       'sub': 'Saswad',
       'price': '₹ 2,899 per plate',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=e95fe0b1-9f12-41d3-b034-384776687509'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=e95fe0b1-9f12-41d3-b034-384776687509',
     },
     {
       'title': 'Gharkul Lawns',
       'sub': 'Erandwane',
       'price': '₹ 899 per plate',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F0601b946dc3b99b0aa992f4edf934ffc69ee254cRectangle%20266.png?alt=media&token=489fdb30-84e0-4f11-9a27-629eb6f5c2cc'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F0601b946dc3b99b0aa992f4edf934ffc69ee254cRectangle%20266.png?alt=media&token=489fdb30-84e0-4f11-9a27-629eb6f5c2cc',
     },
   ];
 
@@ -115,14 +118,14 @@ class _HomeScreenState extends State<HomeScreen> {
       'sub': 'Pune',
       'price': '₹ 55,000 per Day',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=b58eea4b-0ec1-4562-bdce-af7fd3a2dc96'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=b58eea4b-0ec1-4562-bdce-af7fd3a2dc96',
     },
     {
       'title': 'Firefly Photography',
       'sub': 'Pune',
       'price': '₹ 55,000 per Day',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F0601b946dc3b99b0aa992f4edf934ffc69ee254cRectangle%20266.png?alt=media&token=28367d39-ef9a-4d56-ada5-d49683b3d515'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F0601b946dc3b99b0aa992f4edf934ffc69ee254cRectangle%20266.png?alt=media&token=28367d39-ef9a-4d56-ada5-d49683b3d515',
     },
   ];
 
@@ -130,12 +133,12 @@ class _HomeScreenState extends State<HomeScreen> {
     {
       'title': 'Bridal busy we’re crushing on! outfits',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F34ea5a1fe5bd5adb6c68ba2f0e1fa6bcc8470ba0Rectangle%20268.png?alt=media&token=847a1794-95a5-4fb4-961d-e2642efc2a63'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F34ea5a1fe5bd5adb6c68ba2f0e1fa6bcc8470ba0Rectangle%20268.png?alt=media&token=847a1794-95a5-4fb4-961d-e2642efc2a63',
     },
     {
       'title': 'A Beachside Wedding Dipped In Pastels',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=bd975947-2c06-40c6-8c0b-11482c43b783'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=bd975947-2c06-40c6-8c0b-11482c43b783',
     },
   ];
 
@@ -143,13 +146,13 @@ class _HomeScreenState extends State<HomeScreen> {
     {
       'title': 'Bridal busy we’re crushing on! outfits & Accessories',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F34ea5a1fe5bd5adb6c68ba2f0e1fa6bcc8470ba0Rectangle%20266.png?alt=media&token=bd975947-2c06-40c6-8c0b-11482c43b783'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F34ea5a1fe5bd5adb6c68ba2f0e1fa6bcc8470ba0Rectangle%20266.png?alt=media&token=bd975947-2c06-40c6-8c0b-11482c43b783',
     },
     {
       'title':
-      'A Beachside Wedding Dipped In Pastels, Sunshine & A Decade Of Love',
+          'A Beachside Wedding Dipped In Pastels, Sunshine & A Decade Of Love',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=cb4544a5-d80b-4d6b-807f-20024e958026'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F3320dd2b76b74cf8a9f7aae754140bf4d9c7e3a0Rectangle%20266.png?alt=media&token=cb4544a5-d80b-4d6b-807f-20024e958026',
     },
   ];
   final List<Map<String, String>> _navItems = [
@@ -192,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-          )
+          ),
         ],
       ),
     );
@@ -200,10 +203,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Generic horizontal card used for venues / trending / photographer
   Widget buildCardItemHorizontal(
-      Map<String, String> card,
-      double cardWidth, {
-        double? cardHeightOverride,
-      }) {
+    Map<String, String> card,
+    double cardWidth, {
+    double? cardHeightOverride,
+  }) {
     final double cardHeight = cardHeightOverride ?? 220;
 
     return SizedBox(
@@ -215,7 +218,11 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.white,
           border: Border.all(color: const Color(0x11E83580)),
           boxShadow: const [
-            BoxShadow(color: Color(0x3F000000), offset: Offset(0, 4), blurRadius: 4),
+            BoxShadow(
+              color: Color(0x3F000000),
+              offset: Offset(0, 4),
+              blurRadius: 4,
+            ),
           ],
           borderRadius: BorderRadius.circular(10),
         ),
@@ -227,8 +234,13 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 120,
               width: double.infinity,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                child: NetworkImageWidget(url: card['image'] ?? '', fit: BoxFit.cover),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(10),
+                ),
+                child: NetworkImageWidget(
+                  url: card['image'] ?? '',
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
 
@@ -278,6 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Widget _smallToolCard({
     required String title,
     required String subtitle,
@@ -336,7 +349,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Widget _readCardHorizontal({
     required String title,
     required String image,
@@ -348,26 +360,39 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         boxShadow: const [
-          BoxShadow(color: Color(0x3F000000), offset: Offset(0, 4), blurRadius: 4)
+          BoxShadow(
+            color: Color(0x3F000000),
+            offset: Offset(0, 4),
+            blurRadius: 4,
+          ),
         ],
         color: Colors.white,
       ),
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: const BorderRadius.horizontal(left: Radius.circular(10)),
-            child: NetworkImageWidget(url: image, width: width * 0.36, height: 100, fit: BoxFit.cover),
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(10),
+            ),
+            child: NetworkImageWidget(
+              url: image,
+              width: width * 0.36,
+              height: 100,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(title,
-                  style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 14),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis),
+              child: Text(
+                title,
+                style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 14),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -411,8 +436,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
 
               // Tools section
-              Text('Wedding Planning tools',
-                  style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
+              Text(
+                'Wedding Planning tools',
+                style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16),
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 120,
@@ -422,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _smallToolCard(
                       title: 'Build your Digital E-invites',
                       subtitle: 'Let’s get started',
-                      image:'assets/tool1.png',
+                      image: 'assets/tool1.png',
                       // 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F0a9710d1-dcde-45a6-8b5e-35c944279b1f.png',
                       width: 140,
                     ),
@@ -430,7 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _smallToolCard(
                       title: 'Your shortlisted vendor',
                       subtitle: 'Browse vendors',
-                      image:'assets/tool2.png',
+                      image: 'assets/tool2.png',
                       // 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2Fa10c8360-0438-45ee-914b-52837cb3d480.png',
                       width: 140,
                     ),
@@ -438,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _smallToolCard(
                       title: 'Your Favourite ideas',
                       subtitle: 'Add a favourite',
-                      image:'assets/tool3.png',
+                      image: 'assets/tool3.png',
                       // 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F57c23620-f845-42ed-9092-416ab6f7859d.png',
                       width: 140,
                     ),
@@ -448,17 +475,22 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 18),
 
               // Venues heading and 'View all' button
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Venues in your city',
-                    style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
-                TextButton(
-                  onPressed: () {
-
-                  },
-                  child: Text('View all',
-                      style: GoogleFonts.inter(color: const Color(0xFFA60F93))),
-                )
-              ]),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Venues in your city',
+                    style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16),
+                  ),
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      'View all',
+                      style: GoogleFonts.inter(color: const Color(0xFFA60F93)),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
 
               // Venues horizontal cards
@@ -477,17 +509,24 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 18),
 
               // Photographer section
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Photographer for you',
-                    style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
-                TextButton(
-                  onPressed: () {
-                    // TODO: navigate
-                  },
-                  child: Text('View all',
-                      style: GoogleFonts.inter(color: const Color(0xFFA60F93))),
-                )
-              ]),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Photographer for you',
+                    style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      // TODO: navigate
+                    },
+                    child: Text(
+                      'View all',
+                      style: GoogleFonts.inter(color: const Color(0xFFA60F93)),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: smallCardW * 0.9,
@@ -499,7 +538,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-// 🔹 Wrap in a Stack so white card overlaps pink card
+              // 🔹 Wrap in a Stack so white card overlaps pink card
               Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -616,7 +655,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              Icon(Icons.circle, size: 12, color: Colors.grey[400]),
+                              Icon(
+                                Icons.circle,
+                                size: 12,
+                                color: Colors.grey[400],
+                              ),
                               const SizedBox(width: 10),
                               const Text(
                                 "Research venue options",
@@ -634,18 +677,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
 
-
-
               const SizedBox(height: 18),
 
               // Trending Today
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Trending Today',
-                    style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
-                Text('#ivory-lehenga',
-                    style: GoogleFonts.getFont('Poltawski Nowy',
-                        color: const Color(0xFFE83580))),
-              ]),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Trending Today',
+                    style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16),
+                  ),
+                  Text(
+                    '#ivory-lehenga',
+                    style: GoogleFonts.getFont(
+                      'Poltawski Nowy',
+                      color: const Color(0xFFE83580),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: trendingCardW * 0.9,
@@ -666,7 +716,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(10),
                   image: const DecorationImage(
                     image: NetworkImage(
-                        'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Rectangle%20269.png?alt=media&token=ab82efe7-34cd-404b-9da2-01515f372f47'),
+                      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Rectangle%20269.png?alt=media&token=ab82efe7-34cd-404b-9da2-01515f372f47',
+                    ),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -676,51 +727,94 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     gradient: LinearGradient(
-                      colors: [Colors.black.withValues(alpha: 0.35), Colors.transparent],
+                      colors: [
+                        Colors.black.withValues(alpha: 0.35),
+                        Colors.transparent,
+                      ],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
                   ),
                   child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('HappyWeds Services',
-                            style: GoogleFonts.getFont('Poltawski Nowy',
-                                color: Colors.white, fontSize: 16)),
-                        Text('plan your dream wedding in your budget',
-                            style: GoogleFonts.poppins(color: Colors.white, fontSize: 12)),
-                      ]),
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'HappyWeds Services',
+                        style: GoogleFonts.getFont(
+                          'Poltawski Nowy',
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        'plan your dream wedding in your budget',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
 
               // Two-column ideas section
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: NetworkImageWidget(url: 'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F1056d056a37e91a97da6758a70e2dada5d0a4f38Rectangle%20266.png?alt=media&token=36044e03-5eab-492d-8ed5-0e1fbf35dfd0', height: 140, fit: BoxFit.cover),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: NetworkImageWidget(
+                        url:
+                            'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F1056d056a37e91a97da6758a70e2dada5d0a4f38Rectangle%20266.png?alt=media&token=36044e03-5eab-492d-8ed5-0e1fbf35dfd0',
+                        height: 140,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Wedding ideas',
-                        style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
-                    const SizedBox(height: 6),
-                    Text('Wedding day bridal portrait',
-                        style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 14)),
-                    const SizedBox(height: 6),
-                    Text('Romantic couple shot',
-                        style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 14)),
-                  ]),
-                ),
-              ]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Wedding ideas',
+                          style: GoogleFonts.getFont(
+                            'Poltawski Nowy',
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Wedding day bridal portrait',
+                          style: GoogleFonts.getFont(
+                            'Poltawski Nowy',
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Romantic couple shot',
+                          style: GoogleFonts.getFont(
+                            'Poltawski Nowy',
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
 
               // Interesting reads horizontal cards
-              Text('Interesting reads', style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16)),
+              Text(
+                'Interesting reads',
+                style: GoogleFonts.getFont('Poltawski Nowy', fontSize: 16),
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 120,
@@ -728,7 +822,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   scrollDirection: Axis.horizontal,
                   itemCount: readCards.length,
                   itemBuilder: (context, i) => _readCardHorizontal(
-                      title: readCards[i]['title']!, image: readCards[i]['image']!, width: readCardW),
+                    title: readCards[i]['title']!,
+                    image: readCards[i]['image']!,
+                    width: readCardW,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -740,9 +837,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // ---- Bottom Navigation Bar (custom styled to match design) ----
       bottomNavigationBar: Container(
         height: 83,
-        decoration: const BoxDecoration(
-          color: Color(0xFFE83580),
-        ),
+        decoration: const BoxDecoration(color: Color(0xFFE83580)),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -768,13 +863,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         'assets/homeicon.png',
                         width: 24,
                         height: 24,
-                        color: _selectedIndex == 0 ? Colors.white : Colors.white,
+                        color: _selectedIndex == 0
+                            ? Colors.white
+                            : Colors.white,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Home',
                         style: GoogleFonts.poppins(
-                          color: _selectedIndex == 0 ? Colors.white : Colors.white,
+                          color: _selectedIndex == 0
+                              ? Colors.white
+                              : Colors.white,
                           fontSize: 12,
                           fontWeight: _selectedIndex == 0
                               ? FontWeight.w600
@@ -804,13 +903,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         'assets/venue.png',
                         width: 24,
                         height: 24,
-                        color: _selectedIndex == 1 ? Colors.white : Colors.white,
+                        color: _selectedIndex == 1
+                            ? Colors.white
+                            : Colors.white,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Venues',
                         style: GoogleFonts.poppins(
-                          color: _selectedIndex == 1 ? Colors.white : Colors.white,
+                          color: _selectedIndex == 1
+                              ? Colors.white
+                              : Colors.white,
                           fontSize: 12,
                           fontWeight: _selectedIndex == 1
                               ? FontWeight.w600
@@ -843,13 +946,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         'assets/vendor.png',
                         width: 24,
                         height: 24,
-                        color: _selectedIndex == 2 ? Colors.white : Colors.white,
+                        color: _selectedIndex == 2
+                            ? Colors.white
+                            : Colors.white,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Vendors',
                         style: GoogleFonts.poppins(
-                          color: _selectedIndex == 2 ? Colors.white : Colors.white,
+                          color: _selectedIndex == 2
+                              ? Colors.white
+                              : Colors.white,
                           fontSize: 12,
                           fontWeight: _selectedIndex == 2
                               ? FontWeight.w600
@@ -879,13 +986,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         'assets/menuicon.png',
                         width: 24,
                         height: 24,
-                        color: _selectedIndex == 3 ? Colors.white : Colors.white,
+                        color: _selectedIndex == 3
+                            ? Colors.white
+                            : Colors.white,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'More',
                         style: GoogleFonts.poppins(
-                          color: _selectedIndex == 3 ? Colors.white : Colors.white,
+                          color: _selectedIndex == 3
+                              ? Colors.white
+                              : Colors.white,
                           fontSize: 12,
                           fontWeight: _selectedIndex == 3
                               ? FontWeight.w600
@@ -932,7 +1043,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         spreadRadius: 0,
                         offset: Offset(0, 4),
                         blurRadius: 4,
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -983,6 +1094,22 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   bool _isLoadingCities = false;
   List<String> _cities = [];
 
+  /// Where [_selectedCity] came from: `auto` (detected from the device) or
+  /// `manual` (picked in the city search, including "All cities"). A manual
+  /// pick is never overwritten by detection.
+  String? _citySource;
+
+  /// True while the device location is being turned into a city.
+  bool _detectingCity = false;
+
+  /// Bumped per rail request, so a slow answer for an older city (say the
+  /// 7-9 s nationwide list) cannot overwrite the rail for the current one.
+  int _venuesRequestId = 0;
+  int _photographersRequestId = 0;
+
+  /// No home request may leave its section shimmering forever.
+  static const Duration _requestTimeout = Duration(seconds: 25);
+
   // horizontal categories
   List<VendorCategory> horizontalCategories = [];
   bool isLoadingCategories = true;
@@ -1005,10 +1132,31 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   List<String> upcomingTasks = [];
   bool checklistLoading = false;
 
+  // Dashboard summary cards — budget/guests/wishlist, same lightweight
+  // "fetch just the summary" pattern as the checklist card above, mirroring
+  // React's Wedding.jsx dashboard-home tab (src (1)/src).
+  double budgetTotal = 0;
+  double budgetSpent = 0;
+  bool budgetLoading = false;
+
+  int totalGuestsCount = 0;
+  int attendingGuestsCount = 0;
+  bool guestsLoading = false;
+
+  int wishlistCount = 0;
+  bool wishlistLoading = false;
+
   DateTime? weddingDate;
 
   /// SharedPreferences key holding the city the user last picked.
   static const String _cityPrefsKey = 'selected_city';
+
+  /// `auto` or `manual` — see [_citySource].
+  static const String _citySourcePrefsKey = 'selected_city_source';
+
+  /// Set once the user has refused the location prompt, so the app does not
+  /// ask again on every launch. "Use my current location" still asks.
+  static const String _locationDeclinedPrefsKey = 'location_prompt_declined';
 
   @override
   void initState() {
@@ -1016,26 +1164,124 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     _bootstrap();
     loadStories();
     _loadChecklistSummary();
-
+    _loadBudgetSummary();
+    _loadGuestSummary();
+    _loadWishlistSummary();
   }
 
   /// Restores the saved city *before* the first fetch so the home page opens
   /// on the user's city instead of the nationwide list.
+  // Previous start-up, kept for reference:
+  // Future<void> _bootstrap() async {
+  //   await _restoreSelectedCity();
+  //   await _loadInitialData();
+  // }
+
+  /// Opens on the saved city (and the cached rails) at once, and — unless
+  /// the user picked a city by hand — detects the current city alongside,
+  /// switching the city rails over when it differs.
   Future<void> _bootstrap() async {
-    await _restoreSelectedCity();
-    await _loadInitialData();
+    final declined = await _restoreSelectedCity();
+    final load = _loadInitialData();
+    if (_citySource != 'manual') {
+      unawaited(_autoDetectCity(prompt: !declined));
+    }
+    await load;
   }
 
-  Future<void> _restoreSelectedCity() async {
+  /// Restores the saved city and its source. Returns whether the user has
+  /// already declined the location prompt.
+  Future<bool> _restoreSelectedCity() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_cityPrefsKey);
-      if (saved != null && saved.isNotEmpty && mounted) {
-        setState(() => _selectedCity = saved);
+      var source = prefs.getString(_citySourcePrefsKey);
+      // A city saved before detection existed was picked by hand.
+      if (source == null && saved != null && saved.isNotEmpty) {
+        source = 'manual';
       }
+      if (mounted) {
+        setState(() {
+          if (saved != null && saved.isNotEmpty) _selectedCity = saved;
+          _citySource = source;
+        });
+      }
+      return prefs.getBool(_locationDeclinedPrefsKey) ?? false;
     } catch (e) {
       debugPrint('Could not restore selected city: $e');
+      return false;
     }
+  }
+
+  /// Turns the device location into a city and applies it.
+  ///
+  /// [explicit] is the picker's "Use my current location": it always asks
+  /// for permission, overrides a manual pick, and says why when it fails.
+  Future<void> _autoDetectCity({
+    required bool prompt,
+    bool explicit = false,
+  }) async {
+    if (_detectingCity) return;
+    setState(() => _detectingCity = true);
+    final result = await CityLocator.detect(prompt: prompt || explicit);
+    if (!mounted) return;
+    setState(() => _detectingCity = false);
+
+    if (!result.ok) {
+      final failure = result.failure!;
+      if (failure == CityDetectFailure.denied ||
+          failure == CityDetectFailure.deniedForever) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool(_locationDeclinedPrefsKey, true);
+        } catch (_) {}
+      }
+      if (explicit && mounted) _explainDetectFailure(failure);
+      return;
+    }
+
+    // A city picked by hand while detection ran wins.
+    if (!explicit && _citySource == 'manual') return;
+
+    final city = result.city!;
+    final changed = city != _selectedCity;
+    setState(() {
+      _selectedCity = city;
+      _citySource = 'auto';
+    });
+    await _persistSelectedCity(city, source: 'auto');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_locationDeclinedPrefsKey);
+    } catch (_) {}
+    if (changed) await _loadCityScopedSections();
+  }
+
+  void _explainDetectFailure(CityDetectFailure failure) {
+    final message = switch (failure) {
+      CityDetectFailure.serviceOff =>
+        'Turn on location services to detect your city.',
+      CityDetectFailure.denied =>
+        'Location permission is needed to detect your city.',
+      CityDetectFailure.deniedForever =>
+        'Location is turned off for HappyWedz. Allow it in Settings.',
+      CityDetectFailure.noFix || CityDetectFailure.noAddress =>
+        "We couldn't detect your city. Please pick it from the list.",
+    };
+    final canFix =
+        failure == CityDetectFailure.serviceOff ||
+        failure == CityDetectFailure.deniedForever;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: canFix
+            ? SnackBarAction(
+                label: 'Settings',
+                onPressed: () => CityLocator.openSettings(failure),
+              )
+            : null,
+      ),
+    );
   }
 
   // -------- VENDOR SEARCH --------
@@ -1073,16 +1319,20 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     setState(() => _isSearching = true);
 
     try {
-      final uri = Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(queryParameters: {
-        'page': '1',
-        'limit': '$_searchPageSize',
-        'search': query,
-        if (_selectedCity != null && _selectedCity!.isNotEmpty)
-          'city': _selectedCity!,
-      });
+      final uri = Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(
+        queryParameters: {
+          'page': '1',
+          'limit': '$_searchPageSize',
+          'search': query,
+          if (_selectedCity != null && _selectedCity!.isNotEmpty)
+            'city': _selectedCity!,
+        },
+      );
 
-      final response =
-          await http.get(uri, headers: {"Accept": "application/json"});
+      final response = await http.get(
+        uri,
+        headers: {"Accept": "application/json"},
+      );
 
       // A newer query has been issued since — discard this response.
       if (!mounted || requestId != _searchRequestId) return;
@@ -1136,7 +1386,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     });
   }
 
-  Future<void> _persistSelectedCity(String? city) async {
+  Future<void> _persistSelectedCity(
+    String? city, {
+    String source = 'manual',
+  }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (city == null || city.isEmpty) {
@@ -1144,11 +1397,25 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       } else {
         await prefs.setString(_cityPrefsKey, city);
       }
+      await prefs.setString(_citySourcePrefsKey, source);
     } catch (e) {
       debugPrint('Could not save selected city: $e');
     }
   }
+
   Future<void> loadStories() async {
+    // The last good list first, so the section is never empty on open.
+    final cached = await ResponseCache.read(_storiesKey);
+    if (cached != null && mounted && isLoadingBlogPosts) {
+      final stories = _parseStories(cached);
+      if (stories.isNotEmpty) {
+        setState(() {
+          blogPosts = stories;
+          isLoadingBlogPosts = false;
+        });
+      }
+    }
+
     final data = await fetchStories();
 
     // Guarded: the user can leave the home tab while the request is in flight,
@@ -1165,27 +1432,27 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     {
       'label': 'Wedding Planners',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bEllipse%202.png?alt=media&token=126f43e7-fd80-4323-8f94-13f102b01688'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F16f94e39e234e6b289ab14b5e39c8bf7094fe42bEllipse%202.png?alt=media&token=126f43e7-fd80-4323-8f94-13f102b01688',
     },
     {
       'label': 'Photographer',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cEllipse%203.png?alt=media&token=50dae8bf-2c7d-4b69-a847-a88432b235b6'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F2289effba6425753bdc3f31d0c8ad1733a49f17cEllipse%203.png?alt=media&token=50dae8bf-2c7d-4b69-a847-a88432b235b6',
     },
     {
       'label': 'Venues',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F138e7fc800113229c148bb8e1c42d934b661828bEllipse%204.png?alt=media&token=cdb01134-472d-448c-8530-ae7557a78233'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2F138e7fc800113229c148bb8e1c42d934b661828bEllipse%204.png?alt=media&token=cdb01134-472d-448c-8530-ae7557a78233',
     },
     {
       'label': 'Bridal makeup',
       'image':
-      'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Ellipse%205.png?alt=media&token=5c7554ea-e064-4a0e-9fac-9fe9a779da08'
+          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0S6hNdKIozJ1iLSN3vLs%2Fda0399cee2bfa8d62a8b2df83c21d7abf14fe7c0Ellipse%205.png?alt=media&token=5c7554ea-e064-4a0e-9fac-9fe9a779da08',
     },
     {
       'label': 'All Categories',
       'image':
-      'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F74d0bec9-682b-4ea0-8c61-f23d309a3de7.png'
+          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0S6hNdKIozJ1iLSN3vLs%2F74d0bec9-682b-4ea0-8c61-f23d309a3de7.png',
     },
   ];
   // -------- INITIAL LOADING --------
@@ -1200,7 +1467,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       fetchVenues(city: _selectedCity),
       fetchPhotographers(city: _selectedCity),
       fetchRealWeddings(),
-
     ]).catchError((e) {
       // individual fetches handle their own errors; this is fallback
       debugPrint('Initial load error: $e');
@@ -1224,12 +1490,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     try {
       final loaded = await LocationService.fetchCities('India');
 
-      final cities = loaded
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final cities =
+          loaded
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
 
       if (!mounted) return;
       setState(() {
@@ -1248,39 +1515,45 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
-// ---------- BLOG CATEGORIES ----------
+  // ---------- BLOG CATEGORIES ----------
   List<dynamic> blogCategories = [];
   bool isLoadingBlogCategories = true;
+  static final String _storiesKey = '${ApiConfig.apiBase}/blogs/all';
+
+  List<Map<String, dynamic>> _parseStories(String body) {
+    final decoded = json.decode(body);
+    final List<dynamic> dataList =
+        (decoded is Map ? decoded['data'] : null) ?? [];
+    return dataList.map((item) {
+      return <String, dynamic>{
+        'title': item['title'] ?? 'No Title',
+        'shortDescription': item['shortDescription'] ?? '',
+        'image': item['image']?.toString() ?? '',
+        'author': item['author'] ?? '',
+        'date': item['postDate'] ?? '',
+      };
+    }).toList();
+  }
+
   Future<List<Map<String, dynamic>>> fetchStories() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.apiBase}/blogs/all'),
-      );
+      final response = await http
+          .get(Uri.parse(_storiesKey))
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-
-        final List<dynamic> dataList = decoded['data'] ?? [];
-
-        return dataList.map((item) {
-          return {
-            'title': item['title'] ?? 'No Title',
-            'shortDescription': item['shortDescription'] ?? '',
-            'image': item['image']?.toString() ?? '',
-            'author': item['author'] ?? '',
-            'date': item['postDate'] ?? '',
-          };
-        }).toList();
+        final stories = _parseStories(response.body);
+        unawaited(ResponseCache.write(_storiesKey, response.body));
+        return stories;
       } else {
         throw Exception('Failed to load stories');
       }
     } catch (e) {
       debugPrint("fetchBlogPosts error: $e");
-      return [];
+      // Keep what is on screen (the cached list) rather than blanking it.
+      return blogPosts.whereType<Map<String, dynamic>>().toList();
     }
   }
-
-
 
   // AUDIT FIX (async context): this took a `BuildContext` parameter that
   // shadowed `State.context`, so neither `mounted` check below actually
@@ -1294,8 +1567,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     if (!mounted) return;
 
     if (_cities.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("No cities available.")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("No cities available.")));
       return;
     }
 
@@ -1307,12 +1581,20 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     // An empty result means the sheet was dismissed — leave the city alone.
     if (!mounted || selected == null || selected.isEmpty) return;
 
-    final city = selected == _kAllCitiesOption ? null : selected;
-    if (city == _selectedCity) return;
+    if (selected == _kCurrentLocationOption) {
+      await _autoDetectCity(prompt: true, explicit: true);
+      return;
+    }
 
-    setState(() => _selectedCity = city);
-    await _persistSelectedCity(city);
-    await _loadCityScopedSections();
+    final city = selected == _kAllCitiesOption ? null : selected;
+    // Picking by hand (even the same city) stops detection overriding it.
+    final changed = city != _selectedCity;
+    setState(() {
+      _selectedCity = city;
+      _citySource = 'manual';
+    });
+    await _persistSelectedCity(city, source: 'manual');
+    if (changed) await _loadCityScopedSections();
   }
 
   /// Re-fetches the two city-aware rails for the current [_selectedCity].
@@ -1325,22 +1607,42 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   // -------- HORIZONTAL CATEGORIES --------
   Future<void> fetchHorizontalCategories() async {
-    setState(() => isLoadingCategories = true);
+    final url = Uri.parse(
+      "${ApiConfig.apiBase}/vendor-types/with-subcategories/all",
+    );
+    // Show the last good list at once; only shimmer when there is none.
+    final cached = await ResponseCache.read(url.toString());
+    if (!mounted) return;
+    if (cached != null && horizontalCategories.isEmpty) {
+      try {
+        final List<dynamic> data = json.decode(cached);
+        setState(() {
+          horizontalCategories = data
+              .map((e) => VendorCategory.fromJson(e))
+              .toList();
+          isLoadingCategories = false;
+        });
+      } catch (_) {}
+    }
+    if (horizontalCategories.isEmpty) {
+      setState(() => isLoadingCategories = true);
+    }
     try {
-      final response = await http.get(
-        Uri.parse("${ApiConfig.apiBase}/vendor-types/with-subcategories/all"),
-        headers: {"Accept": "application/json"},
-      );
+      final response = await http
+          .get(url, headers: {"Accept": "application/json"})
+          .timeout(_requestTimeout);
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
-          horizontalCategories =
-              data.map((e) => VendorCategory.fromJson(e)).toList();
+          horizontalCategories = data
+              .map((e) => VendorCategory.fromJson(e))
+              .toList();
           isLoadingCategories = false;
         });
+        unawaited(ResponseCache.write(url.toString(), response.body));
       } else {
         setState(() => isLoadingCategories = false);
         debugPrint("Error fetching categories: ${response.statusCode}");
@@ -1367,95 +1669,166 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   /// function above. Dropped here too; `NetworkImageWidget` (used by every
   /// rail card) already renders a placeholder for a missing image, so the
   /// blank-tile concern this param was added for doesn't actually apply.
+  ///
+  /// Filters by `vendorType` ("Venues", "Photographers"), as the web does.
+  /// It used to send `subCategory=venue` / `subCategory=photographer`, a loose
+  /// text match that was both slow (7-9 s) and wrong: "venue" matched only
+  /// "Destination Wedding Venues" (832 of 7,689 venues) and "photographer"
+  /// matched "Pre Wedding Photographers" instead of the 1,231 photographers.
   Uri _vendorServicesUri({
-    required String subCategory,
+    required String vendorType,
     String? city,
     int limit = _railPageSize,
   }) {
-    return Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(queryParameters: {
-      'subCategory': subCategory,
-      'page': '1',
-      'limit': '$limit',
-      if (city != null && city.isNotEmpty) 'city': city,
-    });
+    return Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(
+      queryParameters: {
+        // 'subCategory': subCategory,
+        'vendorType': vendorType,
+        'page': '1',
+        'limit': '$limit',
+        if (city != null && city.isNotEmpty) 'city': city,
+      },
+    );
+  }
+
+  /// The rows of a `/vendor-services` body (or a bare list).
+  static List<dynamic> _railRows(String body) {
+    final decoded = json.decode(body);
+    return (decoded is Map && decoded['data'] is List)
+        ? decoded['data'] as List<dynamic>
+        : (decoded is List ? decoded : <dynamic>[]);
   }
 
   Future<void> fetchVenues({String? city, int limit = _railPageSize}) async {
-    setState(() => isLoadingVenues = true);
+    final requestId = ++_venuesRequestId;
+    final url = _vendorServicesUri(
+      // subCategory: 'venue',
+      vendorType: 'Venues',
+      city: city,
+      limit: limit,
+    );
+
+    // The last good rail for this city, shown at once: the nationwide list
+    // takes the server 7-9 s, a city list about 2 s.
+    final cached = await ResponseCache.read(url.toString());
+    if (!mounted || requestId != _venuesRequestId) return;
+    List<dynamic> cachedRows = const [];
+    if (cached != null) {
+      try {
+        cachedRows = _railRows(cached);
+      } catch (_) {}
+    }
+    setState(() {
+      if (cachedRows.isNotEmpty) venues = cachedRows;
+      isLoadingVenues = cachedRows.isEmpty;
+    });
 
     try {
-      final url = _vendorServicesUri(
-        subCategory: 'venue',
-        city: city,
-        limit: limit,
-      );
-      final response = await http.get(url, headers: {"Accept": "application/json"});
-      if (!mounted) return;
+      final response = await http
+          .get(url, headers: {"Accept": "application/json"})
+          .timeout(_requestTimeout);
+      if (!mounted || requestId != _venuesRequestId) return;
 
       if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-
-        // API shape might vary; try to get data reliably
-        final data = (decoded is Map && decoded['data'] is List)
-            ? decoded['data'] as List<dynamic>
-            : (decoded is List ? decoded : []);
+        final data = _railRows(response.body);
 
         setState(() {
           venues = data;
           isLoadingVenues = false;
         });
+        unawaited(ResponseCache.write(url.toString(), response.body));
       } else {
         debugPrint('fetchVenues error: ${response.statusCode}');
         setState(() => isLoadingVenues = false);
       }
     } catch (e) {
       debugPrint('fetchVenues exception: $e');
-      if (!mounted) return;
+      if (!mounted || requestId != _venuesRequestId) return;
       setState(() => isLoadingVenues = false);
     }
   }
 
-  Future<void> fetchPhotographers({String? city, int limit = _railPageSize}) async {
-    setState(() => isLoadingPhotographers = true);
+  Future<void> fetchPhotographers({
+    String? city,
+    int limit = _railPageSize,
+  }) async {
+    final requestId = ++_photographersRequestId;
+    final url = _vendorServicesUri(
+      // subCategory: 'photographer',
+      vendorType: 'Photographers',
+      city: city,
+      limit: limit,
+    );
+
+    final cached = await ResponseCache.read(url.toString());
+    if (!mounted || requestId != _photographersRequestId) return;
+    List<dynamic> cachedRows = const [];
+    if (cached != null) {
+      try {
+        cachedRows = _railRows(cached);
+      } catch (_) {}
+    }
+    setState(() {
+      if (cachedRows.isNotEmpty) photographers = cachedRows;
+      isLoadingPhotographers = cachedRows.isEmpty;
+    });
 
     try {
-      final url = _vendorServicesUri(
-        subCategory: 'photographer',
-        city: city,
-        limit: limit,
-      );
-      final response = await http.get(url, headers: {"Accept": "application/json"});
-      if (!mounted) return;
+      final response = await http
+          .get(url, headers: {"Accept": "application/json"})
+          .timeout(_requestTimeout);
+      if (!mounted || requestId != _photographersRequestId) return;
 
       if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-        final data = (decoded is Map && decoded['data'] is List)
-            ? decoded['data'] as List<dynamic>
-            : (decoded is List ? decoded : []);
+        final data = _railRows(response.body);
 
         setState(() {
           photographers = data;
           isLoadingPhotographers = false;
         });
+        unawaited(ResponseCache.write(url.toString(), response.body));
       } else {
         debugPrint('fetchPhotographers error: ${response.statusCode}');
         setState(() => isLoadingPhotographers = false);
       }
     } catch (e) {
       debugPrint('fetchPhotographers exception: $e');
-      if (!mounted) return;
+      if (!mounted || requestId != _photographersRequestId) return;
       setState(() => isLoadingPhotographers = false);
     }
   }
 
   // -------- REAL WEDDINGS & BLOGS --------
+  static List<dynamic> _weddingRows(String body) {
+    final decoded = json.decode(body);
+    final raw = decoded is Map
+        ? (decoded['weddings'] ?? decoded['data'] ?? const [])
+        : decoded;
+    return raw is List ? raw : const [];
+  }
+
   Future<void> fetchRealWeddings() async {
-    setState(() => isLoadingRealWeddings = true);
+    final url = Uri.parse("${ApiConfig.apiBase}/realwedding/public");
+    final cached = await ResponseCache.read(url.toString());
+    if (!mounted) return;
+    if (cached != null && realWeddings.isEmpty) {
+      try {
+        final rows = _weddingRows(cached);
+        if (rows.isNotEmpty) {
+          setState(() {
+            realWeddings = rows;
+            isLoadingRealWeddings = false;
+          });
+        }
+      } catch (_) {}
+    }
+    if (realWeddings.isEmpty) setState(() => isLoadingRealWeddings = true);
     try {
-      final response = await http.get(Uri.parse("${ApiConfig.apiBase}/realwedding/public"));
+      final response = await http.get(url).timeout(_requestTimeout);
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        unawaited(ResponseCache.write(url.toString(), response.body));
         final decoded = json.decode(response.body);
         // `decoded['weddings']` assumed a Map. A bare JSON list — or a list
         // under 'data', the shape every other endpoint on this host uses —
@@ -1478,7 +1851,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       setState(() => isLoadingRealWeddings = false);
     }
   }
-
 
   Future<bool> checkUserHasFavourites() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1521,8 +1893,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
       if (userId == null || token.isEmpty) return;
 
-      final url =
-      Uri.parse("${ApiConfig.apiBase}/new-checklist/newChecklist/user/$userId");
+      final url = Uri.parse(
+        "${ApiConfig.apiBase}/new-checklist/newChecklist/user/$userId",
+      );
 
       final res = await http.get(
         url,
@@ -1566,6 +1939,123 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
   }
 
+  // ✅ Dashboard summary: budget — same endpoint BudgetPage itself uses
+  // (`lib/budget/budget.dart`'s `GET budgets/user/:id`), just totalled here
+  // instead of kept as a full expense list.
+  Future<void> _loadBudgetSummary() async {
+    try {
+      if (!mounted) return;
+      setState(() => budgetLoading = true);
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+      final userId = prefs.getInt('user_id');
+      if (userId == null || token.isEmpty) return;
+
+      final res = await http.get(
+        Uri.parse('${ApiConfig.apiBase}/budgets/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (res.statusCode != 200) return;
+
+      final body = json.decode(res.body);
+      if (body['success'] != true || body['data'] == null) return;
+      final List items = body['data'] is List ? body['data'] : [body['data']];
+
+      double estimated = 0;
+      double paid = 0;
+      for (final item in items) {
+        estimated += ((item['estimated_budget'] ?? 0) as num).toDouble();
+        paid += ((item['paid_amount'] ?? 0) as num).toDouble();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        budgetTotal = estimated;
+        budgetSpent = paid;
+      });
+    } catch (e) {
+      debugPrint('❌ Budget summary error: $e');
+    } finally {
+      if (mounted) setState(() => budgetLoading = false);
+    }
+  }
+
+  // ✅ Dashboard summary: guests — same endpoint GuestListDashboard uses
+  // (`lib/guestlist/guestlist.dart`'s `GET guestlist/user/:id`).
+  Future<void> _loadGuestSummary() async {
+    try {
+      if (!mounted) return;
+      setState(() => guestsLoading = true);
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+      final userId = prefs.getInt('user_id');
+      if (userId == null || token.isEmpty) return;
+
+      final res = await http.get(
+        Uri.parse('${ApiConfig.apiBase}/guestlist/user/$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (res.statusCode != 200) return;
+
+      final body = json.decode(res.body);
+      if (body['success'] != true) return;
+      final List list = body['guests'] ?? [];
+
+      if (!mounted) return;
+      setState(() {
+        totalGuestsCount = list.length;
+        attendingGuestsCount = list
+            .where((g) => g['status'] == 'Attending')
+            .length;
+      });
+    } catch (e) {
+      debugPrint('❌ Guest summary error: $e');
+    } finally {
+      if (mounted) setState(() => guestsLoading = false);
+    }
+  }
+
+  // ✅ Dashboard summary: wishlist — same endpoint FavouritesPage uses
+  // (`lib/Wishlist/Wishlistscreen.dart`'s `GET wishlist`), just the count —
+  // the per-item vendor-detail lookups that screen does aren't needed here.
+  Future<void> _loadWishlistSummary() async {
+    try {
+      if (!mounted) return;
+      setState(() => wishlistLoading = true);
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+      if (token.isEmpty) return;
+
+      final res = await http.get(
+        Uri.parse('${ApiConfig.apiBase}/wishlist'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (res.statusCode != 200) return;
+
+      final body = json.decode(res.body);
+      final List items = body['data'] ?? [];
+
+      if (!mounted) return;
+      setState(() => wishlistCount = items.length);
+    } catch (e) {
+      debugPrint('❌ Wishlist summary error: $e');
+    } finally {
+      if (mounted) setState(() => wishlistLoading = false);
+    }
+  }
+
   // -------- UI BUILD --------
 
   /// Pull-to-refresh: re-runs exactly the same fetches as the initial load.
@@ -1574,6 +2064,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       _loadInitialData(),
       loadStories(),
       _loadChecklistSummary(),
+      _loadBudgetSummary(),
+      _loadGuestSummary(),
+      _loadWishlistSummary(),
     ]);
   }
 
@@ -1615,7 +2108,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 _selectedCity == null
                     ? 'No vendors matched "${_searchQuery.trim()}".'
                     : 'No vendors matched "${_searchQuery.trim()}" '
-                        'in $_selectedCity.',
+                          'in $_selectedCity.',
                 style: AppText.cardSubtitle,
               ),
             ),
@@ -1631,11 +2124,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         padding: EdgeInsets.zero,
         // The panel is capped in height, so it scrolls on its own.
         itemCount: _searchResults.length + (hasMore ? 1 : 0),
-        separatorBuilder: (_, __) => const Divider(
-          height: 1,
-          thickness: 1,
-          color: AppColors.divider,
-        ),
+        separatorBuilder: (_, __) =>
+            const Divider(height: 1, thickness: 1, color: AppColors.divider),
         itemBuilder: (_, i) {
           if (i == _searchResults.length) {
             return Padding(
@@ -1681,19 +2171,21 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         ? service['subcategory'] as Map
         : const {};
 
-    final name = (vendor['businessName'] ??
-            attributes['vendor_name'] ??
-            attributes['name'] ??
-            'No Name')
-        .toString();
+    final name =
+        (vendor['businessName'] ??
+                attributes['vendor_name'] ??
+                attributes['name'] ??
+                'No Name')
+            .toString();
     final city = (attributes['city'] ?? vendor['city'] ?? '').toString();
-    final category = (subcategory['name'] ??
-            attributes['vendor_type'] ??
-            (vendor['vendorType'] is Map
-                ? (vendor['vendorType'] as Map)['name']
-                : null) ??
-            '')
-        .toString();
+    final category =
+        (subcategory['name'] ??
+                attributes['vendor_type'] ??
+                (vendor['vendorType'] is Map
+                    ? (vendor['vendorType'] as Map)['name']
+                    : null) ??
+                '')
+            .toString();
 
     // "Photographer · Nashik", skipping whichever half is missing.
     final meta = [category, city].where((s) => s.isNotEmpty).join(' · ');
@@ -1817,6 +2309,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                             await _loadChecklistSummary();
                           },
                         ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildDashboardSummaryCards(),
                         _buildInterestingReadsSection(),
                         Padding(
                           padding: AppSpacing.page,
@@ -2051,7 +2545,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   //     ),
   //   ),
   // ),
-// const SizedBox(height: 30),
+  // const SizedBox(height: 30),
   // _buildTrendingTodaySection(),
   // const SizedBox(height: 20),
   // _buildViewAllTrendingButton(),
@@ -2178,9 +2672,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               ),
               const SizedBox(width: AppSpacing.sm),
               _headerIcon(
-                icon: _showSearch
-                    ? Icons.close_rounded
-                    : Icons.search_rounded,
+                icon: _showSearch ? Icons.close_rounded : Icons.search_rounded,
                 tooltip: _showSearch ? 'Close search' : 'Search',
                 onTap: () {
                   if (_showSearch) {
@@ -2192,7 +2684,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               ),
               const SizedBox(width: AppSpacing.sm),
               _headerIcon(
-
                 icon: Icons.person_outline_rounded,
                 tooltip: 'Profile',
                 onTap: () async {
@@ -2287,6 +2778,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
     return tooltip == null ? button : Tooltip(message: tooltip, child: button);
   }
+
   Widget _buildCategorySection() {
     const double avatar = 68;
     const double itemWidth = 76;
@@ -2368,8 +2860,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           // Fix hero image URL
           String imageUrl = '';
           if (category.heroImage.isNotEmpty) {
-            imageUrl =
-            "${ApiConfig.backendBaseUrl}${category.heroImage}";
+            imageUrl = "${ApiConfig.backendBaseUrl}${category.heroImage}";
           }
 
           return FadeSlideIn.staggered(
@@ -2386,8 +2877,17 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                   Navigator.push(
                     context,
                     AnimatedPageRoute(
+                      // page: VendorServicesScreen(
+                      //   subcategoryName: subcategoryName,
+                      // ),
+                      // The tile is the whole vendor type ("Venues"), not
+                      // just its first subcategory — and `vendorType` alone
+                      // is the fast, exact query.
                       page: VendorServicesScreen(
-                        subcategoryName: subcategoryName,
+                        subcategoryName: category.name,
+                        vendorType: category.name,
+                        filterBySubcategory: false,
+                        initialCity: _selectedCity,
                       ),
                     ),
                   );
@@ -2606,9 +3106,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          AnimatedPageRoute(
-                            page: Ideas(initialSubTabIndex: 1),
-                          ),
+                          AnimatedPageRoute(page: Ideas(initialSubTabIndex: 1)),
                         );
                       },
                     ),
@@ -2738,17 +3236,31 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     return '';
   }
 
-  Widget  _buildVenuesSection() {
+  Widget _buildVenuesSection() {
     final cards = <Widget>[];
     for (var i = 0; i < venues.length; i++) {
       final venue = venues[i];
-      final vendor = (venue is Map && venue['vendor'] is Map) ? venue['vendor'] as Map<String, dynamic> : <String, dynamic>{};
-      final attributes = (venue is Map && venue['attributes'] is Map) ? venue['attributes'] as Map<String, dynamic> : <String, dynamic>{};
+      final vendor = (venue is Map && venue['vendor'] is Map)
+          ? venue['vendor'] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final attributes = (venue is Map && venue['attributes'] is Map)
+          ? venue['attributes'] as Map<String, dynamic>
+          : <String, dynamic>{};
 
       final String imageUrl = _serviceImageUrl(venue);
 
-      final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
-      final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
+      final String name =
+          (vendor['businessName'] ??
+                  attributes['vendor_name'] ??
+                  attributes['name'] ??
+                  "No Name")
+              .toString();
+      final String location =
+          (attributes['city'] ??
+                  attributes['address'] ??
+                  vendor['city'] ??
+                  'Unknown Location')
+              .toString();
       String price = "--";
       final veg = attributes['veg_price']?.toString() ?? "";
       final nonVeg = attributes['non_veg_price']?.toString() ?? "";
@@ -2806,8 +3318,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         context,
         AnimatedPageRoute(
           page: VendorServicesScreen(
-            subcategoryName: "venues",   // 👈 pass category name
-            initialCity: _selectedCity,  // carry the home page's city over
+            // subcategoryName: "venues", // 👈 pass category name
+            subcategoryName: 'Venues',
+            vendorType: 'Venues',
+            filterBySubcategory: false,
+            initialCity: _selectedCity, // carry the home page's city over
           ),
         ),
       );
@@ -2828,8 +3343,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
       final String imageUrl = _serviceImageUrl(photo);
 
-      final String name = (vendor['businessName'] ?? attributes['vendor_name'] ?? attributes['name'] ?? "No Name").toString();
-      final String location = (attributes['city'] ?? attributes['address'] ?? vendor['city'] ?? 'Unknown Location').toString();
+      final String name =
+          (vendor['businessName'] ??
+                  attributes['vendor_name'] ??
+                  attributes['name'] ??
+                  "No Name")
+              .toString();
+      final String location =
+          (attributes['city'] ??
+                  attributes['address'] ??
+                  vendor['city'] ??
+                  'Unknown Location')
+              .toString();
       String price = "--";
       final startPrice = attributes['PriceRange']?.toString() ?? "";
       if (startPrice.isNotEmpty) price = "Price Range ₹$startPrice";
@@ -2879,15 +3404,23 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         context,
         AnimatedPageRoute(
           page: VendorServicesScreen(
-            subcategoryName: "photographer",   // 👈 pass category name
-            initialCity: _selectedCity,        // carry the home page's city over
+            // subcategoryName: "photographer", // 👈 pass category name
+            subcategoryName: 'Photographers',
+            vendorType: 'Photographers',
+            filterBySubcategory: false,
+            initialCity: _selectedCity, // carry the home page's city over
           ),
         ),
       );
     });
   }
 
-  Widget _buildWeddingChecklistSection({required int completedCount, required int totalTasks, required List<String> upcomingTasks, required VoidCallback onTap}) {
+  Widget _buildWeddingChecklistSection({
+    required int completedCount,
+    required int totalTasks,
+    required List<String> upcomingTasks,
+    required VoidCallback onTap,
+  }) {
     final progress = totalTasks == 0 ? 0.0 : completedCount / totalTasks;
 
     return Column(
@@ -2916,138 +3449,313 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            child: Stack(children: [
-            Positioned(top: -20, right: -20, child: Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.1)))),
-            Positioned(bottom: -10, right: 30, child: Container(width: 40, height: 40, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.1)))),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      checklistLoading
-                          ? const SizedBox(
-                              height: 34,
-                              width: 90,
-                              child: LoadingShimmer(
-                                child: SkeletonBox(
-                                  width: 90,
-                                  height: 26,
-                                  radius: AppRadii.sm,
-                                ),
-                              ),
-                            )
-                          : Text('$completedCount/$totalTasks', style: AppText.display.copyWith(color: Colors.white)),
-                      Text('Tasks done', style: AppText.bodyStrong.copyWith(color: Colors.white)),
-                    ]),
-                  ),
-                  Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), shape: BoxShape.circle), child: const Icon(Icons.check_rounded, color: Colors.white, size: 20)),
-                ]),
-                const SizedBox(height: AppSpacing.md),
-                // Progress bar
-                ClipRRect(
-                  borderRadius: AppRadii.rPill,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
-                    duration: AppMotion.slow,
-                    curve: AppMotion.standard,
-                    builder: (context, value, _) => LinearProgressIndicator(
-                      value: value,
-                      minHeight: 6,
-                      backgroundColor: Colors.white.withValues(alpha: 0.28),
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(Colors.white),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -20,
+                  right: -20,
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.1),
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: AppRadii.rSm,
+                Positioned(
+                  bottom: -10,
+                  right: 30,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Upcoming tasks', style: AppText.label),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (upcomingTasks.isEmpty)
-                        Text(
-                          checklistLoading
-                              ? 'Loading your checklist…'
-                              : 'Nothing pending — you are all caught up!',
-                          style: AppText.caption,
-                        )
-                      else
-                        ...upcomingTasks.map(
-                          (task) => Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Row(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Container(
-                                  width: 5,
-                                  height: 5,
-                                  margin: const EdgeInsets.only(top: 6),
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    task,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppText.bodySm.copyWith(
-                                      color: AppColors.textPrimary,
-                                    ),
+                                checklistLoading
+                                    ? const SizedBox(
+                                        height: 34,
+                                        width: 90,
+                                        child: LoadingShimmer(
+                                          child: SkeletonBox(
+                                            width: 90,
+                                            height: 26,
+                                            radius: AppRadii.sm,
+                                          ),
+                                        ),
+                                      )
+                                    : Text(
+                                        '$completedCount/$totalTasks',
+                                        style: AppText.display.copyWith(
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                Text(
+                                  'Tasks done',
+                                  style: AppText.bodyStrong.copyWith(
+                                    color: Colors.white,
                                   ),
                                 ),
                               ],
                             ),
                           ),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      // Progress bar
+                      ClipRRect(
+                        borderRadius: AppRadii.rPill,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
+                          duration: AppMotion.slow,
+                          curve: AppMotion.standard,
+                          builder: (context, value, _) =>
+                              LinearProgressIndicator(
+                                value: value,
+                                minHeight: 6,
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.28,
+                                ),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
                         ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: AppRadii.rSm,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Upcoming tasks', style: AppText.label),
+                            const SizedBox(height: AppSpacing.sm),
+                            if (upcomingTasks.isEmpty)
+                              Text(
+                                checklistLoading
+                                    ? 'Loading your checklist…'
+                                    : 'Nothing pending — you are all caught up!',
+                                style: AppText.caption,
+                              )
+                            else
+                              ...upcomingTasks.map(
+                                (task) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 5,
+                                        height: 5,
+                                        margin: const EdgeInsets.only(top: 6),
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.sm),
+                                      Expanded(
+                                        child: Text(
+                                          task,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: AppText.bodySm.copyWith(
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ]),
-            )
-          ]),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
+  /// Budget / guests / wishlist summary cards, next to the checklist card
+  /// above. Ports React's `Wedding.jsx` dashboard-home tab (src (1)/src) as a
+  /// row of tappable summaries over the app's existing screens, rather than a
+  /// separate "dashboard" route — each card just opens the real screen.
+  ///
+  /// Deliberately not ported from the source: its own Budget card there is
+  /// never actually fetched (state initialised, never loaded — always shows
+  /// ₹0), and its "Service Hired: 0 of 25" stat is a hardcoded literal, not
+  /// data. Real computed values are used here instead.
+  Widget _buildDashboardSummaryCards() {
+    final remaining = (budgetTotal - budgetSpent).clamp(0, double.infinity);
+    return Padding(
+      padding: AppSpacing.page,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _DashboardSummaryCard(
+                icon: Icons.account_balance_wallet_outlined,
+                iconColor: const Color(0xFF2E7D32),
+                label: 'Budget left',
+                loading: budgetLoading,
+                value: '₹${remaining.toStringAsFixed(0)}',
+                caption: budgetTotal > 0
+                    ? 'of ₹${budgetTotal.toStringAsFixed(0)}'
+                    : 'Set your budget',
+                onTap: () async {
+                  await Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const BudgetPage()));
+                  await _loadBudgetSummary();
+                },
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _DashboardSummaryCard(
+                icon: Icons.people_outline,
+                iconColor: const Color(0xFF1565C0),
+                label: 'Guests',
+                loading: guestsLoading,
+                value: '$attendingGuestsCount',
+                caption: 'of $totalGuestsCount attending',
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const GuestListDashboard(),
+                    ),
+                  );
+                  await _loadGuestSummary();
+                },
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _DashboardSummaryCard(
+                icon: Icons.favorite_outline,
+                iconColor: const Color(0xFFC2185B),
+                label: 'Wishlist',
+                loading: wishlistLoading,
+                value: '$wishlistCount',
+                caption: wishlistCount == 1 ? 'vendor saved' : 'vendors saved',
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FavouritesPage()),
+                  );
+                  await _loadWishlistSummary();
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTrendingTodaySection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text('Trending Today', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-        Text('Trendy themes', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-      ]),
-      const SizedBox(height: 15),
-      Row(children: [
-        Expanded(child: _buildTrendingCard('assets/1.webp', Colors.pink[50]!)),
-        const SizedBox(width: 12),
-        Expanded(child: _buildTrendingCard('assets/12.webp', Colors.orange[50]!)),
-      ]),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Trending Today',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              'Trendy themes',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 15),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTrendingCard('assets/1.webp', Colors.pink[50]!),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTrendingCard('assets/12.webp', Colors.orange[50]!),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildTrendingCard(String imagePath, Color bgColor) {
     return Container(
       height: 120,
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: imagePath.startsWith("http")
-            ? NetworkImageWidget(url: imagePath, fit: BoxFit.cover, width: double.infinity)
-            : Image.asset(imagePath, fit: BoxFit.cover, width: double.infinity, errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.grey, size: 40)),
+            ? NetworkImageWidget(
+                url: imagePath,
+                fit: BoxFit.cover,
+                width: double.infinity,
+              )
+            : Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.broken_image,
+                  color: Colors.grey,
+                  size: 40,
+                ),
+              ),
       ),
     );
   }
@@ -3058,12 +3766,25 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
-        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all trending today', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
-          SizedBox(width: 5),
-          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
-        ]),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.pink),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'View all trending today',
+              style: TextStyle(
+                color: Colors.pink,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(width: 5),
+            Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
+          ],
+        ),
       ),
     );
   }
@@ -3071,76 +3792,265 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   Widget _buildHappyWedsServicesSection() {
     return InkWell(
       onTap: () {},
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('HappyWeds Services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-        const SizedBox(height: 15),
-        Container(
-          width: double.infinity,
-          height: 120,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: Offset(0, 2))]),
-          child: Stack(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(12), child: Container(width: double.infinity, height: double.infinity, color: Colors.brown[200], child: const Center(child: Icon(Icons.image, color: Colors.brown, size: 40)))),
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(colors: [Colors.black.withValues(alpha: 0.3), Colors.transparent, Colors.black.withValues(alpha: 0.3)], begin: Alignment.centerLeft, end: Alignment.centerRight)),
-              child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('Myshrä', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), Text('Find your perfect match in seconds', style: TextStyle(color: Colors.white, fontSize: 12))])),
-            )
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: _buildServiceCard('Couple Services', 'Book your perfect shoot', 'assets/25.webp', Colors.green[100]!)),
-          const SizedBox(width: 12),
-          Expanded(child: _buildServiceCard('Couple Services', 'Book your perfect shoot', 'assets/26.webp', Colors.orange[100]!)),
-        ]),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'HappyWeds Services',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 15),
+          Container(
+            width: double.infinity,
+            height: 120,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: Colors.brown[200],
+                    child: const Center(
+                      child: Icon(Icons.image, color: Colors.brown, size: 40),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.black.withValues(alpha: 0.3),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.3),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Myshrä',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Find your perfect match in seconds',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildServiceCard(
+                  'Couple Services',
+                  'Book your perfect shoot',
+                  'assets/25.webp',
+                  Colors.green[100]!,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildServiceCard(
+                  'Couple Services',
+                  'Book your perfect shoot',
+                  'assets/26.webp',
+                  Colors.orange[100]!,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildServiceCard(String title, String subtitle, String imagePath, Color bgColor) {
+  Widget _buildServiceCard(
+    String title,
+    String subtitle,
+    String imagePath,
+    Color bgColor,
+  ) {
     return Container(
       height: 100,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: Offset(0, 2))]),
-      child: Stack(children: [
-        ClipRRect(borderRadius: BorderRadius.circular(12), child: Container(width: double.infinity, height: double.infinity, color: bgColor, child: Image.asset(imagePath, fit: BoxFit.cover))),
-        Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter)),
-          padding: const EdgeInsets.all(8),
-          child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-            if (subtitle.isNotEmpty) ...[const SizedBox(height: 2), Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 10))],
-          ]),
-        )
-      ]),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: bgColor,
+              child: Image.asset(imagePath, fit: BoxFit.cover),
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.black.withValues(alpha: 0.4),
+                  Colors.transparent,
+                ],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
+            ),
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildWeddingIdeasSection() {
     return InkWell(
       onTap: () {},
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Wedding Ideas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-        const SizedBox(height: 15),
-        Row(children: [
-          Expanded(child: _buildWeddingIdeaCard('Wedding day bridal portrait', 'assets/23.webp')),
-          const SizedBox(width: 12),
-          Expanded(child: _buildWeddingIdeaCard('Romantic couple shot', 'assets/24.webp')),
-        ]),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Wedding Ideas',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              Expanded(
+                child: _buildWeddingIdeaCard(
+                  'Wedding day bridal portrait',
+                  'assets/23.webp',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildWeddingIdeaCard(
+                  'Romantic couple shot',
+                  'assets/24.webp',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildWeddingIdeaCard(String title, String imagePath) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: Offset(0, 2))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(height: 140, decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(12))), child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: Image.asset(imagePath, fit: BoxFit.cover, width: double.infinity))),
-        Padding(padding: const EdgeInsets.all(12), child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87))),
-      ]),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 140,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                width: double.infinity,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3150,25 +4060,95 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(border: Border.all(color: Colors.pink), borderRadius: BorderRadius.circular(25)),
-        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('View all Wedding ideas', style: TextStyle(color: Colors.pink, fontSize: 16, fontWeight: FontWeight.w600)),
-          SizedBox(width: 5),
-          Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
-        ]),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.pink),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'View all Wedding ideas',
+              style: TextStyle(
+                color: Colors.pink,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(width: 5),
+            Icon(Icons.arrow_forward_ios, color: Colors.pink, size: 16),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFeaturedVideoSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Featured video', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-      const SizedBox(height: 15),
-      Container(width: double.infinity, height: 180, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: Offset(0, 2))]), child: Stack(children: [
-        ClipRRect(borderRadius: BorderRadius.circular(12), child: Container(width: double.infinity, height: double.infinity, color: Colors.green[200], child: const Center(child: Icon(Icons.image, color: Colors.green, size: 50)))),
-        Container(width: double.infinity, height: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.black.withValues(alpha: 0.3)), child: Center(child: Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.play_arrow, color: Colors.pink, size: 30))))
-      ]))
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Featured video',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 15),
+        Container(
+          width: double.infinity,
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: Colors.green[200],
+                  child: const Center(
+                    child: Icon(Icons.image, color: Colors.green, size: 50),
+                  ),
+                ),
+              ),
+              Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.black.withValues(alpha: 0.3),
+                ),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.pink,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   // -------- INTERESTING READS (blogs) --------
@@ -3409,7 +4389,6 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
-
   Widget _buildViewAllInterestingReadsButton() {
     return _viewAllButton('View all Interesting reads', () {
       Navigator.push(
@@ -3418,6 +4397,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       );
     });
   }
+
   // -------- REAL WEDDINGS --------
   // Widget _buildRealWeddingsSection() {
   //   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -3587,13 +4567,19 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   // Helper
   String _getLocationDisplayText() {
     if (_selectedCity != null) return _selectedCity!;
+    if (_detectingCity) return 'Detecting location…';
     if (_selectedState != null) return _selectedState!;
     if (_selectedCountry != null) return _selectedCountry!;
     return "Select Location";
   }
 }
+
 /// Sentinel row that clears the city filter and shows results from everywhere.
 const String _kAllCitiesOption = 'All cities (India)';
+
+/// Sentinel row that detects the city from the device's location.
+const String _kCurrentLocationOption = 'Use my current location';
+
 // Simple SearchDelegate for city selection
 class _CitySearchDelegate extends SearchDelegate<String> {
   final List<String> cities;
@@ -3606,7 +4592,7 @@ class _CitySearchDelegate extends SearchDelegate<String> {
   static const int _idleLimit = 40;
 
   _CitySearchDelegate(this.cities, {this.currentCity})
-      : super(searchFieldLabel: 'Search city');
+    : super(searchFieldLabel: 'Search city');
 
   /// SearchDelegate builds its own theme and styles the field from
   /// `textTheme.titleLarge`, so the typed text picks up whatever colour the
@@ -3623,8 +4609,10 @@ class _CitySearchDelegate extends SearchDelegate<String> {
         backgroundColor: Colors.white,
         titleTextStyle: queryStyle,
         iconTheme: const IconThemeData(color: AppColors.primary, size: 22),
-        actionsIconTheme:
-            const IconThemeData(color: AppColors.primary, size: 22),
+        actionsIconTheme: const IconThemeData(
+          color: AppColors.primary,
+          size: 22,
+        ),
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
         hintStyle: AppText.body.copyWith(
@@ -3665,28 +4653,39 @@ class _CitySearchDelegate extends SearchDelegate<String> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(
-            'No city matches "$query".',
-            textAlign: TextAlign.center,
-          ),
+          child: Text('No city matches "$query".', textAlign: TextAlign.center),
         ),
       );
     }
 
-    // "All cities" always sits at the top so the filter can be undone.
-    final rows = <String>[_kAllCitiesOption, ...matches];
+    // "Use my current location" and "All cities" always sit at the top, so
+    // detection can be re-run and the filter undone.
+    // final rows = <String>[_kAllCitiesOption, ...matches];
+    final rows = <String>[
+      _kCurrentLocationOption,
+      _kAllCitiesOption,
+      ...matches,
+    ];
 
     return ListView.builder(
       itemCount: rows.length,
       itemBuilder: (_, i) {
         final value = rows[i];
         final isAll = value == _kAllCitiesOption;
-        final selected =
-            isAll ? currentCity == null : value == currentCity;
+        final isHere = value == _kCurrentLocationOption;
+        final selected = isHere
+            ? false
+            : isAll
+            ? currentCity == null
+            : value == currentCity;
 
         return ListTile(
           leading: Icon(
-            isAll ? Icons.public_rounded : Icons.location_city_rounded,
+            isHere
+                ? Icons.my_location_rounded
+                : isAll
+                ? Icons.public_rounded
+                : Icons.location_city_rounded,
             size: 20,
             color: AppColors.primary,
           ),
@@ -3712,18 +4711,15 @@ class _CitySearchDelegate extends SearchDelegate<String> {
 
   @override
   List<Widget>? buildActions(BuildContext context) => [
-        IconButton(
-          icon: const Icon(Icons.clear),
-          onPressed: () => query = '',
-        ),
-      ];
+    IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+  ];
 
   @override
   Widget? buildLeading(BuildContext context) => IconButton(
-        icon: const Icon(Icons.arrow_back),
-        // Empty result == cancelled; the caller keeps the existing city.
-        onPressed: () => close(context, ''),
-      );
+    icon: const Icon(Icons.arrow_back),
+    // Empty result == cancelled; the caller keeps the existing city.
+    onPressed: () => close(context, ''),
+  );
 
   @override
   Widget buildResults(BuildContext context) => _buildList(context);
@@ -3731,13 +4727,18 @@ class _CitySearchDelegate extends SearchDelegate<String> {
   @override
   Widget buildSuggestions(BuildContext context) => _buildList(context);
 }
+
 // Placeholder VendorCategory model - replace with your actual model
 class VendorCategory {
   final String name;
   final String heroImage;
   final List<dynamic> subcategories;
 
-  VendorCategory({required this.name, required this.heroImage, required this.subcategories});
+  VendorCategory({
+    required this.name,
+    required this.heroImage,
+    required this.subcategories,
+  });
 
   factory VendorCategory.fromJson(Map<String, dynamic> json) {
     return VendorCategory(
@@ -3747,18 +4748,6 @@ class VendorCategory {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 // class _CitySearchDelegate extends SearchDelegate<String> {
 //   final List<String> cities;
@@ -3815,13 +4804,8 @@ class VendorCategory {
 //   }
 // }
 
-
-
-
-
-
 class BottomBars extends StatefulWidget {
-  const  BottomBars({super.key});
+  const BottomBars({super.key});
 
   @override
   State<BottomBars> createState() => _BottomBarsState();
@@ -3836,11 +4820,10 @@ class _BottomBarsState extends State<BottomBars> {
     const VenuesScreen(),
     VirtualTryOnScreennnnnnn(),
     const VendorCategoriesScreen(),
-    MoreOptionsScreen()
+    MoreOptionsScreen(),
     // VenueDetailsScreen()
     // const MoreScreen(),
   ];
-
 
   void _onItemTapped(int index) {
     setState(() {
@@ -3848,15 +4831,10 @@ class _BottomBarsState extends State<BottomBars> {
     });
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -3900,12 +4878,6 @@ class _BottomBarsState extends State<BottomBars> {
             blurRadius: 18,
             offset: const Offset(0, -4),
           ),
-
-
-
-
-
-
         ],
       ),
       child: SafeArea(
@@ -3984,8 +4956,9 @@ class _BottomBarsState extends State<BottomBars> {
                               color: selected
                                   ? Colors.white
                                   : Colors.white.withValues(alpha: 0.66),
-                              fontWeight:
-                                  selected ? FontWeight.w600 : FontWeight.w400,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                             ),
                             child: Text(
                               item.label,
@@ -4017,7 +4990,6 @@ class _BottomBarsState extends State<BottomBars> {
       ),
     );
   }
-
 }
 
 class _NavItem {
@@ -4034,10 +5006,6 @@ class _NavItem {
   final bool isCenter;
 }
 
-
-
-
-
 class LocationService {
   // GET .../countries/cities/q?country=India
   // -> {"error": false, "msg": "cities in India retrieved", "data": [...]}
@@ -4051,7 +5019,10 @@ class LocationService {
       {'country': country},
     );
 
-    final response = await http.get(uri, headers: {"Accept": "application/json"});
+    final response = await http.get(
+      uri,
+      headers: {"Accept": "application/json"},
+    );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -4066,15 +5037,11 @@ class LocationService {
   }
 }
 
-
-
-
-
-
 class CategoryItemsScreen extends StatefulWidget {
   final VendorCategory category;
 
-  const CategoryItemsScreen({Key? key, required this.category}) : super(key: key);
+  const CategoryItemsScreen({Key? key, required this.category})
+    : super(key: key);
 
   @override
   State<CategoryItemsScreen> createState() => _CategoryItemsScreenState();
@@ -4124,11 +5091,17 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
             children: [
               // AppBar style header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_back_ios,
+                        color: Colors.white,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                     Expanded(
@@ -4156,7 +5129,10 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
                   itemBuilder: (context, index) {
                     final sub = category.subcategories[index];
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.pink,
@@ -4165,8 +5141,13 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
                           ),
                         ),
                         onPressed: () => fetchServices(sub.name),
-                        child: Text(sub.name,
-                            style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        child: Text(
+                          sub.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -4175,54 +5156,64 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
 
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator(color: Colors.pink))
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.pink),
+                      )
                     : _services.isEmpty
-                    ? const Center(child: Text("Select a subcategory to view vendors"))
+                    ? const Center(
+                        child: Text("Select a subcategory to view vendors"),
+                      )
                     : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _services.length,
-                  itemBuilder: (context, index) {
-                    final item = _services[index];
-                    final image = item['hero_image'] != null
-                        ? "${ApiConfig.baseUrl}${item['hero_image']}"
-                        : "https://via.placeholder.com/400x300?text=No+Image";
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _services.length,
+                        itemBuilder: (context, index) {
+                          final item = _services[index];
+                          final image = item['hero_image'] != null
+                              ? "${ApiConfig.baseUrl}${item['hero_image']}"
+                              : "https://via.placeholder.com/400x300?text=No+Image";
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(12)),
-                            child: NetworkImageWidget(url: image, height: 200, width: double.infinity, fit: BoxFit.cover),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              item['name'] ?? 'No name',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(12),
+                                  ),
+                                  child: NetworkImageWidget(
+                                    url: image,
+                                    height: 200,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Text(
+                                    item['name'] ?? 'No name',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           ),
@@ -4231,10 +5222,6 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
     );
   }
 }
-
-
-
-
 
 class VideoIcon extends StatefulWidget {
   const VideoIcon({super.key});
@@ -4274,6 +5261,7 @@ class _VideoIconState extends State<VideoIcon> {
     );
   }
 }
+
 class HomeShimmerOverlay extends StatelessWidget {
   const HomeShimmerOverlay({super.key});
 
@@ -4292,7 +5280,6 @@ class HomeShimmerOverlay extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 /// 🔹 Header placeholder
                 Container(
                   height: 60,
@@ -4312,9 +5299,7 @@ class HomeShimmerOverlay extends StatelessWidget {
                     return Expanded(
                       child: Container(
                         height: 90,
-                        margin: EdgeInsets.only(
-                          right: index == 2 ? 0 : 12,
-                        ),
+                        margin: EdgeInsets.only(right: index == 2 ? 0 : 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -4343,8 +5328,7 @@ class HomeShimmerOverlay extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    separatorBuilder: (_, __) =>
-                    const SizedBox(width: 16),
+                    separatorBuilder: (_, __) => const SizedBox(width: 16),
                     itemCount: 4,
                   ),
                 ),
@@ -4366,6 +5350,81 @@ class HomeShimmerOverlay extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One tappable summary tile used by [_HomeScreenState._buildDashboardSummaryCards].
+class _DashboardSummaryCard extends StatelessWidget {
+  const _DashboardSummaryCard({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final String caption;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      radius: AppRadii.lg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          loading
+              ? const SizedBox(
+                  height: 20,
+                  width: 60,
+                  child: LoadingShimmer(
+                    child: SkeletonBox(
+                      width: 60,
+                      height: 16,
+                      radius: AppRadii.sm,
+                    ),
+                  ),
+                )
+              : Text(
+                  value,
+                  style: AppText.bodyStrong,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+          Text(
+            label,
+            style: AppText.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            caption,
+            style: AppText.caption.copyWith(color: AppColors.textSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

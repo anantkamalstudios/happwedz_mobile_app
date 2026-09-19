@@ -25,11 +25,8 @@ Future<HotelFilters?> showHotelFilterSheet(
     backgroundColor: Colors.white,
     barrierColor: Colors.black.withValues(alpha: 0.42),
     shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheet),
-    builder: (_) => _HotelFilterSheet(
-      facets: facets,
-      current: current,
-      hotels: hotels,
-    ),
+    builder: (_) =>
+        _HotelFilterSheet(facets: facets, current: current, hotels: hotels),
   );
 }
 
@@ -237,8 +234,7 @@ class _HotelFilterSheetState extends State<_HotelFilterSheet> {
                 _starPill(
                   option: o,
                   selected: selected.contains(o.value),
-                  onTap: () =>
-                      _update(_draft.toggle(group.group, o.value)),
+                  onTap: () => _update(_draft.toggle(group.group, o.value)),
                 ),
             ],
           )
@@ -250,8 +246,7 @@ class _HotelFilterSheetState extends State<_HotelFilterSheet> {
                   label: o.label,
                   count: o.count,
                   checked: selected.contains(o.value),
-                  onChanged: () =>
-                      _update(_draft.toggle(group.group, o.value)),
+                  onChanged: () => _update(_draft.toggle(group.group, o.value)),
                 ),
               if (hidden > 0 || expanded)
                 Align(
@@ -299,11 +294,7 @@ class _HotelFilterSheetState extends State<_HotelFilterSheet> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.star_rounded,
-              size: 15,
-              color: AppColors.warning,
-            ),
+            const Icon(Icons.star_rounded, size: 15, color: AppColors.warning),
             const SizedBox(width: AppSpacing.xxs),
             Text(option.value, style: AppText.labelSm),
             const SizedBox(width: AppSpacing.xs),
@@ -417,9 +408,7 @@ class HotelAppliedFiltersRail extends StatelessWidget {
                   children: [
                     Text(
                       chip.label,
-                      style: AppText.labelSm.copyWith(
-                        color: AppColors.primary,
-                      ),
+                      style: AppText.labelSm.copyWith(color: AppColors.primary),
                     ),
                     const SizedBox(width: AppSpacing.xxs),
                     const Icon(

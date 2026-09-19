@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import 'honeymoon_models.dart' show asJsonMap, asList, asString, digPath, readKey;
+import 'honeymoon_models.dart'
+    show asJsonMap, asList, asString, digPath, readKey;
 
 /// Flight add-ons: seats, meals and baggage, chosen per passenger per segment.
 ///
@@ -65,10 +66,9 @@ class SegmentSeatMap {
   final List<SeatCell> seats;
 
   static SegmentSeatMap? fromJson(dynamic json) {
-    final seats = asList(readKey(json, 'sInfo'))
-        .map(SeatCell.fromJson)
-        .whereType<SeatCell>()
-        .toList();
+    final seats = asList(
+      readKey(json, 'sInfo'),
+    ).map(SeatCell.fromJson).whereType<SeatCell>().toList();
     if (seats.isEmpty) return null;
     return SegmentSeatMap(
       rows: _toInt(digPath(json, ['sData', 'row'])) ?? 0,
@@ -110,12 +110,8 @@ class SegmentSeatMap {
   /// so "extra legroom" separates from "front row" without hardcoding
   /// thresholds that vary per aircraft.
   List<PriceBand> get priceBands {
-    final distinct = seats
-        .map((s) => s.amount)
-        .where((a) => a > 0)
-        .toSet()
-        .toList()
-      ..sort();
+    final distinct =
+        seats.map((s) => s.amount).where((a) => a > 0).toSet().toList()..sort();
 
     final bands = <PriceBand>[const PriceBand(0, 0)];
     final groups = distinct.length < 4 ? distinct.length : 4;
@@ -296,7 +292,8 @@ class FlightAddOns {
   final Map<int, Map<String, Map<String, SsrChoice>>> meals;
   final Map<int, Map<String, Map<String, SsrChoice>>> baggage;
 
-  bool get isEmpty => total == 0 && seats.isEmpty && meals.isEmpty && baggage.isEmpty;
+  bool get isEmpty =>
+      total == 0 && seats.isEmpty && meals.isEmpty && baggage.isEmpty;
 
   SeatChoice? seatFor(int pax, String segmentId) => seats[pax]?[segmentId];
 
@@ -451,7 +448,10 @@ class FlightAddOns {
 
     final mealInfos = expand(SsrKind.meal);
     final bagInfos = expand(SsrKind.baggage)
-        .where((b) => sellableSegments == null || sellableSegments.contains(b['key']))
+        .where(
+          (b) =>
+              sellableSegments == null || sellableSegments.contains(b['key']),
+        )
         .toList();
 
     return {
@@ -467,6 +467,5 @@ enum SsrKind { meal, baggage }
 int? _toInt(Object? value) =>
     value is int ? value : int.tryParse(value?.toString() ?? '');
 
-double? _toDouble(Object? value) => value is num
-    ? value.toDouble()
-    : double.tryParse(value?.toString() ?? '');
+double? _toDouble(Object? value) =>
+    value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');

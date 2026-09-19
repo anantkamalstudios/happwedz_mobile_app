@@ -19,7 +19,7 @@
   font-family: var(--rubik-font);
 }
 
-body {
+body { 
   padding: 0;
   margin: 0;
   /* background-color: var(--primary-faint-color) !important; */

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FiMail, FiLock, FiCheck, FiArrowLeft, FiLoader, FiEye, FiEyeOff } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import { API_BASE_URL } from "../../config/constants";
 
 const ForgotPassword = () => {
   const [activeStep, setActiveStep] = useState("forgotPassword");
@@ -34,7 +35,7 @@ const ForgotPassword = () => {
 
     try {
       const res = await fetch(
-        "https://happywedz.com/api/user/forgot-password",
+        `${API_BASE_URL}/user/forgot-password`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -122,7 +123,7 @@ const ForgotPassword = () => {
     }
 
     try {
-      const res = await fetch("https://happywedz.com/api/user/reset-password", {
+      const res = await fetch(`${API_BASE_URL}/user/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -179,7 +180,7 @@ const ForgotPassword = () => {
     setMessage("");
     try {
       const res = await fetch(
-        "https://happywedz.com/api/user/forgot-password",
+        `${API_BASE_URL}/user/forgot-password`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -8,13 +8,17 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../data/flight_filters.dart';
+import '../data/flight_search_store.dart';
 import '../data/honeymoon_api.dart';
 import '../honeymoon_config.dart';
 import '../models/booking_models.dart';
+import '../models/flight_models.dart';
 import '../models/honeymoon_models.dart';
+import 'booking/booking_widgets.dart' show InfoBanner, InfoTone;
 import 'booking/flight_booking_page.dart';
 import 'multi_city_results_page.dart';
 import 'widgets/flight_filter_sheet.dart';
+import 'widgets/flight_widgets.dart';
 import 'widgets/honeymoon_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -44,9 +48,23 @@ class _LegDraft {
 }
 
 class FlightSearchForm extends StatefulWidget {
-  const FlightSearchForm({super.key, required this.api});
+  const FlightSearchForm({
+    super.key,
+    required this.api,
+    this.initialQuery,
+    this.replaceResults = false,
+  });
 
   final HoneymoonApi api;
+
+  /// Fills the form in, e.g. from the results screen's "Modify search". When
+  /// null the form restores what it held last in this session, as the web's
+  /// `hw_flightSearchForm` does.
+  final FlightSearchQuery? initialQuery;
+
+  /// Set by "Modify search": the form sits in a sheet over the results, and
+  /// the new results replace that screen instead of stacking on top of it.
+  final bool replaceResults;
 
   @override
   State<FlightSearchForm> createState() => _FlightSearchFormState();
@@ -57,7 +75,9 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   FlightLocation? _to;
   DateTime? _departure;
   DateTime? _returnDate;
-  int _adults = HoneymoonConfig.defaultAdults;
+  // BUG FIX: started on the module-wide default of two adults; the web's
+  // flight form starts on one.
+  int _adults = FlightPaxLimits.defaultAdults;
   int _children = 0;
   int _infants = 0;
   CabinClass _cabin = CabinClass.economy;
@@ -73,6 +93,138 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   bool _submitting = false;
   String? _routeError;
   String? _dateError;
+
+  /// The web's "Recent Searches" — last six one-way / round-trip searches.
+  List<FlightSearchQuery> _recent = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialQuery ?? FlightSearchStore.lastForm;
+    if (initial != null) _apply(initial);
+    if (!widget.replaceResults) _loadRecent();
+  }
+
+  @override
+  void dispose() {
+    // The web snapshots the form on every change so coming back from the
+    // results finds it filled in; saving on the way out does the same here.
+    if (!widget.replaceResults) FlightSearchStore.lastForm = _toQuery();
+    super.dispose();
+  }
+
+  Future<void> _loadRecent() async {
+    final recent = await FlightSearchStore.loadRecent();
+    if (mounted) setState(() => _recent = recent);
+  }
+
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// Loads [q] into the fields. Dates already in the past are dropped — the
+  /// supplier rejects them — so the traveller is asked for a new one.
+  void _apply(FlightSearchQuery q) {
+    final today = _today();
+    DateTime? upcoming(DateTime? d) =>
+        d == null || d.isBefore(today) ? null : d;
+
+    _tripType = switch (q.tripType) {
+      FlightTripKind.oneWay => TripType.oneWay,
+      FlightTripKind.multiCity => TripType.multiCity,
+      _ => TripType.round,
+    };
+    _from = q.from;
+    _to = q.to;
+    _departure = upcoming(q.departure);
+    _returnDate = _tripType == TripType.round && _departure != null
+        ? upcoming(q.returnDate)
+        : null;
+    _adults = q.adults < FlightPaxLimits.minAdults
+        ? FlightPaxLimits.minAdults
+        : q.adults;
+    _children = q.children < 0 ? 0 : q.children;
+    _infants = q.infants > _adults ? _adults : q.infants;
+    _cabin = CabinClass.values.firstWhere(
+      (c) => c.apiValue == q.cabinClass,
+      orElse: () => CabinClass.economy,
+    );
+    _fareType = FareType.values.firstWhere(
+      (f) => f.apiValue == q.paxType,
+      orElse: () => FareType.regular,
+    );
+    _preferredAirlines = List<String>.from(q.preferredAirlines);
+    _directOnly = q.directOnly;
+    _legs
+      ..clear()
+      ..addAll([
+        for (final leg in q.legs)
+          _LegDraft()
+            ..from = leg.from
+            ..to = leg.to
+            ..date = upcoming(leg.date),
+      ]);
+    _ensureLegs();
+    _routeError = null;
+    _dateError = null;
+  }
+
+  /// The form as a [FlightSearchQuery] — what is searched, remembered and
+  /// handed to the results screen.
+  FlightSearchQuery _toQuery() => FlightSearchQuery(
+    tripType: switch (_tripType) {
+      TripType.oneWay => FlightTripKind.oneWay,
+      TripType.round => FlightTripKind.round,
+      TripType.multiCity => FlightTripKind.multiCity,
+    },
+    from: _from,
+    to: _to,
+    departure: _departure,
+    returnDate: _roundTrip ? _returnDate : null,
+    legs: [
+      for (final d in _legs)
+        if (d.from != null && d.to != null && d.date != null)
+          FlightLeg(from: d.from!, to: d.to!, date: d.date!),
+    ],
+    adults: _adults,
+    children: _children,
+    infants: _infants,
+    cabinClass: _cabin.apiValue,
+    paxType: _fareType.apiValue,
+    preferredAirlines: _preferredAirlines,
+    directOnly: _directOnly,
+  );
+
+  /// "Search again" on a recent search: fill the form and run it. A search
+  /// whose date has passed is filled in but not run, with the date flagged.
+  void _runRecent(FlightSearchQuery q) {
+    if (_submitting) return;
+    setState(() => _apply(q));
+    if (_departure == null) {
+      setState(
+        () => _dateError = 'That date has passed — pick a new departure date',
+      );
+      return;
+    }
+    _search();
+  }
+
+  /// Opens results, or — from "Modify search" — closes the sheet and swaps
+  /// them for the current results screen.
+  void _openResults(Widget page) {
+    final navigator = Navigator.of(context);
+    final route = AnimatedPageRoute(
+      page: page,
+      style: PageTransitionStyle.slideRight,
+    );
+    if (widget.replaceResults) {
+      navigator.pop();
+      navigator.pushReplacement(route);
+    } else {
+      navigator.push(route);
+    }
+  }
 
   bool get _roundTrip => _tripType == TripType.round;
   bool get _isMultiCity => _tripType == TripType.multiCity;
@@ -108,7 +260,9 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
     // A hop can never depart before the one before it, so the picker refuses
     // those dates outright rather than failing validation afterwards.
     final previous = index > 0 ? _legs[index - 1].date : null;
-    final first = previous != null && previous.isAfter(today) ? previous : today;
+    final first = previous != null && previous.isAfter(today)
+        ? previous
+        : today;
 
     final picked = await showDatePicker(
       context: context,
@@ -152,13 +306,20 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // BUG FIX: adults and children were capped at twelve between
+              // them and infants not counted at all, so a party of eleven
+              // plus infants got through. The web caps everyone — infants
+              // included — at nine, and an infant needs an adult's lap.
               CounterRow(
                 title: 'Adults',
                 subtitle: 'Age 12+',
                 value: _adults,
-                min: HoneymoonConfig.minTravellers,
-                max: HoneymoonConfig.maxTravellers,
-                onChanged: (v) => update(() => _adults = v),
+                min: FlightPaxLimits.minAdults,
+                max: FlightPaxLimits.maxTotal - _children - _infants,
+                onChanged: (v) => update(() {
+                  _adults = v;
+                  if (_infants > _adults) _infants = _adults;
+                }),
               ),
               const SizedBox(height: AppSpacing.sm),
               CounterRow(
@@ -166,7 +327,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                 subtitle: 'Age 2-12',
                 value: _children,
                 min: 0,
-                max: HoneymoonConfig.maxTravellers - _adults,
+                max: FlightPaxLimits.maxTotal - _adults - _infants,
                 onChanged: (v) => update(() => _children = v),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -177,10 +338,42 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                 // An infant travels on an adult's lap, so there can never be
                 // more infants than adults on the booking.
                 min: 0,
-                max: _adults,
+                max: [
+                  _adults,
+                  FlightPaxLimits.maxTotal - _adults - _children,
+                ].reduce((a, b) => a < b ? a : b),
                 onChanged: (v) => update(() => _infants = v),
               ),
 
+              // Previous counters, kept for reference:
+              // CounterRow(
+              // title: 'Adults',
+              // subtitle: 'Age 12+',
+              // value: _adults,
+              // min: HoneymoonConfig.minTravellers,
+              // max: HoneymoonConfig.maxTravellers,
+              // onChanged: (v) => update(() => _adults = v),
+              // ),
+              // const SizedBox(height: AppSpacing.sm),
+              // CounterRow(
+              // title: 'Children',
+              // subtitle: 'Age 2-12',
+              // value: _children,
+              // min: 0,
+              // max: HoneymoonConfig.maxTravellers - _adults,
+              // onChanged: (v) => update(() => _children = v),
+              // ),
+              // const SizedBox(height: AppSpacing.sm),
+              // CounterRow(
+              // title: 'Infants',
+              // subtitle: 'Age 0-2',
+              // value: _infants,
+              // // An infant travels on an adult's lap, so there can never be
+              // // more infants than adults on the booking.
+              // min: 0,
+              // max: _adults,
+              // onChanged: (v) => update(() => _infants = v),
+              // ),
               const SizedBox(height: AppSpacing.lg),
               const Divider(height: 1, color: AppColors.divider),
               const SizedBox(height: AppSpacing.md),
@@ -308,8 +501,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                   Expanded(
                     child: PremiumButton.outlined(
                       label: 'Any airline',
-                      onPressed: () =>
-                          Navigator.pop(sheetContext, <String>[]),
+                      onPressed: () => Navigator.pop(sheetContext, <String>[]),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -466,19 +658,16 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
     );
 
     if (!mounted) return;
-    Navigator.push(
-      context,
-      AnimatedPageRoute(
-        page: MultiCityResultsPage(
-          api: widget.api,
-          legs: legs,
-          results: results,
-          adults: _adults,
-          children: _children,
-          infants: _infants,
-          cabinClass: _cabin.apiValue,
-        ),
-        style: PageTransitionStyle.slideRight,
+    _openResults(
+      MultiCityResultsPage(
+        api: widget.api,
+        legs: legs,
+        results: results,
+        adults: _adults,
+        children: _children,
+        infants: _infants,
+        cabinClass: _cabin.apiValue,
+        paxType: _fareType.apiValue,
       ),
     );
   }
@@ -488,6 +677,9 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
     FocusScope.of(context).unfocus();
     if (!_validate()) return;
 
+    final query = _toQuery();
+    FlightSearchStore.lastForm = query;
+
     setState(() => _submitting = true);
     try {
       if (_isMultiCity) {
@@ -495,39 +687,15 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
         return;
       }
 
-      final results = await widget.api.searchFlights(
-        fromCode: _from!.code,
-        toCode: _to!.code,
-        departure: _departure!,
-        returnDate: _roundTrip ? _returnDate : null,
-        adults: _adults,
-        children: _children,
-        infants: _infants,
-        cabinClass: _cabin.apiValue,
-        directOnly: _directOnly,
-        paxType: _fareType.apiValue,
-        preferredAirlines: _preferredAirlines,
-      );
+      // Saved before the search runs, as the web's `saveRecentSearch` is.
+      unawaited(FlightSearchStore.saveRecent(query));
+      final results = await runFlightSearch(widget.api, query);
 
       if (!mounted) return;
-      Navigator.push(
-        context,
-        AnimatedPageRoute(
-          page: FlightResultsPage(
-            api: widget.api,
-            from: _from!,
-            to: _to!,
-            departure: _departure!,
-            returnDate: _roundTrip ? _returnDate : null,
-            results: results,
-            adults: _adults,
-            children: _children,
-            infants: _infants,
-            cabinClass: _cabin.apiValue,
-          ),
-          style: PageTransitionStyle.slideRight,
-        ),
+      _openResults(
+        FlightResultsPage(api: widget.api, query: query, results: results),
       );
+      if (!widget.replaceResults) unawaited(_loadRecent());
     } on HoneymoonApiException catch (e) {
       if (!mounted) return;
       AppSnackbar.error(context, e.message);
@@ -602,10 +770,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 
       if (_routeError != null || _dateError != null) ...[
         const SizedBox(height: AppSpacing.sm),
-        Text(
-          _routeError ?? _dateError!,
-          style: AppText.error,
-        ),
+        Text(_routeError ?? _dateError!, style: AppText.error),
       ],
 
       const SizedBox(height: AppSpacing.md),
@@ -718,7 +883,8 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
         const FieldLabel('Travellers & class'),
         TapField(
           icon: Icons.people_alt_rounded,
-          value: '$_travellerCount traveller'
+          value:
+              '$_travellerCount traveller'
               '${_travellerCount == 1 ? '' : 's'} · ${_cabin.label}',
           placeholder: 'Who is travelling?',
           onTap: _openTravellerSheet,
@@ -809,8 +975,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       color: AppColors.divider,
                       width: 1.5,
                     ),
-                    onChanged: (v) =>
-                        setState(() => _directOnly = v ?? false),
+                    onChanged: (v) => setState(() => _directOnly = v ?? false),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -831,7 +996,82 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
           isLoading: _submitting,
           onPressed: _search,
         ),
+
+        if (_recent.isNotEmpty && !widget.replaceResults) ...[
+          const SizedBox(height: AppSpacing.xl),
+          Text('Recent searches', style: AppText.formLabel),
+          const SizedBox(height: AppSpacing.sm),
+          for (final q in _recent)
+            _RecentSearchRow(
+              query: q,
+              enabled: !_submitting,
+              onSearch: () => _runRecent(q),
+            ),
+        ],
       ],
+    );
+  }
+}
+
+/// One "Recent Searches" entry: route, dates, party and cabin, and
+/// "Search again".
+class _RecentSearchRow extends StatelessWidget {
+  const _RecentSearchRow({
+    required this.query,
+    required this.onSearch,
+    this.enabled = true,
+  });
+
+  final FlightSearchQuery query;
+  final VoidCallback onSearch;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cabin = query.cabinClass
+        .replaceAll('_', ' ')
+        .toLowerCase()
+        .replaceAllMapped(RegExp(r'\b\w'), (m) => m[0]!.toUpperCase());
+    final dates = query.returnDate == null
+        ? formatTripDate(query.departure)
+        : '${formatTripDate(query.departure)} – '
+              '${formatTripDate(query.returnDate)}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.history_rounded,
+            size: 18,
+            color: AppColors.textTertiary,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${query.from?.code ?? ''} → ${query.to?.code ?? ''}',
+                  style: AppText.bodyStrong,
+                ),
+                Text(
+                  '$dates · ${query.travellerCount} pax · $cabin',
+                  style: AppText.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          PremiumButton.text(
+            label: 'Search again',
+            size: PremiumButtonSize.small,
+            onPressed: enabled ? onSearch : null,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -906,10 +1146,7 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
           onChanged: _onChanged,
         ),
         const SizedBox(height: AppSpacing.md),
-        SizedBox(
-          height: 280,
-          child: _buildBody(),
-        ),
+        SizedBox(height: 280, child: _buildBody()),
       ],
     );
   }
@@ -1008,37 +1245,52 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
 /// outbound first and then the return is the pattern travellers already know
 /// from every mobile flight app, and it also matches how the supplier prices
 /// the two legs — separately.
+/// Runs a one-way or round-trip search exactly as the form does, so the date
+/// strip, a stale-fare refresh and "Search again" all build the same request.
+Future<FlightSearchResult> runFlightSearch(
+  HoneymoonApi api,
+  FlightSearchQuery query,
+) {
+  return api.searchFlights(
+    fromCode: query.from!.code,
+    toCode: query.to!.code,
+    departure: query.departure!,
+    returnDate: query.isRoundTrip ? query.returnDate : null,
+    adults: query.adults,
+    children: query.children,
+    infants: query.infants,
+    cabinClass: query.cabinClass,
+    directOnly: query.directOnly,
+    paxType: query.paxType,
+    preferredAirlines: query.preferredAirlines,
+  );
+}
+
 class FlightResultsPage extends StatefulWidget {
   const FlightResultsPage({
     super.key,
     required this.api,
-    required this.from,
-    required this.to,
-    required this.departure,
+    required this.query,
     required this.results,
-    required this.adults,
-    this.returnDate,
-    this.children = 0,
-    this.infants = 0,
-    this.cabinClass = 'ECONOMY',
   });
 
   final HoneymoonApi api;
-  final FlightLocation from;
-  final FlightLocation to;
-  final DateTime departure;
-  final DateTime? returnDate;
+
+  /// The search these results answer. Kept whole — not just the route and
+  /// dates — because the date strip and the stale-fare refresh re-run it with
+  /// the same fare type, airlines and non-stop setting.
+  final FlightSearchQuery query;
   final FlightSearchResult results;
-  final int adults;
-  final int children;
-  final int infants;
-  final String cabinClass;
 
   @override
   State<FlightResultsPage> createState() => _FlightResultsPageState();
 }
 
 class _FlightResultsPageState extends State<FlightResultsPage> {
+  /// Replaced in place when the search is re-run from this screen.
+  late FlightSearchQuery _query = widget.query;
+  late FlightSearchResult _results = widget.results;
+
   /// Set once the outbound has been chosen on a round trip; the list then
   /// switches to the return leg.
   FlightResult? _outbound;
@@ -1049,27 +1301,48 @@ class _FlightResultsPageState extends State<FlightResultsPage> {
   FlightSort _sort = FlightSort.price;
   FlightFilters _filters = FlightFilters.empty;
 
-  bool get _twoStep => widget.results.hasSeparateReturn;
+  /// The fare picked on each card, by [FlightResult.tripKey]. A card with no
+  /// entry uses its default fare.
+  final Map<String, String> _fareChoice = {};
+
+  late final FareRuleLoader _rules = FareRuleLoader(widget.api);
+
+  late List<SpecialReturnOption> _specials = _deriveSpecials();
+
+  /// Blocks the list while a fare is being reviewed or the search re-run.
+  String? _busyLabel;
+
+  /// The web's `staleNotice` — why the list just changed under the traveller.
+  String? _notice;
+
+  /// The day being re-searched from the date strip.
+  DateTime? _pendingDate;
+
+  bool get _busy => _busyLabel != null;
+
+  FlightLocation get _from => _query.from!;
+  FlightLocation get _to => _query.to!;
+
+  bool get _twoStep => _results.hasSeparateReturn;
 
   bool get _pickingReturn => _twoStep && _outbound != null;
 
   PaxCounts get _pax => PaxCounts(
-    adults: widget.adults,
-    children: widget.children,
-    infants: widget.infants,
+    adults: _query.adults,
+    children: _query.children,
+    infants: _query.infants,
   );
 
   /// The unfiltered set for the leg on screen. Facets are always derived from
   /// this, so option counts stay stable as the user narrows down instead of
   /// collapsing toward zero.
   List<FlightResult> get _source =>
-      _pickingReturn ? widget.results.inbound : widget.results.onward;
+      _pickingReturn ? _results.inbound : _results.onward;
 
   /// On the return leg the route is reversed, which matters to the
   /// "hide nearby airports" filter.
-  String get _legFrom =>
-      _pickingReturn ? widget.to.code : widget.from.code;
-  String get _legTo => _pickingReturn ? widget.from.code : widget.to.code;
+  String get _legFrom => _pickingReturn ? _to.code : _from.code;
+  String get _legTo => _pickingReturn ? _from.code : _to.code;
 
   FlightFacets? get _facets => deriveFacets(_source, _pax);
 
@@ -1083,7 +1356,18 @@ class _FlightResultsPageState extends State<FlightResultsPage> {
     ),
     _sort,
     _pax,
-  );
+  ).map(_withChoice).toList();
+
+  /// [flight] at the fare picked on its card, when that fare survived the
+  /// filters; otherwise at its default fare.
+  FlightResult _withChoice(FlightResult flight) {
+    final id = _fareChoice[flight.tripKey];
+    return id == null ? flight : flight.withSelectedFare(id);
+  }
+
+  List<SpecialReturnOption> _deriveSpecials() => _results.hasSeparateReturn
+      ? deriveSpecialReturn(_results.onward, _results.inbound, _pax)
+      : const [];
 
   /// Switching legs keeps the user's intent but drops anything the new result
   /// set cannot satisfy — otherwise a `stops: {0}` carried over from an
@@ -1159,31 +1443,247 @@ class _FlightResultsPageState extends State<FlightResultsPage> {
   }
 
   FlightTripContext get _trip => FlightTripContext(
-    from: widget.from,
-    to: widget.to,
-    departure: widget.departure,
-    returnDate: widget.returnDate,
-    adults: widget.adults,
-    children: widget.children,
-    infants: widget.infants,
-    cabinClass: widget.cabinClass,
+    from: _from,
+    to: _to,
+    departure: _query.departure!,
+    returnDate: _query.isRoundTrip ? _query.returnDate : null,
+    adults: _query.adults,
+    children: _query.children,
+    infants: _query.infants,
+    cabinClass: _query.cabinClass,
+    paxType: _query.paxType,
   );
 
+  // -------------------------------------------------------------------------
+  // Choosing and booking
+  // -------------------------------------------------------------------------
+
+  void _pickFare(FlightResult flight, String fareId) {
+    setState(() => _fareChoice[flight.tripKey] = fareId);
+  }
+
+  /// "Select" on a card. On a round trip the first pick is the outbound; the
+  /// second completes the pair and goes to review.
+  /// On the return leg: why [flight] cannot follow the chosen outbound.
+  String? _returnUnavailable(FlightResult flight) {
+    final outbound = _outbound;
+    if (!_pickingReturn || outbound == null) return null;
+    return tripOverlapReason(outbound, flight);
+  }
+
   void _select(FlightResult flight) {
+    if (_busy) return;
+    final blocked = _returnUnavailable(flight);
+    if (blocked != null) {
+      AppSnackbar.info(context, blocked);
+      return;
+    }
     if (_twoStep && _outbound == null) {
       _setOutbound(flight);
       return;
     }
-    Navigator.push(
-      context,
-      AnimatedPageRoute(
-        page: FlightBookingPage(
-          api: widget.api,
-          trip: _trip,
-          outbound: _outbound ?? flight,
-          inbound: _outbound == null ? null : flight,
+    _reviewAndGo([_outbound ?? flight, if (_outbound != null) flight]);
+  }
+
+  /// Reviews the chosen fares with the supplier, then opens the booking flow
+  /// on the session that review opened — the web's `reviewAndGo`.
+  ///
+  /// A fare that has gone (errCode 1000, "no longer available", …) means every
+  /// price on screen is stale, so the search is re-run rather than leaving the
+  /// traveller on a dead error.
+  Future<void> _reviewAndGo(List<FlightResult> legs) async {
+    final priceIds = [
+      for (final leg in legs)
+        if (leg.id.isNotEmpty) leg.id,
+    ];
+    if (priceIds.isEmpty) {
+      AppSnackbar.error(context, 'Unable to get flight pricing information.');
+      return;
+    }
+
+    setState(() {
+      _busyLabel = 'Checking the latest fare…';
+      _notice = null;
+    });
+    try {
+      final review = await widget.api.reviewFlight(priceIds);
+      if (!mounted) return;
+      setState(() => _busyLabel = null);
+      await Navigator.push(
+        context,
+        AnimatedPageRoute(
+          page: FlightBookingPage(
+            api: widget.api,
+            trip: _trip,
+            outbound: legs.first,
+            inbound: legs.length > 1 ? legs[1] : null,
+            initialReview: review,
+          ),
+          style: PageTransitionStyle.slideRight,
         ),
-        style: PageTransitionStyle.slideRight,
+      );
+    } on HoneymoonApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busyLabel = null);
+      if (isStaleFarePayload(e.data)) {
+        await _refreshStaleResults();
+      } else if (isTripGapError(e.data)) {
+        // errCode 1019: the return leaves too soon after the outbound lands.
+        await ConfirmPopup.show(
+          context,
+          title: 'These flights are too close together',
+          message:
+              '${e.message}\n\nThe airline needs more time between your '
+              'outbound and return. Pick a later return, or change the '
+              'outbound.',
+          confirmLabel: 'Choose another',
+          cancelLabel: 'Close',
+          icon: Icons.schedule_rounded,
+        );
+      } else {
+        AppSnackbar.error(context, e.message);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busyLabel = null);
+      AppSnackbar.error(
+        context,
+        'Failed to proceed with booking. Please try again.',
+      );
+    }
+  }
+
+  Future<void> _refreshStaleResults() async {
+    setState(() => _notice = 'These fares have expired. Refreshing prices…');
+    try {
+      await _rerun(_query, label: 'Refreshing prices…');
+      if (!mounted) return;
+      setState(
+        () => _notice =
+            'Prices were out of date, so the list has been refreshed. Please '
+            'pick your flight again.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(
+        () => _notice =
+            'These fares have expired and prices could not be refreshed. '
+            'Please search again.',
+      );
+    }
+  }
+
+  /// Re-runs the search and replaces the results in place, keeping the
+  /// filters and dropping any selection the new set cannot satisfy. Shared by
+  /// the date strip and the stale-fare path, as on the web.
+  Future<void> _rerun(FlightSearchQuery next, {required String label}) async {
+    setState(() => _busyLabel = label);
+    try {
+      final results = await runFlightSearch(widget.api, next);
+      if (!mounted) return;
+      setState(() {
+        _query = next;
+        _results = results;
+        _outbound = null;
+        _fareChoice.clear();
+        _specials = _deriveSpecials();
+        final offered = {for (final o in _specials) o.code};
+        _filters =
+            reconcileFilters(
+              _filters,
+              deriveFacets(_results.onward, _pax),
+            ).copyWith(
+              specialReturn: _filters.specialReturn
+                  .where(offered.contains)
+                  .toSet(),
+            );
+      });
+    } finally {
+      if (mounted) setState(() => _busyLabel = null);
+    }
+  }
+
+  Future<void> _pickDate(DateTime day) async {
+    if (_busy) return;
+    setState(() => _pendingDate = day);
+    try {
+      await _rerun(
+        _query.copyWith(departure: day),
+        label: 'Loading fares for ${formatTripDate(day)}…',
+      );
+    } catch (_) {
+      if (mounted) {
+        AppSnackbar.error(
+          context,
+          'Could not load fares for that date. Please try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _pendingDate = null);
+    }
+  }
+
+  /// A "Return Special" tile: one airline at a time, its cheapest valid pair
+  /// picked on both legs. Tapping the active tile clears it.
+  void _pickSpecialReturn(SpecialReturnOption option) {
+    final isOn = _filters.specialReturn.contains(option.code);
+    if (isOn) {
+      setState(() {
+        _filters = _filters.copyWith(specialReturn: const {});
+        _outbound = null;
+      });
+      return;
+    }
+
+    FlightResult? tripWith(List<FlightResult> list, String fareId) {
+      for (final t in list) {
+        if (t.fares.any((f) => asString(readKey(f, 'id')) == fareId)) {
+          return t;
+        }
+      }
+      return null;
+    }
+
+    final out = tripWith(_results.onward, option.outFareId);
+    final ret = tripWith(_results.inbound, option.returnFareId);
+    setState(() {
+      _filters = _filters.copyWith(specialReturn: {option.code});
+      if (ret != null) _fareChoice[ret.tripKey] = option.returnFareId;
+      if (out != null) {
+        _fareChoice[out.tripKey] = option.outFareId;
+        _outbound = out.withSelectedFare(option.outFareId);
+      }
+    });
+    if (out != null) {
+      AppSnackbar.info(
+        context,
+        '${option.name} Return Special selected — now confirm the return '
+        'flight.',
+      );
+    }
+  }
+
+  Future<void> _openModifySearch() async {
+    await AppBottomSheet.show<void>(
+      context,
+      title: 'Modify search',
+      child: FlightSearchForm(
+        api: widget.api,
+        initialQuery: _query,
+        replaceResults: true,
+      ),
+    );
+  }
+
+  void _share() {
+    final list = _filtered;
+    showFlightShareSheet(
+      context,
+      flightShareSummary(
+        from: _legFrom,
+        to: _legTo,
+        date: _pickingReturn ? _query.returnDate : _query.departure,
+        resultCount: list.length,
       ),
     );
   }
@@ -1193,40 +1693,54 @@ class _FlightResultsPageState extends State<FlightResultsPage> {
     final list = _filtered;
     final facets = _facets;
     final chips = describeFilters(_filters, facets);
+    final showDateStrip = !_query.isRoundTrip && _query.departure != null;
+    final showSpecials = _twoStep && !_pickingReturn && _specials.isNotEmpty;
 
     return PopScope(
       // On a round trip, back from the return list means "pick a different
-      // outbound", not "abandon the search".
-      canPop: !_pickingReturn,
+      // outbound", not "abandon the search". Nothing leaves mid-review.
+      canPop: !_pickingReturn && !_busy,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _setOutbound(null);
+        if (!didPop && !_busy) _setOutbound(null);
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppTopBar(
           elevated: true,
           onBack: _pickingReturn ? () => _setOutbound(null) : null,
+          actions: [
+            IconButton(
+              tooltip: 'Share',
+              onPressed: _busy ? null : _share,
+              icon: const Icon(Icons.share_outlined),
+            ),
+            IconButton(
+              tooltip: 'Modify search',
+              onPressed: _busy ? null : _openModifySearch,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ],
           titleWidget: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 _pickingReturn
-                    ? '${widget.to.code} → ${widget.from.code}'
-                    : '${widget.from.code} → ${widget.to.code}',
+                    ? '${_to.code} → ${_from.code}'
+                    : '${_from.code} → ${_to.code}',
                 style: AppText.cardTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
                 _pickingReturn
-                    ? 'Return · ${formatTripDate(widget.returnDate)}'
+                    ? 'Return · ${formatTripDate(_query.returnDate)}'
                     : _twoStep
-                    ? 'Departure · ${formatTripDate(widget.departure)}'
-                    : widget.returnDate == null
-                    ? formatTripDate(widget.departure)
-                    : '${formatTripDate(widget.departure)} – '
-                          '${formatTripDate(widget.returnDate)}',
+                    ? 'Departure · ${formatTripDate(_query.departure)}'
+                    : !_query.isRoundTrip
+                    ? formatTripDate(_query.departure)
+                    : '${formatTripDate(_query.departure)} – '
+                          '${formatTripDate(_query.returnDate)}',
                 style: AppText.caption,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1234,91 +1748,176 @@ class _FlightResultsPageState extends State<FlightResultsPage> {
             ],
           ),
         ),
-        body: Column(
+        body: Stack(
           children: [
-            if (_twoStep)
-              _LegProgress(
-                pickingReturn: _pickingReturn,
-                outbound: _outbound,
-                onChangeOutbound: () => _setOutbound(null),
-              ),
-
-            if (_source.isNotEmpty) ...[
-              _QuickPicks(
-                flights: _source,
-                pax: _pax,
-                sort: _sort,
-                onSort: (s) => setState(() => _sort = s),
-              ),
-              _Toolbar(
-                count: list.length,
-                sortLabel: _sort.shortLabel,
-                filtersActive: _filters.activeCount,
-                onSort: _openSortSheet,
-                onFilter: facets == null ? null : _openFilterSheet,
-              ),
-              if (chips.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: AppliedFiltersRail(
-                    chips: chips,
-                    onRemove: (chip) =>
-                        setState(() => _filters = removeChip(_filters, chip)),
-                    onClearAll: () =>
-                        setState(() => _filters = FlightFilters.empty),
+            Column(
+              children: [
+                if (_twoStep)
+                  _LegProgress(
+                    pickingReturn: _pickingReturn,
+                    outbound: _outbound,
+                    onChangeOutbound: () => _setOutbound(null),
                   ),
-                ),
-            ],
-
-            Expanded(
-              child: list.isEmpty
-                  // Two different dead ends: the supplier returned nothing for
-                  // this route, or the user's own filters excluded everything.
-                  // Only the second one is recoverable in place.
-                  ? _filters.isEmpty
-                        ? EmptyState(
-                            title: _pickingReturn
-                                ? 'No return flights found'
-                                : 'No flights found',
-                            message:
-                                'Try different dates or a nearby airport — this '
-                                'route may not have flights on the day you chose.',
-                            icon: Icons.flight_takeoff_rounded,
-                          )
-                        : EmptyState(
-                            title: 'No flights match your filters',
-                            message:
-                                'Clear a filter or two to see the '
-                                '${_source.length} flight'
-                                '${_source.length == 1 ? '' : 's'} on this route.',
-                            icon: Icons.filter_alt_off_rounded,
-                            actionLabel: 'Clear filters',
-                            onAction: () =>
-                                setState(() => _filters = FlightFilters.empty),
-                          )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.lg,
-                        AppSpacing.lg,
-                        AppSpacing.lg,
-                        AppSpacing.xxxl,
-                      ),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(height: AppSpacing.md),
-                      itemBuilder: (context, i) => FadeSlideIn(
-                        delay: AppMotion.staggerFor(i),
-                        child: _FlightCard(
-                          flight: list[i],
-                          pax: _pax,
-                          actionLabel: _twoStep && _outbound == null
-                              ? 'Choose'
-                              : 'Select',
-                          onSelect: () => _select(list[i]),
-                        ),
+                if (showDateStrip)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: FareDateStrip(
+                      selected: _query.departure!,
+                      pending: _pendingDate,
+                      onPick: _pickDate,
+                    ),
+                  ),
+                if (_notice != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.sm,
+                      AppSpacing.lg,
+                      0,
+                    ),
+                    child: InfoBanner(
+                      message: _notice!,
+                      tone: InfoTone.warning,
+                      icon: Icons.update_rounded,
+                      action: PremiumButton.text(
+                        label: 'Dismiss',
+                        size: PremiumButtonSize.small,
+                        onPressed: () => setState(() => _notice = null),
                       ),
                     ),
+                  ),
+                if (showSpecials)
+                  SpecialReturnStrip(
+                    options: _specials,
+                    selectedCode: _filters.specialReturn.firstOrNull,
+                    onPick: _pickSpecialReturn,
+                  ),
+                if (_source.isNotEmpty) ...[
+                  _QuickPicks(
+                    flights: _source,
+                    pax: _pax,
+                    sort: _sort,
+                    onSort: (s) => setState(() => _sort = s),
+                  ),
+                  _Toolbar(
+                    count: list.length,
+                    sortLabel: _sort.shortLabel,
+                    filtersActive: _filters.activeCount,
+                    onSort: _openSortSheet,
+                    onFilter: facets == null ? null : _openFilterSheet,
+                  ),
+                  if (chips.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: AppliedFiltersRail(
+                        chips: chips,
+                        onRemove: (chip) => setState(
+                          () => _filters = removeChip(_filters, chip),
+                        ),
+                        onClearAll: () =>
+                            setState(() => _filters = FlightFilters.empty),
+                      ),
+                    ),
+                ],
+                Expanded(
+                  child: list.isEmpty
+                      // Two different dead ends: the supplier returned nothing
+                      // for this route, or the user's own filters excluded
+                      // everything. Only the second one is recoverable in place.
+                      ? _filters.isEmpty
+                            ? EmptyState(
+                                title: _pickingReturn
+                                    ? 'No return flights found'
+                                    : 'No flights found',
+                                message:
+                                    'Try different dates or a nearby airport '
+                                    '— this route may not have flights on the '
+                                    'day you chose.',
+                                icon: Icons.flight_takeoff_rounded,
+                                actionLabel: 'Modify search',
+                                onAction: _openModifySearch,
+                              )
+                            : EmptyState(
+                                title: 'No flights match your filters',
+                                message:
+                                    'Clear a filter or two to see the '
+                                    '${_source.length} flight'
+                                    '${_source.length == 1 ? '' : 's'} on '
+                                    'this route.',
+                                icon: Icons.filter_alt_off_rounded,
+                                actionLabel: 'Clear filters',
+                                onAction: () => setState(
+                                  () => _filters = FlightFilters.empty,
+                                ),
+                              )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                            AppSpacing.xxxl,
+                          ),
+                          itemCount: list.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: AppSpacing.md),
+                          itemBuilder: (context, i) {
+                            final flight = list[i];
+                            return FadeSlideIn(
+                              delay: AppMotion.staggerFor(i),
+                              child: _FlightCard(
+                                key: ValueKey('$i-${flight.tripKey}'),
+                                flight: flight,
+                                pax: _pax,
+                                actionLabel: _twoStep && _outbound == null
+                                    ? 'Choose'
+                                    : 'Book',
+                                unavailableReason: _returnUnavailable(flight),
+                                onPickFare: (id) => _pickFare(flight, id),
+                                onSelect: () => _select(flight),
+                                onDetails: () => showFlightDetailsSheet(
+                                  context,
+                                  flight: flight,
+                                  pax: _pax,
+                                  rules: _rules,
+                                ),
+                                onCompare: () async {
+                                  final choice = await showFareCompareSheet(
+                                    context,
+                                    flight: flight,
+                                    pax: _pax,
+                                    rules: _rules,
+                                  );
+                                  if (choice == null || !mounted) return;
+                                  _pickFare(flight, choice.fareId);
+                                  if (choice.book) {
+                                    _select(
+                                      flight.withSelectedFare(choice.fareId),
+                                    );
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
+            if (_busy)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.white.withValues(alpha: 0.72),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const AppLoader(),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(_busyLabel!, style: AppText.bodyStrong),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -1514,13 +2113,11 @@ class _QuickPickTile extends StatelessWidget {
                   Text(
                     title,
                     style: AppText.labelSm.copyWith(
-                      color: active
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
+                      color: active ? AppColors.primary : AppColors.textPrimary,
                     ),
                   ),
                   Text(
-                    '${formatPrice(tripBestPrice(flight.raw, pax))}'
+                    '${formatFlightFare(tripBestPrice(flight.raw, pax))}'
                     '${flight.durationLabel.isEmpty ? '' : ' · ${flight.durationLabel}'}',
                     style: AppText.caption,
                     maxLines: 1,
@@ -1640,20 +2237,48 @@ class _ResultsToolbarButton extends StatelessWidget {
   }
 }
 
-class _FlightCard extends StatelessWidget {
+/// One trip on the results list, with every fare it is sold at.
+///
+/// The web's card: airline and flight numbers, "View Details", seats left,
+/// the route, two fare options with "+N more fares", "Compare" when there is
+/// more than one fare, the next-day arrival notice, and BOOK.
+class _FlightCard extends StatefulWidget {
   const _FlightCard({
+    super.key,
     required this.flight,
     required this.pax,
+    required this.onPickFare,
     required this.onSelect,
-    this.actionLabel = 'Select',
+    required this.onDetails,
+    required this.onCompare,
+    this.actionLabel = 'Book',
+    this.unavailableReason,
   });
 
+  /// Set on a return that leaves before the outbound lands; the card is
+  /// dimmed and says why.
+  final String? unavailableReason;
+
+  /// Already carries the traveller's chosen fare as its [FlightResult.id].
   final FlightResult flight;
 
   /// Needed to price the trip for the whole party, not just one adult.
   final PaxCounts pax;
+  final ValueChanged<String> onPickFare;
   final VoidCallback onSelect;
+  final VoidCallback onDetails;
+  final VoidCallback onCompare;
   final String actionLabel;
+
+  @override
+  State<_FlightCard> createState() => _FlightCardState();
+}
+
+class _FlightCardState extends State<_FlightCard> {
+  /// The web folds everything after the second fare behind "+N more fares".
+  static const int _visibleFares = 2;
+
+  bool _expanded = false;
 
   String _time(DateTime? d) {
     if (d == null) return '--:--';
@@ -1662,10 +2287,39 @@ class _FlightCard extends StatelessWidget {
     return '$h:$m';
   }
 
+  String _date(DateTime? d) {
+    if (d == null) return '';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[d.month - 1]} ${d.day}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onSelect,
+    final flight = widget.flight;
+    final fares = flight.fares;
+    final visible = _expanded ? fares : fares.take(_visibleFares).toList();
+    final seatsLeft = fareSeatsLeft(flight.selectedFare);
+    final dayOffset = arrivalDayOffset(flight.raw);
+    final numbers = [
+      for (final s in flight.segments)
+        '${asString(digPath(s, ['fD', 'aI', 'code']))}-'
+            '${asString(digPath(s, ['fD', 'fN']))}',
+    ].join(', ');
+
+    final card = AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1677,18 +2331,37 @@ class _FlightCard extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
               ],
               Expanded(
-                child: Text(
-                  flight.airline.isNotEmpty
-                      ? flight.airline
-                      : flight.airlineCode,
-                  style: AppText.cardTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      flight.airline.isNotEmpty
+                          ? flight.airline
+                          : flight.airlineCode,
+                      style: AppText.cardTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (numbers.isNotEmpty)
+                      Text(
+                        numbers,
+                        style: AppText.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
                 ),
               ),
-              if (flight.flightNumber.isNotEmpty)
-                MetaChip(
-                  label: '${flight.airlineCode} ${flight.flightNumber}'.trim(),
+              if (seatsLeft != null)
+                Text(
+                  'Seats left: $seatsLeft',
+                  style: AppText.caption.copyWith(
+                    color: seatsLeft <= 5
+                        ? AppColors.error
+                        : AppColors.textSecondary,
+                    fontWeight: seatsLeft <= 5 ? FontWeight.w600 : null,
+                  ),
                 ),
             ],
           ),
@@ -1701,7 +2374,10 @@ class _FlightCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(_time(flight.departure), style: AppText.sectionTitle),
-                  Text(flight.fromCode, style: AppText.caption),
+                  Text(
+                    '${flight.fromCode} · ${_date(flight.departure)}',
+                    style: AppText.caption,
+                  ),
                 ],
               ),
               Expanded(
@@ -1766,68 +2442,625 @@ class _FlightCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(_time(flight.arrival), style: AppText.sectionTitle),
-                  Text(flight.toCode, style: AppText.caption),
+                  Text(
+                    '${flight.toCode} · ${_date(flight.arrival)}',
+                    style: AppText.caption,
+                  ),
                 ],
               ),
             ],
           ),
 
+          if (dayOffset > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                const Icon(
+                  Icons.flight_land_rounded,
+                  size: 13,
+                  color: AppColors.warning,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  'Flight arrives after $dayOffset day${dayOffset > 1 ? 's' : ''}',
+                  style: AppText.caption.copyWith(color: AppColors.warning),
+                ),
+              ],
+            ),
+          ],
+
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Divider(height: 1, color: AppColors.divider),
           ),
+
+          if (fares.isEmpty)
+            Text('Price on review', style: AppText.bodySm)
+          else
+            for (final fare in visible)
+              FlightFareOptionTile(
+                fare: fare,
+                pax: widget.pax,
+                selected: asString(readKey(fare, 'id')) == flight.id,
+                onTap: () => widget.onPickFare(asString(readKey(fare, 'id'))),
+              ),
+          if (fares.length > _visibleFares)
+            PremiumButton.text(
+              label: _expanded
+                  ? 'Show less'
+                  : '+${fares.length - _visibleFares} more fares',
+              size: PremiumButtonSize.small,
+              onPressed: () => setState(() => _expanded = !_expanded),
+            ),
+
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              Expanded(
-                child: Builder(
-                  builder: (context) {
-                    // The card leads with what the party actually pays, which
-                    // is the figure the review step and the website both show.
-                    // Leading with the per-adult fare instead meant a couple
-                    // saw half the real price right up to checkout.
-                    final total = tripBestPrice(flight.raw, pax);
-                    if (total <= 0) {
-                      return Text('Price on review', style: AppText.bodySm);
-                    }
-                    final travellers =
-                        pax.adults + pax.children + pax.infants;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          travellers > 1
-                              ? 'for $travellers travellers'
-                              : 'per adult',
-                          style: AppText.caption,
-                        ),
-                        Text(
-                          formatPrice(total),
-                          style: AppText.price,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (travellers > 1 && flight.price > 0)
-                          Text(
-                            '${formatPrice(flight.price)} per adult',
-                            style: AppText.caption,
-                          ),
-                      ],
-                    );
-                  },
-                ),
+              PremiumButton.text(
+                label: 'View details',
+                size: PremiumButtonSize.small,
+                onPressed: widget.onDetails,
               ),
-              const SizedBox(width: AppSpacing.md),
+              if (fares.length > 1)
+                PremiumButton.text(
+                  label: 'Compare',
+                  size: PremiumButtonSize.small,
+                  onPressed: widget.onCompare,
+                ),
+              const Spacer(),
               PremiumButton(
-                label: actionLabel,
+                label: widget.actionLabel,
                 size: PremiumButtonSize.small,
                 expanded: false,
-                onPressed: onSelect,
+                onPressed: widget.onSelect,
               ),
             ],
           ),
         ],
       ),
     );
+    final reason = widget.unavailableReason;
+    if (reason == null) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Opacity(opacity: 0.45, child: IgnorePointer(child: card)),
+        Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.xs),
+          child: Row(
+            children: [
+              const Icon(Icons.block_rounded, size: 14, color: AppColors.error),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  reason,
+                  style: AppText.caption.copyWith(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Previous results screen and card, kept for reference.
+//
+// Replaced to match FlightSearchResults.jsx: the card offered one fare chosen
+// automatically, there were no fare details, rules or comparison, the fare was
+// only reviewed on the booking screen (so a gone fare could not refresh the
+// list), and there was no date strip, share, modify search or Return Special.
+// ---------------------------------------------------------------------------
+
+// class FlightResultsPage extends StatefulWidget {
+//   const FlightResultsPage({
+//     super.key,
+//     required this.api,
+//     required this.from,
+//     required this.to,
+//     required this.departure,
+//     required this.results,
+//     required this.adults,
+//     this.returnDate,
+//     this.children = 0,
+//     this.infants = 0,
+//     this.cabinClass = 'ECONOMY',
+//   });
+//
+//   final HoneymoonApi api;
+//   final FlightLocation from;
+//   final FlightLocation to;
+//   final DateTime departure;
+//   final DateTime? returnDate;
+//   final FlightSearchResult results;
+//   final int adults;
+//   final int children;
+//   final int infants;
+//   final String cabinClass;
+//
+//   @override
+//   State<FlightResultsPage> createState() => _FlightResultsPageState();
+// }
+//
+// class _FlightResultsPageState extends State<FlightResultsPage> {
+//   /// Set once the outbound has been chosen on a round trip; the list then
+//   /// switches to the return leg.
+//   FlightResult? _outbound;
+//
+//   /// Sorting and filtering are per-leg on purpose: the outbound and the return
+//   /// are separate result sets with separate facets, exactly as the website
+//   /// treats its two columns.
+//   FlightSort _sort = FlightSort.price;
+//   FlightFilters _filters = FlightFilters.empty;
+//
+//   bool get _twoStep => widget.results.hasSeparateReturn;
+//
+//   bool get _pickingReturn => _twoStep && _outbound != null;
+//
+//   PaxCounts get _pax => PaxCounts(
+//     adults: widget.adults,
+//     children: widget.children,
+//     infants: widget.infants,
+//   );
+//
+//   /// The unfiltered set for the leg on screen. Facets are always derived from
+//   /// this, so option counts stay stable as the user narrows down instead of
+//   /// collapsing toward zero.
+//   List<FlightResult> get _source =>
+//       _pickingReturn ? widget.results.inbound : widget.results.onward;
+//
+//   /// On the return leg the route is reversed, which matters to the
+//   /// "hide nearby airports" filter.
+//   String get _legFrom =>
+//       _pickingReturn ? widget.to.code : widget.from.code;
+//   String get _legTo => _pickingReturn ? widget.from.code : widget.to.code;
+//
+//   FlightFacets? get _facets => deriveFacets(_source, _pax);
+//
+//   List<FlightResult> get _filtered => sortFlights(
+//     filterFlights(
+//       _source,
+//       _filters,
+//       searchFrom: _legFrom,
+//       searchTo: _legTo,
+//       pax: _pax,
+//     ),
+//     _sort,
+//     _pax,
+//   );
+//
+//   /// Switching legs keeps the user's intent but drops anything the new result
+//   /// set cannot satisfy — otherwise a `stops: {0}` carried over from an
+//   /// outbound with non-stops empties a return that has none.
+//   void _setOutbound(FlightResult? flight) {
+//     setState(() {
+//       _outbound = flight;
+//       _filters = reconcileFilters(_filters, deriveFacets(_source, _pax));
+//     });
+//   }
+//
+//   Future<void> _openFilterSheet() async {
+//     final facets = _facets;
+//     if (facets == null) return;
+//
+//     final result = await showFlightFilterSheet(
+//       context,
+//       facets: facets,
+//       current: _filters,
+//       flights: _source,
+//       pax: _pax,
+//       searchFrom: _legFrom,
+//       searchTo: _legTo,
+//     );
+//     if (result != null && mounted) setState(() => _filters = result);
+//   }
+//
+//   Future<void> _openSortSheet() async {
+//     await AppBottomSheet.show(
+//       context,
+//       title: 'Sort by',
+//       child: Column(
+//         mainAxisSize: MainAxisSize.min,
+//         crossAxisAlignment: CrossAxisAlignment.stretch,
+//         children: [
+//           for (final option in FlightSort.values)
+//             Pressable(
+//               onTap: () {
+//                 Navigator.pop(context);
+//                 if (option != _sort) setState(() => _sort = option);
+//               },
+//               borderRadius: AppRadii.rMd,
+//               child: Padding(
+//                 padding: const EdgeInsets.symmetric(
+//                   vertical: AppSpacing.md,
+//                   horizontal: AppSpacing.sm,
+//                 ),
+//                 child: Row(
+//                   children: [
+//                     Expanded(
+//                       child: Text(
+//                         option.label,
+//                         style: option == _sort
+//                             ? AppText.bodyStrong.copyWith(
+//                                 color: AppColors.primary,
+//                               )
+//                             : AppText.body,
+//                       ),
+//                     ),
+//                     if (option == _sort)
+//                       const Icon(
+//                         Icons.check_rounded,
+//                         size: 20,
+//                         color: AppColors.primary,
+//                       ),
+//                   ],
+//                 ),
+//               ),
+//             ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   FlightTripContext get _trip => FlightTripContext(
+//     from: widget.from,
+//     to: widget.to,
+//     departure: widget.departure,
+//     returnDate: widget.returnDate,
+//     adults: widget.adults,
+//     children: widget.children,
+//     infants: widget.infants,
+//     cabinClass: widget.cabinClass,
+//   );
+//
+//   void _select(FlightResult flight) {
+//     if (_twoStep && _outbound == null) {
+//       _setOutbound(flight);
+//       return;
+//     }
+//     Navigator.push(
+//       context,
+//       AnimatedPageRoute(
+//         page: FlightBookingPage(
+//           api: widget.api,
+//           trip: _trip,
+//           outbound: _outbound ?? flight,
+//           inbound: _outbound == null ? null : flight,
+//         ),
+//         style: PageTransitionStyle.slideRight,
+//       ),
+//     );
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final list = _filtered;
+//     final facets = _facets;
+//     final chips = describeFilters(_filters, facets);
+//
+//     return PopScope(
+//       // On a round trip, back from the return list means "pick a different
+//       // outbound", not "abandon the search".
+//       canPop: !_pickingReturn,
+//       onPopInvokedWithResult: (didPop, _) {
+//         if (!didPop) _setOutbound(null);
+//       },
+//       child: Scaffold(
+//         backgroundColor: AppColors.background,
+//         appBar: AppTopBar(
+//           elevated: true,
+//           onBack: _pickingReturn ? () => _setOutbound(null) : null,
+//           titleWidget: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               Text(
+//                 _pickingReturn
+//                     ? '${widget.to.code} → ${widget.from.code}'
+//                     : '${widget.from.code} → ${widget.to.code}',
+//                 style: AppText.cardTitle,
+//                 maxLines: 1,
+//                 overflow: TextOverflow.ellipsis,
+//               ),
+//               Text(
+//                 _pickingReturn
+//                     ? 'Return · ${formatTripDate(widget.returnDate)}'
+//                     : _twoStep
+//                     ? 'Departure · ${formatTripDate(widget.departure)}'
+//                     : widget.returnDate == null
+//                     ? formatTripDate(widget.departure)
+//                     : '${formatTripDate(widget.departure)} – '
+//                           '${formatTripDate(widget.returnDate)}',
+//                 style: AppText.caption,
+//                 maxLines: 1,
+//                 overflow: TextOverflow.ellipsis,
+//               ),
+//             ],
+//           ),
+//         ),
+//         body: Column(
+//           children: [
+//             if (_twoStep)
+//               _LegProgress(
+//                 pickingReturn: _pickingReturn,
+//                 outbound: _outbound,
+//                 onChangeOutbound: () => _setOutbound(null),
+//               ),
+//
+//             if (_source.isNotEmpty) ...[
+//               _QuickPicks(
+//                 flights: _source,
+//                 pax: _pax,
+//                 sort: _sort,
+//                 onSort: (s) => setState(() => _sort = s),
+//               ),
+//               _Toolbar(
+//                 count: list.length,
+//                 sortLabel: _sort.shortLabel,
+//                 filtersActive: _filters.activeCount,
+//                 onSort: _openSortSheet,
+//                 onFilter: facets == null ? null : _openFilterSheet,
+//               ),
+//               if (chips.isNotEmpty)
+//                 Padding(
+//                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+//                   child: AppliedFiltersRail(
+//                     chips: chips,
+//                     onRemove: (chip) =>
+//                         setState(() => _filters = removeChip(_filters, chip)),
+//                     onClearAll: () =>
+//                         setState(() => _filters = FlightFilters.empty),
+//                   ),
+//                 ),
+//             ],
+//
+//             Expanded(
+//               child: list.isEmpty
+//                   // Two different dead ends: the supplier returned nothing for
+//                   // this route, or the user's own filters excluded everything.
+//                   // Only the second one is recoverable in place.
+//                   ? _filters.isEmpty
+//                         ? EmptyState(
+//                             title: _pickingReturn
+//                                 ? 'No return flights found'
+//                                 : 'No flights found',
+//                             message:
+//                                 'Try different dates or a nearby airport — this '
+//                                 'route may not have flights on the day you chose.',
+//                             icon: Icons.flight_takeoff_rounded,
+//                           )
+//                         : EmptyState(
+//                             title: 'No flights match your filters',
+//                             message:
+//                                 'Clear a filter or two to see the '
+//                                 '${_source.length} flight'
+//                                 '${_source.length == 1 ? '' : 's'} on this route.',
+//                             icon: Icons.filter_alt_off_rounded,
+//                             actionLabel: 'Clear filters',
+//                             onAction: () =>
+//                                 setState(() => _filters = FlightFilters.empty),
+//                           )
+//                   : ListView.separated(
+//                       padding: const EdgeInsets.fromLTRB(
+//                         AppSpacing.lg,
+//                         AppSpacing.lg,
+//                         AppSpacing.lg,
+//                         AppSpacing.xxxl,
+//                       ),
+//                       itemCount: list.length,
+//                       separatorBuilder: (_, _) =>
+//                           const SizedBox(height: AppSpacing.md),
+//                       itemBuilder: (context, i) => FadeSlideIn(
+//                         delay: AppMotion.staggerFor(i),
+//                         child: _FlightCard(
+//                           flight: list[i],
+//                           pax: _pax,
+//                           actionLabel: _twoStep && _outbound == null
+//                               ? 'Choose'
+//                               : 'Select',
+//                           onSelect: () => _select(list[i]),
+//                         ),
+//                       ),
+//                     ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+// class _FlightCard extends StatelessWidget {
+//   const _FlightCard({
+//     required this.flight,
+//     required this.pax,
+//     required this.onSelect,
+//     this.actionLabel = 'Select',
+//   });
+//
+//   final FlightResult flight;
+//
+//   /// Needed to price the trip for the whole party, not just one adult.
+//   final PaxCounts pax;
+//   final VoidCallback onSelect;
+//   final String actionLabel;
+//
+//   String _time(DateTime? d) {
+//     if (d == null) return '--:--';
+//     final h = d.hour.toString().padLeft(2, '0');
+//     final m = d.minute.toString().padLeft(2, '0');
+//     return '$h:$m';
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return AppCard(
+//       onTap: onSelect,
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           Row(
+//             children: [
+//               if (flight.airlineCode.isNotEmpty) ...[
+//                 AirlineLogo(code: flight.airlineCode),
+//                 const SizedBox(width: AppSpacing.sm),
+//               ],
+//               Expanded(
+//                 child: Text(
+//                   flight.airline.isNotEmpty
+//                       ? flight.airline
+//                       : flight.airlineCode,
+//                   style: AppText.cardTitle,
+//                   maxLines: 1,
+//                   overflow: TextOverflow.ellipsis,
+//                 ),
+//               ),
+//               if (flight.flightNumber.isNotEmpty)
+//                 MetaChip(
+//                   label: '${flight.airlineCode} ${flight.flightNumber}'.trim(),
+//                 ),
+//             ],
+//           ),
+//           const SizedBox(height: AppSpacing.md),
+//
+//           Row(
+//             children: [
+//               Column(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 mainAxisSize: MainAxisSize.min,
+//                 children: [
+//                   Text(_time(flight.departure), style: AppText.sectionTitle),
+//                   Text(flight.fromCode, style: AppText.caption),
+//                 ],
+//               ),
+//               Expanded(
+//                 child: Padding(
+//                   padding: const EdgeInsets.symmetric(
+//                     horizontal: AppSpacing.md,
+//                   ),
+//                   child: Column(
+//                     children: [
+//                       if (flight.durationLabel.isNotEmpty)
+//                         Text(
+//                           flight.durationLabel,
+//                           style: AppText.caption,
+//                           maxLines: 1,
+//                           overflow: TextOverflow.ellipsis,
+//                         ),
+//                       const SizedBox(height: 3),
+//                       const Row(
+//                         children: [
+//                           Icon(
+//                             Icons.circle,
+//                             size: 6,
+//                             color: AppColors.textTertiary,
+//                           ),
+//                           Expanded(
+//                             child: Divider(
+//                               color: AppColors.divider,
+//                               thickness: 1,
+//                             ),
+//                           ),
+//                           Icon(
+//                             Icons.flight_rounded,
+//                             size: 14,
+//                             color: AppColors.primary,
+//                           ),
+//                           Expanded(
+//                             child: Divider(
+//                               color: AppColors.divider,
+//                               thickness: 1,
+//                             ),
+//                           ),
+//                           Icon(
+//                             Icons.circle,
+//                             size: 6,
+//                             color: AppColors.textTertiary,
+//                           ),
+//                         ],
+//                       ),
+//                       const SizedBox(height: 3),
+//                       Text(
+//                         flight.stopsLabel,
+//                         style: AppText.caption,
+//                         maxLines: 1,
+//                         overflow: TextOverflow.ellipsis,
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//               ),
+//               Column(
+//                 crossAxisAlignment: CrossAxisAlignment.end,
+//                 mainAxisSize: MainAxisSize.min,
+//                 children: [
+//                   Text(_time(flight.arrival), style: AppText.sectionTitle),
+//                   Text(flight.toCode, style: AppText.caption),
+//                 ],
+//               ),
+//             ],
+//           ),
+//
+//           const Padding(
+//             padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+//             child: Divider(height: 1, color: AppColors.divider),
+//           ),
+//           Row(
+//             children: [
+//               Expanded(
+//                 child: Builder(
+//                   builder: (context) {
+//                     // The card leads with what the party actually pays, which
+//                     // is the figure the review step and the website both show.
+//                     // Leading with the per-adult fare instead meant a couple
+//                     // saw half the real price right up to checkout.
+//                     final total = tripBestPrice(flight.raw, pax);
+//                     if (total <= 0) {
+//                       return Text('Price on review', style: AppText.bodySm);
+//                     }
+//                     final travellers =
+//                         pax.adults + pax.children + pax.infants;
+//                     return Column(
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       mainAxisSize: MainAxisSize.min,
+//                       children: [
+//                         Text(
+//                           travellers > 1
+//                               ? 'for $travellers travellers'
+//                               : 'per adult',
+//                           style: AppText.caption,
+//                         ),
+//                         Text(
+//                           formatPrice(total),
+//                           style: AppText.price,
+//                           maxLines: 1,
+//                           overflow: TextOverflow.ellipsis,
+//                         ),
+//                         if (travellers > 1 && flight.price > 0)
+//                           Text(
+//                             '${formatPrice(flight.price)} per adult',
+//                             style: AppText.caption,
+//                           ),
+//                       ],
+//                     );
+//                   },
+//                 ),
+//               ),
+//               const SizedBox(width: AppSpacing.md),
+//               PremiumButton(
+//                 label: actionLabel,
+//                 size: PremiumButtonSize.small,
+//                 expanded: false,
+//                 onPressed: onSelect,
+//               ),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }

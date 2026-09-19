@@ -670,7 +670,7 @@ const Contactus = () => {
             >
               {/* Play Store Button */}
               <a
-                href="https://play.google.com/store/apps/details?id=com.happy.happy_weds_vendors"
+                href="https://play.google.com/store/apps/details?id=com.happy.happy_wedz&pcampaignid=web_share"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="HappyWedz App on Google Play Store"
@@ -729,7 +729,7 @@ const Contactus = () => {
 
               {/* Apple Store Button */}
               <a
-                href="https://apps.apple.com/app/happywedz/id123456789"
+                href="https://apps.apple.com/in/app/happy-wedz/id6756042192"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="HappyWedz App on Apple App Store"

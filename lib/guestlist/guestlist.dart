@@ -1575,6 +1575,7 @@ class Guest {
   final String menu;
   final String phoneNumber;
   final String email;
+  final String seatNumber;
 
   Guest({
     this.id,
@@ -1586,6 +1587,7 @@ class Guest {
     required this.menu,
     required this.phoneNumber,
     required this.email,
+    this.seatNumber = '',
   });
 
   /// ✅ REQUIRED FOR API
@@ -1600,6 +1602,9 @@ class Guest {
       menu: json['menu'] ?? 'Veg',
       phoneNumber: json['phone_number']?.toString() ?? '',
       email: json['email'] ?? '',
+      // Was previously sent on create but never parsed back, so it silently
+      // vanished from the app the moment the list re-fetched.
+      seatNumber: json['seat_number']?.toString() ?? '',
     );
   }
 }
@@ -1773,6 +1778,8 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
               _infoChip("Type", guest.type),
               _infoChip("Menu", guest.menu),
               _infoChip("Companions", guest.companions.toString()),
+              if (guest.seatNumber.isNotEmpty)
+                _infoChip("Seat", guest.seatNumber),
             ],
           ),
 

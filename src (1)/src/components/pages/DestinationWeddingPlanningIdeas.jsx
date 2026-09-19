@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useLoader } from "../context/LoaderContext";
 import { formatDate } from "../../utils/dateFormat";
+import { API_BASE_URL, IMAGE_BASE_URL } from "../../config/constants";
 
 const BlogCardsSection = () => {
   const [blogPosts, setBlogPosts] = useState([]);
@@ -11,14 +12,14 @@ const BlogCardsSection = () => {
     const fetchBlogs = async () => {
       try {
         showLoader();
-        const response = await fetch("https://happywedz.com/api/blogs/all");
+        const response = await fetch(`${API_BASE_URL}/blogs/all`);
         const result = await response.json();
 
         // Map API fields to component fields
         const mappedBlogs = result.data.map((blog) => {
           const cleanedImageUrl = blog.image.replace(
             "https://happywedz.com:4000",
-            "https://happywedzbackend.happywedz.com/"
+            IMAGE_BASE_URL
           );
 
           return {

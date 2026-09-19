@@ -1,11 +1,18 @@
 /// Razorpay checkout for the Honeymoon booking flows.
 ///
-/// The web client opens Razorpay's `checkout.js` in the page. There is no
-/// native equivalent already in this project, so rather than add a plugin the
-/// same script is hosted inside a [WebView] and its callbacks are bridged back
-/// to Dart through a single JavaScript channel. The options object below is
-/// the one the web client builds, field for field, so a payment started on
-/// either surface reaches the backend identically.
+/// On Android and iOS this uses Razorpay's native SDK (`razorpay_flutter`).
+///
+/// BUG FIX: checkout used to run Razorpay's `checkout.js` inside a
+/// [WebView]. Netbanking bank pages and card OTP pages open in a *pop-up*
+/// window that reports back to its opener; `webview_flutter` has no second
+/// window, so it loads the pop-up URL into the same view, the checkout page
+/// is replaced, and the payment ends as "could not be completed" — while the
+/// same order pays fine on the web, where the browser opens a real pop-up.
+/// The native SDK handles those pages itself. The WebView checkout below is
+/// kept as the fallback for any other platform.
+///
+/// Either way the options are the ones the web client builds, field for
+/// field, so a payment reaches the backend identically.
 ///
 /// ```dart
 /// final outcome = await RazorpayCheckout.open(
@@ -25,7 +32,11 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -73,7 +84,20 @@ class RazorpayCheckout {
     required String title,
     required RazorpayPrefill prefill,
     String description = '',
+    bool restrictMethodsInTestMode = false,
+    bool allowRetry = false,
   }) async {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      return _openNative(
+        order: order,
+        title: title,
+        prefill: prefill,
+        description: description,
+        restrictMethodsInTestMode: restrictMethodsInTestMode,
+      );
+    }
+
+    // Fallback: the WebView checkout.
     final outcome = await Navigator.of(context).push<RazorpayOutcome>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -82,10 +106,127 @@ class RazorpayCheckout {
           title: title,
           description: description,
           prefill: prefill,
+          restrictMethodsInTestMode: restrictMethodsInTestMode,
+          allowRetry: allowRetry,
         ),
       ),
     );
     return outcome ?? const RazorpayDismissed();
+  }
+
+  /// The native SDK checkout. Same options as the web's
+  /// `new window.Razorpay({...})`; the SDK keeps its own retry, so a
+  /// declined attempt lets the traveller pick another method and only the
+  /// final outcome comes back.
+  static Future<RazorpayOutcome> _openNative({
+    required PaymentOrder order,
+    required String title,
+    required RazorpayPrefill prefill,
+    required String description,
+    required bool restrictMethodsInTestMode,
+  }) async {
+    final options = <String, dynamic>{
+      'key': order.keyId,
+      'order_id': order.orderId,
+      if (order.amountInPaise > 0) 'amount': order.amountInPaise,
+      'currency': order.currency,
+      'name': title,
+      'description': description.isEmpty ? title : description,
+      'prefill': {
+        'name': prefill.name,
+        'email': prefill.email,
+        'contact': prefill.contact,
+      },
+      'theme': {'color': '#ed1173'},
+      // The web's hotel checkout hides these in test mode, where a test
+      // account caps them far below a hotel stay.
+      if (restrictMethodsInTestMode && order.keyId.startsWith('rzp_test_'))
+        'method': {'upi': false, 'wallet': false, 'paylater': false},
+    };
+    debugPrint('[RazorpayCheckout] native options: ${jsonEncode(options)}');
+
+    final razorpay = Razorpay();
+    final completer = Completer<RazorpayOutcome>();
+    void settle(RazorpayOutcome outcome) {
+      if (!completer.isCompleted) completer.complete(outcome);
+    }
+
+    razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, (PaymentSuccessResponse r) {
+      debugPrint('[RazorpayCheckout] native success: ${r.paymentId}');
+      settle(
+        RazorpaySuccess(
+          PaymentResult(
+            orderId: r.orderId ?? order.orderId,
+            paymentId: r.paymentId ?? '',
+            signature: r.signature ?? '',
+          ),
+        ),
+      );
+    });
+    razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, (PaymentFailureResponse r) {
+      debugPrint(
+        '[RazorpayCheckout] native error: code=${r.code} message=${r.message} '
+        'error=${r.error}',
+      );
+      if (r.code == Razorpay.PAYMENT_CANCELLED) {
+        settle(const RazorpayDismissed());
+        return;
+      }
+      settle(RazorpayFailure(_nativeErrorText(r)));
+    });
+    // A wallet that takes over outside checkout — nothing is paid here.
+    razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, (ExternalWalletResponse r) {
+      debugPrint('[RazorpayCheckout] native external wallet: ${r.walletName}');
+      settle(const RazorpayDismissed());
+    });
+
+    try {
+      razorpay.open(options);
+      return await completer.future;
+    } catch (e) {
+      debugPrint('[RazorpayCheckout] native open failed: $e');
+      return const RazorpayFailure(
+        'The payment could not be started. Please try again.',
+      );
+    } finally {
+      razorpay.clear();
+    }
+  }
+
+  /// The SDK reports errors as a plain message or as the gateway's JSON body
+  /// (`{"error":{"description": …}}`); the description is what is shown.
+  static String _nativeErrorText(PaymentFailureResponse r) {
+    // Razorpay's "Payment could not be completed" on an account without
+    // international payments is really `international_transaction_not_allowed`
+    // (the web's hotel flow recognises the same pair). Said plainly, the
+    // traveller knows to switch card rather than retry the same one.
+    final everything = '${r.message} ${r.error}'.toLowerCase();
+    if (everything.contains('international_transaction_not_allowed') ||
+        everything.contains('international cards are not supported') ||
+        everything.contains('payment could not be completed')) {
+      return 'This card was treated as an international card, which is not '
+          'enabled for this account. Please pay with an Indian card or '
+          'netbanking.';
+    }
+    final fromBody = r.error?['error'] is Map
+        ? (r.error?['error'] as Map)['description']
+        : null;
+    if (fromBody is String && fromBody.trim().isNotEmpty) return fromBody;
+    final message = r.message ?? '';
+    try {
+      final decoded = jsonDecode(message);
+      final description = decoded is Map && decoded['error'] is Map
+          ? (decoded['error'] as Map)['description']
+          : null;
+      if (description is String && description.trim().isNotEmpty) {
+        return description;
+      }
+    } catch (_) {
+      // Plain text.
+    }
+    return message.trim().isEmpty
+        ? 'The payment could not be completed.'
+        : message.trim();
   }
 }
 
@@ -97,12 +238,26 @@ class _RazorpayCheckoutPage extends StatefulWidget {
     required this.title,
     required this.description,
     required this.prefill,
+    this.restrictMethodsInTestMode = false,
+    this.allowRetry = false,
   });
 
   final PaymentOrder order;
   final String title;
   final String description;
   final RazorpayPrefill prefill;
+
+  /// With a `rzp_test_` key, hide UPI, wallets and pay-later. A test account
+  /// caps those methods far below a hotel stay ("Amount exceeds maximum
+  /// amount allowed"), so the web's hotel checkout offers card and netbanking
+  /// only in test mode. Live keys are unaffected.
+  final bool restrictMethodsInTestMode;
+
+  /// Keep Razorpay's own retry: a declined attempt ("Please use another
+  /// method") leaves checkout open so the traveller can pick another card or
+  /// method, as the web's hotel checkout does (it never disables retry). The
+  /// failure is reported only if they then close checkout without paying.
+  final bool allowRetry;
 
   @override
   State<_RazorpayCheckoutPage> createState() => _RazorpayCheckoutPageState();
@@ -117,17 +272,30 @@ class _RazorpayCheckoutPageState extends State<_RazorpayCheckoutPage> {
   @override
   void initState() {
     super.initState();
+    debugPrint(
+      '[RazorpayCheckout] opening order=${widget.order.orderId} '
+      'key=${widget.order.keyId} amountInPaise=${widget.order.amountInPaise} '
+      'currency=${widget.order.currency}',
+    );
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
       ..addJavaScriptChannel('RazorpayFlutter', onMessageReceived: _onMessage)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageFinished: (_) {
+          onPageFinished: (url) {
+            debugPrint('[RazorpayCheckout] page finished: $url');
             if (mounted) setState(() => _loading = false);
           },
           onNavigationRequest: _onNavigation,
           onWebResourceError: (error) {
+            debugPrint(
+              '[RazorpayCheckout] web resource error: '
+              'mainFrame=${error.isForMainFrame} '
+              'code=${error.errorCode} '
+              'description=${error.description} '
+              'url=${error.url}',
+            );
             // Only a failure of the top-level document is fatal; sub-resources
             // (an analytics beacon, a bank logo) fail all the time and must
             // not tear down a checkout that is otherwise working.
@@ -148,39 +316,53 @@ class _RazorpayCheckoutPageState extends State<_RazorpayCheckoutPage> {
   /// UPI and bank apps are opened with `upi:` / `intent:` links, which a
   /// WebView cannot load itself — they have to be handed to the OS.
   FutureOr<NavigationDecision> _onNavigation(NavigationRequest request) async {
+    debugPrint('[RazorpayCheckout] navigation request: ${request.url}');
     final uri = Uri.tryParse(request.url);
     if (uri == null) return NavigationDecision.navigate;
-    if (uri.scheme == 'http' || uri.scheme == 'https' || uri.scheme == 'about') {
+    if (uri.scheme == 'http' ||
+        uri.scheme == 'https' ||
+        uri.scheme == 'about') {
       return NavigationDecision.navigate;
     }
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
+    } catch (e) {
       // No app installed for that scheme — staying put lets the traveller
       // pick another payment method rather than dead-ending.
+      debugPrint('[RazorpayCheckout] could not launch $uri: $e');
     }
     return NavigationDecision.prevent;
   }
 
   void _onMessage(JavaScriptMessage message) {
+    debugPrint('[RazorpayCheckout] ← message: ${message.message}');
+
     Map<String, dynamic> payload;
     try {
       final decoded = jsonDecode(message.message);
       payload = decoded is Map
           ? decoded.map((k, v) => MapEntry('$k', v))
           : <String, dynamic>{};
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[RazorpayCheckout] message decode error: $e');
       _finish(const RazorpayFailure('The payment could not be completed.'));
       return;
     }
 
     switch (payload['event']) {
       case 'success':
+        debugPrint(
+          '[RazorpayCheckout] success: '
+          'payment_id=${payload['razorpay_payment_id']} '
+          'order_id=${payload['razorpay_order_id']}',
+        );
         _finish(RazorpaySuccess(PaymentResult.fromJson(payload)));
       case 'dismissed':
+        debugPrint('[RazorpayCheckout] dismissed by traveller');
         _finish(const RazorpayDismissed());
       case 'failed':
         final description = '${payload['description'] ?? ''}'.trim();
+        debugPrint('[RazorpayCheckout] failed: $description');
         _finish(
           RazorpayFailure(
             description.isEmpty
@@ -189,6 +371,9 @@ class _RazorpayCheckoutPageState extends State<_RazorpayCheckoutPage> {
           ),
         );
       default:
+        debugPrint(
+          '[RazorpayCheckout] unrecognised event: ${payload['event']}',
+        );
         _finish(const RazorpayFailure('The payment could not be completed.'));
     }
   }
@@ -274,8 +459,14 @@ class _RazorpayCheckoutPageState extends State<_RazorpayCheckoutPage> {
       },
       // Matches the brand colour the web checkout uses.
       'theme': {'color': '#ed1173'},
-      'retry': {'enabled': false},
+      if (!widget.allowRetry) 'retry': {'enabled': false},
+      if (widget.restrictMethodsInTestMode &&
+          widget.order.keyId.startsWith('rzp_test_'))
+        'method': {'upi': false, 'wallet': false, 'paylater': false},
     };
+    // DEBUG: the exact options checkout receives (the key id is public), so a
+    // gateway refusal can be traced to the amount or the enabled methods.
+    debugPrint('[RazorpayCheckout] options: ${jsonEncode(options)}');
 
     return '''
 <!doctype html>
@@ -315,17 +506,27 @@ class _RazorpayCheckoutPageState extends State<_RazorpayCheckoutPage> {
           razorpay_signature: response.razorpay_signature
         });
       };
+      var allowRetry = ${widget.allowRetry};
+      var lastError = '';
       options.modal = {
         escape: false,
-        ondismiss: function () { post({ event: 'dismissed' }); }
+        ondismiss: function () {
+          // Closed after a declined attempt: report why, not a plain cancel.
+          if (lastError) { post({ event: 'failed', description: lastError }); }
+          else { post({ event: 'dismissed' }); }
+        }
       };
 
       var rzp = new Razorpay(options);
       rzp.on('payment.failed', function (resp) {
-        post({
-          event: 'failed',
-          description: (resp && resp.error && (resp.error.description || resp.error.reason)) || ''
-        });
+        var description =
+          (resp && resp.error && (resp.error.description || resp.error.reason)) || '';
+        if (allowRetry) {
+          // Checkout stays open for another method; remember why this failed.
+          lastError = description || 'The payment could not be completed.';
+          return;
+        }
+        post({ event: 'failed', description: description });
       });
       rzp.open();
     }

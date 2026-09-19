@@ -65,7 +65,11 @@ function LoginPopupContent({ isOpen, onClose, onSuccess }) {
         authResponse.token
       ) {
         dispatch(
-          loginUser({ user: authResponse.user, token: authResponse.token })
+          loginUser({
+            user: authResponse.user,
+            token: authResponse.token,
+            storeSession: authResponse.storeSession,
+          })
         );
         toast.success("Login successful!");
         onClose();

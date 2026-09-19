@@ -1,30 +1,62 @@
-/// The airport-transfer booking funnel.
-///
-/// Cabs are the shortest of the four flows — one lead passenger, no seat map,
-/// no fare rules — so it stays a single scroll with a sticky pay bar rather
-/// than a stepper.
+/// The car-rental review and payment page — `CabBookingPage.jsx`.
 ///
 /// ```
-/// book (payment pending)  →  pay  →  verify + settle  →  confirmed
+/// review   trip (One Way / Round Trip, distance) · vehicle · lead traveller
+///          (prefilled from the profile) · 3 steps · consent · price breakup
+/// pay      POST book (PAYMENT_PENDING) → POST payment/create-order
+///          → Razorpay → POST payment/verify (backend settles from the agent
+///          wallet, refunding automatically if that fails)
+/// errors   dismissed / failed   → Check payment status + Retry payment
+///          verify lost or failed → Check payment status only (Retry hidden
+///                                  until the status is known: no double debit)
+/// done     CabConfirmationPage, built from the booking the server returns
 /// ```
 ///
-/// The booking is created *before* the payment, so a lost verification does
-/// not lose the booking: [_checkStatus] reconciles against the supplier and
-/// either confirms it or lets the traveller pay again.
+/// The booking is created *before* the payment and reused on every retry, so
+/// a lost verification never loses the booking and never creates a second.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../authservice.dart';
 import '../../../core/core.dart';
+import '../../data/cab_draft_store.dart';
 import '../../data/honeymoon_api.dart';
 import '../../models/booking_models.dart';
+import '../../models/cab_models.dart';
 import '../../models/honeymoon_models.dart';
 import '../../payment/razorpay_checkout.dart';
+import '../widgets/cab_policy_sheet.dart';
 import '../widgets/honeymoon_widgets.dart';
-import '../bookings/my_trips_page.dart';
-import 'booking_confirmation_page.dart';
 import 'booking_widgets.dart';
+import 'cab_confirmation_page.dart';
+
+/// What happens after payment, as the portal spells it out.
+const List<({String title, String body})> kCabNextSteps = [
+  (
+    title: 'Booking Confirmed',
+    body: "You'll receive your booking voucher right after the payment.",
+  ),
+  (
+    title: 'Cab & Driver Details',
+    body: "We'll share your cab and driver details 6 hours before your trip.",
+  ),
+  (
+    title: 'On-Time Pickup',
+    body:
+        'Your cab will arrive at the pickup point at the scheduled time. '
+        'Enjoy your trip!',
+  ),
+];
+
+/// The web's consent line; Pay Now stays disabled until it is ticked.
+const String kCabConsentText =
+    'I confirm that the booking details are accurate, the traveller has '
+    'consented to this reservation and agrees to the Terms & Conditions, and '
+    "I authorize Happy Wedz to use the traveller's email and phone number to "
+    'share cab and driver details.';
 
 class CabBookingPage extends StatefulWidget {
   const CabBookingPage({
@@ -32,9 +64,8 @@ class CabBookingPage extends StatefulWidget {
     required this.api,
     required this.quote,
     required this.result,
-    required this.pickupLabel,
-    required this.dropLabel,
-    required this.pickupAt,
+    required this.query,
+    this.restore,
   });
 
   final HoneymoonApi api;
@@ -44,9 +75,11 @@ class CabBookingPage extends StatefulWidget {
   /// back verbatim in the booking payload.
   final CabQuoteResult result;
 
-  final String pickupLabel;
-  final String dropLabel;
-  final DateTime pickupAt;
+  /// The search the quote came from (labels, times, the draft on sign-out).
+  final CabSearchQuery query;
+
+  /// A booking parked across a sign-in: its typed details refill the form.
+  final CabBookingDraft? restore;
 
   @override
   State<CabBookingPage> createState() => _CabBookingPageState();
@@ -65,17 +98,73 @@ class _CabBookingPageState extends State<CabBookingPage> {
   final Map<String, String> _errors = {};
   final Map<String, GlobalKey> _anchors = {};
 
+  bool _travellerOpen = true;
+  bool _consent = false;
   bool _submitting = false;
   String? _stage;
-  String? _error;
 
-  /// Set once the supplier has a booking. Kept so a failed payment can be
-  /// retried, or reconciled, against the booking that already exists.
-  String? _bookingId;
+  /// The payment error the web shows under the booking (`paymentError`).
+  String? _paymentError;
 
-  /// Shown after a payment whose result we never saw — the money may have
-  /// left the traveller's account even though we got no confirmation.
-  bool _canReconcile = false;
+  /// Set once the supplier has a booking; every retry pays against it.
+  CabCreatedBooking? _booking;
+
+  /// True after a verification whose outcome is unknown — Retry stays
+  /// hidden until the status has been checked (`canCheckStatus`).
+  bool _canCheckStatus = false;
+
+  /// The signed-in account, sent as the booking's agent (`agentId`,
+  /// `agentEmail`), as the web sends `user.id` / `user.email`.
+  int? _userId;
+  String _userEmail = '';
+
+  bool get _isAirportTransfer => widget.result.isAirportTransfer;
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = widget.restore;
+    if (draft != null) {
+      _firstName.text = draft.firstName;
+      _lastName.text = draft.lastName;
+      _email.text = draft.email;
+      _phone.text = draft.phone;
+      _flightNumber.text = draft.flightNumber;
+      _request.text = draft.serviceRequest;
+    }
+    _prefill();
+  }
+
+  /// "Prefill from the logged-in profile where we can" — only into fields
+  /// still empty, so nothing typed (or restored) is overwritten.
+  Future<void> _prefill() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = await UserPrefs.getUserId();
+      final name = (await UserPrefs.getUserName() ?? '').trim();
+      final email = (await UserPrefs.getUserEmail() ?? '').trim();
+      final phone = firstNonEmpty([
+        prefs.getString(UserPrefs.userPhoneKey),
+        prefs.getString(UserPrefs.userMobileKey),
+      ]);
+      if (!mounted) return;
+      final parts = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+      setState(() {
+        _userId = id;
+        _userEmail = email;
+        if (_firstName.text.isEmpty && parts.isNotEmpty) {
+          _firstName.text = parts.first;
+        }
+        if (_lastName.text.isEmpty && parts.length > 1) {
+          _lastName.text = parts.skip(1).join(' ');
+        }
+        if (_email.text.isEmpty) _email.text = email;
+        if (_phone.text.isEmpty) _phone.text = phone;
+      });
+    } catch (e) {
+      debugPrint('[CabBookingPage] profile prefill skipped: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -94,13 +183,25 @@ class _CabBookingPageState extends State<CabBookingPage> {
 
   GlobalKey _anchorFor(String key) => _anchors.putIfAbsent(key, GlobalKey.new);
 
+  /// No markup is charged (agreed: the web's agent markup is left out), so
+  /// the traveller pays exactly the quoted gross.
+  double get _total => widget.quote.price;
+
+  /// The web's "Price breakup" panel.
   FareBreakdown get _fare => FareBreakdown(
     lines: [
-      FareLine('Base fare', widget.quote.netFare, detail: widget.quote.vehicleName),
-      if (widget.quote.totalTax > 0)
-        FareLine('Taxes & fees', widget.quote.totalTax),
+      FareLine(
+        'Net fare',
+        widget.quote.netFare,
+        parts: [
+          FareLine('Forward Trip', widget.quote.netFare),
+          const FareLine('Management Fee', 0),
+        ],
+      ),
+      const FareLine('Other fees', 0),
+      FareLine('Service Fee', widget.quote.totalTax),
     ],
-    total: widget.quote.price,
+    total: _total,
   );
 
   // -------------------------------------------------------------------------
@@ -118,17 +219,20 @@ class _CabBookingPageState extends State<CabBookingPage> {
     }
     final email = _email.text.trim();
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      errors['email'] = 'Enter a valid email address';
+      errors['email'] = 'Enter a valid email';
     }
     final phone = _phone.text.replaceAll(RegExp(r'[\s-]'), '');
     if (!RegExp(r'^\+?\d{8,15}$').hasMatch(phone)) {
       errors['phone'] = 'Enter a valid phone number';
     }
+    // The flight number is marked required for airport transfers but, as on
+    // the web, not enforced.
 
     setState(() {
       _errors
         ..clear()
         ..addAll(errors);
+      if (errors.isNotEmpty) _travellerOpen = true;
     });
 
     if (errors.isNotEmpty) {
@@ -151,7 +255,8 @@ class _CabBookingPageState extends State<CabBookingPage> {
       ..lastName = _lastName.text.trim()
       ..email = email
       ..phone = _phone.text.trim()
-      ..flightNumber = _flightNumber.text.trim()
+      // Only airport transfers carry `flightDetails`, as on the web.
+      ..flightNumber = _isAirportTransfer ? _flightNumber.text.trim() : ''
       ..serviceRequest = _request.text.trim();
     return true;
   }
@@ -160,6 +265,7 @@ class _CabBookingPageState extends State<CabBookingPage> {
   // Booking + payment
   // -------------------------------------------------------------------------
 
+  /// `buildCabBookingPayload`.
   Map<String, dynamic> get _bookingPayload => <String, dynamic>{
     'journeyInfo': widget.result.journeyInfo,
     // The quotes response calls this `routeDetails`; the booking endpoint
@@ -171,132 +277,199 @@ class _CabBookingPageState extends State<CabBookingPage> {
     'passengerDetail': _passenger.toJson(),
     'serviceRequest': _passenger.serviceRequest,
     'consent': 'yes',
-    'agentEmail': _passenger.email,
+    // 'agentEmail': _passenger.email,
+    // The account books as the agent: `user.email || form.email`, the
+    // traveller's phone, and `user.id`.
+    'agentEmail': _userEmail.isNotEmpty ? _userEmail : _passenger.email,
     'agentPhone': _passenger.phone,
+    if (_userId != null) 'agentId': _userId,
     'vendorId': widget.quote.vendorId,
   };
 
-  Future<void> _bookAndPay() async {
-    if (_submitting) return;
+  /// Re-checks the session before anything is booked or charged. A lapsed
+  /// one parks what was typed; `AuthGate` then takes the traveller to sign
+  /// in and the honeymoon screen offers the booking back afterwards.
+  Future<bool> _ensureSession() async {
+    if (await AuthSession.instance.refresh()) return true;
+    await CabDraftStore.save(
+      CabBookingDraft(
+        query: widget.query,
+        quoteIdentity: cabQuoteIdentity(widget.quote),
+        vehicleLabel: widget.quote.vehicleName,
+        firstName: _firstName.text.trim(),
+        lastName: _lastName.text.trim(),
+        email: _email.text.trim(),
+        phone: _phone.text.trim(),
+        flightNumber: _flightNumber.text.trim(),
+        serviceRequest: _request.text.trim(),
+        savedAt: DateTime.now(),
+      ),
+    );
+    return false;
+  }
+
+  /// "Pay Now": create the booking once, then run the payment.
+  Future<void> _submit() async {
+    if (_submitting || !_consent) return;
     FocusScope.of(context).unfocus();
     if (!_validate()) return;
+    if (!await _ensureSession() || !mounted) return;
 
     setState(() {
       _submitting = true;
-      _error = null;
-      _canReconcile = false;
+      _paymentError = null;
     });
 
     try {
-      // Reuse an existing booking when the traveller is retrying a payment —
-      // creating a second one would double-book the same car.
-      var bookingId = _bookingId;
-      if (bookingId == null) {
-        setState(() => _stage = 'Reserving your cab…');
-        final booking = await widget.api.createCabBooking(_bookingPayload);
-        bookingId = asString(readKey(booking, 'id'));
+      var booking = _booking;
+      if (booking == null) {
+        setState(() => _stage = 'Creating booking...');
+        final created = CabCreatedBooking.fromJson(
+          await widget.api.createCabBooking(_bookingPayload),
+        );
         if (!mounted) return;
-        setState(() => _bookingId = bookingId);
+        setState(() => _booking = created);
+        booking = created;
       }
+      await _runPayment(booking);
+    } on HoneymoonApiException catch (e) {
+      if (!mounted) return;
+      AppSnackbar.error(
+        context,
+        e.message.isNotEmpty ? e.message : 'Booking failed. Please try again.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      AppSnackbar.error(context, 'Booking failed. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _stage = null;
+        });
+      }
+    }
+  }
 
-      setState(() => _stage = 'Starting secure payment…');
-      final order = await widget.api.createCabPaymentOrder(
-        bookingId: bookingId,
-        // The traveller pays what the page shows; the supplier is settled at
-        // the quoted gross. Sending the same figure for both is rejected once
-        // a service charge is applied.
-        amount: _fare.total,
+  /// The web's `runPayment`: order → Razorpay → verify.
+  Future<void> _runPayment(CabCreatedBooking booking) async {
+    setState(() {
+      _paymentError = null;
+      _stage = 'Starting payment...';
+    });
+
+    final PaymentOrder order;
+    try {
+      order = await widget.api.createCabPaymentOrder(
+        bookingId: booking.id,
+        amount: _total,
+        // What TripJack is owed for the quote — settlement rejects anything
+        // else ("Net Payable Amount is <quote>").
         supplierAmount: widget.quote.price,
       );
-      if (!mounted) return;
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _paymentError = 'Could not start the payment. Please retry.',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
 
-      setState(() => _stage = null);
-      final outcome = await RazorpayCheckout.open(
-        context,
-        order: order,
-        title: 'HappyWedz Cabs',
-        description: '${widget.quote.vehicleName} · $bookingId',
-        prefill: (
-          name: '${_passenger.firstName} ${_passenger.lastName}'.trim(),
-          email: _passenger.email,
-          contact: _passenger.phone,
-        ),
-      );
-      if (!mounted) return;
+    setState(() => _stage = 'Opening payment gateway...');
+    final outcome = await RazorpayCheckout.open(
+      context,
+      order: order,
+      title: 'HappyWedz Cabs',
+      description:
+          '${widget.quote.label.isNotEmpty ? widget.quote.label : widget.quote.vehicleName} — ${booking.id}',
+      prefill: (
+        name: '${_passenger.firstName} ${_passenger.lastName}'.trim(),
+        email: _passenger.email,
+        contact: _passenger.phone,
+      ),
+    );
+    if (!mounted) return;
 
-      switch (outcome) {
-        case RazorpayDismissed():
-          setState(
-            () => _error = 'The payment was cancelled before it completed.',
-          );
-        case RazorpayFailure(:final message):
-          setState(() => _error = message);
-        case RazorpaySuccess(:final result):
-          setState(() => _stage = 'Confirming your cab…');
-          final confirmed = await widget.api.verifyCabPayment({
+    switch (outcome) {
+      case RazorpayDismissed():
+        setState(
+          () => _paymentError = 'Payment was cancelled before completion.',
+        );
+      case RazorpayFailure(:final message):
+        setState(
+          () => _paymentError = message.isNotEmpty
+              ? message
+              : 'Payment failed. Please try again.',
+        );
+      case RazorpaySuccess(:final result):
+        setState(() => _stage = 'Confirming your cab...');
+        try {
+          final verified = await widget.api.verifyCabPayment({
             ...result.toVerifyJson(),
-            'bookingId': bookingId,
+            'bookingId': booking.id,
           });
           if (!mounted) return;
-          _goToConfirmation(confirmed);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = bookingErrorText(e);
-        // The signature may have been valid and settlement failed afterwards,
-        // in which case the backend refunds — but the traveller cannot know
-        // that from here, so offer the reconciliation instead of a dead end.
-        _canReconcile = _bookingId != null;
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-          _stage = null;
-        });
-      }
+          _openConfirmation(
+            booking: booking,
+            detail: CabBookingDetail.fromVerify(verified.raw),
+            paymentRef: firstNonEmpty([
+              readKey(verified.raw, 'paymentId'),
+              result.paymentId,
+            ]),
+            paid: true,
+          );
+        } catch (e) {
+          if (!mounted) return;
+          // Signature valid but settlement failed → the backend has already
+          // refunded; a lost response looks the same from here. Check the
+          // status before offering another payment.
+          setState(() {
+            _paymentError =
+                e is HoneymoonApiException &&
+                    e.statusCode != null &&
+                    e.message.isNotEmpty
+                ? e.message
+                : 'Payment could not be confirmed. If you were charged, it '
+                      'will be refunded.';
+            _canCheckStatus = true;
+          });
+        }
     }
   }
 
-  /// Reconciles against the supplier when a payment result was lost — a
-  /// dropped connection after the charge, most often.
+  /// `handleCheckStatus`: reconcile against TripJack when a verification
+  /// result was lost.
   Future<void> _checkStatus() async {
-    final bookingId = _bookingId;
-    if (bookingId == null || _submitting) return;
-
+    final booking = _booking;
+    if (booking == null || _submitting) return;
     setState(() {
       _submitting = true;
-      _stage = 'Checking payment status…';
+      _stage = 'Checking payment status...';
     });
-
     try {
-      final bookings = await widget.api.fetchCabBookings([bookingId]);
+      final details = await widget.api.fetchCabBookingDetails([booking.id]);
       if (!mounted) return;
-
-      final booking = bookings.isEmpty ? null : bookings.first;
-      if (booking != null &&
-          booking.paymentStatus.toUpperCase() == 'SUCCESS') {
-        _goToConfirmation(
-          BookingOutcome(
-            product: TravelProduct.cab,
-            reference: booking.reference,
-            status: booking.status,
-            amountPaid: booking.amount,
-          ),
+      final detail = details.isEmpty ? null : details.first;
+      if (detail != null && detail.isPaid) {
+        AppSnackbar.success(
+          context,
+          'Payment already completed. Your cab is booked.',
         );
+        _openConfirmation(booking: booking, detail: detail, paid: true);
         return;
       }
-
       setState(() {
-        _canReconcile = false;
-        _error =
-            'That payment has not been confirmed. You can safely try paying '
-            'again — you will not be charged twice for the same booking.';
+        _canCheckStatus = false;
+        _paymentError = 'Payment is not confirmed yet. You can pay again.';
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _error = bookingErrorText(e));
+      setState(() {
+        _canCheckStatus = false;
+        _paymentError = 'Could not check status. You can pay again.';
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -307,69 +480,39 @@ class _CabBookingPageState extends State<CabBookingPage> {
     }
   }
 
-  void _goToConfirmation(BookingOutcome outcome) {
-    // Captured before the replace: this State's context is gone by the time
-    // the confirmation screen's actions fire.
-    final navigator = Navigator.of(context);
+  Future<void> _retryPayment() async {
+    final booking = _booking;
+    if (booking == null || _submitting || _canCheckStatus) return;
+    if (!await _ensureSession() || !mounted) return;
+    setState(() => _submitting = true);
+    try {
+      await _runPayment(booking);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _stage = null;
+        });
+      }
+    }
+  }
 
-    navigator.pushReplacement(
+  void _openConfirmation({
+    required CabCreatedBooking booking,
+    CabBookingDetail? detail,
+    String paymentRef = '',
+    required bool paid,
+  }) {
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => BookingConfirmationPage(
-          outcome: outcome,
-          onViewBookings: () {
-            // Unwind the checkout first so "back" from My trips lands where
-            // the traveller started, not inside a spent booking form.
-            navigator.popUntil((route) => route.isFirst);
-            navigator.push(
-              MaterialPageRoute(
-                builder: (_) => const MyTripsPage(
-                  initialProduct: TravelProduct.cab,
-                ),
-              ),
-            );
-          },
-          summaryTitle: widget.quote.vehicleName,
-          summarySubtitle: '${widget.pickupLabel} → ${widget.dropLabel}',
-          details: [
-            DetailRow(
-              label: 'Pick-up',
-              value: formatTripDateTime(widget.pickupAt),
-              icon: Icons.schedule_rounded,
-            ),
-            DetailRow(
-              label: 'From',
-              value: widget.pickupLabel,
-              icon: Icons.trip_origin_rounded,
-            ),
-            DetailRow(
-              label: 'To',
-              value: widget.dropLabel,
-              icon: Icons.place_outlined,
-            ),
-            DetailRow(
-              label: 'Passenger',
-              value: '${_passenger.firstName} ${_passenger.lastName}'.trim(),
-              icon: Icons.person_outline_rounded,
-            ),
-          ],
-          nextSteps: const [
-            (
-              title: 'Voucher on its way',
-              body: 'Your booking voucher is emailed right after the payment.',
-            ),
-            (
-              title: 'Cab and driver details',
-              body:
-                  'We share the vehicle and driver details about 6 hours '
-                  'before your pick-up.',
-            ),
-            (
-              title: 'On-time pick-up',
-              body:
-                  'Your cab arrives at the pick-up point at the scheduled '
-                  'time. Enjoy the ride.',
-            ),
-          ],
+        builder: (_) => CabConfirmationPage(
+          api: widget.api,
+          booking: booking,
+          detail: detail,
+          paymentRef: paymentRef,
+          paid: paid,
+          quote: widget.quote,
+          query: widget.query,
         ),
       ),
     );
@@ -381,11 +524,12 @@ class _CabBookingPageState extends State<CabBookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isAirport = widget.result.isAirportTransfer;
+    final booking = _booking;
+    final hasBooking = booking != null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const AppTopBar(title: 'Confirm your transfer', elevated: true),
+      appBar: const AppTopBar(title: 'Cab Review', elevated: true),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
@@ -394,183 +538,207 @@ class _CabBookingPageState extends State<CabBookingPage> {
           AppSpacing.xxxl,
         ),
         children: [
-          if (_error != null) ...[
+          if (hasBooking) ...[
+            _BookingCreatedBanner(
+              bookingId: booking.id,
+              error: _paymentError,
+              busy: _submitting,
+              canRetry: !_canCheckStatus,
+              onCheckStatus: _checkStatus,
+              onRetry: _retryPayment,
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ] else if (_paymentError != null) ...[
             InfoBanner(
               tone: InfoTone.error,
               icon: Icons.error_outline_rounded,
-              message: _error!,
-              action: _canReconcile
-                  ? PremiumButton.text(
-                      label: 'Check status',
-                      size: PremiumButtonSize.small,
-                      onPressed: _submitting ? null : _checkStatus,
-                    )
-                  : null,
+              message: _paymentError!,
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
           ],
 
-          _JourneyCard(
-            pickupLabel: widget.pickupLabel,
-            dropLabel: widget.dropLabel,
-            pickupAt: widget.pickupAt,
+          _TripCard(result: widget.result, query: widget.query),
+          const SizedBox(height: AppSpacing.md),
+
+          _VehicleCard(
+            quote: widget.quote,
+            total: _total,
+            onPolicies: () => showCabPolicySheet(context, widget.quote),
           ),
           const SizedBox(height: AppSpacing.md),
 
-          _VehicleCard(quote: widget.quote),
+          _travellerSection(),
           const SizedBox(height: AppSpacing.md),
 
-          FormSection(
-            title: 'Lead passenger',
-            subtitle: 'The driver will look for this name',
-            icon: Icons.person_outline_rounded,
-            children: [
-              KeyedSubtree(
-                key: _anchorFor('firstName'),
-                child: AppTextField(
-                  controller: _firstName,
-                  label: 'First name',
-                  required: true,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  errorText: _errors['firstName'],
-                  autofillHints: const [AutofillHints.givenName],
-                  onChanged: (_) => _clear('firstName'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              KeyedSubtree(
-                key: _anchorFor('lastName'),
-                child: AppTextField(
-                  controller: _lastName,
-                  label: 'Last name',
-                  required: true,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  errorText: _errors['lastName'],
-                  autofillHints: const [AutofillHints.familyName],
-                  onChanged: (_) => _clear('lastName'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              KeyedSubtree(
-                key: _anchorFor('email'),
-                child: AppTextField(
-                  controller: _email,
-                  label: 'Email address',
-                  required: true,
-                  hint: 'you@example.com',
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  errorText: _errors['email'],
-                  autofillHints: const [AutofillHints.email],
-                  onChanged: (_) => _clear('email'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              KeyedSubtree(
-                key: _anchorFor('phone'),
-                child: AppTextField(
-                  controller: _phone,
-                  label: 'Mobile number',
-                  required: true,
-                  helperText: 'The driver calls this number on the day',
-                  keyboardType: TextInputType.phone,
-                  maxLength: 15,
-                  errorText: _errors['phone'],
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
-                  ],
-                  autofillHints: const [AutofillHints.telephoneNumber],
-                  onChanged: (_) => _clear('phone'),
-                ),
-              ),
-              if (isAirport) ...[
-                const SizedBox(height: AppSpacing.md),
-                AppTextField(
-                  controller: _flightNumber,
-                  label: 'Flight number',
-                  hint: 'e.g. 6E 2134',
-                  helperText:
-                      'Optional — lets the driver track your flight and wait '
-                      'if it is delayed',
-                  textCapitalization: TextCapitalization.characters,
-                ),
-              ],
-            ],
-          ),
+          const _NextStepsCard(),
           const SizedBox(height: AppSpacing.md),
 
-          FormSection(
-            title: 'Anything we should know?',
-            subtitle: 'Optional',
-            icon: Icons.chat_bubble_outline_rounded,
-            children: [
-              AppTextField(
-                controller: _request,
-                hint: 'Child seat, extra luggage, a different pick-up point…',
-                maxLines: 3,
-                minLines: 2,
-                maxLength: 200,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-            ],
-          ),
-
-          if (widget.quote.benefits.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            FormSection(
-              title: 'Included',
-              icon: Icons.verified_outlined,
+          // The web's consent checkbox; Pay Now is disabled until ticked.
+          Pressable(
+            onTap: hasBooking
+                ? null
+                : () => setState(() => _consent = !_consent),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final benefit in widget.quote.benefits)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(
-                            Icons.check_circle_outline_rounded,
-                            size: 16,
-                            color: AppColors.successDark,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(child: Text(benefit, style: AppText.bodySm)),
-                      ],
-                    ),
+                Checkbox(
+                  value: _consent,
+                  onChanged: hasBooking
+                      ? null
+                      : (v) => setState(() => _consent = v ?? false),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: Text(kCabConsentText, style: AppText.bodySm),
                   ),
+                ),
               ],
             ),
-          ],
+          ),
 
-          const SizedBox(height: AppSpacing.lg),
           if (_stage != null) ...[
-            InfoBanner(
-              icon: Icons.autorenew_rounded,
-              message: _stage!,
-            ),
             const SizedBox(height: AppSpacing.md),
+            InfoBanner(icon: Icons.autorenew_rounded, message: _stage!),
           ],
-          const TermsNotice(product: 'transfer'),
         ],
       ),
       bottomNavigationBar: BookingActionBar(
         fare: _fare,
-        priceLabel: 'Total payable',
-        actionLabel: 'Pay & confirm',
+        priceLabel: 'Total amount',
+        actionLabel: hasBooking ? 'Retry payment' : 'Pay Now',
         isLoading: _submitting,
-        onAction: _bookAndPay,
-        onShowBreakdown: () => showFareBreakdownSheet(
-          context,
-          _fare,
-          title: 'Fare breakdown',
-          footnote:
-              'Tolls, parking and any waiting time beyond the included '
-              'allowance are payable to the driver.',
-        ),
+        enabled: hasBooking ? !_canCheckStatus : _consent,
+        onAction: hasBooking ? _retryPayment : _submit,
+        onShowBreakdown: () =>
+            showFareBreakdownSheet(context, _fare, title: 'Price breakup'),
+      ),
+    );
+  }
+
+  Widget _travellerSection() {
+    final locked = _booking != null;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Pressable(
+            onTap: () => setState(() => _travellerOpen = !_travellerOpen),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Primary traveller details',
+                    style: AppText.cardTitle,
+                  ),
+                ),
+                Icon(
+                  _travellerOpen
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                ),
+              ],
+            ),
+          ),
+          if (_travellerOpen) ...[
+            const SizedBox(height: AppSpacing.sm),
+            const InfoBanner(
+              icon: Icons.info_outline_rounded,
+              message:
+                  'We will use your email and contact number to share cab and '
+                  'driver details 6 hours before trip start',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            KeyedSubtree(
+              key: _anchorFor('firstName'),
+              child: AppTextField(
+                controller: _firstName,
+                label: 'First name',
+                hint: 'Enter first name',
+                required: true,
+                enabled: !locked,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                errorText: _errors['firstName'],
+                autofillHints: const [AutofillHints.givenName],
+                onChanged: (_) => _clear('firstName'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            KeyedSubtree(
+              key: _anchorFor('lastName'),
+              child: AppTextField(
+                controller: _lastName,
+                label: 'Last name',
+                hint: 'Enter last name',
+                required: true,
+                enabled: !locked,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                errorText: _errors['lastName'],
+                autofillHints: const [AutofillHints.familyName],
+                onChanged: (_) => _clear('lastName'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            KeyedSubtree(
+              key: _anchorFor('email'),
+              child: AppTextField(
+                controller: _email,
+                label: 'Email address',
+                hint: 'Enter email address',
+                required: true,
+                enabled: !locked,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                errorText: _errors['email'],
+                autofillHints: const [AutofillHints.email],
+                onChanged: (_) => _clear('email'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            KeyedSubtree(
+              key: _anchorFor('phone'),
+              child: AppTextField(
+                controller: _phone,
+                label: 'Phone number',
+                hint: '+91',
+                required: true,
+                enabled: !locked,
+                keyboardType: TextInputType.phone,
+                maxLength: 16,
+                errorText: _errors['phone'],
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s-]')),
+                ],
+                autofillHints: const [AutofillHints.telephoneNumber],
+                onChanged: (_) => _clear('phone'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
+              controller: _flightNumber,
+              // Marked required for airport transfers, as the web marks it —
+              // and, as there, not enforced.
+              label: _isAirportTransfer
+                  ? 'Flight Number'
+                  : 'Flight Number (optional)',
+              required: _isAirportTransfer,
+              hint: 'Enter Flight Number',
+              enabled: !locked,
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
+              controller: _request,
+              label: 'Special service request (optional)',
+              hint: 'Enter request',
+              enabled: !locked,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -583,57 +751,156 @@ class _CabBookingPageState extends State<CabBookingPage> {
 
 // ---------------------------------------------------------------------------
 
-class _JourneyCard extends StatelessWidget {
-  const _JourneyCard({
-    required this.pickupLabel,
-    required this.dropLabel,
-    required this.pickupAt,
+/// The web's "Booking created" state: the booking exists, payment is not
+/// confirmed — its id, the payment error, and the two recovery actions.
+class _BookingCreatedBanner extends StatelessWidget {
+  const _BookingCreatedBanner({
+    required this.bookingId,
+    required this.error,
+    required this.busy,
+    required this.canRetry,
+    required this.onCheckStatus,
+    required this.onRetry,
   });
 
-  final String pickupLabel;
-  final String dropLabel;
-  final DateTime pickupAt;
+  final String bookingId;
+  final String? error;
+  final bool busy;
+  final bool canRetry;
+  final VoidCallback onCheckStatus;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
+              const Icon(Icons.pending_rounded, color: AppColors.warning),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text('Booking created', style: AppText.cardTitle),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          SelectableText('Booking ID: $bookingId', style: AppText.bodySm),
+          if (error != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            InfoBanner(
+              tone: InfoTone.error,
+              icon: Icons.error_outline_rounded,
+              message: error!,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                PremiumButton.outlined(
+                  label: 'Check payment status',
+                  size: PremiumButtonSize.small,
+                  expanded: false,
+                  onPressed: busy ? null : onCheckStatus,
+                ),
+                // Hidden right after a lost verification: confirm the status
+                // first so a completed-but-unacknowledged debit isn't charged
+                // twice.
+                if (canRetry)
+                  PremiumButton(
+                    label: 'Retry payment',
+                    size: PremiumButtonSize.small,
+                    expanded: false,
+                    onPressed: busy ? null : onRetry,
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// "Cab Booking | One Way" with pickup, drop, time and distance.
+class _TripCard extends StatelessWidget {
+  const _TripCard({required this.result, required this.query});
+
+  final CabQuoteResult result;
+  final CabSearchQuery query;
+
+  @override
+  Widget build(BuildContext context) {
+    final journey = result.journeyInfo;
+    final route = result.routeDetails;
+    final tripType = firstNonEmpty([
+      readKey(journey, 'tripType'),
+      query.tripType,
+    ]);
+    final pickup = firstNonEmpty([
+      digPath(route, ['origin', 'displayAddress']),
+      query.originLabel,
+    ]);
+    final drop = firstNonEmpty([
+      digPath(route, ['destination', 'displayAddress']),
+      query.destinationLabel,
+    ]);
+    final when =
+        DateTime.tryParse(asString(readKey(journey, 'pickupDateTime'))) ??
+        query.pickupAt;
+    final distance = asString(readKey(journey, 'distance'));
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Cab Booking | ${cabTripTitle(tripType)}',
+            style: AppText.cardTitle,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Stop(
+            icon: Icons.trip_origin_rounded,
+            label: 'Pickup',
+            value: pickup,
+            showConnector: true,
+          ),
+          _Stop(
+            icon: Icons.place_rounded,
+            label: 'Drop',
+            value: drop,
+            showConnector: false,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
               const Icon(
-                Icons.schedule_rounded,
+                Icons.event_rounded,
                 size: 16,
                 color: AppColors.primary,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  formatTripDateTime(pickupAt),
+                  distance.isEmpty
+                      ? formatCabDateTime(when)
+                      : '${formatCabDateTime(when)} | $distance',
                   style: AppText.bodyStrong,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          // A vertical timeline reads better than two columns when addresses
-          // are long enough to wrap, which they usually are.
-          _Stop(
-            icon: Icons.trip_origin_rounded,
-            label: 'Pick-up',
-            value: pickupLabel,
-            showConnector: true,
-          ),
-          _Stop(
-            icon: Icons.place_rounded,
-            label: 'Drop-off',
-            value: dropLabel,
-            showConnector: false,
-          ),
+          if (query.returnAt != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Return: ${formatCabDateTime(query.returnAt!)}',
+              style: AppText.caption,
+            ),
+          ],
         ],
       ),
     );
@@ -675,7 +942,9 @@ class _Stop extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: showConnector ? AppSpacing.lg : 0),
+              padding: EdgeInsets.only(
+                bottom: showConnector ? AppSpacing.lg : 0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -693,73 +962,935 @@ class _Stop extends StatelessWidget {
   }
 }
 
+/// The web's vehicle card: class badge and image, seats and bags, View
+/// policies, and the fare "Inc. GST".
 class _VehicleCard extends StatelessWidget {
-  const _VehicleCard({required this.quote});
+  const _VehicleCard({
+    required this.quote,
+    required this.total,
+    required this.onPolicies,
+  });
 
   final CabQuote quote;
+  final double total;
+  final VoidCallback onPolicies;
 
   @override
   Widget build(BuildContext context) {
+    final name = quote.label.isNotEmpty ? quote.label : quote.vehicleType;
     return AppCard(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (quote.imageUrl.isNotEmpty)
-            NetworkImageWidget(
-              url: quote.imageUrl,
-              width: 76,
-              height: 58,
-              radius: AppRadii.md,
-              memCacheWidth: 230,
-            )
-          else
-            Container(
-              width: 76,
-              height: 58,
-              decoration: const BoxDecoration(
-                color: AppColors.pinkSurface,
-                borderRadius: AppRadii.rMd,
-              ),
-              child: const Icon(
-                Icons.directions_car_filled_rounded,
-                color: AppColors.primary,
-              ),
-            ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  quote.vehicleName,
-                  style: AppText.cardTitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (quote.imageUrl.isNotEmpty)
+                NetworkImageWidget(
+                  url: quote.imageUrl,
+                  width: 84,
+                  height: 64,
+                  radius: AppRadii.md,
+                  memCacheWidth: 250,
+                )
+              else
+                Container(
+                  width: 84,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.pinkSurface,
+                    borderRadius: AppRadii.rMd,
+                  ),
+                  child: const Icon(
+                    Icons.local_taxi_rounded,
+                    color: AppColors.primary,
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (quote.category.isNotEmpty)
-                      MetaChip(label: quote.category),
-                    if (quote.seats > 0)
-                      MetaChip(
-                        icon: Icons.event_seat_rounded,
-                        label: '${quote.seats} seats',
-                      ),
-                    if (quote.luggage > 0)
-                      MetaChip(
-                        icon: Icons.luggage_rounded,
-                        label: '${quote.luggage} bags',
-                      ),
+                    if (name.isNotEmpty) MetaChip(label: name.toUpperCase()),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      name.isEmpty ? quote.vehicleName : name,
+                      style: AppText.cardTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        MetaChip(
+                          icon: Icons.people_alt_rounded,
+                          label: '${quote.seats > 0 ? quote.seats : '-'} Seats',
+                        ),
+                        MetaChip(
+                          icon: Icons.luggage_rounded,
+                          label:
+                              '${quote.luggage > 0 ? quote.luggage : '-'} Bags',
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              PremiumButton.text(
+                label: 'View policies',
+                size: PremiumButtonSize.small,
+                onPressed: onPolicies,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // A large fare shrinks to fit rather than overflowing.
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(formatPrice(total), style: AppText.price),
+                    ),
+                    Text('Inc. GST', style: AppText.caption),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 }
+
+class _NextStepsCard extends StatelessWidget {
+  const _NextStepsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < kCabNextSteps.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppSpacing.md),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.pinkSurface,
+                    borderRadius: AppRadii.rPill,
+                  ),
+                  child: Text(
+                    'Step ${i + 1}',
+                    style: AppText.labelSm.copyWith(color: AppColors.primary),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(kCabNextSteps[i].title, style: AppText.bodyStrong),
+                      Text(kCabNextSteps[i].body, style: AppText.caption),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Previous implementation, kept for reference (replaced to match the web's
+// review page: consent, price breakup, agentId/agentEmail, profile prefill,
+// the "check status before retrying" payment rule, and a success page built
+// from the server's booking).
+// ---------------------------------------------------------------------------
+// /// The airport-transfer booking funnel.
+// ///
+// /// Cabs are the shortest of the four flows — one lead passenger, no seat map,
+// /// no fare rules — so it stays a single scroll with a sticky pay bar rather
+// /// than a stepper.
+// ///
+// /// ```
+// /// book (payment pending)  →  pay  →  verify + settle  →  confirmed
+// /// ```
+// ///
+// /// The booking is created *before* the payment, so a lost verification does
+// /// not lose the booking: [_checkStatus] reconciles against the supplier and
+// /// either confirms it or lets the traveller pay again.
+// library;
+//
+// import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart';
+//
+// import '../../../core/core.dart';
+// import '../../data/honeymoon_api.dart';
+// import '../../models/booking_models.dart';
+// import '../../models/honeymoon_models.dart';
+// import '../../payment/razorpay_checkout.dart';
+// import '../widgets/honeymoon_widgets.dart';
+// import '../bookings/my_trips_page.dart';
+// import 'booking_confirmation_page.dart';
+// import 'booking_widgets.dart';
+//
+// class CabBookingPage extends StatefulWidget {
+//   const CabBookingPage({
+//     super.key,
+//     required this.api,
+//     required this.quote,
+//     required this.result,
+//     required this.pickupLabel,
+//     required this.dropLabel,
+//     required this.pickupAt,
+//   });
+//
+//   final HoneymoonApi api;
+//   final CabQuote quote;
+//
+//   /// The whole quotes response — `journeyInfo` and `routeDetails` are echoed
+//   /// back verbatim in the booking payload.
+//   final CabQuoteResult result;
+//
+//   final String pickupLabel;
+//   final String dropLabel;
+//   final DateTime pickupAt;
+//
+//   @override
+//   State<CabBookingPage> createState() => _CabBookingPageState();
+// }
+//
+// class _CabBookingPageState extends State<CabBookingPage> {
+//   final _passenger = CabPassengerInput();
+//
+//   final _firstName = TextEditingController();
+//   final _lastName = TextEditingController();
+//   final _email = TextEditingController();
+//   final _phone = TextEditingController();
+//   final _flightNumber = TextEditingController();
+//   final _request = TextEditingController();
+//
+//   final Map<String, String> _errors = {};
+//   final Map<String, GlobalKey> _anchors = {};
+//
+//   bool _submitting = false;
+//   String? _stage;
+//   String? _error;
+//
+//   /// Set once the supplier has a booking. Kept so a failed payment can be
+//   /// retried, or reconciled, against the booking that already exists.
+//   String? _bookingId;
+//
+//   /// Shown after a payment whose result we never saw — the money may have
+//   /// left the traveller's account even though we got no confirmation.
+//   bool _canReconcile = false;
+//
+//   @override
+//   void dispose() {
+//     for (final c in [
+//       _firstName,
+//       _lastName,
+//       _email,
+//       _phone,
+//       _flightNumber,
+//       _request,
+//     ]) {
+//       c.dispose();
+//     }
+//     super.dispose();
+//   }
+//
+//   GlobalKey _anchorFor(String key) => _anchors.putIfAbsent(key, GlobalKey.new);
+//
+//   FareBreakdown get _fare => FareBreakdown(
+//     lines: [
+//       FareLine('Base fare', widget.quote.netFare, detail: widget.quote.vehicleName),
+//       if (widget.quote.totalTax > 0)
+//         FareLine('Taxes & fees', widget.quote.totalTax),
+//     ],
+//     total: widget.quote.price,
+//   );
+//
+//   // -------------------------------------------------------------------------
+//   // Validation
+//   // -------------------------------------------------------------------------
+//
+//   bool _validate() {
+//     final errors = <String, String>{};
+//
+//     if (_firstName.text.trim().isEmpty) {
+//       errors['firstName'] = 'First name is required';
+//     }
+//     if (_lastName.text.trim().isEmpty) {
+//       errors['lastName'] = 'Last name is required';
+//     }
+//     final email = _email.text.trim();
+//     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+//       errors['email'] = 'Enter a valid email address';
+//     }
+//     final phone = _phone.text.replaceAll(RegExp(r'[\s-]'), '');
+//     if (!RegExp(r'^\+?\d{8,15}$').hasMatch(phone)) {
+//       errors['phone'] = 'Enter a valid phone number';
+//     }
+//
+//     setState(() {
+//       _errors
+//         ..clear()
+//         ..addAll(errors);
+//     });
+//
+//     if (errors.isNotEmpty) {
+//       WidgetsBinding.instance.addPostFrameCallback((_) {
+//         final ctx = _anchors[errors.keys.first]?.currentContext;
+//         if (ctx != null) {
+//           Scrollable.ensureVisible(
+//             ctx,
+//             duration: AppMotion.normal,
+//             curve: AppMotion.standard,
+//             alignment: 0.2,
+//           );
+//         }
+//       });
+//       return false;
+//     }
+//
+//     _passenger
+//       ..firstName = _firstName.text.trim()
+//       ..lastName = _lastName.text.trim()
+//       ..email = email
+//       ..phone = _phone.text.trim()
+//       ..flightNumber = _flightNumber.text.trim()
+//       ..serviceRequest = _request.text.trim();
+//     return true;
+//   }
+//
+//   // -------------------------------------------------------------------------
+//   // Booking + payment
+//   // -------------------------------------------------------------------------
+//
+//   Map<String, dynamic> get _bookingPayload => <String, dynamic>{
+//     'journeyInfo': widget.result.journeyInfo,
+//     // The quotes response calls this `routeDetails`; the booking endpoint
+//     // expects the singular. Renaming it here is not a typo.
+//     'routeDetail': widget.result.routeDetails,
+//     'addons': const <dynamic>[],
+//     'quotationInfo': widget.quote.toQuotationInfo(),
+//     'pricingInfo': widget.quote.toPricingInfo(),
+//     'passengerDetail': _passenger.toJson(),
+//     'serviceRequest': _passenger.serviceRequest,
+//     'consent': 'yes',
+//     'agentEmail': _passenger.email,
+//     'agentPhone': _passenger.phone,
+//     'vendorId': widget.quote.vendorId,
+//   };
+//
+//   Future<void> _bookAndPay() async {
+//     if (_submitting) return;
+//     FocusScope.of(context).unfocus();
+//     if (!_validate()) return;
+//
+//     setState(() {
+//       _submitting = true;
+//       _error = null;
+//       _canReconcile = false;
+//     });
+//
+//     try {
+//       // Reuse an existing booking when the traveller is retrying a payment —
+//       // creating a second one would double-book the same car.
+//       var bookingId = _bookingId;
+//       if (bookingId == null) {
+//         setState(() => _stage = 'Reserving your cab…');
+//         final booking = await widget.api.createCabBooking(_bookingPayload);
+//         bookingId = asString(readKey(booking, 'id'));
+//         if (!mounted) return;
+//         setState(() => _bookingId = bookingId);
+//       }
+//
+//       setState(() => _stage = 'Starting secure payment…');
+//       final order = await widget.api.createCabPaymentOrder(
+//         bookingId: bookingId,
+//         // The traveller pays what the page shows; the supplier is settled at
+//         // the quoted gross. Sending the same figure for both is rejected once
+//         // a service charge is applied.
+//         amount: _fare.total,
+//         supplierAmount: widget.quote.price,
+//       );
+//       if (!mounted) return;
+//
+//       setState(() => _stage = null);
+//       final outcome = await RazorpayCheckout.open(
+//         context,
+//         order: order,
+//         title: 'HappyWedz Cabs',
+//         description: '${widget.quote.vehicleName} · $bookingId',
+//         prefill: (
+//           name: '${_passenger.firstName} ${_passenger.lastName}'.trim(),
+//           email: _passenger.email,
+//           contact: _passenger.phone,
+//         ),
+//       );
+//       if (!mounted) return;
+//
+//       switch (outcome) {
+//         case RazorpayDismissed():
+//           setState(
+//             () => _error = 'The payment was cancelled before it completed.',
+//           );
+//         case RazorpayFailure(:final message):
+//           setState(() => _error = message);
+//         case RazorpaySuccess(:final result):
+//           setState(() => _stage = 'Confirming your cab…');
+//           final confirmed = await widget.api.verifyCabPayment({
+//             ...result.toVerifyJson(),
+//             'bookingId': bookingId,
+//           });
+//           if (!mounted) return;
+//           _goToConfirmation(confirmed);
+//       }
+//     } catch (e) {
+//       if (!mounted) return;
+//       setState(() {
+//         _error = bookingErrorText(e);
+//         // The signature may have been valid and settlement failed afterwards,
+//         // in which case the backend refunds — but the traveller cannot know
+//         // that from here, so offer the reconciliation instead of a dead end.
+//         _canReconcile = _bookingId != null;
+//       });
+//     } finally {
+//       if (mounted) {
+//         setState(() {
+//           _submitting = false;
+//           _stage = null;
+//         });
+//       }
+//     }
+//   }
+//
+//   /// Reconciles against the supplier when a payment result was lost — a
+//   /// dropped connection after the charge, most often.
+//   Future<void> _checkStatus() async {
+//     final bookingId = _bookingId;
+//     if (bookingId == null || _submitting) return;
+//
+//     setState(() {
+//       _submitting = true;
+//       _stage = 'Checking payment status…';
+//     });
+//
+//     try {
+//       final bookings = await widget.api.fetchCabBookings([bookingId]);
+//       if (!mounted) return;
+//
+//       final booking = bookings.isEmpty ? null : bookings.first;
+//       if (booking != null &&
+//           booking.paymentStatus.toUpperCase() == 'SUCCESS') {
+//         _goToConfirmation(
+//           BookingOutcome(
+//             product: TravelProduct.cab,
+//             reference: booking.reference,
+//             status: booking.status,
+//             amountPaid: booking.amount,
+//           ),
+//         );
+//         return;
+//       }
+//
+//       setState(() {
+//         _canReconcile = false;
+//         _error =
+//             'That payment has not been confirmed. You can safely try paying '
+//             'again — you will not be charged twice for the same booking.';
+//       });
+//     } catch (e) {
+//       if (!mounted) return;
+//       setState(() => _error = bookingErrorText(e));
+//     } finally {
+//       if (mounted) {
+//         setState(() {
+//           _submitting = false;
+//           _stage = null;
+//         });
+//       }
+//     }
+//   }
+//
+//   void _goToConfirmation(BookingOutcome outcome) {
+//     // Captured before the replace: this State's context is gone by the time
+//     // the confirmation screen's actions fire.
+//     final navigator = Navigator.of(context);
+//
+//     navigator.pushReplacement(
+//       MaterialPageRoute(
+//         builder: (_) => BookingConfirmationPage(
+//           outcome: outcome,
+//           onViewBookings: () {
+//             // Unwind the checkout first so "back" from My trips lands where
+//             // the traveller started, not inside a spent booking form.
+//             navigator.popUntil((route) => route.isFirst);
+//             navigator.push(
+//               MaterialPageRoute(
+//                 builder: (_) => const MyTripsPage(
+//                   initialProduct: TravelProduct.cab,
+//                 ),
+//               ),
+//             );
+//           },
+//           summaryTitle: widget.quote.vehicleName,
+//           summarySubtitle: '${widget.pickupLabel} → ${widget.dropLabel}',
+//           details: [
+//             DetailRow(
+//               label: 'Pick-up',
+//               value: formatTripDateTime(widget.pickupAt),
+//               icon: Icons.schedule_rounded,
+//             ),
+//             DetailRow(
+//               label: 'From',
+//               value: widget.pickupLabel,
+//               icon: Icons.trip_origin_rounded,
+//             ),
+//             DetailRow(
+//               label: 'To',
+//               value: widget.dropLabel,
+//               icon: Icons.place_outlined,
+//             ),
+//             DetailRow(
+//               label: 'Passenger',
+//               value: '${_passenger.firstName} ${_passenger.lastName}'.trim(),
+//               icon: Icons.person_outline_rounded,
+//             ),
+//           ],
+//           nextSteps: const [
+//             (
+//               title: 'Voucher on its way',
+//               body: 'Your booking voucher is emailed right after the payment.',
+//             ),
+//             (
+//               title: 'Cab and driver details',
+//               body:
+//                   'We share the vehicle and driver details about 6 hours '
+//                   'before your pick-up.',
+//             ),
+//             (
+//               title: 'On-time pick-up',
+//               body:
+//                   'Your cab arrives at the pick-up point at the scheduled '
+//                   'time. Enjoy the ride.',
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   // -------------------------------------------------------------------------
+//   // Build
+//   // -------------------------------------------------------------------------
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final isAirport = widget.result.isAirportTransfer;
+//
+//     return Scaffold(
+//       backgroundColor: AppColors.background,
+//       appBar: const AppTopBar(title: 'Confirm your transfer', elevated: true),
+//       body: ListView(
+//         padding: const EdgeInsets.fromLTRB(
+//           AppSpacing.lg,
+//           AppSpacing.lg,
+//           AppSpacing.lg,
+//           AppSpacing.xxxl,
+//         ),
+//         children: [
+//           if (_error != null) ...[
+//             InfoBanner(
+//               tone: InfoTone.error,
+//               icon: Icons.error_outline_rounded,
+//               message: _error!,
+//               action: _canReconcile
+//                   ? PremiumButton.text(
+//                       label: 'Check status',
+//                       size: PremiumButtonSize.small,
+//                       onPressed: _submitting ? null : _checkStatus,
+//                     )
+//                   : null,
+//             ),
+//             const SizedBox(height: AppSpacing.lg),
+//           ],
+//
+//           _JourneyCard(
+//             pickupLabel: widget.pickupLabel,
+//             dropLabel: widget.dropLabel,
+//             pickupAt: widget.pickupAt,
+//           ),
+//           const SizedBox(height: AppSpacing.md),
+//
+//           _VehicleCard(quote: widget.quote),
+//           const SizedBox(height: AppSpacing.md),
+//
+//           FormSection(
+//             title: 'Lead passenger',
+//             subtitle: 'The driver will look for this name',
+//             icon: Icons.person_outline_rounded,
+//             children: [
+//               KeyedSubtree(
+//                 key: _anchorFor('firstName'),
+//                 child: AppTextField(
+//                   controller: _firstName,
+//                   label: 'First name',
+//                   required: true,
+//                   textCapitalization: TextCapitalization.words,
+//                   textInputAction: TextInputAction.next,
+//                   errorText: _errors['firstName'],
+//                   autofillHints: const [AutofillHints.givenName],
+//                   onChanged: (_) => _clear('firstName'),
+//                 ),
+//               ),
+//               const SizedBox(height: AppSpacing.md),
+//               KeyedSubtree(
+//                 key: _anchorFor('lastName'),
+//                 child: AppTextField(
+//                   controller: _lastName,
+//                   label: 'Last name',
+//                   required: true,
+//                   textCapitalization: TextCapitalization.words,
+//                   textInputAction: TextInputAction.next,
+//                   errorText: _errors['lastName'],
+//                   autofillHints: const [AutofillHints.familyName],
+//                   onChanged: (_) => _clear('lastName'),
+//                 ),
+//               ),
+//               const SizedBox(height: AppSpacing.md),
+//               KeyedSubtree(
+//                 key: _anchorFor('email'),
+//                 child: AppTextField(
+//                   controller: _email,
+//                   label: 'Email address',
+//                   required: true,
+//                   hint: 'you@example.com',
+//                   keyboardType: TextInputType.emailAddress,
+//                   textInputAction: TextInputAction.next,
+//                   errorText: _errors['email'],
+//                   autofillHints: const [AutofillHints.email],
+//                   onChanged: (_) => _clear('email'),
+//                 ),
+//               ),
+//               const SizedBox(height: AppSpacing.md),
+//               KeyedSubtree(
+//                 key: _anchorFor('phone'),
+//                 child: AppTextField(
+//                   controller: _phone,
+//                   label: 'Mobile number',
+//                   required: true,
+//                   helperText: 'The driver calls this number on the day',
+//                   keyboardType: TextInputType.phone,
+//                   maxLength: 15,
+//                   errorText: _errors['phone'],
+//                   inputFormatters: [
+//                     FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+//                   ],
+//                   autofillHints: const [AutofillHints.telephoneNumber],
+//                   onChanged: (_) => _clear('phone'),
+//                 ),
+//               ),
+//               if (isAirport) ...[
+//                 const SizedBox(height: AppSpacing.md),
+//                 AppTextField(
+//                   controller: _flightNumber,
+//                   label: 'Flight number',
+//                   hint: 'e.g. 6E 2134',
+//                   helperText:
+//                       'Optional — lets the driver track your flight and wait '
+//                       'if it is delayed',
+//                   textCapitalization: TextCapitalization.characters,
+//                 ),
+//               ],
+//             ],
+//           ),
+//           const SizedBox(height: AppSpacing.md),
+//
+//           FormSection(
+//             title: 'Anything we should know?',
+//             subtitle: 'Optional',
+//             icon: Icons.chat_bubble_outline_rounded,
+//             children: [
+//               AppTextField(
+//                 controller: _request,
+//                 hint: 'Child seat, extra luggage, a different pick-up point…',
+//                 maxLines: 3,
+//                 minLines: 2,
+//                 maxLength: 200,
+//                 textCapitalization: TextCapitalization.sentences,
+//               ),
+//             ],
+//           ),
+//
+//           if (widget.quote.benefits.isNotEmpty) ...[
+//             const SizedBox(height: AppSpacing.md),
+//             FormSection(
+//               title: 'Included',
+//               icon: Icons.verified_outlined,
+//               children: [
+//                 for (final benefit in widget.quote.benefits)
+//                   Padding(
+//                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+//                     child: Row(
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       children: [
+//                         const Padding(
+//                           padding: EdgeInsets.only(top: 2),
+//                           child: Icon(
+//                             Icons.check_circle_outline_rounded,
+//                             size: 16,
+//                             color: AppColors.successDark,
+//                           ),
+//                         ),
+//                         const SizedBox(width: AppSpacing.sm),
+//                         Expanded(child: Text(benefit, style: AppText.bodySm)),
+//                       ],
+//                     ),
+//                   ),
+//               ],
+//             ),
+//           ],
+//
+//           const SizedBox(height: AppSpacing.lg),
+//           if (_stage != null) ...[
+//             InfoBanner(
+//               icon: Icons.autorenew_rounded,
+//               message: _stage!,
+//             ),
+//             const SizedBox(height: AppSpacing.md),
+//           ],
+//           const TermsNotice(product: 'transfer'),
+//         ],
+//       ),
+//       bottomNavigationBar: BookingActionBar(
+//         fare: _fare,
+//         priceLabel: 'Total payable',
+//         actionLabel: 'Pay & confirm',
+//         isLoading: _submitting,
+//         onAction: _bookAndPay,
+//         onShowBreakdown: () => showFareBreakdownSheet(
+//           context,
+//           _fare,
+//           title: 'Fare breakdown',
+//           footnote:
+//               'Tolls, parking and any waiting time beyond the included '
+//               'allowance are payable to the driver.',
+//         ),
+//       ),
+//     );
+//   }
+//
+//   void _clear(String key) {
+//     if (!_errors.containsKey(key)) return;
+//     setState(() => _errors.remove(key));
+//   }
+// }
+//
+// // ---------------------------------------------------------------------------
+//
+// class _JourneyCard extends StatelessWidget {
+//   const _JourneyCard({
+//     required this.pickupLabel,
+//     required this.dropLabel,
+//     required this.pickupAt,
+//   });
+//
+//   final String pickupLabel;
+//   final String dropLabel;
+//   final DateTime pickupAt;
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return AppCard(
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           Row(
+//             children: [
+//               const Icon(
+//                 Icons.schedule_rounded,
+//                 size: 16,
+//                 color: AppColors.primary,
+//               ),
+//               const SizedBox(width: AppSpacing.sm),
+//               Expanded(
+//                 child: Text(
+//                   formatTripDateTime(pickupAt),
+//                   style: AppText.bodyStrong,
+//                   maxLines: 1,
+//                   overflow: TextOverflow.ellipsis,
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: AppSpacing.lg),
+//           // A vertical timeline reads better than two columns when addresses
+//           // are long enough to wrap, which they usually are.
+//           _Stop(
+//             icon: Icons.trip_origin_rounded,
+//             label: 'Pick-up',
+//             value: pickupLabel,
+//             showConnector: true,
+//           ),
+//           _Stop(
+//             icon: Icons.place_rounded,
+//             label: 'Drop-off',
+//             value: dropLabel,
+//             showConnector: false,
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+//
+// class _Stop extends StatelessWidget {
+//   const _Stop({
+//     required this.icon,
+//     required this.label,
+//     required this.value,
+//     required this.showConnector,
+//   });
+//
+//   final IconData icon;
+//   final String label;
+//   final String value;
+//   final bool showConnector;
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return IntrinsicHeight(
+//       child: Row(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Column(
+//             children: [
+//               Icon(icon, size: 16, color: AppColors.primary),
+//               if (showConnector)
+//                 Expanded(
+//                   child: Container(
+//                     width: 2,
+//                     margin: const EdgeInsets.symmetric(vertical: 3),
+//                     color: AppColors.divider,
+//                   ),
+//                 ),
+//             ],
+//           ),
+//           const SizedBox(width: AppSpacing.md),
+//           Expanded(
+//             child: Padding(
+//               padding: EdgeInsets.only(bottom: showConnector ? AppSpacing.lg : 0),
+//               child: Column(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 mainAxisSize: MainAxisSize.min,
+//                 children: [
+//                   Text(label, style: AppText.caption),
+//                   const SizedBox(height: 2),
+//                   Text(value, style: AppText.bodyStrong),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+//
+// class _VehicleCard extends StatelessWidget {
+//   const _VehicleCard({required this.quote});
+//
+//   final CabQuote quote;
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return AppCard(
+//       child: Row(
+//         children: [
+//           if (quote.imageUrl.isNotEmpty)
+//             NetworkImageWidget(
+//               url: quote.imageUrl,
+//               width: 76,
+//               height: 58,
+//               radius: AppRadii.md,
+//               memCacheWidth: 230,
+//             )
+//           else
+//             Container(
+//               width: 76,
+//               height: 58,
+//               decoration: const BoxDecoration(
+//                 color: AppColors.pinkSurface,
+//                 borderRadius: AppRadii.rMd,
+//               ),
+//               child: const Icon(
+//                 Icons.directions_car_filled_rounded,
+//                 color: AppColors.primary,
+//               ),
+//             ),
+//           const SizedBox(width: AppSpacing.md),
+//           Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 Text(
+//                   quote.vehicleName,
+//                   style: AppText.cardTitle,
+//                   maxLines: 2,
+//                   overflow: TextOverflow.ellipsis,
+//                 ),
+//                 const SizedBox(height: AppSpacing.xs),
+//                 Wrap(
+//                   spacing: AppSpacing.xs,
+//                   runSpacing: AppSpacing.xs,
+//                   children: [
+//                     if (quote.category.isNotEmpty)
+//                       MetaChip(label: quote.category),
+//                     if (quote.seats > 0)
+//                       MetaChip(
+//                         icon: Icons.event_seat_rounded,
+//                         label: '${quote.seats} seats',
+//                       ),
+//                     if (quote.luggage > 0)
+//                       MetaChip(
+//                         icon: Icons.luggage_rounded,
+//                         label: '${quote.luggage} bags',
+//                       ),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }

@@ -98,7 +98,8 @@ class HotelFacetGroup {
 /// The website caps a hotel's amenities at four before aggregating, and matches
 /// against that same four — so a facet's count always equals the number of
 /// hotels the option will actually leave on screen.
-List<String> topAmenities(HotelResult hotel) => hotel.facilities.take(4).toList();
+List<String> topAmenities(HotelResult hotel) =>
+    hotel.facilities.take(4).toList();
 
 /// Build every group from the loaded hotels, dropping groups with nothing in
 /// them. Counts describe the full list, not the currently filtered one.
@@ -167,10 +168,7 @@ List<HotelFacetGroup> buildHotelFacets(List<HotelResult> hotels) {
       hotels.map((h) => h.isRefundable ? kRefundable : kNonRefundable),
       label: (v) => v == kRefundable ? 'Free cancellation' : 'Non-refundable',
     ),
-    aggregate(
-      HotelFilterGroup.amenities,
-      hotels.expand(topAmenities),
-    ),
+    aggregate(HotelFilterGroup.amenities, hotels.expand(topAmenities)),
   ].whereType<HotelFacetGroup>().toList();
 }
 
@@ -180,10 +178,7 @@ List<HotelFacetGroup> buildHotelFacets(List<HotelResult> hotels) {
 
 /// Immutable selection state for the hotel filter sheet.
 class HotelFilters {
-  const HotelFilters({
-    this.selections = const {},
-    this.nameQuery = '',
-  });
+  const HotelFilters({this.selections = const {}, this.nameQuery = ''});
 
   /// Selected values per group. A group absent from the map is unfiltered.
   final Map<HotelFilterGroup, Set<String>> selections;
@@ -247,10 +242,7 @@ class HotelFilters {
 // ---------------------------------------------------------------------------
 
 /// Narrow [hotels] by [filters], in the same order the website applies them.
-List<HotelResult> filterHotels(
-  List<HotelResult> hotels,
-  HotelFilters filters,
-) {
+List<HotelResult> filterHotels(List<HotelResult> hotels, HotelFilters filters) {
   if (filters.isEmpty) return hotels;
 
   var next = hotels;
@@ -334,9 +326,7 @@ List<HotelFilterChip> describeHotelFilters(
 
   final name = filters.nameQuery.trim();
   if (name.isNotEmpty) {
-    chips.add(
-      HotelFilterChip(group: null, value: name, label: '“$name”'),
-    );
+    chips.add(HotelFilterChip(group: null, value: name, label: '“$name”'));
   }
 
   for (final group in HotelFilterGroup.values) {
@@ -347,16 +337,9 @@ List<HotelFilterChip> describeHotelFilters(
         .expand((g) => g.options)
         .toList();
     for (final value in selected) {
-      final label = options
-          .where((o) => o.value == value)
-          .firstOrNull
-          ?.label;
+      final label = options.where((o) => o.value == value).firstOrNull?.label;
       chips.add(
-        HotelFilterChip(
-          group: group,
-          value: value,
-          label: label ?? value,
-        ),
+        HotelFilterChip(group: group, value: value, label: label ?? value),
       );
     }
   }

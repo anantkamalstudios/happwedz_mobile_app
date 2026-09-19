@@ -42,6 +42,11 @@ class ReviewData {
   String? guestCount;
   String? amountSpent;
 
+  /// Photos picked in [WriteReviewScreen]. Carried here so the final submit
+  /// step can attach them — previously dropped because this model never held
+  /// them, so a picked photo never reached the server.
+  List<XFile> images = [];
+
   ReviewData({
     required this.wouldRecommend,
     required this.ratingQuality,
@@ -538,6 +543,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
                         ? () {
                       widget.reviewData.title = _titleController.text.trim();
                       widget.reviewData.comment = _descController.text.trim();
+                      widget.reviewData.images = images;
 
                       // ✅ Photos optional — continue even if none
                       Navigator.push(
@@ -818,12 +824,32 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
     debugPrint("📤 Body: $body");
 
     try {
-      final res = await http.post(url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $authToken'
-          },
-          body: jsonEncode(body));
+      final http.Response res;
+      final images = widget.reviewData.images;
+      if (images.isEmpty) {
+        res = await http.post(url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $authToken'
+            },
+            body: jsonEncode(body));
+      } else {
+        // Picked review photos were previously discarded here — the request
+        // was always plain JSON with nothing attaching them. Matches the
+        // source's multipart `media` field.
+        final request = http.MultipartRequest('POST', url)
+          ..headers['Authorization'] = 'Bearer $authToken';
+        body.forEach((key, value) {
+          if (value != null) request.fields[key] = value.toString();
+        });
+        for (final image in images) {
+          request.files.add(
+            await http.MultipartFile.fromPath('media', image.path),
+          );
+        }
+        final streamed = await request.send();
+        res = await http.Response.fromStream(streamed);
+      }
 
       // AUDIT FIX (security): response bodies carry user data and are readable
       // via `adb logcat` in a release build — debug only.

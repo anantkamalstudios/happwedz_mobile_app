@@ -11,6 +11,7 @@ import { useLoader } from "../context/LoaderContext";
 import userApi from "../../services/api/userApi";
 import "react-toastify/dist/ReactToastify.css";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { API_BASE_URL } from "../../config/constants";
 
 // Reasons a flow can hand to /customer-login?reason=... so the page can say why.
 const LOGIN_REASON_MESSAGES = {
@@ -85,7 +86,7 @@ const CustomerLoginForm = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("https://happywedz.com/api/login-cms");
+        const res = await fetch(`${API_BASE_URL}/login-cms`);
         const data = await res.json();
         setLoginCms(data?.data || data || null);
       } catch (err) {
@@ -127,7 +128,11 @@ const CustomerLoginForm = () => {
       ) {
         persistUserSession(authResponse.user, authResponse.token);
         dispatch(
-          loginUser({ user: authResponse.user, token: authResponse.token }),
+          loginUser({
+            user: authResponse.user,
+            token: authResponse.token,
+            storeSession: authResponse.storeSession,
+          }),
         );
         toast.success("Login successful!");
         goToReturnTarget();
@@ -165,7 +170,13 @@ const CustomerLoginForm = () => {
 
       if (response.success) {
         persistUserSession(response.user, response.token);
-        dispatch(loginUser({ user: response.user, token: response.token }));
+        dispatch(
+          loginUser({
+            user: response.user,
+            token: response.token,
+            storeSession: response.storeSession,
+          }),
+        );
         toast.success("Login successful!");
         goToReturnTarget();
       } else {

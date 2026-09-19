@@ -3,6 +3,7 @@ import Herosection from "../home/Herosection";
 import WeddingCategories from "../home/WeddingCategories";
 import CtaPanel from "../home/CtaPanel";
 import cmsApi from "../../services/api/cmsApi";
+import { resolveMediaUrl } from "../../config/constants";
 import SEO from "../common/SEO";
 import StructuredData from "../common/StructuredData";
 import DeferUntilNearViewport from "../common/DeferUntilNearViewport";
@@ -38,15 +39,9 @@ const Home = () => {
   const [einviteBanner, setEinviteBanner] = useState(null);
   const [realWeddingData, setRealWeddingData] = useState(null);
   const [couplesSaysData, setCouplesSaysData] = useState(null);
-  const normalizeUrl = (u) => {
-    if (!u || typeof u !== "string") return null;
-    const cleaned = u.replace(/`/g, "").trim();
-    try {
-      return encodeURI(cleaned);
-    } catch {
-      return cleaned;
-    }
-  };
+  // CMS banner media follows the same three shapes as the rest of the home
+  // page (S3 URL, relative /uploads path, legacy origin).
+  const normalizeUrl = (u) => resolveMediaUrl(u);
   useEffect(() => {
     // These three are independent; awaiting them in series cost sequential
     // round trips (~5s on the trace) before any banner could render.
@@ -107,12 +102,12 @@ const Home = () => {
           executed every one of them during initial load — swiper alone cost
           ~610ms of main-thread time before the user had scrolled a pixel. */}
       <Suspense fallback={null}>
-      <DeferUntilNearViewport minHeight={600}>
+      <DeferUntilNearViewport minHeight={600} stagger={0}>
       <PlanningToolsCTA />
       <MansoryImageSection />
       <VenueSlider />
       </DeferUntilNearViewport>
-      <DeferUntilNearViewport minHeight={500}>
+      <DeferUntilNearViewport minHeight={500} stagger={400}>
       <CtaPanel
         logo={normalizeUrl(einviteBanner?.logo) || logo}
         img={normalizeUrl(einviteBanner?.mainImage) || einviteImage}
@@ -161,7 +156,7 @@ const Home = () => {
         link="/matrimonial"
         btnName="Start Your Journey"
       /> */}
-      <DeferUntilNearViewport minHeight={600}>
+      <DeferUntilNearViewport minHeight={600} stagger={800}>
       <MainTestimonial
         heading={couplesSaysData?.heading}
         subHeading={couplesSaysData?.subHeading}

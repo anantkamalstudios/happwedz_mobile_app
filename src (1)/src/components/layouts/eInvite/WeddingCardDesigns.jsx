@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../../../config/constants";
 
 const WeddingCardDesigns = () => {
   const [activeTab, setActiveTab] = useState("wedding");
@@ -26,7 +27,7 @@ const WeddingCardDesigns = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await axios.get("https://happywedz.com/api/einvites");
+        const response = await axios.get(`${API_BASE_URL}/einvites`);
         if (response.data && Array.isArray(response.data)) {
           setAllCards(response.data);
         } else {

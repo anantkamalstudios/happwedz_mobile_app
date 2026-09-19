@@ -38,8 +38,8 @@ const MovementPlusHome = () => {
   return (
     <div className="app_wrapper_2k7m3">
       <SEO
-        title="Movment+ | Smart Wedding Photo Sharing | HappyWedz"
-        description="Share and relive your wedding moments with Movment+ by HappyWedz. AI-powered face recognition lets guests instantly find their own photos from your wedding gallery."
+        title="Moment+ | Smart Wedding Photo Sharing | HappyWedz"
+        description="Share and relive your wedding moments with Moment+ by HappyWedz. AI-powered face recognition lets guests instantly find their own photos from your wedding gallery."
       />
       <MovmentPlusHero />
       <Brands />

@@ -53,6 +53,9 @@ import SocialDetails from "./subVendors/SocialDetails";
 import axiosInstance from "../../../services/api/axiosInstance";
 import { TbView360Number } from "react-icons/tb";
 import View360 from "./subVendors/View360";
+import { FiLock } from "react-icons/fi";
+import { useVendorAccess } from "../../../context/VendorAccessContext";
+import LockedTabOverlay from "./LockedTabOverlay";
 // Reusable New Tag component
 const NewTag = () => (
   <span
@@ -83,6 +86,27 @@ const normalizeServiceStatus = (value) => {
   return "";
 };
 
+/**
+ * Subcategory ids for the multi-select, primary first.
+ * Reads the `subcategories` join the API now returns, falling back to whatever
+ * we already had locally, then to the single primary id.
+ */
+const buildSubcategoryIds = (apiData, prev) => {
+  const primary = apiData?.vendor_subcategory_id;
+  let ids = [];
+
+  if (Array.isArray(apiData?.subcategories) && apiData.subcategories.length) {
+    ids = apiData.subcategories.map((s) => s.id);
+  } else if (Array.isArray(prev?.vendor_subcategory_ids)) {
+    ids = [...prev.vendor_subcategory_ids];
+  }
+
+  if (primary && !ids.some((id) => id == primary)) ids.unshift(primary);
+
+  // Keep the primary at index 0 — VendorBasicInfo treats the first as primary
+  return primary ? [primary, ...ids.filter((id) => id != primary)] : ids;
+};
+
 /** Ignore React click events mistakenly passed as onClick={onSave} */
 const isFormSavePayload = (payload) =>
   payload &&
@@ -103,6 +127,17 @@ const Storefront = ({ setCompletion }) => {
   const [active, setActive] = useState("business");
   const [showModal, setShowModal] = useState(false);
   const { token, vendor } = useSelector((state) => state.vendorAuth || {});
+  const access = useVendorAccess();
+
+  /** Can the vendor edit this tab right now? Used for the sidebar lock glyphs. */
+  const isTabEditable = useCallback(
+    (tabId) => {
+      if (access.loading || !access.stage) return true;
+      if (tabId === "business") return access.canEditBusinessDetails;
+      return access.editableTabs.includes(tabId);
+    },
+    [access.loading, access.stage, access.canEditBusinessDetails, access.editableTabs]
+  );
   const [formData, setFormData] = useState({ attributes: vendor || {} });
   const formDataRef = useRef(formData);
   useEffect(() => {
@@ -112,6 +147,7 @@ const Storefront = ({ setCompletion }) => {
   const [videoDrafts, setVideoDrafts] = useState([]);
   const [view360Images, setView360Images] = useState([]);
   const [view360Videos, setView360Videos] = useState([]);
+  const [view360Url, setView360Url] = useState("");
   const [vendorTypeName, setVendorTypeName] = useState("");
   // Persist active tab per-vendor so refresh/navigation keeps you on the same section
   const storageKey = React.useMemo(
@@ -132,6 +168,7 @@ const Storefront = ({ setCompletion }) => {
           setFormData({});
           setPhotoDrafts([]);
           setVideoDrafts([]);
+          setView360Url("");
         }
         localStorage.setItem("lastVendorId", vendor.id.toString());
 
@@ -199,6 +236,7 @@ const Storefront = ({ setCompletion }) => {
             }
 
             if (actualData.attributes) {
+              setView360Url(actualData.attributes.view360_url || "");
               const videosFromAttr =
                 actualData.attributes.video ||
                 actualData.attributes.vedio ||
@@ -317,6 +355,8 @@ const Storefront = ({ setCompletion }) => {
                 ...actualData,
                 // Prioritize API response, as it reflects successful updates, then local state, then Redux
                 vendor_subcategory_id: actualData.vendor_subcategory_id || prev.vendor_subcategory_id || vendor.vendor_subcategory_id,
+                // Full subcategory set from the join table; falls back to the primary
+                vendor_subcategory_ids: buildSubcategoryIds(actualData, prev),
                 id: actualData.id ?? prev.id,
                 status: normalizeServiceStatus(actualData.status),
                 availabilityActive: attrs.availability_active !== false,
@@ -358,6 +398,20 @@ const Storefront = ({ setCompletion }) => {
                   max: "",
                 },
                 PriceRange: attrs.PriceRange || "",
+                pricingDescription: attrs.pricing_description || "",
+                pricingBrochureUrl: attrs.pricing_brochure_url || null,
+                // base64 brochure (images only — PDFs skip base64 due to DB size limits)
+                pricingBrochureBase64: attrs.pricing_brochure_base64 || null,
+                // Restore filename independently — works for both images and PDFs
+                pricingFileName: attrs.pricing_brochure_name || null,
+                pricingFileType: attrs.pricing_brochure_base64
+                  ? (attrs.pricing_brochure_base64.startsWith("data:image") ? "image" : "pdf")
+                  : (attrs.pricing_brochure_name
+                    ? (attrs.pricing_brochure_name.toLowerCase().endsWith(".pdf") ? "pdf" : "image")
+                    : null),
+                pricingFilePreview: attrs.pricing_brochure_base64?.startsWith("data:image")
+                  ? attrs.pricing_brochure_base64
+                  : null,
 
                 capacity: attrs.capacity || {
                   min: "",
@@ -393,6 +447,9 @@ const Storefront = ({ setCompletion }) => {
 
                 veg_price: attrs.veg_price || "",
                 non_veg_price: attrs.non_veg_price || "",
+                veg_description: attrs.veg_description || "",
+                non_veg_description: attrs.non_veg_description || "",
+                menu_description: attrs.menu_description || "",
                 photo_package_price: attrs.photo_package_price || "",
                 photo_video_package_price: attrs.photo_video_package_price || "",
                 happywedz_since: attrs.happywedz_since || attrs.HappyWedz || "",
@@ -645,6 +702,13 @@ const Storefront = ({ setCompletion }) => {
         ...base,
         vendor_subcategory_id:
           base?.vendor_subcategory_id || vendor?.vendor_subcategory_id || "",
+        vendor_subcategory_ids:
+          Array.isArray(base?.vendor_subcategory_ids) &&
+            base.vendor_subcategory_ids.length
+            ? base.vendor_subcategory_ids
+            : [
+              base?.vendor_subcategory_id || vendor?.vendor_subcategory_id,
+            ].filter(Boolean),
         vendor_type_id: base?.vendor_type_id || vendor?.vendor_type_id,
         status: normalizeServiceStatus(base?.status) || "hide",
         contact: {
@@ -720,6 +784,35 @@ const Storefront = ({ setCompletion }) => {
   };
 
   const handleSave = async (saveData) => {
+    // Stop here rather than firing a request the server will refuse with a 403. The
+    // vendor gets the reason and the way out instead of a generic failure toast.
+    if (!isTabEditable(active)) {
+      const result = await Swal.fire({
+        icon: "info",
+        title: access.stage === "active" ? "Not in your plan" : "Editing is locked",
+        text:
+          access.stage === "active"
+            ? `${access.tabLabels?.[active] || "This section"} needs a higher plan.`
+            : access.message || "Complete your setup to edit your storefront.",
+        showCancelButton: true,
+        confirmButtonText:
+          access.stage === "kyc_required" || access.stage === "kyc_rejected"
+            ? "Complete business details"
+            : "View plans",
+        cancelButtonText: "Close",
+        confirmButtonColor: "#c2185b",
+      });
+
+      if (result.isConfirmed) {
+        if (access.stage === "kyc_required" || access.stage === "kyc_rejected") {
+          handleSetActive("business");
+        } else {
+          window.location.assign("/vendor-dashboard/upgrade/vendor-plan");
+        }
+      }
+      return;
+    }
+
     const isPayload = isFormSavePayload(saveData);
     const raw = isPayload
       ? { ...(formDataRef.current || formData), ...saveData }
@@ -747,7 +840,9 @@ const Storefront = ({ setCompletion }) => {
       if (!serviceId) {
         // First save: create vendor-services listing (POST), same as Pricing → Submit All Details
         const created = await vendorServicesApi.createOrUpdateService(fd, token);
-        serviceId = created?.id || null;
+        // The create endpoint wraps the new record, so check the wrappers too.
+        serviceId =
+          created?.id || created?.service?.id || created?.data?.[0]?.id || null;
         if (!serviceId) {
           Swal.fire({
             icon: "warning",
@@ -937,6 +1032,9 @@ const Storefront = ({ setCompletion }) => {
       starting_price: data.startingPrice
         ? Number(data.startingPrice)
         : undefined,
+      pricing_description: data.pricingDescription || undefined,
+      pricing_brochure_base64: data.pricingBrochureBase64 || undefined,
+      pricing_brochure_name: data.pricingFileName || undefined,
       available_slots: Array.isArray(data.availableSlots)
         ? data.availableSlots.map((s) => ({
           date: s.date,
@@ -959,6 +1057,18 @@ const Storefront = ({ setCompletion }) => {
       vendor_type: data.vendorTypeName || vendorTypeName || "",
       veg_price: data.veg_price || "",
       non_veg_price: data.non_veg_price || "",
+      veg_description:
+        data.veg_description ||
+        data.attributes?.veg_description ||
+        "",
+      non_veg_description:
+        data.non_veg_description ||
+        data.attributes?.non_veg_description ||
+        "",
+      menu_description:
+        data.menu_description ||
+        data.attributes?.menu_description ||
+        "",
       photo_package_price: data.photo_package_price || "",
       photo_video_package_price: data.photo_video_package_price || "",
       happywedz_since: data.happywedz_since || "",
@@ -1020,6 +1130,7 @@ const Storefront = ({ setCompletion }) => {
             url.startsWith("/uploads/") ? IMAGE_BASE_URL + url : url
           )
         : [],
+      view360_url: view360Url.trim(),
       // Preferred vendors selection
       preferred_vendors:
         data.attributes?.preferred_vendors ||
@@ -1091,10 +1202,17 @@ const Storefront = ({ setCompletion }) => {
     const fd = new FormData();
     const vendorId = vendor?.id || data.vendor_id;
     if (vendorId) fd.append("vendor_id", `${vendorId}`);
-    const subcategoryId =
-      data.vendor_subcategory_id || vendor?.vendor_subcategory_id;
-    if (subcategoryId) {
-      fd.append("vendor_subcategory_id", `${subcategoryId}`);
+    // Multi-select: send the whole set as a comma list. The backend takes the
+    // first as the primary and mirrors all of them into the join table.
+    const subcategoryIds = (
+      Array.isArray(data.vendor_subcategory_ids) &&
+        data.vendor_subcategory_ids.length
+        ? data.vendor_subcategory_ids
+        : [data.vendor_subcategory_id || vendor?.vendor_subcategory_id]
+    ).filter(Boolean);
+
+    if (subcategoryIds.length) {
+      fd.append("vendor_subcategory_id", subcategoryIds.join(","));
     }
     const normalizedStatus =
       normalizeServiceStatus(data.status) || "hide";
@@ -1226,8 +1344,11 @@ const Storefront = ({ setCompletion }) => {
       } else {
         created = await vendorServicesApi.createOrUpdateService(fd, token);
         // If POST succeeded and response has id, update formData with new id for future PUTs
-        if (created?.id) {
-          setFormData((prev) => ({ ...prev, id: created.id }));
+        // The create endpoint wraps the record, so check the wrappers too.
+        const createdId =
+          created?.id || created?.service?.id || created?.data?.[0]?.id;
+        if (createdId) {
+          setFormData((prev) => ({ ...prev, id: createdId }));
         }
       }
       // On success, persist and show modal
@@ -1365,7 +1486,15 @@ const Storefront = ({ setCompletion }) => {
     ];
 
     if (showMenusTab) {
-      sections.push({ id: "vendor-menus", fields: ["attributes.menus"] });
+      sections.push({
+        id: "vendor-menus",
+        fields: [
+          "attributes.menus",
+          "veg_price",
+          "non_veg_price",
+          "menu_description",
+        ],
+      });
     }
 
     const venueMasterHasData = (vm) => {
@@ -1742,6 +1871,8 @@ const Storefront = ({ setCompletion }) => {
             setImages={setView360Images}
             videos={view360Videos}
             setVideos={setView360Videos}
+            url={view360Url}
+            setUrl={setView360Url}
             onSave={handleSave}
             onShowSuccess={showSuccessModal}
           />
@@ -1857,27 +1988,50 @@ const Storefront = ({ setCompletion }) => {
   return (
     <div className="container py-3 store-front-navbar">
       <div className="row g-4">
-        <div className="col-lg-3 col-md-4">
-          <div className="storefront-sidebar-card">
+        <div
+          className="col-lg-3 col-md-4"
+          style={{ alignSelf: "flex-start", position: "sticky", top: "70px", zIndex: 10 }}
+        >
+          <div className="storefront-sidebar-card" style={{ position: "relative", top: "unset", maxHeight: "calc(100vh - 90px)" }}>
             <Nav className="flex-column custom-sidebar">
-              {menuItems.map((item) => (
-                <Nav.Link
-                  key={item.id}
-                  onClick={() => handleSetActive(item.id)}
-                  className={`sidebar-nav-item ${
-                    active === item.id ? "active" : ""
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Nav.Link>
-              ))}
+              {menuItems.map((item) => {
+                // Locked tabs still open — the vendor can look around, they just
+                // cannot edit. The glyph sets that expectation before they click.
+                const locked = !isTabEditable(item.id);
+                return (
+                  <Nav.Link
+                    key={item.id}
+                    onClick={() => handleSetActive(item.id)}
+                    className={`sidebar-nav-item ${
+                      active === item.id ? "active" : ""
+                    }`}
+                    title={locked ? "View only" : undefined}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                    {locked && (
+                      <FiLock
+                        size={13}
+                        className="ms-auto flex-shrink-0"
+                        style={{ opacity: 0.55 }}
+                        aria-label="View only"
+                      />
+                    )}
+                  </Nav.Link>
+                );
+              })}
             </Nav>
           </div>
         </div>
 
         <div className="col-lg-9 col-md-8 storefront-content-area" ref={contentRef}>
-          {renderContent()}
+          <LockedTabOverlay
+            access={access}
+            tabId={active}
+            showBanner={active !== "business"}
+          >
+            {renderContent()}
+          </LockedTabOverlay>
         </div>
       </div>
 

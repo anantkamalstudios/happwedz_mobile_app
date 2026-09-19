@@ -1,5 +1,7 @@
 import { FaPlane, FaCalendarAlt, FaUser, FaEdit } from 'react-icons/fa';
-import { IoIosArrowDropdown } from 'react-icons/io';
+import { IoIosArrowDropdown, IoIosArrowDown } from 'react-icons/io';
+import { TbArrowsExchange } from 'react-icons/tb';
+import { longDate } from './flightFormat';
 import { MdFlightTakeoff, MdFlightLand } from 'react-icons/md';
 import { AIRLINES } from './PreferredAirline';
 import { formatDateWithWeekday } from '../../../../../utils/dateFormat';
@@ -14,7 +16,55 @@ const formatPreferredAirlines = (pref) => {
 
 // Defaulted: this renders straight from router state, which is empty on a cold
 // load of the results URL, and a missing prop should not take the page down.
-export default function FlightSearchHeader({ searchParams = {}, onModify }) {
+/**
+ * Round-trip bar laid out like the TripJack portal: codes with "City, Country"
+ * underneath, then plain label/value columns and an outlined Modify Search.
+ * Styles live in roundtrip-results.css.
+ */
+function RoundTripHeader({ searchParams, places = {}, passengers, onModify }) {
+  const airlines = formatPreferredAirlines(searchParams.preferredAirline);
+  const Item = ({ label, value, small }) => (
+    <>
+      <span className="rt-header-divider" />
+      <div className="rt-header-item">
+        <div className="rt-header-label">{label}</div>
+        <div className={`rt-header-value ${small ? 'is-small' : ''}`} title={value}>{value}</div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="rt-header">
+      <div className="container rt-header-inner">
+        <div className="rt-header-route">
+          <div className="rt-header-place">
+            <div className="rt-header-code">{searchParams.from}</div>
+            <div className="rt-header-city">{places.from}</div>
+          </div>
+          <TbArrowsExchange size={26} className="rt-header-swap" />
+          <div className="rt-header-place">
+            <div className="rt-header-code">{searchParams.to}</div>
+            <div className="rt-header-city">{places.to}</div>
+          </div>
+        </div>
+        <Item label="Departure Date" value={longDate(searchParams.departureDate)} />
+        <Item label="Return Date" value={longDate(searchParams.returnDate)} />
+        <Item
+          label="Passengers & Class"
+          value={`${passengers} | ${searchParams.cabinClass?.toUpperCase() || 'ECONOMY'}`}
+          small
+        />
+        <Item label="Preferred Airline" value={airlines || 'None'} />
+        <span className="rt-header-divider" />
+        <button type="button" className="rt-header-modify" onClick={onModify}>
+          MODIFY SEARCH <IoIosArrowDown size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function FlightSearchHeader({ searchParams = {}, places, onModify }) {
   const formatDate = (dateStr) => formatDateWithWeekday(dateStr);
 
   const getTripTypeLabel = () => {
@@ -75,6 +125,17 @@ export default function FlightSearchHeader({ searchParams = {}, onModify }) {
     
     return parts.join(', ');
   };
+
+  if (searchParams.tripType === 'round' && !searchParams.routes?.length) {
+    return (
+      <RoundTripHeader
+        searchParams={searchParams}
+        places={places}
+        passengers={getPassengerCount()}
+        onModify={onModify}
+      />
+    );
+  }
 
   return (
     <div className="flight-search-header">

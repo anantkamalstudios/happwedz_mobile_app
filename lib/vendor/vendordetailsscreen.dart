@@ -18,6 +18,7 @@ import 'request_pricing_sheet.dart';
 import 'master_facilities_section.dart';
 import '../core/core.dart';
 import 'package:happy_wedz/core/config/api_config.dart';
+import '../core/services/response_cache.dart';
 
 // Final VendorServicesScreen — pagination, grid/list toggle, search, filters,
 // wishlist toggle, phone/WhatsApp/message actions, safe image handling.
@@ -33,10 +34,21 @@ class VendorServicesScreen extends StatefulWidget {
   /// same scope instead of resetting to every city.
   final String? initialCity;
 
+  /// The vendor type ("Venues", "Photographers" …) — the web's `vendorType`
+  /// filter. With it the list is exact and several times faster than the
+  /// loose `subCategory` text match on its own.
+  final String? vendorType;
+
+  /// False lists the whole [vendorType] ("View all Venues"), with
+  /// [subcategoryName] as the title only.
+  final bool filterBySubcategory;
+
   const VendorServicesScreen({
     super.key,
     required this.subcategoryName,
     this.initialCity,
+    this.vendorType,
+    this.filterBySubcategory = true,
   });
 
   @override
@@ -52,6 +64,20 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   // Pagination
   int currentPage = 1;
   int totalPages = 1;
+
+  /// Server-side page size: the list used to download every vendor in the
+  /// category at once (`limit=5000` — 62 MB and ~30 s for photographers).
+  static const int _pageSize = 12;
+
+  /// Upper end of the price slider; a max at the cap means "no max".
+  static const double _priceCap = 200000;
+
+  /// Matches `pagination.total`, for the result count.
+  int _total = 0;
+
+  /// Bumped per fresh load, so a slow answer for an old search/filter set
+  /// cannot overwrite the current one.
+  int _generation = 0;
   bool isLoading = true;
   bool isLoadingMore = false;
   bool hasMore = true;
@@ -69,7 +95,10 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   final TextEditingController searchController = TextEditingController();
   String filterCity = '';
   double filterMinPrice = 0;
-  double filterMaxPrice = 100000;
+  // double filterMaxPrice = 100000;
+  // The slider and Reset both use the cap; starting at 1 lakh silently hid
+  // every vendor priced above it and lit the filter badge on open.
+  double filterMaxPrice = _priceCap;
   double filterMinRating = 0;
   String selectedCity = "";
   double minPrice = 0;
@@ -90,6 +119,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     selectedCity = widget.initialCity ?? '';
     filterCity = selectedCity;
     _loadCurrentUser();
+    // Pages load as the list nears its end (the listener existed but was
+    // never attached, since everything was fetched up front).
+    setupPaginationListener();
     fetchAllServices();
   }
 
@@ -105,54 +137,154 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   // API — unchanged endpoints and parsing
   // ---------------------------------------------------------------------------
 
+  /// The `/vendor-services` page with every filter applied on the server —
+  /// the web's `useInfiniteScroll` query.
+  Uri _pageUri(int page) {
+    final search = searchController.text.trim();
+    return Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(
+      queryParameters: {
+        if ((widget.vendorType ?? '').isNotEmpty) 'vendorType': widget.vendorType!,
+        if (widget.filterBySubcategory && widget.subcategoryName.isNotEmpty)
+          'subCategory': widget.subcategoryName,
+        if (filterCity.isNotEmpty) 'city': filterCity,
+        if (search.isNotEmpty) 'search': search,
+        if (filterMinPrice > 0) 'minPrice': filterMinPrice.toInt().toString(),
+        if (filterMaxPrice < _priceCap)
+          'maxPrice': filterMaxPrice.toInt().toString(),
+        if (filterMinRating > 0) 'minRating': filterMinRating.toString(),
+        'page': '$page',
+        'limit': '$_pageSize',
+      },
+    );
+  }
+
+  static List<dynamic> _rowsOf(dynamic decoded) {
+    final raw = decoded is Map ? decoded['data'] : null;
+    if (raw is List) return raw;
+    if (raw is Map) return [raw];
+    return const [];
+  }
+
+  void _readPagination(dynamic decoded) {
+    final pagination = decoded is Map ? decoded['pagination'] : null;
+    if (pagination is! Map) {
+      hasMore = false;
+      return;
+    }
+    totalPages = int.tryParse('${pagination['totalPages']}') ?? 1;
+    _total = int.tryParse('${pagination['total']}') ?? _total;
+    hasMore = currentPage < totalPages;
+  }
+
+  /// Loads page 1 for the current filters. The last good first page for the
+  /// same query shows at once, then the fresh one replaces it.
   Future<void> fetchAllServices() async {
+    final generation = ++_generation;
+    final url = _pageUri(1);
     setState(() {
       isLoading = true;
       _loadError = null;
-      allServices.clear();
-      services.clear();
+      currentPage = 1;
+      hasMore = false;
     });
 
+    final cached = await ResponseCache.read(url.toString());
+    if (!mounted || generation != _generation) return;
+    if (cached != null) {
+      try {
+        final decoded = json.decode(cached);
+        setState(() {
+          allServices
+            ..clear()
+            ..addAll(_rowsOf(decoded));
+          services = List<dynamic>.from(allServices);
+          _readPagination(decoded);
+          isLoading = allServices.isEmpty;
+        });
+      } catch (_) {}
+    }
+
     try {
-      final sub = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
-
-      final url = Uri.parse(
-        "${ApiConfig.apiBase}/vendor-services?subCategory=$sub&limit=5000",
-      );
-
-      final response = await http.get(url);
+      final response = await http
+          .get(url, headers: {"Accept": "application/json"})
+          .timeout(const Duration(seconds: 30));
+      if (!mounted || generation != _generation) return;
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final raw = data["data"];
-
-        List<dynamic> list = [];
-
-        if (raw is List) {
-          list = raw;
-        } else if (raw is Map<String, dynamic>) {
-          list = [raw];
-        }
-
-        if (!mounted) return;
+        final decoded = json.decode(response.body);
         setState(() {
-          allServices.addAll(list);
+          allServices
+            ..clear()
+            ..addAll(_rowsOf(decoded));
+          services = List<dynamic>.from(allServices);
+          currentPage = 1;
+          _readPagination(decoded);
         });
-
-        _applyFiltersAndSearch();
-      } else {
-        if (!mounted) return;
+        unawaited(ResponseCache.write(url.toString(), response.body));
+      } else if (allServices.isEmpty) {
         setState(() => _loadError = 'HTTP ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint("Error loading ALL services: $e");
-      if (!mounted) return;
-      setState(() => _loadError = e);
+      debugPrint("Error loading services: $e");
+      if (!mounted || generation != _generation) return;
+      // Keep a cached page on screen; only an empty list shows the error.
+      if (allServices.isEmpty) setState(() => _loadError = e);
     }
 
-    if (!mounted) return;
+    if (!mounted || generation != _generation) return;
     setState(() => isLoading = false);
   }
+
+  // Previous loader, kept for reference: fetched the whole category in one
+  // request and filtered on the phone.
+  // Future<void> fetchAllServices() async {
+  //   setState(() {
+  //     isLoading = true;
+  //     _loadError = null;
+  //     allServices.clear();
+  //     services.clear();
+  //   });
+  //
+  //   try {
+  //     final sub = Uri.encodeComponent(widget.subcategoryName.toLowerCase());
+  //
+  //     final url = Uri.parse(
+  //       "${ApiConfig.apiBase}/vendor-services?subCategory=$sub&limit=5000",
+  //     );
+  //
+  //     final response = await http.get(url);
+  //
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body);
+  //       final raw = data["data"];
+  //
+  //       List<dynamic> list = [];
+  //
+  //       if (raw is List) {
+  //         list = raw;
+  //       } else if (raw is Map<String, dynamic>) {
+  //         list = [raw];
+  //       }
+  //
+  //       if (!mounted) return;
+  //       setState(() {
+  //         allServices.addAll(list);
+  //       });
+  //
+  //       _applyFiltersAndSearch();
+  //     } else {
+  //       if (!mounted) return;
+  //       setState(() => _loadError = 'HTTP ${response.statusCode}');
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Error loading ALL services: $e");
+  //     if (!mounted) return;
+  //     setState(() => _loadError = e);
+  //   }
+  //
+  //   if (!mounted) return;
+  //   setState(() => isLoading = false);
+  // }
 
   void setupPaginationListener() {
     _scrollController.addListener(() {
@@ -210,54 +342,28 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     setState(() => isLoading = false);
   }
 
+  /// The next page for the same filters, as the list nears its end.
   Future<void> fetchMoreServices() async {
-    if (!hasMore) return;
+    if (!hasMore || isLoadingMore || isLoading) return;
+    final generation = _generation;
+    final page = currentPage + 1;
 
     setState(() => isLoadingMore = true);
 
     try {
-      currentPage++;
-
-      final encodedSubcategory = Uri.encodeComponent(
-        widget.subcategoryName.toLowerCase(),
-      );
-
-      final url = Uri.parse(
-        "${ApiConfig.apiBase}/vendor-services?subCategory=$encodedSubcategory&page=$currentPage&limit=9",
-      );
-
-      final response = await http.get(
-        url,
-        headers: {"Accept": "application/json"},
-      );
+      final response = await http
+          .get(_pageUri(page), headers: {"Accept": "application/json"})
+          .timeout(const Duration(seconds: 30));
+      if (!mounted || generation != _generation) return;
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        final rawData = data['data'];
-
-        List<dynamic> list = [];
-
-        if (rawData is List) {
-          list = rawData;
-        } else if (rawData is Map<String, dynamic>) {
-          list = [rawData]; // wrap single object into a list
-        } else {
-          list = []; // null or unexpected format
-        }
-
-        final pagination = data['pagination'] ?? {};
-
-        totalPages = (pagination['totalPages'] ?? 1) is int
-            ? pagination['totalPages']
-            : int.tryParse('${pagination['totalPages']}') ?? totalPages;
-        hasMore = currentPage < totalPages;
-
-        if (!mounted) return;
+        final decoded = json.decode(response.body);
         setState(() {
-          allServices.addAll(list);
+          currentPage = page;
+          allServices.addAll(_rowsOf(decoded));
+          services = List<dynamic>.from(allServices);
+          _readPagination(decoded);
         });
-
-        _applyFiltersAndSearch();
       } else {
         debugPrint('More API error ${response.statusCode}');
       }
@@ -266,9 +372,70 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       debugPrint('$st');
     }
 
-    if (!mounted) return;
+    if (!mounted || generation != _generation) return;
     setState(() => isLoadingMore = false);
   }
+
+  // Previous next-page loader, kept for reference:
+  // Future<void> fetchMoreServices() async {
+  //   if (!hasMore) return;
+  //
+  //   setState(() => isLoadingMore = true);
+  //
+  //   try {
+  //     currentPage++;
+  //
+  //     final encodedSubcategory = Uri.encodeComponent(
+  //       widget.subcategoryName.toLowerCase(),
+  //     );
+  //
+  //     final url = Uri.parse(
+  //       "${ApiConfig.apiBase}/vendor-services?subCategory=$encodedSubcategory&page=$currentPage&limit=9",
+  //     );
+  //
+  //     final response = await http.get(
+  //       url,
+  //       headers: {"Accept": "application/json"},
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body) as Map<String, dynamic>;
+  //       final rawData = data['data'];
+  //
+  //       List<dynamic> list = [];
+  //
+  //       if (rawData is List) {
+  //         list = rawData;
+  //       } else if (rawData is Map<String, dynamic>) {
+  //         list = [rawData]; // wrap single object into a list
+  //       } else {
+  //         list = []; // null or unexpected format
+  //       }
+  //
+  //       final pagination = data['pagination'] ?? {};
+  //
+  //       totalPages = (pagination['totalPages'] ?? 1) is int
+  //           ? pagination['totalPages']
+  //           : int.tryParse('${pagination['totalPages']}') ?? totalPages;
+  //       hasMore = currentPage < totalPages;
+  //
+  //       if (!mounted) return;
+  //       setState(() {
+  //         allServices.addAll(list);
+  //       });
+  //
+  //       _applyFiltersAndSearch();
+  //     } else {
+  //       debugPrint('More API error ${response.statusCode}');
+  //     }
+  //   } catch (e, st) {
+  //     debugPrint('fetchMoreServices error $e');
+  //     debugPrint('$st');
+  //   }
+  //
+  //   if (!mounted) return;
+  //   setState(() => isLoadingMore = false);
+  // }
 
   Future<void> applyFilters() async {
     setState(() {
@@ -278,10 +445,17 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       filterMinRating = selectedRating;
     });
 
-    _applyFiltersAndSearch(); // local filtering
+    // _applyFiltersAndSearch(); // local filtering
+    fetchAllServices(); // the server filters now
   }
 
-  void _applyFiltersAndSearch() {
+  /// Filters and search now run on the server, over every vendor rather than
+  /// just the ones downloaded: this reloads page 1 for the current filters.
+  void _applyFiltersAndSearch() => fetchAllServices();
+
+  // Previous on-device filter, kept for reference:
+  // ignore: unused_element
+  void _applyFiltersLocally() {
     final q = searchController.text.trim().toLowerCase();
 
     final filtered = allServices.where((service) {
@@ -331,7 +505,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   /// Debounced entry point used by the search field.
   void _onSearchChanged(String _) {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+    // Each search is a request now, so wait for a pause in typing.
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
       if (mounted) _applyFiltersAndSearch();
     });
   }
@@ -766,9 +941,13 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           if (!isLoading)
             Expanded(
               child: Text(
-                services.length == 1
+                // services.length == 1
+                //     ? '1 result'
+                //     : '${services.length} results',
+                // The server's total, not just the pages loaded so far.
+                (_total > services.length ? _total : services.length) == 1
                     ? '1 result'
-                    : '${services.length} results',
+                    : '${_total > services.length ? _total : services.length} results',
                 style: AppText.labelSm,
               ),
             )

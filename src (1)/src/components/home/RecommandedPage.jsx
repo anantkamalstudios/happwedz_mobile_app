@@ -4,8 +4,12 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import GridView from "../layouts/Main/GridView";
 import Loader from "../ui/Loader";
+import {
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+  AI_API_BASE_URL,
+} from "../../config/constants";
 
-const IMAGE_BASE_URL = "https://happywedzbackend.happywedz.com";
+const IMAGE_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const RecommandedPage = () => {
   const { user, token } = useSelector((state) => state.auth);
@@ -26,7 +30,7 @@ const RecommandedPage = () => {
       try {
         const userId = user.id || user.user_id || user._id;
         const response = await axios.get(
-          `https://www.happywedz.com/ai/api/recommendations/recommendations/${userId}`,
+          `${AI_API_BASE_URL}/recommendations/recommendations/${userId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`, // Assuming token might be needed, though previous code didn't use it for this endpoint but good practice

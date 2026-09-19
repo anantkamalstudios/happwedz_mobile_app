@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || "https://happywedz.com/api";
+import { API_BASE_URL as API_BASE } from "../../config/constants";
+
 const ENDPOINT = `${API_BASE}/vendor-types/with-subcategories/all`;
 
 // The vendor-type tree is static for the life of a page view but was being fetched

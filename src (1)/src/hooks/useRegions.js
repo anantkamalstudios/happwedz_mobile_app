@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import cityImages from "../data/cityImages";
+import { API_BASE_URL } from "../config/constants";
 
 const useRegions = (vendorType = null) => {
   const [regions, setRegions] = useState([]);
@@ -11,7 +12,7 @@ const useRegions = (vendorType = null) => {
     try {
       setLoading(true);
       setError(null);
-      const baseUrl = "https://happywedz.com/api/vendor-services/";
+      const baseUrl = `${API_BASE_URL}/vendor-services/`;
 
       const initialUrl = vendorType
         ? `${baseUrl}?vendorType=${encodeURIComponent(vendorType)}&limit=100`

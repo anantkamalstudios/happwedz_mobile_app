@@ -11,6 +11,9 @@
     -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Approximate location only: the home page detects the user's city on
+         open. A city needs no GPS fix, so fine location is not requested. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- FORCE REMOVE ALL FILES ACCESS added by any library -->
     <uses-permission
@@ -79,6 +82,11 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="http"/>
+        </intent>
+        <!-- Flight results "Share by → Email" opens a mailto: link. -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
         </intent>
         <!-- Play Store deep link for the vendor app. -->
         <intent>

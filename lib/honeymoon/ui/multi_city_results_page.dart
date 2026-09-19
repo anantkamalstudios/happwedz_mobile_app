@@ -26,7 +26,9 @@ import '../models/honeymoon_models.dart';
 import 'booking/booking_widgets.dart';
 import 'booking/flight_booking_page.dart';
 import 'widgets/flight_filter_sheet.dart';
+import 'widgets/flight_widgets.dart';
 import 'widgets/honeymoon_widgets.dart';
+import '../models/flight_models.dart';
 
 class MultiCityResultsPage extends StatefulWidget {
   const MultiCityResultsPage({
@@ -38,6 +40,7 @@ class MultiCityResultsPage extends StatefulWidget {
     this.children = 0,
     this.infants = 0,
     this.cabinClass = 'ECONOMY',
+    this.paxType = 'REGULAR',
   });
 
   final HoneymoonApi api;
@@ -49,6 +52,10 @@ class MultiCityResultsPage extends StatefulWidget {
   final int children;
   final int infants;
   final String cabinClass;
+
+  /// The fare type searched for — decides whether a document id is asked for
+  /// on the traveller step.
+  final String paxType;
 
   @override
   State<MultiCityResultsPage> createState() => _MultiCityResultsPageState();
@@ -66,6 +73,9 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
   final Map<int, FlightSort> _sorts = {};
 
   bool _submitting = false;
+
+  /// Fare rules for the details sheet, fetched once per fare.
+  late final FareRuleLoader _rules = FareRuleLoader(widget.api);
 
   @override
   void initState() {
@@ -103,8 +113,51 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
   // Selection
   // -------------------------------------------------------------------------
 
+  /// The nearest earlier leg that has a flight chosen.
+  FlightResult? _previousChoice(int route) {
+    for (final r in _routes.reversed) {
+      if (r < route && _selected[r] != null) return _selected[r];
+    }
+    return null;
+  }
+
+  /// The nearest later leg that has a flight chosen.
+  FlightResult? _nextChoice(int route) {
+    for (final r in _routes) {
+      if (r > route && _selected[r] != null) return _selected[r];
+    }
+    return null;
+  }
+
+  /// Why [flight] cannot be picked on [route] given the other legs already
+  /// chosen, or null. Combined (COMBO) fares cover every leg themselves.
+  String? _unavailableReason(int route, FlightResult flight) {
+    if (_isCombo) return null;
+    final previous = _previousChoice(route);
+    if (previous != null) {
+      final reason = tripOverlapReason(previous, flight);
+      if (reason != null) return reason;
+    }
+    final next = _nextChoice(route);
+    if (next != null && tripOverlapReason(flight, next) != null) {
+      return 'Lands after your next flight leaves — change that flight first';
+    }
+    return null;
+  }
+
   /// Tapping the already-selected itinerary clears it, matching the website.
+  ///
+  /// A flight that leaves before the previous leg lands is refused here,
+  /// before review, with the reason on the card — the supplier would refuse
+  /// the pair anyway (errCode 1019).
   void _toggle(int route, FlightResult flight) {
+    if (_selected[route]?.id != flight.id) {
+      final reason = _unavailableReason(route, flight);
+      if (reason != null) {
+        AppSnackbar.info(context, reason);
+        return;
+      }
+    }
     setState(() {
       if (_selected[route]?.id == flight.id) {
         _selected.remove(route);
@@ -130,8 +183,11 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
   /// would multiply the price of the journey by the number of legs.
   double get _total {
     final seen = <String, double>{};
+    // BUG FIX: this summed each trip's *cheapest* fare, while the booking
+    // reviews the fare in `flight.id` — so the bar could show less than the
+    // traveller was then charged. The web prices the booked fare.
     for (final flight in _selected.values) {
-      seen.putIfAbsent(flight.id, () => tripBestPrice(flight.raw, _pax));
+      seen.putIfAbsent(flight.id, () => farePrice(flight.selectedFare, _pax));
     }
     return seen.values.fold<double>(0, (sum, p) => sum + p);
   }
@@ -223,31 +279,56 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
     return legs;
   }
 
-  void _continue() {
+  /// Reviews every chosen priceId, then opens the booking flow on that
+  /// session — `MultiCityResults.jsx` `handleBook`, which reviews here and
+  /// shows the supplier's own reason when the review is refused.
+  Future<void> _continue() async {
     if (!_canContinue || _submitting) return;
     final legs = _bookableLegs;
     if (legs.isEmpty) return;
 
     setState(() => _submitting = true);
-    Navigator.push(
-      context,
-      AnimatedPageRoute(
-        page: FlightBookingPage.multiCity(
-          api: widget.api,
-          trip: FlightTripContext.multiCity(
-            legs: widget.legs,
-            adults: widget.adults,
-            children: widget.children,
-            infants: widget.infants,
-            cabinClass: widget.cabinClass,
+    try {
+      final review = await widget.api.reviewFlight([
+        for (final leg in legs) leg.id,
+      ]);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        AnimatedPageRoute(
+          page: FlightBookingPage.multiCity(
+            api: widget.api,
+            trip: FlightTripContext.multiCity(
+              legs: widget.legs,
+              adults: widget.adults,
+              children: widget.children,
+              infants: widget.infants,
+              cabinClass: widget.cabinClass,
+              paxType: widget.paxType,
+            ),
+            legs: legs,
+            initialReview: review,
           ),
-          legs: legs,
+          style: PageTransitionStyle.slideRight,
         ),
-        style: PageTransitionStyle.slideRight,
-      ),
-    ).then((_) {
+      );
+    } on HoneymoonApiException catch (e) {
+      if (!mounted) return;
+      if (isTripGapError(e.data)) {
+        await _explainTripGap(e.message);
+      } else {
+        AppSnackbar.error(context, e.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackbar.error(
+          context,
+          'Failed to validate flight prices. Please try again.',
+        );
+      }
+    } finally {
       if (mounted) setState(() => _submitting = false);
-    });
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -259,7 +340,10 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
     final route = _activeRoute;
     final visible = _visibleFor(route);
     final filters = _filterFor(route);
-    final chips = describeFilters(filters, deriveFacets(_sourceFor(route), _pax));
+    final chips = describeFilters(
+      filters,
+      deriveFacets(_sourceFor(route), _pax),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -297,6 +381,7 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
               children: [
                 if (!_isCombo) _legSelector(),
                 if (_isCombo) _comboNotice(),
+                ?_gapHint(route),
 
                 if (_sourceFor(route).isNotEmpty) ...[
                   _toolbar(visible.length, filters),
@@ -322,11 +407,7 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
     );
   }
 
-  Widget _list(
-    int route,
-    List<FlightResult> visible,
-    FlightFilters filters,
-  ) {
+  Widget _list(int route, List<FlightResult> visible, FlightFilters filters) {
     if (visible.isEmpty) {
       final source = _sourceFor(route);
       // Either the supplier served nothing for this leg, or the traveller's own
@@ -347,8 +428,7 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
             '${source.length == 1 ? '' : 's'} on this leg.',
         icon: Icons.filter_alt_off_rounded,
         actionLabel: 'Clear filters',
-        onAction: () =>
-            setState(() => _filters[route] = FlightFilters.empty),
+        onAction: () => setState(() => _filters[route] = FlightFilters.empty),
       );
     }
 
@@ -370,10 +450,77 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
             pax: _pax,
             selected: _selected[route]?.id == flight.id,
             combo: _isCombo,
+            unavailableReason: _selected[route]?.id == flight.id
+                ? null
+                : _unavailableReason(route, flight),
             onTap: () => _toggle(route, flight),
+            onDetails: () => showFlightDetailsSheet(
+              context,
+              flight: flight,
+              pax: _pax,
+              rules: _rules,
+            ),
           ),
         );
       },
+    );
+  }
+
+  /// errCode 1019: the chosen legs are too close together. Says so plainly
+  /// and moves to the later leg of the tightest pair, where a later flight
+  /// fixes it.
+  Future<void> _explainTripGap(String supplierMessage) async {
+    int? target;
+    Duration? tightest;
+    for (var i = 1; i < _routes.length; i++) {
+      final a = _selected[_routes[i - 1]];
+      final b = _selected[_routes[i]];
+      if (a?.arrival == null || b?.departure == null) continue;
+      final gap = b!.departure!.difference(a!.arrival!);
+      if (tightest == null || gap < tightest) {
+        tightest = gap;
+        target = _routes[i];
+      }
+    }
+
+    await ConfirmPopup.show(
+      context,
+      title: 'These flights are too close together',
+      message:
+          '$supplierMessage\n\nThe airline needs more time between your '
+          'flights. Pick a later flight for the next leg, or an earlier one '
+          'for the leg before it.',
+      confirmLabel: 'Change flight',
+      cancelLabel: 'Close',
+      icon: Icons.schedule_rounded,
+    );
+    if (!mounted || target == null) return;
+    setState(() => _activeRoute = target!);
+  }
+
+  /// "Your previous flight lands at …" above a leg's list, so the traveller
+  /// picks a flight that leaves after it.
+  Widget? _gapHint(int route) {
+    if (_isCombo) return null;
+    final previous = _previousChoice(route);
+    final landed = previous?.arrival;
+    if (previous == null || landed == null) return null;
+    final hh = landed.hour.toString().padLeft(2, '0');
+    final mm = landed.minute.toString().padLeft(2, '0');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        0,
+      ),
+      child: InfoBanner(
+        icon: Icons.schedule_rounded,
+        message:
+            'Your previous flight lands at ${previous.toCode} $hh:$mm on '
+            '${formatTripDate(landed)}. Pick a flight that leaves after that — '
+            'airlines need time between trips.',
+      ),
     );
   }
 
@@ -443,7 +590,7 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
                   Text(
                     chosen != null
                         ? '${chosen.airlineCode} · '
-                              '${formatPrice(tripBestPrice(chosen.raw, _pax))}'
+                              '${formatFlightFare(farePrice(chosen.selectedFare, _pax))}'
                         : leg == null
                         ? 'Choose a flight'
                         : formatTripDate(leg.date),
@@ -543,7 +690,7 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
                         : '$outstanding flight${outstanding == 1 ? '' : 's'} left to choose',
                     style: AppText.caption,
                   ),
-                  Text(formatPrice(_total), style: AppText.price),
+                  Text(formatFlightFare(_total), style: AppText.price),
                 ],
               ),
             ),
@@ -571,7 +718,16 @@ class _MultiCityFlightCard extends StatelessWidget {
     required this.selected,
     required this.combo,
     required this.onTap,
+    required this.onDetails,
+    this.unavailableReason,
   });
+
+  /// The web's "View Details +" — segments, baggage, fare and rules.
+  final VoidCallback onDetails;
+
+  /// Set when this flight clashes with a leg already chosen; the card is
+  /// dimmed and says why.
+  final String? unavailableReason;
 
   final FlightResult flight;
   final PaxCounts pax;
@@ -590,9 +746,13 @@ class _MultiCityFlightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = tripBestPrice(flight.raw, pax);
+    // BUG FIX: showed the trip's cheapest fare while the booking reviews the
+    // fare in `flight.id`; the web prices that fare (`totalPriceList[0]`).
+    final total = farePrice(flight.selectedFare, pax);
+    final fare = flight.selectedFare;
+    final seatsLeft = fareSeatsLeft(fare);
 
-    return AppCard(
+    final card = AppCard(
       onTap: onTap,
       // A selected itinerary keeps a highlighted outline, since the card is a
       // toggle rather than an immediate action.
@@ -654,9 +814,7 @@ class _MultiCityFlightCard extends StatelessWidget {
                       ),
                       const Divider(height: AppSpacing.sm),
                       Text(
-                        combo
-                            ? 'All flights'
-                            : flight.stopsLabel,
+                        combo ? 'All flights' : flight.stopsLabel,
                         style: AppText.caption,
                         maxLines: 1,
                       ),
@@ -675,6 +833,42 @@ class _MultiCityFlightCard extends StatelessWidget {
             ],
           ),
 
+          const SizedBox(height: AppSpacing.sm),
+          // Fare type, "Economy, Refundable" and seats left, with the web's
+          // "View Details +".
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              MetaChip(
+                label: fareDisplayLabel(
+                  asString(readKey(fare, 'fareIdentifier')),
+                ),
+              ),
+              Text(
+                '${farePrefixText(fare)}, '
+                '${fareIsRefundable(fare) ? 'Refundable' : 'Non-Refundable'}',
+                style: AppText.caption,
+              ),
+              if (seatsLeft != null)
+                Text(
+                  'Seats left: $seatsLeft',
+                  style: AppText.caption.copyWith(
+                    color: seatsLeft <= 5
+                        ? AppColors.error
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              GestureDetector(
+                onTap: onDetails,
+                child: Text(
+                  'View Details +',
+                  style: AppText.labelSm.copyWith(color: AppColors.primary),
+                ),
+              ),
+            ],
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Divider(height: 1, color: AppColors.divider),
@@ -683,21 +877,43 @@ class _MultiCityFlightCard extends StatelessWidget {
             children: [
               Expanded(
                 child: total > 0
-                    ? Text(formatPrice(total), style: AppText.price)
+                    ? Text(formatFlightFare(total), style: AppText.price)
                     : Text('Price on review', style: AppText.bodySm),
               ),
               Text(
                 selected ? 'Selected' : 'Tap to select',
                 style: AppText.labelSm.copyWith(
-                  color: selected
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
+                  color: selected ? AppColors.primary : AppColors.textSecondary,
                 ),
               ),
             ],
           ),
         ],
       ),
+    );
+    final reason = unavailableReason;
+    if (reason == null) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Opacity(opacity: 0.45, child: card),
+        Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.xs),
+          child: Row(
+            children: [
+              const Icon(Icons.block_rounded, size: 14, color: AppColors.error),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  reason,
+                  style: AppText.caption.copyWith(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

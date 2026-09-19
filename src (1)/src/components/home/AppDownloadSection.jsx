@@ -42,7 +42,7 @@ const AppDownloadSection = () => {
 
             <div className="d-flex flex-wrap justify-content-center gap-3">
               <a
-                href="https://play.google.com/store/apps/details?id=com.happy.happy_weds_vendors"
+                href="https://play.google.com/store/apps/details?id=com.happy.happy_wedz&pcampaignid=web_share"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Get HappyWedz App on Google Play Store"
@@ -58,7 +58,7 @@ const AppDownloadSection = () => {
                 />
               </a>
               <a
-                href="https://apps.apple.com/app/happywedz/id123456789"
+                href="https://apps.apple.com/in/app/happy-wedz/id6756042192"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Get HappyWedz App on Apple App Store"

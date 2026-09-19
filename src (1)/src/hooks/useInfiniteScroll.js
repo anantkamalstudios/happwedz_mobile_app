@@ -9,7 +9,11 @@ import {
   extractReviewFilters,
 } from "../utils/priceFilterUtils";
 import { hasView360 } from "../utils/view360Helper";
-import { IMAGE_BASE_URL as UPLOADS_BASE_URL, toCdnUrl } from "../config/constants";
+import {
+  IMAGE_BASE_URL as UPLOADS_BASE_URL,
+  toCdnUrl,
+  API_BASE_URL,
+} from "../config/constants";
 
 const IMAGE_BASE_URL = UPLOADS_BASE_URL.replace(/\/+$/, "");
 
@@ -19,11 +23,14 @@ const useInfiniteScroll = (
   city = null,
   vendorType = null,
   initialLimit = 9,
-  filters = {}
+  filters = {},
 ) => {
   const normalizeServiceStatus = (value) => {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "publish" || normalized === "published") return "publish";
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (normalized === "publish" || normalized === "published")
+      return "publish";
     if (
       normalized === "hide" ||
       normalized === "draft" ||
@@ -53,148 +60,170 @@ const useInfiniteScroll = (
 
   // Transform API data
   const transformApiData = useCallback((items) => {
-    return items.map((item) => {
-      const id = item.id;
-      const media = Array.isArray(item.media) ? item.media : [];
-      const vendor = item.vendor || {};
-      const subcategory = item.subcategory || {};
-      const attributes = item.attributes || {};
+    return items
+      .map((item) => {
+        const id = item.id;
+        const media = Array.isArray(item.media) ? item.media : [];
+        const vendor = item.vendor || {};
+        const subcategory = item.subcategory || {};
+        const attributes = item.attributes || {};
 
-      const portfolioUrls = attributes.Portfolio
-        ? attributes.Portfolio.split("|")
-            .map((url) => url.trim())
-            .filter((url) => url)
-        : [];
-      const normalizeUrl = (u) => {
-        if (!u) return null;
-        // Serve bucket-hosted media from whichever origin is configured for it.
-        const cleaned = toCdnUrl(String(u));
-        if (/^https?:\/\//i.test(cleaned)) return cleaned;
-        return `${IMAGE_BASE_URL}${cleaned.startsWith("/") ? cleaned : "/" + cleaned}`;
-      };
-      const gallery = (media.length > 0 ? media : portfolioUrls)
-        .map(normalizeUrl)
-        .filter(Boolean);
-      const firstImage = gallery.length > 0 ? gallery[0] : "/images/imageNotFound.jpg";
+        const portfolioUrls = attributes.Portfolio
+          ? attributes.Portfolio.split("|")
+              .map((url) => url.trim())
+              .filter((url) => url)
+          : [];
+        const normalizeUrl = (u) => {
+          if (!u) return null;
+          // Serve bucket-hosted media from whichever origin is configured for it.
+          const cleaned = toCdnUrl(String(u));
+          if (/^https?:\/\//i.test(cleaned)) return cleaned;
+          return `${IMAGE_BASE_URL}${cleaned.startsWith("/") ? cleaned : "/" + cleaned}`;
+        };
+        const gallery = (media.length > 0 ? media : portfolioUrls)
+          .map(normalizeUrl)
+          .filter(Boolean);
+        const firstImage =
+          gallery.length > 0 ? gallery[0] : "/images/imageNotFound.jpg";
 
-      const vendorTypeName =
-        attributes.vendor_type ||
-        vendor?.vendorType?.name ||
-        subcategory?.vendorType?.name ||
-        "";
-      const isVenue = vendorTypeName.toLowerCase().includes("venue");
+        const vendorTypeName =
+          attributes.vendor_type ||
+          vendor?.vendorType?.name ||
+          subcategory?.vendorType?.name ||
+          "";
+        const isVenue = vendorTypeName.toLowerCase().includes("venue");
 
-      const photoPackage =
-        attributes.photo_package_price ||
-        attributes.PhotoPackage_Price ||
-        attributes.PhotoPackage ||
-        attributes.PhotoPackage_price ||
-        attributes.PhotoPackagePrice ||
-        attributes.PhotoPackage_price_inr;
-      const photoVideoPackage =
-        attributes.photo_video_package_price ||
-        attributes.Photo_video_Price ||
-        attributes.Photo_video ||
-        attributes.PhotoVideo_Price ||
-        attributes.PhotoVideoPackage;
+        const photoPackage =
+          attributes.photo_package_price ||
+          attributes.PhotoPackage_Price ||
+          attributes.PhotoPackage ||
+          attributes.PhotoPackage_price ||
+          attributes.PhotoPackagePrice ||
+          attributes.PhotoPackage_price_inr;
+        const photoVideoPackage =
+          attributes.photo_video_package_price ||
+          attributes.Photo_video_Price ||
+          attributes.Photo_video ||
+          attributes.PhotoVideo_Price ||
+          attributes.PhotoVideoPackage;
 
-      const rawRooms =
-        attributes.rooms ??
-        attributes.Rooms ??
-        attributes.room_count ??
-        attributes.RoomCount ??
-        attributes.NoOfRooms ??
-        attributes.no_of_rooms ??
-        attributes.No_Of_Rooms;
-      let roomsParsed = null;
-      if (rawRooms !== undefined && rawRooms !== null) {
-        const onlyDigits = String(rawRooms).match(/\d+/);
-        const n = onlyDigits ? parseInt(onlyDigits[0], 10) : NaN;
-        roomsParsed = Number.isNaN(n) ? null : n;
-      }
+        const rawRooms =
+          attributes.rooms ??
+          attributes.Rooms ??
+          attributes.room_count ??
+          attributes.RoomCount ??
+          attributes.NoOfRooms ??
+          attributes.no_of_rooms ??
+          attributes.No_Of_Rooms;
+        let roomsParsed = null;
+        if (rawRooms !== undefined && rawRooms !== null) {
+          const onlyDigits = String(rawRooms).match(/\d+/);
+          const n = onlyDigits ? parseInt(onlyDigits[0], 10) : NaN;
+          roomsParsed = Number.isNaN(n) ? null : n;
+        }
 
-      // Parse latitude and longitude from attributes
-      const latitude = parseFloat(
-        attributes.latitude || attributes.Latitude || ""
-      );
-      const longitude = parseFloat(
-        attributes.longitude || attributes.Longitude || ""
-      );
-      const hasValidCoordinates = !isNaN(latitude) && !isNaN(longitude);
+        // Parse latitude and longitude from attributes
+        const latitude = parseFloat(
+          attributes.latitude || attributes.Latitude || "",
+        );
+        const longitude = parseFloat(
+          attributes.longitude || attributes.Longitude || "",
+        );
+        const hasValidCoordinates = !isNaN(latitude) && !isNaN(longitude);
 
-      return {
-        id,
-        status: normalizeServiceStatus(item.status),
-        vendor_id: item.vendor_id || vendor.id || null,
-        name:
-          attributes.vendor_name ||
-          attributes.Name ||
-          vendor.businessName ||
-          "Unknown Vendor",
-        lat: hasValidCoordinates ? latitude : null,
-        lng: hasValidCoordinates ? longitude : null,
-        subtitle: attributes.subtitle || "",
-        tagline: attributes.tagline || "",
-        description:
-          attributes.about_us ||
-          attributes.Aboutus ||
-          attributes.description ||
-          "",
-        slug: item.slug || attributes.slug || "",
+        return {
+          id,
+          status: normalizeServiceStatus(item.status),
+          vendor_id: item.vendor_id || vendor.id || null,
+          name:
+            attributes.vendor_name ||
+            attributes.Name ||
+            vendor.businessName ||
+            "Unknown Vendor",
+          lat: hasValidCoordinates ? latitude : null,
+          lng: hasValidCoordinates ? longitude : null,
+          subtitle: attributes.subtitle || "",
+          tagline: attributes.tagline || "",
+          description:
+            attributes.about_us ||
+            attributes.Aboutus ||
+            attributes.description ||
+            "",
+          slug: item.slug || attributes.slug || "",
 
-        image: firstImage,
-        gallery,
-        videos: [],
+          image: firstImage,
+          gallery,
+          videos: [],
 
-        vegPrice: isVenue
-          ? attributes.veg_price || attributes.VegPrice || null
-          : null,
-        nonVegPrice: isVenue
-          ? attributes.non_veg_price || attributes.NonVegPrice || null
-          : null,
-        starting_price: !isVenue
-          ? photoPackage ||
-            photoVideoPackage ||
-            attributes.PriceRange ||
-            attributes.price ||
-            null
-          : null,
+          vegPrice: isVenue
+            ? attributes.veg_price || attributes.VegPrice || null
+            : null,
+          nonVegPrice: isVenue
+            ? attributes.non_veg_price || attributes.NonVegPrice || null
+            : null,
+          starting_price: !isVenue
+            ? photoPackage ||
+              photoVideoPackage ||
+              attributes.PriceRange ||
+              attributes.price ||
+              null
+            : null,
 
-        address: (attributes.address && attributes.address.toLowerCase() !== "unknown") ? attributes.address : (attributes.Address && attributes.Address.toLowerCase() !== "unknown") ? attributes.Address : "",
-        area: (attributes.area && attributes.area.toLowerCase() !== "unknown") ? attributes.area : "",
-        city: (attributes.city && attributes.city.toLowerCase() !== "unknown") ? attributes.city : (vendor.city && vendor.city.toLowerCase() !== "unknown") ? vendor.city : "",
-        location: (attributes.city && attributes.city.toLowerCase() !== "unknown") ? attributes.city : (vendor.city && vendor.city.toLowerCase() !== "unknown") ? vendor.city : "",
-        rooms: roomsParsed,
+          address:
+            attributes.address && attributes.address.toLowerCase() !== "unknown"
+              ? attributes.address
+              : attributes.Address &&
+                  attributes.Address.toLowerCase() !== "unknown"
+                ? attributes.Address
+                : "",
+          area:
+            attributes.area && attributes.area.toLowerCase() !== "unknown"
+              ? attributes.area
+              : "",
+          city:
+            attributes.city && attributes.city.toLowerCase() !== "unknown"
+              ? attributes.city
+              : vendor.city && vendor.city.toLowerCase() !== "unknown"
+                ? vendor.city
+                : "",
+          location:
+            attributes.city && attributes.city.toLowerCase() !== "unknown"
+              ? attributes.city
+              : vendor.city && vendor.city.toLowerCase() !== "unknown"
+                ? vendor.city
+                : "",
+          rooms: roomsParsed,
 
-        rating: attributes.rating || 0,
-        review_count:
-          attributes.review_count ||
-          parseInt(attributes.review?.toString?.() || "0", 10) ||
-          0,
-        reviews:
-          attributes.review_count ||
-          parseInt(attributes.review?.toString?.() || "0", 10) ||
-          0,
+          rating: attributes.rating || 0,
+          review_count:
+            attributes.review_count ||
+            parseInt(attributes.review?.toString?.() || "0", 10) ||
+            0,
+          reviews:
+            attributes.review_count ||
+            parseInt(attributes.review?.toString?.() || "0", 10) ||
+            0,
 
-        vendor_type: vendorTypeName,
-        subcategory_name: subcategory?.name || "",
+          vendor_type: vendorTypeName,
+          subcategory_name: subcategory?.name || "",
 
-        call: attributes.Phone || vendor.phone || null,
-        whatsapp: attributes.Whatsapp || null,
-        website: attributes.Website || null,
+          call: attributes.Phone || vendor.phone || null,
+          whatsapp: attributes.Whatsapp || null,
+          website: attributes.Website || null,
 
-        about_us: attributes.about_us || attributes.Aboutus || "",
-        vendor_name:
-          vendor.businessName ||
-          attributes.vendor_name ||
-          attributes.Name ||
-          "",
-        url: attributes.Website || attributes.URL || null,
+          about_us: attributes.about_us || attributes.Aboutus || "",
+          vendor_name:
+            vendor.businessName ||
+            attributes.vendor_name ||
+            attributes.Name ||
+            "",
+          url: attributes.Website || attributes.URL || null,
 
-        // Only vendors who uploaded 360° content from their login get the 360° badge
-        has360: hasView360(item),
-      };
-    }).filter(Boolean);
+          // Only vendors who uploaded 360° content from their login get the 360° badge
+          has360: hasView360(item),
+        };
+      })
+      .filter(Boolean);
   }, []);
 
   // Fetch data with caching
@@ -240,10 +269,7 @@ const useInfiniteScroll = (
         const selectedSubcats = extractVenueSubCategories(filtersRef.current);
         if (selectedSubcats && selectedSubcats.trim().length > 0) {
           params.append("subCategory", selectedSubcats);
-        } else if (
-          subCategory &&
-          subCategory.toLowerCase() !== "all"
-        ) {
+        } else if (subCategory && subCategory.toLowerCase() !== "all") {
           params.append("subCategory", subCategory);
         }
 
@@ -265,7 +291,7 @@ const useInfiniteScroll = (
 
         // Extract capacity filters and add as minCapacity/maxCapacity
         const { minCapacity, maxCapacity } = extractCapacityFilters(
-          filtersRef.current
+          filtersRef.current,
         );
         if (minCapacity !== null && minCapacity !== undefined) {
           params.append("minCapacity", minCapacity.toString());
@@ -276,7 +302,7 @@ const useInfiniteScroll = (
 
         // Extract food price per plate
         const { minFoodPrice, maxFoodPrice } = extractFoodPriceFilters(
-          filtersRef.current
+          filtersRef.current,
         );
         if (minFoodPrice !== null && minFoodPrice !== undefined) {
           params.append("minFoodPrice", minFoodPrice.toString());
@@ -296,7 +322,7 @@ const useInfiniteScroll = (
 
         // Extract rating
         const { minRating, maxRating } = extractRatingFilters(
-          filtersRef.current
+          filtersRef.current,
         );
         if (minRating !== null && minRating !== undefined) {
           params.append("minRating", minRating.toString());
@@ -307,7 +333,7 @@ const useInfiniteScroll = (
 
         // Extract reviews
         const { minReviews, maxReviews } = extractReviewFilters(
-          filtersRef.current
+          filtersRef.current,
         );
         if (minReviews !== null && minReviews !== undefined) {
           params.append("minReviews", minReviews.toString());
@@ -350,8 +376,7 @@ const useInfiniteScroll = (
           params.append("filters", JSON.stringify(nonPriceFilters));
         }
 
-        const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
-        const apiUrl = `${apiBaseUrl}/vendor-services?${params.toString()}`;
+        const apiUrl = `${API_BASE_URL}/vendor-services?${params.toString()}`;
         const cacheKey = apiUrl;
 
         // Abort any previous request
@@ -373,8 +398,8 @@ const useInfiniteScroll = (
         const itemsRaw = Array.isArray(result)
           ? result
           : Array.isArray(result.data)
-          ? result.data
-          : [];
+            ? result.data
+            : [];
 
         const isValidCity = (city) => {
           if (!city || typeof city !== "string") return true;
@@ -390,13 +415,19 @@ const useInfiniteScroll = (
         };
 
         const matchesSelectedCity = (item, selectedCity) => {
-          if (!selectedCity || selectedCity.toLowerCase() === "all") return true;
+          if (!selectedCity || selectedCity.toLowerCase() === "all")
+            return true;
           const itemLocation = String(
-            item.city || item.location || item.address || item.area || ""
+            item.city || item.location || item.address || item.area || "",
           ).toLowerCase();
-          const cleanSelected = selectedCity.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const cleanSelected = selectedCity
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
           const cleanItem = itemLocation.replace(/[^a-z0-9]/g, "");
-          return cleanItem.includes(cleanSelected) || cleanSelected.includes(cleanItem);
+          return (
+            cleanItem.includes(cleanSelected) ||
+            cleanSelected.includes(cleanItem)
+          );
         };
 
         const VENUE_FALLBACK_IMG = "/images/imageNotFound.jpg";
@@ -439,7 +470,7 @@ const useInfiniteScroll = (
           setData((prevData) => {
             const existingIds = new Set(prevData.map((item) => item.id));
             const newItems = transformed.filter(
-              (item) => !existingIds.has(item.id)
+              (item) => !existingIds.has(item.id),
             );
             // Append in API order — re-sorting the accumulated list here would move
             // cards the visitor has already scrolled past.
@@ -462,7 +493,7 @@ const useInfiniteScroll = (
         }
       }
     },
-    [section, slug, city, vendorType, initialLimit, transformApiData]
+    [section, slug, city, vendorType, initialLimit, transformApiData],
   );
 
   // Debounced load more function

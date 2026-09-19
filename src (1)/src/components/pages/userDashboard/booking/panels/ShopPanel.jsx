@@ -4,8 +4,7 @@ import { normalizeStatus, buildStatusFilters } from "../../../../../utils/bookin
 import BookingCard from "../BookingCard";
 import { StatusPills, PanelLoading, PanelEmpty, PanelError } from "./PanelChrome";
 import { money, day } from "./format";
-
-const STORE_URL = import.meta.env.VITE_STORE_URL || "https://store.happywedz.com";
+import { STORE_ORIGIN as STORE_URL } from "../../../../../config/constants";
 
 // "Rose Gold Garland +2 more" — names the thing the person actually recognises,
 // then says how much else is in the box.

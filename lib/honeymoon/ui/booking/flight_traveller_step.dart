@@ -16,7 +16,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/core.dart';
+import '../../data/gst_profile_store.dart';
 import '../../data/honeymoon_api.dart';
+import '../../data/traveller_store.dart';
 import '../../models/booking_models.dart';
 import '../../models/honeymoon_models.dart';
 import '../widgets/honeymoon_widgets.dart';
@@ -31,6 +33,8 @@ class FlightTravellerStep extends StatefulWidget {
     required this.travellers,
     required this.contact,
     required this.emergency,
+    this.initialGst,
+    this.initialNote = '',
   });
 
   final HoneymoonApi api;
@@ -43,6 +47,12 @@ class FlightTravellerStep extends StatefulWidget {
   final List<TravellerInput> travellers;
   final ContactDetails contact;
   final EmergencyContact emergency;
+
+  /// What was entered last time this step was left, so Back from the review
+  /// restores the GST panel and the notes rather than a blank form — the web
+  /// seeds its form from the same kind of snapshot (`saved`).
+  final GstDetails? initialGst;
+  final String initialNote;
 
   @override
   State<FlightTravellerStep> createState() => FlightTravellerStepState();
@@ -57,6 +67,18 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
   late final List<TextEditingController> _lastNames;
   late final List<TextEditingController> _passports;
   late final List<TextEditingController> _documentIds;
+  late final List<TextEditingController> _nationalities;
+  late final List<TextEditingController> _ffNumbers;
+
+  /// "Add this to My Travellers List", per panel. Kept per row rather than
+  /// per name: every panel starts blank, so a name-based key would tie all
+  /// of them together.
+  final Map<int, bool> _saveTraveller = {};
+  Set<String> _suppressed = <String>{};
+
+  /// "Add notes (Optional)" — sent as the booking's `remarks`.
+  final _note = TextEditingController();
+  bool _noteOpen = false;
 
   final _mobile = TextEditingController();
   final _email = TextEditingController();
@@ -66,9 +88,13 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
   final _emergencyMobile = TextEditingController();
 
   bool _gstEnabled = false;
+  bool _gstSave = true;
   final _gstCompany = TextEditingController();
   final _gstNumber = TextEditingController();
   final _gstEmail = TextEditingController();
+  final _gstPhone = TextEditingController();
+  final _gstAddress = TextEditingController();
+  List<GstProfile> _gstHistory = const [];
 
   /// Which traveller panel is open. One at a time keeps the scroll short.
   int _openIndex = 0;
@@ -87,7 +113,8 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
         TextEditingController(text: t.firstName),
     ];
     _lastNames = [
-      for (final t in widget.travellers) TextEditingController(text: t.lastName),
+      for (final t in widget.travellers)
+        TextEditingController(text: t.lastName),
     ];
     _passports = [
       for (final t in widget.travellers)
@@ -97,6 +124,33 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
       for (final t in widget.travellers)
         TextEditingController(text: t.documentId),
     ];
+    _nationalities = [
+      for (final t in widget.travellers)
+        TextEditingController(text: t.nationality),
+    ];
+    _ffNumbers = [
+      for (final t in widget.travellers)
+        TextEditingController(text: t.frequentFlyerNumber),
+    ];
+    // The first airline the fare accepts is preselected, as on the web.
+    final ffAirlines = widget.conditions.frequentFlyerAirlines;
+    for (final t in widget.travellers) {
+      if (t.frequentFlyerAirline.isEmpty && ffAirlines.isNotEmpty) {
+        t.frequentFlyerAirline = ffAirlines.first;
+      }
+    }
+
+    final gst = widget.initialGst;
+    if (gst != null) {
+      _gstEnabled = true;
+      _gstCompany.text = gst.companyName;
+      _gstNumber.text = gst.gstNumber;
+      _gstEmail.text = gst.companyEmail;
+      _gstPhone.text = gst.phone;
+      _gstAddress.text = gst.address;
+    }
+    _note.text = widget.initialNote;
+    _noteOpen = widget.initialNote.isNotEmpty;
 
     _mobile.text = widget.contact.mobile;
     _email.text = widget.contact.email;
@@ -105,7 +159,17 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
     _emergencyMobile.text = widget.emergency.mobile;
 
     _loadSavedTravellers();
+    _loadGstHistory();
+    _loadSuppressed();
   }
+
+  Future<void> _loadSuppressed() async {
+    final hidden = await TravellerSuppressionStore.load();
+    if (mounted) setState(() => _suppressed = hidden);
+  }
+
+  /// The booking's `remarks` — empty when no note was written.
+  String get note => _note.text.trim();
 
   @override
   void dispose() {
@@ -114,6 +178,9 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
       ..._lastNames,
       ..._passports,
       ..._documentIds,
+      ..._nationalities,
+      ..._ffNumbers,
+      _note,
       _mobile,
       _email,
       _emergencyName,
@@ -122,6 +189,8 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
       _gstCompany,
       _gstNumber,
       _gstEmail,
+      _gstPhone,
+      _gstAddress,
     ]) {
       c.dispose();
     }
@@ -135,6 +204,34 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
     final saved = await widget.api.fetchSavedTravellers();
     if (!mounted || saved.isEmpty) return;
     setState(() => _savedTravellers = saved);
+  }
+
+  /// Locally-saved GST profiles, most recent first. See [GstProfileStore].
+  Future<void> _loadGstHistory() async {
+    final history = await GstProfileStore.loadHistory();
+    if (!mounted || history.isEmpty) return;
+    setState(() => _gstHistory = history);
+  }
+
+  void _applyGstFromHistory(GstProfile profile) {
+    setState(() {
+      _gstEnabled = true;
+      _gstCompany.text = profile.companyName;
+      _gstNumber.text = profile.gstNumber;
+      _gstEmail.text = profile.companyEmail;
+      _gstPhone.text = profile.phone;
+      _gstAddress.text = profile.address;
+    });
+  }
+
+  void _clearGst() {
+    setState(() {
+      _gstCompany.clear();
+      _gstNumber.clear();
+      _gstEmail.clear();
+      _gstPhone.clear();
+      _gstAddress.clear();
+    });
   }
 
   GlobalKey _anchorFor(String key) => _anchors.putIfAbsent(key, GlobalKey.new);
@@ -207,7 +304,8 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
         if (t.passportExpiry == null) {
           errors['${i}_passportExpiry'] = 'Passport expiry is required';
         } else {
-          final sixMonths = DateTime.now().add(const Duration(days: 182));
+          final now = DateTime.now();
+          final sixMonths = DateTime(now.year, now.month + 6, now.day);
           if (t.passportExpiry!.isBefore(sixMonths)) {
             errors['${i}_passportExpiry'] =
                 'Passport must be valid for at least 6 more months';
@@ -215,6 +313,11 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
         }
         if (c.passportIssueDateRequired && t.passportIssueDate == null) {
           errors['${i}_passportIssue'] = 'Passport issue date is required';
+        }
+        // `pNat` is the two-letter country code the passport was issued by.
+        final nationality = _nationalities[i].text.trim();
+        if (!RegExp(r'^[A-Za-z]{2}$').hasMatch(nationality)) {
+          errors['${i}_nationality'] = 'Use the 2-letter country code, e.g. IN';
         }
       }
 
@@ -268,7 +371,9 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
     });
 
     if (errors.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFirstError());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scrollToFirstError(),
+      );
       return false;
     }
 
@@ -298,8 +403,33 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
         ..firstName = _firstNames[i].text.trim()
         ..lastName = _lastNames[i].text.trim()
         ..passportNumber = _passports[i].text.trim()
-        ..documentId = _documentIds[i].text.trim();
+        ..documentId = _documentIds[i].text.trim()
+        ..nationality = _nationalities[i].text.trim().isEmpty
+            ? 'IN'
+            : _nationalities[i].text.trim().toUpperCase()
+        ..frequentFlyerNumber = widget.travellers[i].type == PaxType.infant
+            ? ''
+            : _ffNumbers[i].text.trim().toUpperCase();
     }
+
+    // Names exist by now, so each row's "My Travellers List" choice is
+    // recorded against the key the picker looks people up by.
+    final hidden = Set<String>.from(_suppressed);
+    for (var i = 0; i < widget.travellers.length; i++) {
+      final t = widget.travellers[i];
+      final key = travellerKey(
+        t.firstName,
+        t.lastName,
+        t.dob == null ? '' : apiDate(t.dob!),
+      );
+      if (_saveTraveller[i] == false) {
+        hidden.add(key);
+      } else {
+        hidden.remove(key);
+      }
+    }
+    _suppressed = hidden;
+    TravellerSuppressionStore.save(hidden);
     widget.contact
       ..mobile = _mobile.text.trim()
       ..email = _email.text.trim();
@@ -307,6 +437,22 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
       ..name = _emergencyName.text.trim()
       ..email = _emergencyEmail.text.trim()
       ..mobile = _emergencyMobile.text.trim();
+
+    // Mirrors `persistGst()` in PassengerDetails.jsx, called right before the
+    // web hands off to the review step. Fire-and-forget: a convenience save
+    // must never block the booking it's attached to.
+    final gst = gstIfEnabled;
+    if (gst != null && _gstSave && gst.gstNumber.isNotEmpty) {
+      GstProfileStore.save(
+        GstProfile(
+          gstNumber: gst.gstNumber,
+          companyName: gst.companyName,
+          companyEmail: gst.companyEmail,
+          phone: gst.phone,
+          address: gst.address,
+        ),
+      );
+    }
   }
 
   /// Non-null when the traveller filled in GST details.
@@ -314,23 +460,32 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
       ? (GstDetails()
           ..companyName = _gstCompany.text.trim()
           ..gstNumber = _gstNumber.text.trim().toUpperCase()
-          ..companyEmail = _gstEmail.text.trim())
+          ..companyEmail = _gstEmail.text.trim()
+          ..phone = _gstPhone.text.trim()
+          ..address = _gstAddress.text.trim())
       : null;
 
   String? _ageError(DateTime dob, PaxType type) {
     final bounds = dobBoundsFor(type, widget.trip.departure);
     if (bounds.max != null && dob.isAfter(bounds.max!)) {
+      final max = formatTripDate(bounds.max);
       return switch (type) {
         PaxType.adult =>
-          'An adult must be 12 or older on the travel date',
-        PaxType.child => 'A child must be at least 2 on the travel date',
-        PaxType.infant => 'Date of birth cannot be in the future',
+          'An adult must be 12 or older on the travel date (born on or '
+              'before $max)',
+        PaxType.child =>
+          'A child must be at least 2 on the travel date (born on or before '
+              '$max)',
+        PaxType.infant => 'Infant date of birth cannot be in the future',
       };
     }
     if (bounds.min != null && dob.isBefore(bounds.min!)) {
+      final min = formatTripDate(bounds.min!.subtract(const Duration(days: 1)));
       return switch (type) {
-        PaxType.child => 'A child must be under 12 on the travel date',
-        PaxType.infant => 'An infant must be under 2 on the travel date',
+        PaxType.child =>
+          'A child must be under 12 on the travel date (born after $min)',
+        PaxType.infant =>
+          'An infant must be under 2 on the travel date (born after $min)',
         PaxType.adult => null,
       };
     }
@@ -401,11 +556,53 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
   }
 
   /// Fills a panel from someone this account has booked for before.
+  /// Saved travellers this panel may be filled from: the right passenger type
+  /// (an infant's row cannot take an adult's details) and not hidden by an
+  /// earlier "My Travellers List" untick.
+  List<Map<String, dynamic>> _savedFor(PaxType type) => [
+    for (final t in _savedTravellers)
+      if ((asString(readKey(t, 'pt')).isEmpty ||
+              asString(readKey(t, 'pt')).toUpperCase() == type.code) &&
+          !_suppressed.contains(_savedKeyOf(t)))
+        t,
+  ];
+
+  static String _savedKeyOf(Map<String, dynamic> t) {
+    final key = asString(readKey(t, 'key'));
+    if (key.isNotEmpty) return key.toUpperCase();
+    return travellerKey(
+      asString(readKey(t, 'fN')),
+      asString(readKey(t, 'lN')),
+      asString(readKey(t, 'dob')),
+    );
+  }
+
+  Future<void> _pickFfAirline(int index) async {
+    final t = widget.travellers[index];
+    final picked = await showOptionSheet<String>(
+      context,
+      title: 'Frequent flyer airline',
+      options: widget.conditions.frequentFlyerAirlines,
+      labelOf: (v) => v,
+      selected: t.frequentFlyerAirline,
+    );
+    if (picked != null) setState(() => t.frequentFlyerAirline = picked);
+  }
+
   Future<void> _pickSavedTraveller(int index) async {
+    final options = _savedFor(widget.travellers[index].type);
+    if (options.isEmpty) {
+      AppSnackbar.info(
+        context,
+        'No saved ${widget.travellers[index].type.code.toLowerCase()} '
+        'travellers yet — everyone you book for will appear here.',
+      );
+      return;
+    }
     final picked = await showOptionSheet<Map<String, dynamic>>(
       context,
       title: 'Previous travellers',
-      options: _savedTravellers,
+      options: options,
       labelOf: (t) =>
           '${asString(readKey(t, 'ti'))} ${asString(readKey(t, 'fN'))} '
                   '${asString(readKey(t, 'lN'))}'
@@ -431,9 +628,16 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
       _passports[index].text = asString(readKey(picked, 'pNum'));
       t.dob = DateTime.tryParse(asString(readKey(picked, 'dob'))) ?? t.dob;
       t.passportExpiry =
-          DateTime.tryParse(asString(readKey(picked, 'eD'))) ?? t.passportExpiry;
+          DateTime.tryParse(asString(readKey(picked, 'eD'))) ??
+          t.passportExpiry;
+      t.passportIssueDate =
+          DateTime.tryParse(asString(readKey(picked, 'pid'))) ??
+          t.passportIssueDate;
       final nationality = asString(readKey(picked, 'pNat'));
-      if (nationality.isNotEmpty) t.nationality = nationality;
+      if (nationality.isNotEmpty) {
+        t.nationality = nationality;
+        _nationalities[index].text = nationality;
+      }
 
       for (final field in const [
         'firstName',
@@ -485,15 +689,24 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
             lastName: _lastNames[i],
             passport: _passports[i],
             documentId: _documentIds[i],
+            nationality: _nationalities[i],
+            ffNumber: _ffNumbers[i],
+            docIdApplicable: widget.trip.docIdApplicable(c),
+            onPickFfAirline: () => _pickFfAirline(i),
+            saveTraveller: _saveTraveller[i] ?? true,
+            onSaveTravellerChanged: (v) =>
+                setState(() => _saveTraveller[i] = v),
             errors: _errors,
             anchorFor: _anchorFor,
             isOpen: _openIndex == i,
-            onToggle: () => setState(() => _openIndex = _openIndex == i ? -1 : i),
+            onToggle: () =>
+                setState(() => _openIndex = _openIndex == i ? -1 : i),
             onPickTitle: () => _pickTitle(i),
             onPickDob: () => _pickDob(i),
             onPickExpiry: () => _pickPassportDate(i, isExpiry: true),
             onPickIssueDate: () => _pickPassportDate(i, isExpiry: false),
-            onClearError: (field) => setState(() => _errors.remove('${i}_$field')),
+            onClearError: (field) =>
+                setState(() => _errors.remove('${i}_$field')),
             onUseSaved: _savedTravellers.isEmpty
                 ? null
                 : () => _pickSavedTraveller(i),
@@ -581,14 +794,48 @@ class FlightTravellerStepState extends State<FlightTravellerStep> {
         ],
 
         const SizedBox(height: AppSpacing.md),
+        FormSection(
+          title: 'Notes',
+          subtitle: 'Optional',
+          icon: Icons.sticky_note_2_outlined,
+          trailing: Switch.adaptive(
+            value: _noteOpen,
+            onChanged: (v) => setState(() => _noteOpen = v),
+          ),
+          children: _noteOpen
+              ? [
+                  AppTextField(
+                    controller: _note,
+                    label: 'Add notes',
+                    maxLength: 200,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  Text(
+                    '*These notes are for agent reference only, no action '
+                    'will be taken against this.',
+                    style: AppText.caption,
+                  ),
+                ]
+              : const [SizedBox.shrink()],
+        ),
+
+        const SizedBox(height: AppSpacing.md),
         _GstSection(
           enabled: _gstEnabled,
           company: _gstCompany,
           number: _gstNumber,
           email: _gstEmail,
+          phone: _gstPhone,
+          address: _gstAddress,
+          save: _gstSave,
+          history: _gstHistory,
           errors: _errors,
           anchorFor: _anchorFor,
           onToggle: (v) => setState(() => _gstEnabled = v),
+          onSaveToggle: (v) => setState(() => _gstSave = v),
+          onApplyHistory: _applyGstFromHistory,
+          onClear: _clearGst,
         ),
       ],
     );
@@ -609,6 +856,12 @@ class _TravellerCard extends StatelessWidget {
     required this.lastName,
     required this.passport,
     required this.documentId,
+    required this.nationality,
+    required this.ffNumber,
+    required this.docIdApplicable,
+    required this.onPickFfAirline,
+    required this.saveTraveller,
+    required this.onSaveTravellerChanged,
     required this.errors,
     required this.anchorFor,
     required this.isOpen,
@@ -629,6 +882,14 @@ class _TravellerCard extends StatelessWidget {
   final TextEditingController lastName;
   final TextEditingController passport;
   final TextEditingController documentId;
+  final TextEditingController nationality;
+  final TextEditingController ffNumber;
+
+  /// Fare says so (`dc.ida`) or the search was a student / senior fare.
+  final bool docIdApplicable;
+  final VoidCallback onPickFfAirline;
+  final bool saveTraveller;
+  final ValueChanged<bool> onSaveTravellerChanged;
   final Map<String, String> errors;
   final GlobalKey Function(String) anchorFor;
   final bool isOpen;
@@ -842,6 +1103,24 @@ class _TravellerCard extends StatelessWidget {
         if (conditions.passportRequired) ...[
           const SizedBox(height: AppSpacing.md),
           KeyedSubtree(
+            key: anchorFor('${index}_nationality'),
+            child: AppTextField(
+              controller: nationality,
+              label: 'Nationality',
+              required: true,
+              hint: 'IN',
+              helperText: 'Two-letter country code of the passport',
+              textCapitalization: TextCapitalization.characters,
+              errorText: _err('nationality'),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+                LengthLimitingTextInputFormatter(2),
+              ],
+              onChanged: (_) => onClearError('nationality'),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          KeyedSubtree(
             key: anchorFor('${index}_passport'),
             child: AppTextField(
               controller: passport,
@@ -890,13 +1169,15 @@ class _TravellerCard extends StatelessWidget {
           ],
         ],
 
-        if (conditions.docIdApplicable) ...[
+        if (docIdApplicable) ...[
           const SizedBox(height: AppSpacing.md),
           KeyedSubtree(
             key: anchorFor('${index}_documentId'),
             child: AppTextField(
               controller: documentId,
-              label: 'Document ID',
+              label: conditions.docIdMandatory
+                  ? 'Document ID'
+                  : 'Document ID (Student/Senior)',
               required: conditions.docIdMandatory,
               helperText: 'Student or senior-citizen fares need a document ID',
               errorText: _err('documentId'),
@@ -904,6 +1185,49 @@ class _TravellerCard extends StatelessWidget {
             ),
           ),
         ],
+
+        // Only offered for carriers this fare says accept a number, and never
+        // for an infant.
+        if (conditions.frequentFlyerAirlines.isNotEmpty &&
+            traveller.type != PaxType.infant) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text('Frequent flyer (optional)', style: AppText.formLabel),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 110,
+                child: PickerField(
+                  label: 'Airline',
+                  value: traveller.frequentFlyerAirline,
+                  onTap: onPickFfAirline,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: AppTextField(
+                  controller: ffNumber,
+                  label: 'FF number',
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+
+        const SizedBox(height: AppSpacing.sm),
+        CheckboxListTile.adaptive(
+          value: saveTraveller,
+          onChanged: (v) => onSaveTravellerChanged(v ?? true),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+          title: Text('Add this to My Travellers List', style: AppText.bodySm),
+        ),
       ],
     );
   }
@@ -919,18 +1243,32 @@ class _GstSection extends StatelessWidget {
     required this.company,
     required this.number,
     required this.email,
+    required this.phone,
+    required this.address,
+    required this.save,
+    required this.history,
     required this.errors,
     required this.anchorFor,
     required this.onToggle,
+    required this.onSaveToggle,
+    required this.onApplyHistory,
+    required this.onClear,
   });
 
   final bool enabled;
   final TextEditingController company;
   final TextEditingController number;
   final TextEditingController email;
+  final TextEditingController phone;
+  final TextEditingController address;
+  final bool save;
+  final List<GstProfile> history;
   final Map<String, String> errors;
   final GlobalKey Function(String) anchorFor;
   final ValueChanged<bool> onToggle;
+  final ValueChanged<bool> onSaveToggle;
+  final ValueChanged<GstProfile> onApplyHistory;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -941,17 +1279,41 @@ class _GstSection extends StatelessWidget {
       trailing: Switch.adaptive(value: enabled, onChanged: onToggle),
       children: enabled
           ? [
-              KeyedSubtree(
-                key: anchorFor('gstCompany'),
-                child: AppTextField(
-                  controller: company,
-                  label: 'Registered company name',
-                  required: true,
-                  textCapitalization: TextCapitalization.words,
-                  errorText: errors['gstCompany'],
+              if (history.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<GstProfile>(
+                        key: const ValueKey('gstHistoryPicker'),
+                        // Always shows the hint — picking an entry applies it
+                        // and resets to the hint, matching the source's
+                        // `<select value="">` "Select from History" control.
+                        initialValue: null,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Select from history',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          for (final g in history)
+                            DropdownMenuItem(
+                              value: g,
+                              child: Text(
+                                '${g.gstNumber} — ${g.companyName}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: (g) {
+                          if (g != null) onApplyHistory(g);
+                        },
+                      ),
+                    ),
+                    TextButton(onPressed: onClear, child: const Text('Clear')),
+                  ],
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.md),
+              ],
               KeyedSubtree(
                 key: anchorFor('gstNumber'),
                 child: AppTextField(
@@ -968,14 +1330,47 @@ class _GstSection extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               KeyedSubtree(
+                key: anchorFor('gstCompany'),
+                child: AppTextField(
+                  controller: company,
+                  label: 'Registered company name',
+                  required: true,
+                  textCapitalization: TextCapitalization.words,
+                  errorText: errors['gstCompany'],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              KeyedSubtree(
                 key: anchorFor('gstEmail'),
                 child: AppTextField(
                   controller: email,
-                  label: 'Company email',
+                  label: 'Registered email',
                   required: true,
                   keyboardType: TextInputType.emailAddress,
                   errorText: errors['gstEmail'],
                 ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: phone,
+                label: 'Registered phone',
+                required: false,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: address,
+                label: 'Registered address',
+                required: false,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              CheckboxListTile.adaptive(
+                value: save,
+                onChanged: (v) => onSaveToggle(v ?? true),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Save GST details for next time'),
               ),
             ]
           : const [SizedBox.shrink()],

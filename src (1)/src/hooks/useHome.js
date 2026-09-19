@@ -86,7 +86,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { IMAGE_BASE_URL } from "../config/constants";
+import { resolveMediaUrl } from "../config/constants";
 import { fetchVendorTypesWithSubcategoriesApi } from "../services/api/vendorTypesWithSubcategoriesApi";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -182,7 +182,7 @@ export const useHome = () => {
     let cancelled = false;
     const start = () => {
       const first = new Image();
-      first.src = `${IMAGE_BASE_URL}${images[0]}`;
+      first.src = resolveMediaUrl(images[0]);
       const onReady = () => !cancelled && setCarouselReady(true);
       first.decode ? first.decode().then(onReady, onReady) : (first.onload = onReady);
     };
@@ -216,7 +216,8 @@ export const useHome = () => {
 
   const getCurrentBackgroundImage = () => {
     if (carouselReady && images?.length) {
-      return `${IMAGE_BASE_URL}${images[currentImageIndex]}`;
+      // Absolute bucket URL since the S3 cutover, relative path before it.
+      return resolveMediaUrl(images[currentImageIndex]);
     }
     return null;
   };

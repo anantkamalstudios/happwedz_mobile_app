@@ -19,6 +19,7 @@ import "./App.critical.css";
 import { useDispatch } from "react-redux";
 import { setCredentials, logout } from "./redux/authSlice";
 import { setVendorCredentials } from "./redux/vendorAuthSlice";
+import { safeGetItem } from "./utils/safeStorage";
 import "./services/api/axiosInstance";
 import ToastProvider from "./components/layouts/toasts/Toast";
 import LoaderProvider from "./components/context/LoaderContext";
@@ -71,6 +72,9 @@ const NotFound = lazy(() => import("./components/pages/NotFound"));
 const BlogDetails = lazy(() => import("./components/pages/BlogDetails"));
 const VendorLeadsPage = lazy(
   () => import("./components/pages/adminVendor/VendorLeadsPage"),
+);
+const InstagramCallback = lazy(
+  () => import("./components/pages/adminVendor/InstagramCallback"),
 );
 const ReviewsPage = lazy(() => import("./components/pages/WriteReviewPage"));
 const AboutUs = lazy(() => import("./components/layouts/AboutUs"));
@@ -179,6 +183,9 @@ const EinviteHomePage = lazy(
 );
 const EinviteCategoryPage = lazy(
   () => import("./components/pages/EinviteCategoryPage"),
+);
+const EinviteCardDetailPage = lazy(
+  () => import("./components/pages/EinviteCardDetailPage"),
 );
 const EinviteEditorPage = lazy(
   () => import("./components/pages/EinviteEditorPage"),
@@ -353,15 +360,19 @@ function App() {
     }
 
     // Vendor tokens don't have expiration tracking yet, but we'll set them
-    const vendor = localStorage.getItem("vendor");
-    const vendorToken = localStorage.getItem("vendorToken");
+    const vendor = safeGetItem("vendor");
+    const vendorToken = safeGetItem("vendorToken");
     if (vendor && vendorToken) {
-      dispatch(
-        setVendorCredentials({
-          vendor: JSON.parse(vendor),
-          token: vendorToken,
-        }),
-      );
+      try {
+        dispatch(
+          setVendorCredentials({
+            vendor: JSON.parse(vendor),
+            token: vendorToken,
+          }),
+        );
+      } catch (e) {
+        console.warn("Failed to parse saved vendor JSON:", e);
+      }
     }
   }, [dispatch]);
 
@@ -640,6 +651,10 @@ function App() {
                 path="/vendor-dashboard/total-leads"
                 element={<VendorLeadsPage />}
               />
+              <Route
+                path="/instagram-callback"
+                element={<InstagramCallback />}
+              />
               <Route path="/write-review/:vendorId" element={<ReviewsPage />} />
               <Route
                 path="/write-review/:vendorId/:slug"
@@ -658,6 +673,10 @@ function App() {
               <Route
                 path="/einvites/category/:category"
                 element={<EinviteCategoryPage />}
+              />
+              <Route
+                path="/einvites/card/:slug"
+                element={<EinviteCardDetailPage />}
               />
               <Route
                 path="/einvites/editor/:id"

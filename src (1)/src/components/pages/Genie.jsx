@@ -7,6 +7,7 @@ import { MdChatBubbleOutline } from "react-icons/md";
 import { useSelector } from "react-redux";
 import { axiosInstance } from "../../services/api/axiosInstance";
 import { formatDateTime } from "../../utils/dateFormat";
+import { SHADI_AI_API_BASE_URL } from "../../config/constants";
 
 const Genie = () => {
   const [messages, setMessages] = useState([
@@ -50,7 +51,7 @@ const Genie = () => {
       setLoadingSessions(true);
       try {
         const res = await fetch(
-          `https://shaadiai.happywedz.com/api/sessions/${userId}`,
+          `${SHADI_AI_API_BASE_URL}/sessions/${userId}`,
           {
             method: "GET",
             headers: {
@@ -77,7 +78,7 @@ const Genie = () => {
   const loadChatHistory = async (sid) => {
     try {
       const res = await fetch(
-        `https://shaadiai.happywedz.com/api/chat_history?session_id=${sid}`,
+        `${SHADI_AI_API_BASE_URL}/chat_history?session_id=${sid}`,
         {
           method: "GET",
           headers: {
@@ -132,7 +133,7 @@ const Genie = () => {
       const payload = { user_query: query, user_id: userId };
       if (sessionId) payload.session_id = sessionId;
 
-      const res = await fetch("https://shaadiai.happywedz.com/api/user_chat", {
+      const res = await fetch(`${SHADI_AI_API_BASE_URL}/user_chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

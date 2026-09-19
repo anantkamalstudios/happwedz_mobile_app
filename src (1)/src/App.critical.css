@@ -6050,3 +6050,170 @@ label {
   }
 }
 
+
+/* ── Vendor detail skeleton (ShimmerVendorDetail.jsx) ─────────────────────── */
+.svd-shimmer {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.svd-box {
+  display: block;
+  border-radius: 6px;
+  background: #eceff3;
+  background-image: linear-gradient(
+    90deg,
+    #eceff3 0%,
+    #f7f8fa 40%,
+    #fdf0f6 50%,
+    #f7f8fa 60%,
+    #eceff3 100%
+  );
+  background-size: 200% 100%;
+  animation: svd-shimmer-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes svd-shimmer-slide {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.svd-breadcrumb {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.svd-crumb {
+  height: 12px;
+  width: 60px;
+}
+
+.svd-crumb-wide {
+  width: 140px;
+}
+
+.svd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+.svd-gallery {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+}
+
+.svd-thumbs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.svd-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+}
+
+.svd-card {
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 24px;
+  background: #fff;
+}
+
+.svd-heading {
+  height: 26px;
+  width: 70%;
+  margin-bottom: 16px;
+}
+
+.svd-heading-sm {
+  height: 22px;
+  width: 40%;
+}
+
+.svd-line {
+  height: 12px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.svd-line-80 {
+  width: 80%;
+}
+
+.svd-line-50 {
+  width: 50%;
+}
+
+.svd-pill {
+  height: 34px;
+  width: 130px;
+  border-radius: 18px;
+  margin-top: 14px;
+}
+
+.svd-divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 22px 0;
+}
+
+.svd-label {
+  height: 14px;
+  width: 45%;
+  margin-bottom: 10px;
+}
+
+.svd-btn {
+  height: 46px;
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.svd-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  max-width: 860px;
+  margin: 32px 0 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.svd-tab {
+  height: 16px;
+  width: 70%;
+  margin: 0 auto;
+}
+
+.svd-about {
+  max-width: 860px;
+}
+
+.svd-about .svd-heading {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 991px) {
+  .svd-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .svd-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

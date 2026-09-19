@@ -9,12 +9,24 @@ import 'custome_theme.dart';
 import 'moment_my_photos_screen.dart';
 import 'movment_plus_api.dart';
 
-class MomentPrivacyDialog extends StatelessWidget {
+class MomentPrivacyDialog extends StatefulWidget {
   const MomentPrivacyDialog({super.key, required this.token});
 
   final String token;
 
   static const Color primary = Color(0xFFC31162);
+
+  @override
+  State<MomentPrivacyDialog> createState() => _MomentPrivacyDialogState();
+}
+
+class _MomentPrivacyDialogState extends State<MomentPrivacyDialog> {
+  static const Color primary = MomentPrivacyDialog.primary;
+
+  bool _consentToProcessing = false;
+  bool _confirmsAdult = false;
+
+  bool get _allAgreed => _consentToProcessing && _confirmsAdult;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +129,8 @@ class MomentPrivacyDialog extends StatelessWidget {
                 /// ================= CHECKBOX 1 =================
                 _checkRow(
                   "I consent to the use of my image for AI processing.",
+                  _consentToProcessing,
+                  (v) => setState(() => _consentToProcessing = v ?? false),
                 ),
 
                 const SizedBox(height: 12),
@@ -124,6 +138,8 @@ class MomentPrivacyDialog extends StatelessWidget {
                 /// ================= CHECKBOX 2 =================
                 _checkRow(
                   "I am at least 18 years old and agree to the terms.",
+                  _confirmsAdult,
+                  (v) => setState(() => _confirmsAdult = v ?? false),
                 ),
 
                 const Spacer(),
@@ -135,18 +151,23 @@ class MomentPrivacyDialog extends StatelessWidget {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MomentFindPhotos(token: token),
-                        ),
-                      );
-                    },
+                    // Both disclosures must be agreed to before continuing —
+                    // matches the web's `allAgreed` gate on this same dialog.
+                    onPressed: _allAgreed
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MomentFindPhotos(token: widget.token),
+                              ),
+                            );
+                          }
+                        : null,
                     child: const Text(
                       "I Consent",
                       style: TextStyle(
@@ -165,26 +186,37 @@ class MomentPrivacyDialog extends StatelessWidget {
   }
 
   /// ================= CHECK ROW =================
-  Widget _checkRow(String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(
-          Icons.check_box,
-          size: 18,
-          color: Colors.white,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white,
+  Widget _checkRow(String text, bool value, ValueChanged<bool?> onChanged) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: Checkbox(
+              value: value,
+              onChanged: onChanged,
+              checkColor: primary,
+              fillColor: WidgetStateProperty.all(Colors.white),
+              side: const BorderSide(color: Colors.white),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

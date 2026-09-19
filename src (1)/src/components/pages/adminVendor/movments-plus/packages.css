@@ -2,24 +2,24 @@
 .packages-storage-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 1.25rem 1rem 3rem;
 }
 
 /* Header Section */
 .packages-header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
 }
 
 .packages-main-title {
-  font-size: 2.5rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 0.75rem;
 }
 
 .packages-subtitle {
-  font-size: 1.125rem;
+  font-size: .95rem;
   color: #6b7280;
   margin: 0;
   font-weight: 400;
@@ -28,24 +28,31 @@
 /* Packages Grid */
 .packages-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 2rem;
-  margin-bottom: 4rem;
+  /* Four across on a desktop, dropping to two then one as space runs out. A fixed
+     320px minimum was forcing a wrap long before it needed to. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+@media (max-width: 1200px) {
+  .packages-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .packages-grid { grid-template-columns: 1fr; }
 }
 
 /* Package Card */
 .package-card-wrapper {
   background: #ffffff;
-  border: 2px solid #e5e7eb;
-  border-radius: 20px;
-  padding: 2.5rem 2rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.15rem 1.1rem 1.25rem;
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 500px;
 }
 
 .package-card-wrapper:hover {
@@ -115,18 +122,18 @@
 /* Package Header */
 .package-card-header {
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .package-name {
-  font-size: 2rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 0.5rem;
 }
 
 .package-storage-info {
-  font-size: 0.938rem;
+  font-size: .82rem;
   color: #6b7280;
   margin: 0;
   font-weight: 500;
@@ -135,11 +142,11 @@
 /* Pricing */
 .package-pricing {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: .9rem;
 }
 
 .package-price {
-  font-size: 3rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 0.5rem;
@@ -147,13 +154,13 @@
 }
 
 .currency {
-  font-size: 2rem;
+  font-size: 1.05rem;
   vertical-align: super;
   margin-right: 0.25rem;
 }
 
 .package-billing {
-  font-size: 0.875rem;
+  font-size: .78rem;
   color: #6b7280;
   margin: 0;
   font-weight: 400;
@@ -163,28 +170,28 @@
 .package-features-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 2rem 0;
+  margin: 0 0 .9rem 0;
   flex-grow: 1;
 }
 
 .feature-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-  font-size: 0.938rem;
+  gap: .5rem;
+  padding: .28rem 0;
+  font-size: .8rem;
   color: #4b5563;
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 /* Package Button */
 .package-select-btn {
   width: 100%;
-  padding: 1rem 1.5rem;
+  padding: .62rem 1rem;
   border: none;
-  border-radius: 12px;
+  border-radius: 9px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: .88rem;
   cursor: pointer;
   transition: all 0.2s ease;
   margin-top: auto;
@@ -406,3 +413,142 @@
     font-size: 0.938rem;
   }
 }
+
+
+/* ── Allowance table ────────────────────────────────────────────────────────
+   The four numbers are what a vendor is actually comparing between plans, so
+   they get a aligned label/value list rather than being buried in prose. */
+.package-allowances {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 .85rem 0;
+  border-top: 1px solid #f0eef0;
+}
+.allowance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .4rem 0;
+  border-bottom: 1px solid #f0eef0;
+}
+.allowance-label {
+  font-size: .8rem;
+  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+/* ── Allowance info tooltip ──────────────────────────────────────────────
+   Hover reveals it for a mouse; the button also toggles a pinned .is-open
+   state via JS so a tap on a touch screen — which has no hover — works too. */
+.allowance-info {
+  position: relative;
+  display: inline-flex;
+}
+.allowance-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #b3aeb1;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.allowance-info-btn:hover,
+.allowance-info-btn:focus-visible {
+  color: #ed1173;
+}
+.allowance-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 190px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: .72rem;
+  line-height: 1.4;
+  font-weight: 400;
+  text-align: left;
+  padding: .45rem .6rem;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .18);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+  pointer-events: none;
+  z-index: 5;
+}
+.allowance-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1a1a1a;
+}
+.allowance-info:hover .allowance-tooltip,
+.allowance-info.is-open .allowance-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+/* The first row's tooltip would otherwise clip against the card's top edge. */
+.allowance-row:first-child .allowance-tooltip {
+  bottom: auto;
+  top: calc(100% + 7px);
+}
+.allowance-row:first-child .allowance-tooltip::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: #1a1a1a;
+}
+/* Narrow leftmost cards: keep the box from running off the left edge of the
+   viewport instead of centring under an icon that sits close to it. */
+@media (max-width: 480px) {
+  .allowance-tooltip {
+    left: 0;
+    transform: none;
+  }
+  .allowance-tooltip::after {
+    left: 14px;
+    transform: none;
+  }
+}
+.allowance-value {
+  font-size: .84rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.feature-tick {
+  color: #ed1173;
+  flex: 0 0 auto;
+  display: inline-flex;
+  margin-top: 2px;
+}
+
+
+/* Keep one wordy plan from setting the height of the whole row. */
+.package-features-list {
+  max-height: 5.5rem;
+  overflow-y: auto;
+}
+.package-features-list::-webkit-scrollbar { width: 4px; }
+.package-features-list::-webkit-scrollbar-thumb {
+  background: #e5e2e4;
+  border-radius: 4px;
+}
+
+/* The "Most Popular" and "Current Plan" badges sit above the card edge, so the row
+   needs a little headroom or they clip against whatever is above. */
+.packages-grid { padding-top: .75rem; }

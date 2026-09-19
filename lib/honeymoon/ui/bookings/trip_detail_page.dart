@@ -96,7 +96,19 @@ class _TripDetailPageState extends State<TripDetailPage> {
 
   /// A policy can only be cancelled once the detail response has told us which
   /// plan, product and travellers to name in the amendment.
+  // Insurance now opens InsuranceBookingDetailPage from My Trips; these
+  // policy paths stay as a fallback and follow the web's gating: PDF and
+  // Cancel only once the policy is issued (order status SUCCESS).
+  bool get _policyIssued =>
+      asString(digPath(_detail, ['order', 'status'])).toUpperCase() ==
+      'SUCCESS';
+
+  // bool get _canCancelPolicy =>
+  //     _insurancePlanId.isNotEmpty &&
+  //     _insuranceProductId.isNotEmpty &&
+  //     _insuranceTravellerIds.isNotEmpty;
   bool get _canCancelPolicy =>
+      _policyIssued &&
       _insurancePlanId.isNotEmpty &&
       _insuranceProductId.isNotEmpty &&
       _insuranceTravellerIds.isNotEmpty;
@@ -110,17 +122,14 @@ class _TripDetailPageState extends State<TripDetailPage> {
     digPath(_detail, ['itemInfos', 'INSURANCE', 'iinfo', 'pli', 0, 'plid']),
   );
 
-  String get _insuranceProductId =>
-      asString(readKey(_insuranceProduct, 'pid'));
+  String get _insuranceProductId => asString(readKey(_insuranceProduct, 'pid'));
 
   List<String> get _insuranceTravellerIds {
     // Travellers hang off the product once issued, and off the quote before
     // that; the web reads `product.iti` first and falls back to `isq.iti`.
     var list = asList(readKey(_insuranceProduct, 'iti'));
     if (list.isEmpty) {
-      list = asList(
-        digPath(_detail, ['itemInfos', 'INSURANCE', 'isq', 'iti']),
-      );
+      list = asList(digPath(_detail, ['itemInfos', 'INSURANCE', 'isq', 'iti']));
     }
     return list
         .map((t) => asString(readKey(t, 'id')))
@@ -135,6 +144,7 @@ class _TripDetailPageState extends State<TripDetailPage> {
           label: 'Download voucher',
           download: () => widget.api.downloadHotelVoucher(_booking.reference),
         ),
+        TravelProduct.insurance when !_policyIssued => null,
         TravelProduct.insurance => (
           label: 'Download policy',
           download: () =>
@@ -214,13 +224,16 @@ class _TripDetailPageState extends State<TripDetailPage> {
         final charges = await widget.api.fetchFlightCancelCharges(
           _booking.reference,
         );
+        // BUG FIX: the endpoint answers `refund_amount` / `amendment_charges`
+        // (the keys the web reads); the guessed names never matched.
         final refund = asDouble(
-          readKey(charges, 'refundAmount') ??
-              readKey(charges, 'totalRefund') ??
-              digPath(charges, ['data', 'refundAmount']),
+          readKey(charges, 'refund_amount') ??
+              readKey(charges, 'refundAmount') ??
+              readKey(charges, 'totalRefund'),
         );
         final fee = asDouble(
-          readKey(charges, 'cancellationCharge') ??
+          readKey(charges, 'amendment_charges') ??
+              readKey(charges, 'cancellationCharge') ??
               readKey(charges, 'totalCharge'),
         );
         if (refund > 0 || fee > 0) {
@@ -361,10 +374,7 @@ class _TripDetailPageState extends State<TripDetailPage> {
                     value: _booking.travellerSummary,
                   ),
                 if (_booking.paymentStatus.isNotEmpty)
-                  DetailRow(
-                    label: 'Payment',
-                    value: _booking.paymentStatus,
-                  ),
+                  DetailRow(label: 'Payment', value: _booking.paymentStatus),
                 if (_booking.amount > 0)
                   DetailRow(
                     label: 'Amount',
@@ -451,8 +461,13 @@ class _TripDetailPageState extends State<TripDetailPage> {
   };
 
   List<Widget> _flightSections() {
+    // BUG FIX: booking-details keeps travellers at
+    // `itemInfos.AIR.travellerInfos`; the root lookups never matched, so the
+    // passenger list was always empty.
     final travellers = asList(
-      readKey(_detail, 'travellerInfos') ?? readKey(_detail, 'travellerInfo'),
+      digPath(_detail, ['itemInfos', 'AIR', 'travellerInfos']) ??
+          readKey(_detail, 'travellerInfos') ??
+          readKey(_detail, 'travellerInfo'),
     );
     final trips = asList(
       digPath(_detail, ['itemInfos', 'AIR', 'tripInfos']) ??
@@ -484,8 +499,11 @@ class _TripDetailPageState extends State<TripDetailPage> {
                   asString(readKey(t, 'ti')),
                   asString(readKey(t, 'fN')),
                   asString(readKey(t, 'lN')),
-                  if (asString(readKey(t, 'pnrDetails')).isNotEmpty)
-                    '· PNR ${asString(readKey(t, 'pnrDetails'))}',
+                  // BUG FIX: `pnrDetails` is a `{route: pnr}` map, which
+                  // printed as garbled text; list it route by route.
+                  if (readKey(t, 'pnrDetails') is Map &&
+                      (readKey(t, 'pnrDetails') as Map).isNotEmpty)
+                    '· PNR ${(readKey(t, 'pnrDetails') as Map).entries.map((e) => '${e.key}: ${e.value}').join(', ')}',
                 ].where((s) => s.isNotEmpty).join(' '),
               ),
           ],
@@ -495,7 +513,8 @@ class _TripDetailPageState extends State<TripDetailPage> {
 
   List<Widget> _hotelSections() {
     final hotel =
-        readKey(_detail, 'hotelInfo') ?? digPath(_detail, ['itemInfos', 'HOTEL']);
+        readKey(_detail, 'hotelInfo') ??
+        digPath(_detail, ['itemInfos', 'HOTEL']);
     final guests = asList(
       digPath(hotel, ['roomTravellerInfo', 0, 'travellerInfo']),
     );
@@ -507,8 +526,7 @@ class _TripDetailPageState extends State<TripDetailPage> {
           title: 'Stay details',
           icon: Icons.hotel_rounded,
           children: [
-            if (address.isNotEmpty)
-              DetailRow(label: 'Address', value: address),
+            if (address.isNotEmpty) DetailRow(label: 'Address', value: address),
             for (final g in guests)
               DetailRow(
                 label: 'Guest',

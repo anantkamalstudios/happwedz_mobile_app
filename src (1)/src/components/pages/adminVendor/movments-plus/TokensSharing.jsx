@@ -15,15 +15,18 @@ import {
   FiUsers,
   FiActivity,
   FiRefreshCw,
+  FiInfo,
 } from "react-icons/fi";
 import axiosInstance from "../../../../services/api/axiosInstance";
 import "./tokens-sharing.css";
 import { CiVideoOff } from "react-icons/ci";
 import ShareModal from "./ShareModal";
 import { SiJsonwebtokens } from "react-icons/si";
-import { ClockLoader } from "react-spinners";
 import { useSelector } from "react-redux";
-import { formatDate as fmtDate, formatDateTime as fmtDateTime } from "../../../../utils/dateFormat";
+import {
+  formatDate as fmtDate,
+  formatDateTime as fmtDateTime,
+} from "../../../../utils/dateFormat";
 
 const TokensSharing = () => {
   const [tokens, setTokens] = useState([]);
@@ -78,7 +81,7 @@ const TokensSharing = () => {
     } catch (err) {
       showNotification(
         err.response?.data?.message || "Failed to generate token",
-        "error"
+        "error",
       );
     } finally {
       setGenerateLoading(false);
@@ -98,7 +101,7 @@ const TokensSharing = () => {
     } catch (err) {
       showNotification(
         err.response?.data?.message || "Failed to disable token",
-        "error"
+        "error",
       );
     }
   };
@@ -205,7 +208,7 @@ const TokensSharing = () => {
           style={{ gap: "0.5rem" }}
         >
           <FiPlus size={18} />
-          <span className="inter">Generate New Token</span>
+          <span className="inter">Generate New Code</span>
         </button>
       </div>
 
@@ -597,8 +600,8 @@ const TokensSharing = () => {
                 </div>
               </div>
 
-              <div className="info-box inter">
-                <ClockLoader size={20} color="#1e40af" className="me-2 inter" />{" "}
+              <div className="token-info-box inter">
+                <FiInfo size={18} className="token-info-box-icon" />
                 <span className="inter">
                   This token will be automatically linked to your active event
                 </span>

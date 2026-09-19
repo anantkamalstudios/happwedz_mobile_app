@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FaStar, FaMapMarkerAlt, FaImages } from "react-icons/fa";
+import { API_BASE_URL as API_BASE } from "../../config/constants";
 
-const API_BASE  = "https://happywedz.com/api";
 const PAGE_SIZE = 20;
 
 // ── Skeleton card shown while loading ────────────────────────────────────────

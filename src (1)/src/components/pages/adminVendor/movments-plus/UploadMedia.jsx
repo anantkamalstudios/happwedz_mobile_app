@@ -71,6 +71,14 @@ const FilePreview = ({ file, index, onReplace, onRemove, disabled }) => {
   );
 };
 
+/**
+ * Megabytes as gigabytes, for the plan-sized numbers (remaining, limit).
+ *
+ * Rounded down rather than nearest: 2045.91 MB is not 2 GB, and telling a vendor they
+ * have more room than they do sends them into a failed upload.
+ */
+const toGb = (mb) => (Math.floor((Number(mb) || 0) / 10.24) / 100).toFixed(2);
+
 const UploadMedia = ({ initialParams }) => {
   const { vendor } = useSelector((state) => state.vendorAuth);
   const [tokens, setTokens] = useState([]);
@@ -280,7 +288,7 @@ const UploadMedia = ({ initialParams }) => {
     uploadData.append("visibility", formData.visibility);
     uploadData.append("token", formData.token);
 
-    selectedFiles.forEach((file, index) => {
+    selectedFiles.forEach((file) => {
       uploadData.append("files", file);
     });
 
@@ -426,8 +434,8 @@ const UploadMedia = ({ initialParams }) => {
                     : "text-success inter"
                 }`}
               >
-                {analytics.package.remainingMB.toFixed(2)}{" "}
-                <span className="fs-6 text-success inter">MB</span>
+                {toGb(analytics.package.remainingMB)}{" "}
+                <span className="fs-6 text-success inter">GB</span>
               </h3>
             </div>
           </div>
@@ -438,8 +446,8 @@ const UploadMedia = ({ initialParams }) => {
             <div>
               <p className="stat-box-label text-start inter">Limit</p>
               <h3 className="stat-box-value inter">
-                {analytics.package.limitMB}{" "}
-                <span className="fs-6 text-muted inter">MB</span>
+                {toGb(analytics.package.limitMB)}{" "}
+                <span className="fs-6 text-muted inter">GB</span>
               </h3>
             </div>
           </div>
@@ -510,7 +518,8 @@ const UploadMedia = ({ initialParams }) => {
                           setFormData((prev) => ({
                             ...prev,
                             token: token.token,
-                            event_id: token.event_id || "",
+                            event_id: prev.event_id || token.event_id || "",
+                            visibility: prev.visibility || token.type || "",
                           }));
                           document
                             .getElementById("upload-section")
@@ -584,7 +593,8 @@ const UploadMedia = ({ initialParams }) => {
                     setFormData((prev) => ({
                       ...prev,
                       token: token.token,
-                      event_id: token.event_id || "",
+                      event_id: prev.event_id || token.event_id || "",
+                      visibility: prev.visibility || token.type || "",
                     }));
                     document
                       .getElementById("upload-section")
@@ -639,11 +649,7 @@ const UploadMedia = ({ initialParams }) => {
                   }`}
                   name="event_id"
                   value={formData.event_id}
-                  onChange={(e) => {
-                    handleInputChange(e);
-                    // Clear token when event changes
-                    setFormData((prev) => ({ ...prev, token: "" }));
-                  }}
+                  onChange={handleInputChange}
                 >
                   <option value="">Select Event</option>
                   {events.map((event) => (
@@ -717,20 +723,29 @@ const UploadMedia = ({ initialParams }) => {
                   }`}
                   name="token"
                   value={formData.token}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    const selectedVal = e.target.value;
+                    const matchingToken = tokens.find((t) => t.token === selectedVal);
+                    setFormData((prev) => ({
+                      ...prev,
+                      token: selectedVal,
+                      visibility: prev.visibility || matchingToken?.type || "",
+                    }));
+                    setErrors((prev) => ({ ...prev, token: "" }));
+                  }}
                 >
                   <option value="">Select token</option>
-                  {tokens
-                    .filter(
-                      (t) =>
-                        !formData.event_id ||
-                        t.event_id?.toString() === formData.event_id.toString(),
-                    )
-                    .map((token) => (
+                  {tokens.map((token) => {
+                    const isForSelectedEvent =
+                      formData.event_id &&
+                      token.event_id?.toString() === formData.event_id?.toString();
+                    return (
                       <option key={token.id} value={token.token}>
                         {token.token} ({token.type})
+                        {isForSelectedEvent ? " - This Event" : ""}
                       </option>
-                    ))}
+                    );
+                  })}
                 </select>
               </div>
               {errors.token && (

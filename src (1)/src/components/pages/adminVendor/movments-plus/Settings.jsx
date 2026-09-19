@@ -8,10 +8,10 @@ const Settings = () => {
       </h2>
       <div className="card border-0 shadow-sm">
         <div className="card-body p-4">
-          <h5 className="card-title mb-3">Configure your Movments+ settings</h5>
+          <h5 className="card-title mb-3">Configure your Moments+ settings</h5>
           <p className="text-muted mb-0">
             Manage your preferences and configuration options. Customize your
-            Movments+ experience according to your needs.
+            Moments+ experience according to your needs.
           </p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal, Offcanvas } from "react-bootstrap";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -10,7 +10,9 @@ import {
   ChevronRight,
   CircleHelp,
   ExternalLink,
+  CalendarDays,
   Filter,
+  Heart,
   Images,
   LayoutGrid,
   List,
@@ -260,29 +262,56 @@ const normalizeAmount = (value) => {
   return Number(num.toFixed(2));
 };
 
+const HOTEL_CARD_IMAGE_LIMIT = 10;
+const FAVOURITE_STORAGE_KEY = "happywedz.hotelFavourites";
+
+const toImageUrl = (image) =>
+  image?.url || image?.imageUrl || image?.path || image?.links?.Standard?.href || image;
+
+/**
+ * Ordered so the property's cover photo leads.
+ *
+ * TripJack flags it with is_hero_image (surfaced as `isHero`, and separately as
+ * `heroImage`) and it is rarely first in the array — for the Courtyard Marriott it sits
+ * at index 47 of 57, so the card used to open on an interior shot while TripJack's own
+ * page showed the exterior. The list is also deduped and capped: concatenating
+ * images + img + heroImage + image repeated the same photo and inflated the counter
+ * to "1/60" against TripJack's "1 / 10".
+ */
 const getHotelImages = (hotel) => {
-  const images = [
-    ...(Array.isArray(hotel?.images) ? hotel.images : []),
+  const gallery = Array.isArray(hotel?.images) ? hotel.images : [];
+  const flaggedHero = gallery.find((image) => image?.isHero || image?.is_hero_image);
+
+  const ordered = [
+    hotel?.heroImage,
+    flaggedHero,
+    ...gallery,
     ...(Array.isArray(hotel?.img) ? hotel.img : []),
-    ...(hotel?.heroImage ? [hotel.heroImage] : []),
-    ...(hotel?.image ? [hotel.image] : []),
+    hotel?.image,
   ];
-  return images
-    .map((image) => image?.url || image?.imageUrl || image?.path || image?.links?.Standard?.href || image)
-    .filter(Boolean);
+
+  const seen = new Set();
+  const urls = [];
+  for (const entry of ordered) {
+    const url = toImageUrl(entry);
+    if (!url || typeof url !== "string" || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+    if (urls.length >= HOTEL_CARD_IMAGE_LIMIT) break;
+  }
+  return urls;
 };
 
+// TripJack shows just the city under the hotel name ("Mumbai"). The v3 listing carries
+// it as address.city; the older ctn/sn keys never match, and the final fallback to
+// searchRegionName printed the hotel's own name back as its location.
 const getHotelAddress = (hotel, searchPayload) => {
   const address = hotel?.address || {};
-  return [
-    address?.ctn,
-    address?.sn,
-    hotel?.cityName,
-    hotel?.location,
-    searchPayload?.searchQuery?.searchCriteria?.searchRegionName,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const city = address?.city || address?.ctn || hotel?.cityName || "";
+  if (city) return String(city);
+  const region = searchPayload?.searchQuery?.searchCriteria?.searchRegionName || "";
+  // Only useful when it names a place rather than the property itself.
+  return region && region !== hotel?.name ? String(region) : "";
 };
 
 // Suppliers return place names shouted in caps ("BHAVANI NAGAR"). Short tokens
@@ -341,9 +370,26 @@ const getPriceInfo = (hotel, searchPayload) => {
   };
 };
 
+// fetch-hotel-content returns amenities and facilities as objects keyed by index
+// ({"0": {...}, "1": {...}}), not arrays, so the array-only reads below found nothing
+// and every card fell back to "Standard Amenities".
+const toAmenityList = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") return Object.values(value);
+  return [];
+};
+
 const getAmenities = (hotel) => {
   const preferred = [];
   const seen = new Set();
+
+  for (const item of [...toAmenityList(hotel?.amenities), ...toAmenityList(hotel?.facilities)]) {
+    const name = String(item?.name || item?.nm || item || "").trim();
+    if (name && !seen.has(name.toLowerCase())) {
+      seen.add(name.toLowerCase());
+      preferred.push(name);
+    }
+  }
 
   if (Array.isArray(hotel?.tja)) {
     hotel.tja.forEach((group) => {
@@ -387,6 +433,9 @@ const normalizeHotel = (hotel, searchPayload) => {
     userRatingLabel: getRatingLabel(hotel),
     ratingCount: Number(hotel?.userRating?.rc || 0),
     userFavourite: Boolean(hotel?.userFavourite),
+    // false only when the backend fell back to static content because the property had
+    // no rates for the chosen dates.
+    available: hotel?.available !== false,
     propertyType: hotel?.propertyType || hotel?.categoryName || "",
     brand: hotel?.brand || hotel?.chain || "",
     amenities: getAmenities(hotel),
@@ -414,14 +463,56 @@ const extractSearchId = (payload) =>
   payload?.hotelSearchResult?.searchId ||
   "";
 
-const extractHotelCount = (payload, fallbackCount = 0) =>
-  Number(
-    payload?.hotelCount ??
-      payload?.data?.hotelCount ??
-      payload?.searchResult?.hotelCount ??
-      payload?.hotelSearchResult?.hotelCount ??
-      fallbackCount,
-  ) || fallbackCount;
+/**
+ * Whether the server has more properties left to sweep.
+ *
+ * Only the server knows: a page can return zero bookable hotels and still have
+ * hundreds of candidates left, so this can never be inferred from the results.
+ */
+/**
+ * Orders results for the Sort By dropdown.
+ *
+ * TripJack's listing API accepts no sort parameter, so this is the only place sorting
+ * can happen. Hotels without a price sink to the bottom of either price sort rather
+ * than counting as zero and hijacking "lowest first".
+ */
+const sortHotels = (hotels, sortOrder) => {
+  const priceOf = (hotel) => {
+    const value = Number(hotel?.priceInfo?.totalPrice);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+
+  const byPrice = (direction) => (a, b) => {
+    const pa = priceOf(a);
+    const pb = priceOf(b);
+    if (pa === null && pb === null) return 0;
+    if (pa === null) return 1;
+    if (pb === null) return -1;
+    return direction === "asc" ? pa - pb : pb - pa;
+  };
+
+  const sorted = [...hotels];
+
+  switch (sortOrder) {
+    case "priceLowToHigh":
+      return sorted.sort(byPrice("asc"));
+    case "priceHighToLow":
+      return sorted.sort(byPrice("desc"));
+    case "starRatingHighToLow":
+      return sorted.sort(
+        (a, b) =>
+          (Number(b?.starRating) || 0) - (Number(a?.starRating) || 0) ||
+          byPrice("asc")(a, b),
+      );
+    // "Most Popular" has no ranking signal from the supplier, so it keeps the order
+    // the results came back in.
+    default:
+      return sorted;
+  }
+};
+
+const extractHasMore = (payload) =>
+  Boolean(payload?.hasMore ?? payload?.data?.hasMore ?? payload?.pagination?.hasMore);
 
 const extractLastHotelId = (payload, hotels = []) =>
   payload?.lastHotelId ||
@@ -1417,7 +1508,7 @@ function renderStars(count) {
   ));
 }
 
-function HotelCard({ hotel, onClick }) {
+function HotelCard({ hotel, onClick, isFavourite, onToggleFavourite }) {
   const images = hotel.images?.length ? hotel.images : hotel.image ? [hotel.image] : [];
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -1425,20 +1516,24 @@ function HotelCard({ hotel, onClick }) {
     setActiveImageIndex(0);
   }, [hotel.id]);
 
-  const activeImage = images[activeImageIndex] || "";
-
-  const handlePrevImage = (event) => {
+  const handleToggleFavourite = (event) => {
     event.stopPropagation();
-    setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    onToggleFavourite(hotel.id);
   };
 
+  const activeImage = images[activeImageIndex] || "";
+
+  // Only a forward arrow is rendered, matching TripJack; the carousel wraps.
   const handleNextImage = (event) => {
     event.stopPropagation();
     setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
   return (
-    <div className="hotel-card" onClick={onClick}>
+    <div
+      className={`hotel-card${hotel.available === false ? " hotel-card--unavailable" : ""}`}
+      onClick={onClick}
+    >
       <div className="hotel-image-container">
         {activeImage ? (
           <img
@@ -1453,204 +1548,102 @@ function HotelCard({ hotel, onClick }) {
           </div>
         )}
         
-        <div className="image-count-badge">{activeImageIndex + 1}/{images.length || 1}</div>
-        
+        <button
+          type="button"
+          className={`hotel-fav-btn${isFavourite ? " is-active" : ""}`}
+          aria-label={isFavourite ? "Remove from favourites" : "Add to favourites"}
+          onClick={handleToggleFavourite}
+        >
+          <Heart size={16} fill={isFavourite ? "currentColor" : "none"} />
+        </button>
+
+        <div className="image-count-badge">
+          {activeImageIndex + 1} / {images.length || 1}
+        </div>
+
+        {/* TripJack shows only a forward arrow; the carousel wraps around. */}
         {images.length > 1 && (
-          <>
-            <button
-              type="button"
-              className="image-nav-btn prev"
-              onClick={handlePrevImage}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              className="image-nav-btn next"
-              onClick={handleNextImage}
-            >
-              ›
-            </button>
-          </>
-        )}
-        
-      </div>
-
-      <div className="hotel-content">
-        <div className="hotel-header">
-          <div className="hotel-title-section">
-            <h4 className="hotel-name">{hotel.name}</h4>
-            <div className="hotel-location">{hotel.location || "Location unavailable"}</div>
-          </div>
-          <div className="hotel-rating">
-            {renderStars(hotel.starRating)}
-          </div>
-        </div>
-
-        <div className="hotel-inclusion">
-          • {hotel.priceInfo.mealBasis}
-        </div>
-
-        <div className="hotel-facilities">
-          {hotel.amenities.length > 0
-            ? hotel.amenities.slice(0, 3).map((amenity, index) => {
-                const amenityText = typeof amenity === 'object' && amenity !== null 
-                  ? (amenity.name || amenity.nm || "Amenity")
-                  : String(amenity || 'Amenity');
-                return amenityText;
-              }).join(" | ")
-            : "Standard Amenities"}
-        </div>
-
-        <div className="hotel-pricing">
-          <div className="price-per-night">
-            {hotel.priceInfo.nightlyPrice
-              ? `${formatMoney(hotel.priceInfo.nightlyPrice, hotel.priceInfo.currency)}/night`
-              : "Price on request"}
-          </div>
-          <div className="total-price">
-            {hotel.priceInfo.totalPrice
-              ? formatMoney(hotel.priceInfo.totalPrice, hotel.priceInfo.currency)
-              : "—"} <span className="total-label">Total</span>
-          </div>
-          <div className="tax-info">(Incl. of all taxes)</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HotelListCard({ hotel, onClick }) {
-  const images = hotel.images?.length ? hotel.images : hotel.image ? [hotel.image] : [];
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-
-  useEffect(() => {
-    setActiveImageIndex(0);
-  }, [hotel.id]);
-
-  const activeImage = images[activeImageIndex] || "";
-
-  const handlePrevImage = (event) => {
-    event.stopPropagation();
-    setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
-  };
-
-  const handleNextImage = (event) => {
-    event.stopPropagation();
-    setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-  };
-
-  return (
-    <div className="hotel-card" onClick={onClick}>
-      <div className="hotel-list-card">
-        <div className="hotel-list-image-wrap">
-          {activeImage ? (
-            <img
-              className="hotel-card-image"
-              src={activeImage}
-              alt={`${hotel.name} image ${activeImageIndex + 1}`}
-            />
-          ) : null}
-          <span className="hotel-image-pill">{`${activeImageIndex + 1}/${images.length || 1}`}</span>
-          {images.length > 1 ? (
-            <>
-              <button
-                type="button"
-                className="hotel-image-nav left"
-                aria-label={`Show previous image for ${hotel.name}`}
-                onClick={handlePrevImage}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                className="hotel-image-nav right"
-                aria-label={`Show next image for ${hotel.name}`}
-                onClick={handleNextImage}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </>
-          ) : null} 
-        </div>
-
-        <div className="hotel-list-main">
-          <div className="hotel-title-block">
-            <h4 className="hotel-name">{hotel.name}</h4>
-            <div className="hotel-location">
-              <MapPin size={14} />
-              <span>{hotel.location || "Location unavailable"}</span>
-            </div>
-            <div className="hotel-stars">{renderStars(hotel.starRating)}</div>
-          </div>
-
-          <div className="hotel-meal-line">{hotel.priceInfo.mealBasis}</div>
-
-          <div className="hotel-amenities">
-            {hotel.amenities.length > 0
-              ? hotel.amenities.map((amenity, index) => {
-                  const amenityText = typeof amenity === 'object' && amenity !== null 
-                    ? (amenity.name || amenity.nm || JSON.stringify(amenity))
-                    : String(amenity || '');
-                  return (
-                    <span key={`${amenityText}-${index}`} className="hotel-amenity-chip">
-                      {amenityText}
-                    </span>
-                  );
-                })
-              : <span className="hotel-amenity-chip">Amenities unavailable</span>}
-          </div>
-        </div>
-
-        <div className="hotel-list-side">
-          <div className="hotel-rating-box">
-            {hotel.userRating ? (
-              <>
-                <div className="hotel-rating-badge">
-                  <Star size={12} fill="currentColor" />
-                  <span>{hotel.userRating}</span>
-                </div>
-                <div className="hotel-rating-meta">
-                  <div>{hotel.userRatingLabel}</div>
-                  <div>{hotel.ratingCount ? `(${hotel.ratingCount} Ratings)` : ""}</div>
-                </div>
-              </>
-            ) : hotel.starRating ? (
-              <div className="hotel-rating-meta">
-                <div>{hotel.starRating} Star Hotel</div>
-              </div>
-            ) : (
-              <div className="hotel-rating-meta">No rating</div>
-            )}
-          </div>
-
-          <div className="hotel-price-meta" style={{ textAlign: "right" }}>
-            <div className="hotel-nightly">
-              {hotel.priceInfo.nightlyPrice
-                ? `${formatMoney(hotel.priceInfo.nightlyPrice, hotel.priceInfo.currency)} /night`
-                : "Nightly price unavailable"}
-            </div>
-            <div className="hotel-total-inline" style={{ justifyContent: "flex-end" }}>
-              <div className="hotel-total-price">
-              {hotel.priceInfo.totalPrice
-                ? formatMoney(hotel.priceInfo.totalPrice, hotel.priceInfo.currency, true)
-                : "—"}
-            </div>
-              <div className="hotel-total-caption">Total</div>
-            </div>
-            <div className="hotel-tax-copy">Incl. of all taxes</div>
-          </div>
-
-          <button type="button" className="hotel-card-cta">
-            View Details
+          <button type="button" className="image-nav-btn next" onClick={handleNextImage}>
+            ›
           </button>
+        )}
+      </div>
+
+      {/* Vertical card: image on top, details below, price last — TripJack's grid view. */}
+      <div className="hotel-content">
+        <div className="hotel-title-section">
+          {/* Stars sit beside the name, as they do on TripJack's grid card. */}
+          <div className="hotel-title-row">
+            <h4 className="hotel-name">{hotel.name}</h4>
+            <div className="hotel-rating">{renderStars(hotel.starRating)}</div>
+          </div>
+          {hotel.location ? <div className="hotel-location">{hotel.location}</div> : null}
+
+          {hotel.priceInfo.mealBasis ? (
+            <div className="hotel-inclusion">{hotel.priceInfo.mealBasis}</div>
+          ) : null}
+
+          {hotel.amenities.length > 0 ? (
+            <div className="hotel-facilities">
+              {hotel.amenities.slice(0, 3).map((amenity) => {
+                const name =
+                  typeof amenity === "object" && amenity !== null
+                    ? amenity.name || amenity.nm || "Amenity"
+                    : String(amenity || "Amenity");
+                return (
+                  <span key={name} className="hotel-facility">
+                    {name}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="hotel-aside">
+          {hotel.available === false ? (
+            <div className="hotel-unavailable">
+              Not Available
+              <span>On Your selected Dates</span>
+            </div>
+          ) : (
+            <div className="hotel-pricing">
+              {hotel.priceInfo.nightlyPrice ? (
+                <div className="price-per-night">
+                  {formatMoney(hotel.priceInfo.nightlyPrice, hotel.priceInfo.currency)}/night
+                </div>
+              ) : null}
+              <div className="total-price">
+                {hotel.priceInfo.totalPrice
+                  ? formatMoney(hotel.priceInfo.totalPrice, hotel.priceInfo.currency)
+                  : "Price on request"}
+                {hotel.priceInfo.totalPrice ? <span className="total-label">Total</span> : null}
+              </div>
+              {hotel.priceInfo.totalPrice ? (
+                <div className="tax-info">(Incl. of all taxes)</div>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function EmptyState({ onClearAll }) {
+function EmptyState({ onClearAll, hasActiveFilters }) {
+  if (!hasActiveFilters) {
+    return (
+      <div className="hotel-empty">
+        <CalendarDays size={26} color="#ed1173" />
+        <div className="hotel-empty-title">No availability for these dates</div>
+        <div className="hotel-empty-copy">
+          Nothing is bookable for the dates you picked. Try different dates, or a nearby
+          destination.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="hotel-empty">
       <SlidersHorizontal size={26} color="#ed1173" />
@@ -1712,11 +1705,39 @@ export default function HotelbedsHotelsPage() {
   const [detailResponse, setDetailResponse] = useState(null);
   const [activeOption, setActiveOption] = useState(null);
   const [roomModalOpen, setRoomModalOpen] = useState(false);
-  const [sortOrder, setSortOrder] = useState("popularity");
+  // Nothing pre-selected: the list arrives in supplier order until a sort is chosen.
+  const [sortOrder, setSortOrder] = useState("");
   const [viewMode, setViewMode] = useState("grid");
   const [favoritesOnly, setFavoritesOnly] = useState(
     Boolean(searchPayload?.appliedFilters?.onlyFavorites),
   );
+  // The listing API has no notion of a saved hotel — it always returns
+  // userFavourite: false — and there is no favourites endpoint, so the heart and the
+  // existing "View favourites only" filter are backed by this browser. That makes them
+  // per-device; moving them server-side needs an endpoint and a table.
+  const [favouriteIds, setFavouriteIds] = useState(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(FAVOURITE_STORAGE_KEY) || "[]");
+      return new Set(Array.isArray(saved) ? saved.map(String) : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleFavourite = useCallback((hotelId) => {
+    setFavouriteIds((prev) => {
+      const next = new Set(prev);
+      const key = String(hotelId);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        window.localStorage.setItem(FAVOURITE_STORAGE_KEY, JSON.stringify([...next]));
+      } catch {
+        // Private browsing or blocked storage: the toggle still works for this session.
+      }
+      return next;
+    });
+  }, []);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState(() =>
     sanitizeAppliedFilters(searchPayload?.appliedFilters || {}),
@@ -1782,11 +1803,10 @@ export default function HotelbedsHotelsPage() {
         if (!active) return;
         const nextHotels = extractHotels(response, activePayload);
         const nextLastHotelId = extractLastHotelId(response, nextHotels);
-        const nextHotelCount = extractHotelCount(response, nextHotels.length);
         setSearchResponse(response);
         setLoadedHotels(nextHotels);
         setLastHotelId(nextLastHotelId);
-        setHasMoreResults(Boolean(nextLastHotelId) && nextHotels.length < nextHotelCount);
+        setHasMoreResults(Boolean(nextLastHotelId) && extractHasMore(response));
       })
       .catch((error) => {
         console.error(getErrorMessage(error, "Unable to refresh hotel results"));
@@ -1827,13 +1847,10 @@ export default function HotelbedsHotelsPage() {
             setLoadedHotels((prev) => {
               const mergedHotels = mergeHotels(prev, incomingHotels);
               const nextLastHotelId = extractLastHotelId(response, incomingHotels);
-              const totalCount = extractHotelCount(response, mergedHotels.length);
               setLastHotelId(nextLastHotelId);
-              setHasMoreResults(
-                Boolean(nextLastHotelId) &&
-                  incomingHotels.length > 0 &&
-                  mergedHotels.length < totalCount,
-              );
+              // A window with no availability is not the end of the city, so keep
+              // going while the server still has candidates left.
+              setHasMoreResults(Boolean(nextLastHotelId) && extractHasMore(response));
               return mergedHotels;
             });
           })
@@ -1845,7 +1862,13 @@ export default function HotelbedsHotelsPage() {
             appendRequestRef.current = false;
           });
       },
-      { rootMargin: "300px 0px" },
+      {
+        // The results column scrolls inside itself on desktop, so the sentinel never
+        // meets the viewport. Watch the scrolling pane instead, falling back to the
+        // viewport on mobile where the column is not its own scroll region.
+        root: node.closest(".hotel-results") || null,
+        rootMargin: "300px 0px",
+      },
     );
 
     observer.observe(node);
@@ -1951,7 +1974,9 @@ export default function HotelbedsHotelsPage() {
     }
 
     if (favoritesOnly) {
-      nextHotels = nextHotels.filter((hotel) => hotel.userFavourite);
+      nextHotels = nextHotels.filter(
+        (hotel) => favouriteIds.has(String(hotel.id)) || hotel.userFavourite,
+      );
     }
 
     const selectedRatings = Array.isArray(appliedFilters?.ratings) ? appliedFilters.ratings : [];
@@ -2003,20 +2028,55 @@ export default function HotelbedsHotelsPage() {
       });
     }
 
-    return nextHotels;
-  }, [favoritesOnly, hotelNameQuery, hotels, appliedFilters]);
+    return sortHotels(nextHotels, sortOrder);
+  }, [favoritesOnly, favouriteIds, hotelNameQuery, hotels, appliedFilters, sortOrder]);
+
+  const hasActiveFilters = useMemo(() => {
+    if (favoritesOnly || hotelNameQuery.trim()) return true;
+    return Object.values(appliedFilters || {}).some((value) =>
+      Array.isArray(value) ? value.length > 0 : Boolean(value),
+    );
+  }, [appliedFilters, favoritesOnly, hotelNameQuery]);
 
   const destinationName =
     activeSuggestion?.displayName ||
     activePayload?.searchQuery?.searchCriteria?.searchRegionName ||
     "Hotels";
 
-  const hotelCount =
-    Number(
-      searchResponse?.hotelCount ??
-      searchResponse?.data?.hotelCount ??
-      hotels.length,
-    ) || hotels.length;
+  // Searching a named property is a different result than browsing a city, and TripJack
+  // labels it as such instead of "Popular in <hotel name>".
+  const isPropertySearch =
+    String(
+      activeSuggestion?.searchRegionType ||
+        activePayload?.searchQuery?.searchCriteria?.searchRegionType ||
+        "",
+    ).toUpperCase() === "HOTEL";
+
+  // Every property came back without rates, so the cards below are for reference only.
+  const allUnavailable = Boolean(
+    searchResponse?.allUnavailable ?? searchResponse?.data?.allUnavailable,
+  );
+
+  // `|| hotels.length` would discard a genuine zero — which is exactly the count the
+  // backend sends when the only cards are unavailable properties.
+  const totalProperties = Number(
+    searchResponse?.totalProperties ?? searchResponse?.data?.totalProperties ?? 0,
+  );
+
+  const reportedCount = searchResponse?.hotelCount ?? searchResponse?.data?.hotelCount;
+  const hotelCount = Number.isFinite(Number(reportedCount))
+    ? Number(reportedCount)
+    : hotels.length;
+
+  /**
+   * With no filters this is TripJack's own count for the destination, so it stays put
+   * while more pages load. Once a filter is on it becomes the number of matches, the
+   * way TripJack drops from "1897 hotels" to "88 hotels" for a five-star filter.
+   */
+  const displayedCount = hasActiveFilters
+    ? visibleHotels.length
+    : totalProperties || hotelCount;
+
 
   const handleSortChange = (valueOrEvent) => {
     const nextSortOrder =
@@ -2064,15 +2124,17 @@ export default function HotelbedsHotelsPage() {
             setLoadedHotels(nextHotels);
             const nextLastHotelId = extractLastHotelId(response, nextHotels);
             setLastHotelId(nextLastHotelId);
-            const nextHotelCount = extractHotelCount(response, nextHotels.length);
-            setHasMoreResults(Boolean(nextLastHotelId) && nextHotels.length < nextHotelCount);
+            setHasMoreResults(Boolean(nextLastHotelId) && extractHasMore(response));
           }}
         />
       </div>
 
       <div className="page-container">
         <div className="breadcrumb-row">
-          <span className="breadcrumb-text">Home Hotels {destinationName}</span>
+          <span className="breadcrumb-text">
+            Home Hotels <span className="breadcrumb-sep">&rsaquo;</span>{" "}
+            {toTitleCase(destinationName)}
+          </span>
 
           <div className="top-controls">
           <div className="left-controls">
@@ -2083,6 +2145,7 @@ export default function HotelbedsHotelsPage() {
                 value={sortOrder} 
                 onChange={handleSortChange}
               >
+                <option value="">Select</option>
                 <option value="popularity">Most Popular</option>
                 <option value="priceLowToHigh">Price (Lowest first)</option>
                 <option value="priceHighToLow">Price (Highest first)</option>
@@ -2091,7 +2154,17 @@ export default function HotelbedsHotelsPage() {
             </div>
             
             <div className="result-count">
-              Showing {hotelCount} hotels for <strong>{toTitleCase(destinationName)}</strong>
+              {allUnavailable ? (
+                <>
+                  No rooms available for <strong>{toTitleCase(destinationName)}</strong> on
+                  these dates
+                </>
+              ) : (
+                <>
+                  Showing {displayedCount} hotels for{" "}
+                  <strong>{toTitleCase(destinationName)}</strong>
+                </>
+              )}
             </div>
           </div>
 
@@ -2162,7 +2235,21 @@ export default function HotelbedsHotelsPage() {
             </aside>
 
             <main className="hotel-results">
-              <div className="section-title">Popular in {destinationName}</div>
+              <div className="section-title">
+                {isPropertySearch ? "Property Searched" : `Popular in ${destinationName}`}
+              </div>
+
+              {/* The cards below carry no rates, so say so once rather than leaving the
+                  reader to infer it from every missing price. */}
+              {allUnavailable ? (
+                <div className="hotel-unavailable-notice">
+                  <CalendarDays size={16} />
+                  <span>
+                    None of these properties have rooms for your dates. Try different dates,
+                    or a nearby destination.
+                  </span>
+                </div>
+              ) : null}
               
               {resultsError ? (
                 <ErrorState
@@ -2179,13 +2266,18 @@ export default function HotelbedsHotelsPage() {
                   ))}
                 </div>
               ) : visibleHotels.length === 0 ? (
-                <EmptyState onClearAll={clearAllFilters} />
+                <EmptyState
+                  onClearAll={clearAllFilters}
+                  hasActiveFilters={hasActiveFilters}
+                />
               ) : viewMode === "grid" ? (
                 <div className="hotel-grid">
                   {visibleHotels.map((hotel) => (
                     <HotelCard
                       key={hotel.id}
                       hotel={hotel}
+                      isFavourite={favouriteIds.has(String(hotel.id))}
+                      onToggleFavourite={toggleFavourite}
                       onClick={() =>
                         navigate(`/hotels/${hotel.id}`, {
                           state: {
@@ -2200,9 +2292,11 @@ export default function HotelbedsHotelsPage() {
               ) : (
                 <div className="hotel-list">
                   {visibleHotels.map((hotel) => (
-                    <HotelListCard
+                    <HotelCard
                       key={hotel.id}
                       hotel={hotel}
+                      isFavourite={favouriteIds.has(String(hotel.id))}
+                      onToggleFavourite={toggleFavourite}
                       onClick={() =>
                         navigate(`/hotels/${hotel.id}`, {
                           state: {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import usePhotography from "../../hooks/usePhotography";
 import ShimmerMasonry from "../ui/ShimmerMasonry";
+import { resolveMediaUrl } from "../../config/constants";
 
 const MasonryImageSection = () => {
   const { fetchAllPhotos, allPhotos, loading } = usePhotography();
@@ -27,33 +28,15 @@ const MasonryImageSection = () => {
         .filter((photo) => photo.status === "active")
         .slice(0, 6)
         .map((photo, index) => {
-          let imageUrl = photo.images?.[0]?.trim();
-
-          if (
-            imageUrl?.startsWith("http://happywedz.com/uploads/photography/")
-          ) {
-            imageUrl = imageUrl.replace(
-              "http://happywedz.com",
-              "https://happywedzbackend.happywedz.com"
-            );
-          }
-          if (
-            imageUrl?.startsWith("https://happywedz.com/uploads/photography/")
-          ) {
-            imageUrl = imageUrl.replace(
-              "https://happywedz.com",
-              "https://happywedzbackend.happywedz.com"
-            );
-          }
+          // Handles S3 URLs, relative /uploads/... paths and the legacy
+          // happywedz.com origin alike.
+          const imageUrl = resolveMediaUrl(photo.images?.[0]);
 
           const size = index % 2 === 0 ? "large" : "medium";
 
           return {
             id: photo.id,
             src: imageUrl,
-            fallbackSrc: imageUrl?.includes("/uploads/photography/")
-              ? imageUrl.replace("/uploads/photography/", "/uploads/blogs/")
-              : null,
             title: photo.title || "Wedding",
             size: size,
           };
@@ -127,15 +110,8 @@ const MasonryImageSection = () => {
                               : undefined
                           }
                           onError={(e) => {
-                            if (
-                              weddingImages[0].fallbackSrc &&
-                              e.target.src !== weddingImages[0].fallbackSrc
-                            ) {
-                              e.target.src = weddingImages[0].fallbackSrc;
-                            } else {
-                              e.target.onerror = null;
-                              e.target.src = "./images/noimage.jpeg";
-                            }
+                            e.target.onerror = null;
+                            e.target.src = "./images/noimage.jpeg";
                           }}
                         />
                         <div className="gallery-overlay">
@@ -166,15 +142,8 @@ const MasonryImageSection = () => {
                               : undefined
                           }
                           onError={(e) => {
-                            if (
-                              weddingImages[3].fallbackSrc &&
-                              e.target.src !== weddingImages[3].fallbackSrc
-                            ) {
-                              e.target.src = weddingImages[3].fallbackSrc;
-                            } else {
-                              e.target.onerror = null;
-                              e.target.src = "./images/noimage.jpeg";
-                            }
+                            e.target.onerror = null;
+                            e.target.src = "./images/noimage.jpeg";
                           }}
                         />
                         <div className="gallery-overlay">
@@ -207,15 +176,8 @@ const MasonryImageSection = () => {
                               : undefined
                           }
                           onError={(e) => {
-                            if (
-                              weddingImages[1].fallbackSrc &&
-                              e.target.src !== weddingImages[1].fallbackSrc
-                            ) {
-                              e.target.src = weddingImages[1].fallbackSrc;
-                            } else {
-                              e.target.onerror = null;
-                              e.target.src = "./images/noimage.jpeg";
-                            }
+                            e.target.onerror = null;
+                            e.target.src = "./images/noimage.jpeg";
                           }}
                         />
                         <div className="gallery-overlay">
@@ -246,15 +208,8 @@ const MasonryImageSection = () => {
                               : undefined
                           }
                           onError={(e) => {
-                            if (
-                              weddingImages[4].fallbackSrc &&
-                              e.target.src !== weddingImages[4].fallbackSrc
-                            ) {
-                              e.target.src = weddingImages[4].fallbackSrc;
-                            } else {
-                              e.target.onerror = null;
-                              e.target.src = "./images/noimage.jpeg";
-                            }
+                            e.target.onerror = null;
+                            e.target.src = "./images/noimage.jpeg";
                           }}
                         />
                         <div className="gallery-overlay">
@@ -287,15 +242,8 @@ const MasonryImageSection = () => {
                               : undefined
                           }
                           onError={(e) => {
-                            if (
-                              weddingImages[2].fallbackSrc &&
-                              e.target.src !== weddingImages[2].fallbackSrc
-                            ) {
-                              e.target.src = weddingImages[2].fallbackSrc;
-                            } else {
-                              e.target.onerror = null;
-                              e.target.src = "./images/noimage.jpeg";
-                            }
+                            e.target.onerror = null;
+                            e.target.src = "./images/noimage.jpeg";
                           }}
                         />
                         <div className="gallery-overlay">
@@ -326,15 +274,8 @@ const MasonryImageSection = () => {
                               : undefined
                           }
                           onError={(e) => {
-                            if (
-                              weddingImages[5].fallbackSrc &&
-                              e.target.src !== weddingImages[5].fallbackSrc
-                            ) {
-                              e.target.src = weddingImages[5].fallbackSrc;
-                            } else {
-                              e.target.onerror = null;
-                              e.target.src = "./images/noimage.jpeg";
-                            }
+                            e.target.onerror = null;
+                            e.target.src = "./images/noimage.jpeg";
                           }}
                         />
                         <div className="gallery-overlay">

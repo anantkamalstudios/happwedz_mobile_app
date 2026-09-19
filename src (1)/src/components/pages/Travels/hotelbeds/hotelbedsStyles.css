@@ -1,3 +1,9 @@
+  :root {
+    /* Outer width including the gutters; every hotel page shell uses these two. */
+    --hotel-page-max: 1320px;
+    --hotel-page-gutter: 20px;
+  }
+
   /* Main page layout - full width */
   .hotel-list-page {
     background: #f5f5f5;
@@ -5,9 +11,11 @@
   }
 
   .hotel-shell {
-    max-width: 1120px;
+    max-width: var(--hotel-page-max);
     margin: 0 auto;
     width: 100%;
+    padding-left: var(--hotel-page-gutter);
+    padding-right: var(--hotel-page-gutter);
     box-sizing: border-box;
   }
 
@@ -47,17 +55,19 @@
   /* Search bar container */
   .hotel-search-bar-container {
     background: #f5f5f5;
-    padding: 10px 20px 6px;
+    padding: 10px var(--hotel-page-gutter) 6px;
     border-bottom: 1px solid #e5e7eb;
-    max-width: 1120px;
+    max-width: var(--hotel-page-max);
+    box-sizing: border-box;
     margin: 0 auto;
   }
 
   /* Page container - full width */
   .page-container {
-    max-width: 1120px;
+    max-width: var(--hotel-page-max);
     width: 100%;
-    padding: 0 20px;
+    padding: 0 var(--hotel-page-gutter);
+    box-sizing: border-box;
     margin-top: 6px;
     margin-left: auto;
     margin-right: auto;
@@ -1221,11 +1231,20 @@
     font-weight: 600;
   }
 
+  /* Nested inside .hotel-shell, which already supplies the page gutters -- applying
+     them twice is what made the detail cards 40px narrower than the search bar. */
+  .hotel-shell > .hotel-detail-shell {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   .hotel-detail-shell {
     display: grid;
-    max-width: 1120px;
-    padding-left: 20px;
-    padding-right: 20px;
+    max-width: var(--hotel-page-max);
+    padding-left: var(--hotel-page-gutter);
+    padding-right: var(--hotel-page-gutter);
+    box-sizing: border-box;
     gap: 20px;
     margin-left: auto;
     margin-right: auto;
@@ -1235,6 +1254,10 @@
     color: #6d7483;
     font-size: 12px;
     font-weight: 800;
+  }
+
+  .hotel-detail-breadcrumb--outside {
+    margin: 0 0 -8px;
   }
 
   .hotel-detail-card {
@@ -1281,8 +1304,8 @@
 
   .hotel-detail-address {
     color: #5b6478;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 400;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1362,14 +1385,14 @@
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
   }
 
   .hotel-detail-main-image,
   .hotel-detail-side-image {
     position: relative;
     overflow: hidden;
-    border-radius: 18px;
+    border-radius: 10px;
     border: none;
     outline: none;
     appearance: none;
@@ -1380,8 +1403,8 @@
   }
 
   .hotel-detail-main-image {
-    min-height: 420px;
-    grid-row: span 2;
+    aspect-ratio: 7 / 5;
+    min-height: 0;
   }
 
   .hotel-detail-side-stack {
@@ -1391,7 +1414,7 @@
   }
 
   .hotel-detail-side-image {
-    min-height: 204px;
+    min-height: 0;
   }
 
   .hotel-detail-main-image img,
@@ -1418,24 +1441,46 @@
   }
 
   .hotel-detail-section {
-    padding-top: 24px;
+    padding-top: 18px;
     border-top: 1px solid #f0f1f5;
-    margin-top: 24px;
+    margin-top: 18px;
   }
 
   .hotel-detail-section h2,
-  .hotel-room-section-title {
+  .hotel-detail-section h4 {
     color: #1b2231;
-    font-size: 20px;
-    font-weight: 900;
-    margin: 0 0 14px;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    margin: 0 0 8px;
+  }
+
+  /* Keep the hero details as compact as TripJack's summary card. */
+  .hotel-about-section {
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 8px;
+  }
+
+  .hotel-amenities-section {
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 12px;
   }
 
   .hotel-detail-copy {
-    color: #4f5668;
-    font-size: 15px;
-    line-height: 1.7;
-    font-weight: 600;
+    color: #4b5563;
+    font-size: 13.5px;
+    line-height: 1.65;
+    font-weight: 400;
+  }
+
+  /* TripJack trails "Read more" at the end of the copy instead of below it. */
+  .hotel-detail-readmore {
+    display: inline;
+    padding: 0;
+    margin-left: 6px;
+    font-size: 13px;
+    white-space: nowrap;
   }
 
   /* Property details (categorized descriptions) */
@@ -1532,7 +1577,7 @@
 
   .hotel-detail-side {
     display: grid;
-    gap: 14px;
+    gap: 10px;
     position: sticky;
     top: 118px;
   }
@@ -1540,38 +1585,61 @@
   .hotel-summary-card,
   .hotel-mini-info-card {
     background: #fff;
-    border: 1px solid #ececf2;
-    border-radius: 16px;
-    padding: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
     box-shadow: none;
+  }
+
+  /* TripJack tints the upsell card so it reads as a prompt, not another panel. */
+  .hotel-summary-card--more {
+    background: #fff5f9;
+    border-color: #f7c9dd;
+  }
+
+  .hotel-summary-more-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1b2231;
   }
 
   .hotel-summary-room {
     color: #1b2231;
-    font-size: 24px;
-    font-weight: 900;
-    line-height: 1.2;
-    margin-bottom: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 2px;
   }
 
   .hotel-summary-price {
     color: #1b2231;
-    font-size: 20px;
-    font-weight: 900;
+    font-size: 19px;
+    font-weight: 800;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
   }
 
-  .hotel-summary-price-row {
+  .hotel-summary-terms {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
     align-items: flex-start;
-    margin-top: 8px;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #eef0f4;
+  }
+
+  .hotel-summary-price-block {
+    text-align: right;
+    flex: 0 0 auto;
   }
 
   .hotel-summary-points {
-    margin: 14px 0 0;
-    padding-left: 18px;
+    margin: 0;
+    padding-left: 16px;
     color: #4f5668;
     font-size: 13px;
     font-weight: 600;
@@ -1611,10 +1679,13 @@
     border: 1px solid rgba(237, 17, 115, 0.28);
     background: #fff;
     color: #c31262;
-    border-radius: 10px;
-    padding: 9px 14px;
+    border-radius: 8px;
+    padding: 8px 12px;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 700;
+    /* It wrapped to two lines while the card still carried a subtitle. */
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 
   .hotel-detail-side .hotel-detail-ghost-btn:hover {
@@ -1657,21 +1728,41 @@
     border-radius: 28px;
     box-shadow: 0 16px 40px rgba(17, 24, 39, 0.06);
     overflow: hidden;
-    margin-top: 24px;
+    margin-top: 18px;
   }
 
   .hotel-room-section-head {
-    padding: 20px;
+    padding: 16px 20px;
     display: grid;
-    gap: 18px;
-    border-bottom: 1px solid #f0f1f5;
+    gap: 12px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e2e5ea;
   }
 
   .hotel-room-section-title {
     color: #1b2231;
-    font-size: 18px;
-    font-weight: 900;
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.2;
     margin: 0;
+  }
+
+  /* TripJack sets the count inline with the heading and shares from the far right. */
+  .hotel-room-section-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .hotel-room-section-count {
+    color: #6d7483;
+    font-size: 13px;
+    font-weight: 400;
+  }
+
+  .hotel-room-section-heading .hotel-share-group {
+    margin-left: auto;
   }
 
   .hotel-room-toolbar,
@@ -1802,9 +1893,9 @@
 
   .hotel-room-type-group {
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
-    gap: 16px;
-    padding: 14px 16px;
+    grid-template-columns: 363px minmax(0, 1fr);
+    gap: 0;
+    padding: 18px 20px;
     border-top: 1px solid #f0f1f5;
   }
 
@@ -1817,12 +1908,13 @@
     gap: 10px;
     align-content: start;
     border-right: 1px solid #edf0f5;
-    padding-right: 16px;
+    padding-right: 20px;
   }
 
   .hotel-room-type-right {
     display: grid;
     gap: 0;
+    padding-left: 14px;
   }
 
   .hotel-room-type-heading {
@@ -1835,11 +1927,11 @@
 
   .hotel-room-option-compact {
     border-bottom: 1px solid #edf0f5;
-    padding: 12px 10px 12px 0;
+    padding: 10px 0;
     background: #fff;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
   }
 
   .hotel-room-option-compact:last-child {
@@ -1849,22 +1941,213 @@
 
   .hotel-room-option-title {
     color: #1a2233;
-    font-size: 18px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 700;
     line-height: 1.3;
   }
 
   .hotel-room-option-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 160px 120px;
-    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) 200px;
+    gap: 12px;
     align-items: start;
+  }
+
+  .hotel-room-option-info {
+    display: grid;
+    gap: 6px;
+    justify-items: start;
+  }
+
+  .hotel-room-viewmore {
+    justify-self: start;
+  }
+
+  .hotel-room-price-line {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .hotel-room-total-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #ed1173;
+    font-size: 12px;
+    font-weight: 600;
+    /* It opens the fare breakup, so it is a button now. */
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  /* About-this-property modal: TripJack leads each block with a large heading. */
+  .hotel-about-modal .hotel-about-modal-section + .hotel-about-modal-section {
+    margin-top: 20px;
+  }
+
+  .hotel-about-modal .hotel-about-modal-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #1b2231;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+
+  .hotel-about-modal .hotel-about-modal-copy {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4b5563;
+  }
+
+  /* Room cancellation-policy dialog. */
+  .hotel-policy-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1b2231;
+  }
+
+  .hotel-policy-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 14px;
+    font-size: 13px;
+    color: #4f5668;
+  }
+
+  .hotel-policy-bar {
+    border-radius: 999px;
+    padding: 11px 16px;
+    text-align: center;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .hotel-policy-bar.is-nonrefundable {
+    background: #e2574c;
+  }
+
+  .hotel-policy-bar.is-refundable {
+    background: #22a55a;
+  }
+
+  .hotel-policy-timeline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 10px 2px 20px;
+    font-size: 14px;
+    color: #1b2231;
+  }
+
+  .hotel-policy-timeline-end {
+    text-align: right;
+  }
+
+  .hotel-policy-timeline-label {
+    font-weight: 700;
+  }
+
+  .hotel-policy-subheading {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1b2231;
+    margin-bottom: 12px;
+  }
+
+  .hotel-policy-modal-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e5e7eb;
+    font-size: 13px;
+  }
+
+  .hotel-policy-modal-table th {
+    background: #f6f7f9;
+    color: #1b2231;
+    font-weight: 600;
+    text-align: center;
+    padding: 12px 10px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .hotel-policy-modal-table td {
+    text-align: center;
+    padding: 12px 10px;
+    border: 1px solid #e5e7eb;
+    color: #1b2231;
+  }
+
+  .hotel-policy-modal-table .hotel-policy-note-row td {
+    background: #f6f7f9;
+    color: #4f5668;
+  }
+
+  .hotel-fare-info-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1b2231;
+  }
+
+  .hotel-fare-info-ids {
+    background: #f6f7f9;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+
+  .hotel-fare-info-heading {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1b2231;
+    margin-bottom: 10px;
+  }
+
+  .hotel-fare-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 5px 0;
+    font-size: 13px;
+    color: #1b2231;
+  }
+
+  .hotel-fare-info-row strong {
+    white-space: nowrap;
+  }
+
+  .hotel-fare-info-muted {
+    color: #6d7483;
+  }
+
+  .hotel-fare-strike {
+    text-decoration: line-through;
+  }
+
+  .hotel-fare-info-total {
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid #eef0f4;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .hotel-fare-info-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #8b92a1;
   }
 
   .hotel-room-meal-cell {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
     font-size: 13px;
     color: #111827;
@@ -1884,25 +2167,20 @@
 
   .hotel-room-price-cell {
     text-align: right;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    display: grid;
+    justify-items: end;
+    gap: 3px;
   }
 
   .hotel-room-total-compact {
     color: #1b2231;
-    font-size: 20px;
-    font-weight: 900;
+    font-size: 19px;
+    font-weight: 800;
     line-height: 1;
   }
 
-  .hotel-room-action-cell {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  .hotel-room-action-cell .hotel-card-cta {
+  .hotel-room-price-cell .hotel-card-cta {
+    margin-top: 5px;
     min-width: 110px;
     padding: 8px 14px;
     font-size: 13px;
@@ -1912,20 +2190,33 @@
     outline: none;
   }
 
-  .hotel-room-option-footer {
-    display: flex;
-    justify-content: space-between;
+  /* TripJack closes the section with the count and a loaded confirmation. */
+  .hotel-room-section-foot {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    padding: 14px 20px 18px;
+    border-top: 1px solid #f0f1f5;
+    color: #6d7483;
+    font-size: 13px;
+  }
+
+  .hotel-room-section-foot-done {
+    display: inline-flex;
     align-items: center;
-    padding-top: 4px;
+    gap: 5px;
+    color: #22a55a;
+    font-weight: 600;
   }
 
   .hotel-room-policy-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     color: #22a55a;
-    font-size: 18px;
+    font-size: 13.5px;
     font-weight: 700;
+    line-height: 1.25;
   }
 
   .hotel-amenities-modal-groups {
@@ -2329,6 +2620,9 @@
   .hotel-card-cta {
     border-radius: 10px;
     background: linear-gradient(135deg, #ed1173, #f65196);
+    /* Only the detail-side rule set this, so the room-row "Select Room"/"Selected"
+       buttons inherited dark text on the pink gradient. */
+    color: #fff;
     box-shadow: none;
   }
 
@@ -2597,3 +2891,893 @@
     }
   }
 
+
+  /* ==========================================================================
+     Grid view: three vertical cards per row, image on top — TripJack's layout.
+     The horizontal image | details | price card belongs to List view and lives
+     under .hotel-list further down.
+     ========================================================================== */
+
+  .hotel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    align-items: stretch;
+  }
+
+  @media (max-width: 1199px) {
+    .hotel-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 767px) {
+    .hotel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .hotel-results .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2b3040;
+    text-transform: none;
+    letter-spacing: 0;
+    background: #f1f2f5;
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 0 0 14px 0;
+  }
+
+  .hotel-grid .hotel-card {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+    height: 100%;
+    border: 1px solid #e8eaef;
+    border-radius: 8px;
+    padding: 0;
+    gap: 0;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  .hotel-grid .hotel-card:hover {
+    transform: none;
+    border-color: #f3aecb;
+    box-shadow: 0 4px 14px rgba(8, 12, 24, 0.08);
+  }
+
+  .hotel-grid .hotel-image-container {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 190px;
+    border-radius: 0;
+    overflow: hidden;
+  }
+
+  /* Content stacks under the image and stretches, so the price line sits on the
+     same baseline across a row of cards regardless of name or amenity length. */
+  .hotel-grid .hotel-content {
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 14px 16px 16px;
+  }
+
+  .hotel-grid .hotel-title-section {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .hotel-grid .hotel-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .hotel-grid .hotel-name {
+    font-size: 15.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.32;
+    color: #1f2432;
+    margin: 0;
+    min-height: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .hotel-grid .hotel-rating {
+    display: flex;
+    gap: 1px;
+    color: #f5a623;
+    flex: 0 0 auto;
+    padding-top: 2px;
+  }
+
+  .hotel-grid .hotel-location {
+    font-size: 12.5px;
+    color: #7b8394;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  .hotel-grid .hotel-inclusion {
+    font-size: 12.5px;
+    color: #2b3040;
+    font-weight: 500;
+    margin: 10px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hotel-grid .hotel-inclusion::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #9aa1b1;
+    flex: 0 0 auto;
+  }
+
+  /* Two lines of amenities, clipped rather than wrapped indefinitely. */
+  .hotel-grid .hotel-facilities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 12.5px;
+    color: #6b7280;
+    font-weight: 400;
+    margin: 8px 0 0;
+    line-height: 1.4;
+    max-height: 36px;
+    overflow: hidden;
+  }
+
+  .hotel-grid .hotel-facility {
+    white-space: nowrap;
+  }
+
+  /* Price pinned to the bottom of the card, right aligned. */
+  .hotel-grid .hotel-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-end;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f1f5;
+    text-align: right;
+  }
+
+  .hotel-grid .hotel-pricing {
+    margin-top: 0;
+    padding-top: 0;
+    text-align: right;
+  }
+
+  .hotel-grid .price-per-night {
+    font-size: 12px;
+    color: #7b8394;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .hotel-grid .total-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2432;
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+
+  .hotel-grid .total-label {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #7b8394;
+    margin-left: 5px;
+  }
+
+  .hotel-grid .tax-info {
+    font-size: 11px;
+    color: #9aa1b1;
+    font-weight: 400;
+  }
+
+  /* Favourite heart, over the image's top-right corner as on TripJack. */
+  .hotel-grid .hotel-image-container {
+    position: relative;
+  }
+
+  .hotel-fav-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #7b8394;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(8, 12, 24, 0.2);
+    transition: color 0.15s ease, transform 0.15s ease;
+  }
+
+  .hotel-fav-btn:hover {
+    transform: scale(1.08);
+    color: #ed1173;
+  }
+
+  .hotel-fav-btn.is-active {
+    color: #ed1173;
+  }
+
+  .hotel-grid .image-count-badge {
+    left: 12px;
+    bottom: 12px;
+    right: auto;
+    top: auto;
+    background: rgba(17, 20, 28, 0.72);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 11px;
+  }
+
+  /* Single forward arrow, vertically centred on the image edge. */
+  .hotel-grid .image-nav-btn {
+    top: 50%;
+    transform: translateY(-50%);
+    left: auto;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    border: none;
+    color: #2b3040;
+    font-size: 17px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 4px rgba(8, 12, 24, 0.2);
+  }
+
+  /* Property that exists but has no rates for the chosen dates. */
+  .hotel-grid .hotel-card--unavailable .hotel-image-container img {
+    filter: grayscale(0.55);
+  }
+
+  .hotel-unavailable {
+    text-align: right;
+    color: #c0392f;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .hotel-unavailable span {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #8b6f6b;
+    margin-top: 2px;
+  }
+
+  /* Shown once above the cards when a search returned properties but no rates. */
+  .hotel-unavailable-notice {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: #fff6f4;
+    border: 1px solid #f3d4cd;
+    border-radius: 6px;
+    padding: 11px 14px;
+    margin-bottom: 14px;
+    color: #a4463a;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .hotel-unavailable-notice svg {
+    flex: 0 0 auto;
+  }
+
+  /* ==========================================================================
+     Independent scroll panes, as on TripJack: filters stay put while results
+     scroll, each with its own slim, unobtrusive scrollbar.
+     ========================================================================== */
+
+  @media (min-width: 992px) {
+    /* Both columns get their own viewport-height scroll region. 150px leaves room
+       for the sticky search bar and results toolbar above. */
+    .content-layout {
+      align-items: start;
+    }
+
+    .content-layout > .filter-sidebar {
+      position: sticky;
+      top: 12px;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-right: 4px;
+    }
+
+    .content-layout > .hotel-results {
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-right: 6px;
+    }
+
+    /* The section heading should not scroll away from the list it labels. */
+    .content-layout > .hotel-results .section-title {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+  }
+
+  /* Slim and near-invisible until used — TripJack's filter pane reads as having
+     no scrollbar at all. */
+  .content-layout > .filter-sidebar,
+  .content-layout > .hotel-results,
+  .hotel-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .content-layout > .filter-sidebar:hover,
+  .content-layout > .hotel-results:hover,
+  .hotel-sidebar-scroll:hover {
+    scrollbar-color: #c7ccd8 transparent;
+  }
+
+  .content-layout > .filter-sidebar::-webkit-scrollbar,
+  .content-layout > .hotel-results::-webkit-scrollbar,
+  .hotel-sidebar-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .content-layout > .filter-sidebar::-webkit-scrollbar-track,
+  .content-layout > .hotel-results::-webkit-scrollbar-track,
+  .hotel-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .content-layout > .filter-sidebar::-webkit-scrollbar-thumb,
+  .content-layout > .hotel-results::-webkit-scrollbar-thumb,
+  .hotel-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  .content-layout > .filter-sidebar:hover::-webkit-scrollbar-thumb,
+  .content-layout > .hotel-results:hover::-webkit-scrollbar-thumb,
+  .hotel-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+    background: #c7ccd8;
+  }
+
+  .result-count-loading {
+    color: #7b8394;
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  /* ==========================================================================
+     Tighter filter panel and a compact results toolbar, matching TripJack.
+     ========================================================================== */
+
+  /* Filters were tall enough that only two groups fitted on screen. */
+  .hotel-filter-block {
+    padding: 10px 14px;
+  }
+
+  .hotel-filter-content,
+  .hotel-filter-content-static,
+  .hotel-filter-content-expandable {
+    margin-top: 6px;
+    gap: 2px;
+  }
+
+  .hotel-filter-option {
+    padding: 2px 0;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  .hotel-filter-option input {
+    width: 15px;
+    height: 15px;
+  }
+
+  .hotel-filter-option label {
+    gap: 7px;
+  }
+
+  .hotel-filter-toggle {
+    padding: 2px 0;
+  }
+
+  /* Breadcrumb reads "Home Hotels › Mumbai" as on TripJack. */
+  .breadcrumb-sep {
+    color: #9aa1b1;
+    margin: 0 2px;
+  }
+
+  /* A quiet control rather than a heavy pink-outlined box, so the count beside it
+     stays the thing you read first. */
+  .sort-button {
+    border: 1px solid #dfe3ec;
+    border-radius: 6px;
+    padding: 5px 10px;
+    gap: 6px;
+  }
+
+  .sort-label {
+    color: #7b8394;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .sort-select {
+    color: #1f2432;
+    font-size: 13px;
+    font-weight: 600;
+    padding-right: 2px;
+  }
+
+  .result-count {
+    font-size: 13.5px;
+    color: #2b3040;
+    font-weight: 500;
+  }
+
+  .breadcrumb-text {
+    font-size: 13px;
+    color: #2b3040;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* ==========================================================================
+     List view: the same card as the grid, laid out horizontally —
+     image | name, city, meal, amenities | price. Matches TripJack's list.
+     ========================================================================== */
+
+  .hotel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .hotel-list .hotel-card {
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 0;
+    height: auto;
+    border: 1px solid #e8eaef;
+    border-radius: 8px;
+    padding: 16px;
+    gap: 20px;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .hotel-list .hotel-card:hover {
+    transform: none;
+    border-color: #f3aecb;
+    box-shadow: 0 4px 14px rgba(8, 12, 24, 0.08);
+  }
+
+  .hotel-list .hotel-image-container {
+    flex: 0 0 240px;
+    width: 240px;
+    height: 150px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .hotel-list .hotel-content {
+    flex: 1;
+    min-width: 0;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 20px;
+    padding: 0;
+  }
+
+  .hotel-list .hotel-title-section {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Name and stars share a line, the stars sitting right after the name rather
+     than pinned to the far edge. */
+  .hotel-list .hotel-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .hotel-list .hotel-name {
+    font-size: 19px !important;
+    font-weight: 600 !important;
+    line-height: 1.3;
+    color: #1f2432;
+    margin: 0;
+    min-height: 0;
+    display: block;
+    overflow: visible;
+  }
+
+  .hotel-list .hotel-rating {
+    display: flex;
+    gap: 1px;
+    color: #f5a623;
+    flex: 0 0 auto;
+  }
+
+  .hotel-list .hotel-location {
+    font-size: 13px;
+    color: #7b8394;
+    font-weight: 500;
+    margin-top: 5px;
+  }
+
+  .hotel-list .hotel-inclusion {
+    font-size: 13px;
+    color: #2b3040;
+    font-weight: 500;
+    margin: 12px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hotel-list .hotel-inclusion::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #9aa1b1;
+    flex: 0 0 auto;
+  }
+
+  /* Spaced items, not one run-on string as the old list card produced. */
+  .hotel-list .hotel-facilities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 400;
+    margin: 10px 0 0;
+    line-height: 1.4;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .hotel-list .hotel-facility {
+    white-space: nowrap;
+  }
+
+  /* Price bottom-right, with no divider rule and no call-to-action button —
+     the whole card is already clickable. */
+  .hotel-list .hotel-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-end;
+    align-self: stretch;
+    flex: 0 0 auto;
+    min-width: 170px;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    text-align: right;
+  }
+
+  .hotel-list .hotel-pricing {
+    margin-top: auto;
+    padding-top: 0;
+    text-align: right;
+  }
+
+  .hotel-list .price-per-night {
+    font-size: 12.5px;
+    color: #7b8394;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .hotel-list .total-price {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2432;
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+
+  .hotel-list .total-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #7b8394;
+    margin-left: 5px;
+  }
+
+  .hotel-list .tax-info {
+    font-size: 11.5px;
+    color: #9aa1b1;
+    font-weight: 400;
+  }
+
+  @media (max-width: 767px) {
+    .hotel-list .hotel-card,
+    .hotel-list .hotel-content {
+      flex-direction: column;
+    }
+
+    .hotel-list .hotel-image-container {
+      flex: 0 0 auto;
+      width: 100%;
+      height: 190px;
+    }
+
+    .hotel-list .hotel-aside {
+      align-items: flex-start;
+      text-align: left;
+      min-width: 0;
+      margin-top: 12px;
+    }
+  }
+
+  /* ==========================================================================
+     Detail page: room photo and chips, stay times, map link, favourite.
+     ========================================================================== */
+
+  .hotel-room-option-media {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .hotel-room-thumb {
+    position: relative;
+    flex: 0 0 190px;
+    width: 190px;
+    height: 130px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f1f2f5;
+  }
+
+  .hotel-room-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .hotel-room-photo-count {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    background: rgba(17, 20, 28, 0.72);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 11px;
+  }
+
+  .hotel-room-media-meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .hotel-room-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .hotel-room-chip {
+    border: 1px solid #e2e5ec;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #2b3040;
+    background: #fff;
+  }
+
+  .hotel-room-amenities {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 16px;
+    margin-bottom: 6px;
+  }
+
+  .hotel-room-amenity {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #2b3040;
+    font-weight: 400;
+    min-width: 0;
+  }
+
+  .hotel-room-amenity svg {
+    flex: 0 0 auto;
+  }
+
+  /* Stay times, mirroring TripJack's row under the price card. */
+  .hotel-stay-times {
+    display: flex;
+    gap: 0;
+  }
+
+  /* Label and time on one line, as TripJack shows them. */
+  .hotel-stay-time {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    gap: 5px;
+    padding: 2px 10px;
+  }
+
+  .hotel-stay-time + .hotel-stay-time {
+    border-left: 1px solid #eef0f4;
+  }
+
+  .hotel-stay-time-label {
+    font-size: 12px;
+    color: #7b8394;
+    font-weight: 500;
+  }
+
+  .hotel-stay-time-value {
+    font-size: 13.5px;
+    color: #1f2432;
+    font-weight: 600;
+  }
+
+  .hotel-detail-map-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 10px;
+    font-size: 13px;
+  }
+
+  .hotel-detail-fav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #dfe3ec;
+    background: #fff;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #2b3040;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .hotel-detail-fav-btn:hover,
+  .hotel-detail-fav-btn.is-active {
+    color: #ed1173;
+    border-color: #f3aecb;
+  }
+
+  @media (max-width: 767px) {
+    .hotel-room-option-media {
+      flex-direction: column;
+    }
+
+    .hotel-room-thumb {
+      flex: 0 0 auto;
+      width: 100%;
+      height: 180px;
+    }
+
+    .hotel-room-amenities {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .hotel-detail-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .hotel-detail-title-row .hotel-detail-title {
+    margin: 0;
+  }
+
+  .hotel-detail-title-row .hotel-stars {
+    display: inline-flex;
+    gap: 2px;
+    line-height: 1;
+  }
+
+  /* One shared visual panel per room type, matching TripJack's grouped layout. */
+  .hotel-room-type-left .hotel-room-thumb {
+    width: 100%;
+    height: 180px;
+    min-height: 180px;
+    border-radius: 10px;
+  }
+
+  .hotel-room-type-left .hotel-room-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (max-width: 767px) {
+    .hotel-shell {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .hotel-detail-shell {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .hotel-room-type-group {
+      grid-template-columns: 1fr;
+      gap: 18px;
+      padding: 16px;
+    }
+
+    .hotel-room-type-left {
+      border-right: 0;
+      border-bottom: 1px solid #edf0f5;
+      padding-right: 0;
+      padding-bottom: 18px;
+    }
+
+    .hotel-room-type-right {
+      padding-left: 0;
+    }
+
+    .hotel-room-option-row {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .hotel-room-price-cell {
+      text-align: left;
+      justify-items: start;
+    }
+  }

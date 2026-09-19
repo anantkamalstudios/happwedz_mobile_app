@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { STORE_ORIGIN } from "../config/constants";
 
 /**
  * Reads the shopping cart that lives on the store subdomain.
@@ -28,9 +29,6 @@ import { useEffect, useRef, useState } from "react";
  * Returns { items, totalItems, cartTotal, email, status }, where status is one
  * of "loading" | "ready" | "unavailable".
  */
-
-const STORE_ORIGIN =
-  import.meta.env.VITE_STORE_ORIGIN || "https://store.happywedz.com";
 
 const BRIDGE_URL = `${STORE_ORIGIN}/cart-bridge.html`;
 

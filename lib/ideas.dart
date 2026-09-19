@@ -159,12 +159,34 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
           child: Column(
             children: [
               // Main Tab Section
+              // Container(
+              //   margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              //   child: Row(
+              //     mainAxisAlignment: MainAxisAlignment.center,
+              //     children: [
+              //       _buildTab('Ideas', true),
+              //     ],
+              //   ),
+              // ),
+              // Back button on the left, title still centred on the screen.
+              // Shown only when there is a screen to return to.
               Container(
+                width: double.infinity,
                 margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildTab('Ideas', true),
+                    if (Navigator.of(context).canPop())
+                      AppBackButton(
+                        color: Colors.white,
+                        background: Colors.white.withValues(alpha: 0.2),
+                      )
+                    else
+                      const SizedBox(width: 38),
+                    Expanded(
+                      child: Center(child: _buildTab('Ideas', true)),
+                    ),
+                    // Balances the button so the title stays centred.
+                    const SizedBox(width: 38),
                   ],
                 ),
               ),
@@ -187,9 +209,9 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
               SizedBox(height: 16),
 
               // Search Bar
-              _buildSearchBar(),
+              // _buildSearchBar(),
 
-              SizedBox(height: 20),
+              // SizedBox(height: 20),
 
               // Tab Content
               Expanded(

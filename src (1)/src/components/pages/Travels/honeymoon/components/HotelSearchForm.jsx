@@ -1,26 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BedDouble,
+  Building2,
   Calendar,
   ChevronDown,
   Loader2,
+  MapPin,
   Search,
+  User,
   X,
 } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import {
-  fetchHotelCityRegions,
   fetchHotelCountries,
-  fetchStaticHotelsSuggestions,
   searchHotels,
+  suggestHotels,
 } from "../../../../../services/api/hotelApi";
 import {
   createCorrelationId,
   defaultFilters,
 } from "../../hotelbeds/hotelbedsDetailHelpers";
-import { toApiDate, formatDateWithWeekday } from "../../../../../utils/dateFormat";
+import { toApiDate } from "../../../../../utils/dateFormat";
 import "./HotelSearchForm.css";
 
 const HOTEL_COUNTRIES = [
@@ -102,6 +103,22 @@ const readSuggestionItems = (payload) => {
   return [];
 };
 
+// TripJack's fullRegionName repeats the place name as its first segment
+// ("MUMBAI, MAHARASHTRA, INDIA"). The row title already shows that name, so the
+// subtitle drops it and keeps the qualifiers — matching TripJack's own dropdown,
+// which shows MUMBAI over "MAHARASHTRA, INDIA".
+const buildRegionSubtitle = (fullRegionName, title) => {
+  const segments = String(fullRegionName || "")
+    .split(",")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (!segments.length) return "";
+  if (segments[0].toLowerCase() === String(title || "").trim().toLowerCase()) {
+    segments.shift();
+  }
+  return segments.join(", ");
+};
+
 const normalizeHotelSuggestion = (suggestion) => {
   if (!suggestion) return null;
 
@@ -166,9 +183,12 @@ const normalizeHotelSuggestion = (suggestion) => {
   const normalizedHid = String(hid || "").trim();
   const normalizedTjids = tjids.length ? tjids : normalizedHid ? [normalizedHid] : [];
 
-  const subtitle =
+  const fullRegionName =
+    suggestion?.fullRegionName ||
+    suggestion?.raw?.fullRegionName ||
     suggestion?.subtitle ||
     [suggestion?.stateName, suggestion?.countryName].filter(Boolean).join(", ");
+  const subtitle = buildRegionSubtitle(fullRegionName, displayName);
 
   return {
     id: String(city || displayName || ""),
@@ -178,22 +198,27 @@ const normalizeHotelSuggestion = (suggestion) => {
     searchRegionName: String(displayName || "").trim(),
     displayName: String(displayName || "").trim(),
     stateName: suggestion?.stateName || "",
+    cityName: suggestion?.cityName || suggestion?.raw?.cityName || "",
+    fullRegionName: String(fullRegionName || "").trim(),
+    subtitle,
     countryName:
       suggestion?.countryName ||
       suggestion?.country ||
-      (subtitle ? String(subtitle).split(",").slice(-1)[0]?.trim() : ""),
+      (fullRegionName ? String(fullRegionName).split(",").slice(-1)[0]?.trim() : ""),
     tjids: normalizedTjids,
     hid: normalizedHid,
     raw: suggestion,
   };
 };
 
-const getSuggestionBadge = (searchRegionType) => {
-  const type = String(searchRegionType || "CITY").toUpperCase();
-  if (type === "NEIGHBORHOOD") return "NBH";
-  if (type === "POINT_OF_INTEREST") return "POI";
-  if (type === "MULTI_CITY_VICINITY") return "MCV";
-  return type.slice(0, 4);
+// A MULTI_CITY_VICINITY row carries the same name as the city itself, so without a
+// qualifier the dropdown shows "MUMBAI" twice. TripJack labels it "AND VICINITY";
+// this is display only — displayName stays untouched so search payloads don't change.
+const getSuggestionTitle = (suggestion) => {
+  const name = suggestion?.displayName || "";
+  return String(suggestion?.searchRegionType || "").toUpperCase() === "MULTI_CITY_VICINITY"
+    ? `${name} AND VICINITY`
+    : name;
 };
 
 const buildRoomInfoFromRooms = (rooms) =>
@@ -226,6 +251,57 @@ const parseDateInput = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 };
+
+// TripJack sells one year out: with today at 2026-09-04 the last selectable day is
+// 2027-09-04 and everything after it is disabled. The backend enforces the same window
+// in validateStayDates, so a stale tab cannot slip past it.
+const MAX_BOOKING_WINDOW_YEARS = 1;
+
+const startOfToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+const maxBookableDate = () => {
+  const today = startOfToday();
+  return new Date(
+    today.getFullYear() + MAX_BOOKING_WINDOW_YEARS,
+    today.getMonth(),
+    today.getDate()
+  );
+};
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * Calendar shell with one weekday row pinned above the scrolling months.
+ *
+ * react-datepicker repeats its own weekday header inside every month; TripJack shows it
+ * once at the top and scrolls the months underneath. The per-month rows are hidden in
+ * CSS and this single row takes their place.
+ */
+/**
+ * Anchors the calendar to the whole check-in/check-out/nights box.
+ *
+ * Left to itself the popper attaches to whichever <input> was clicked, so the check-out
+ * calendar opened offset to the right of the check-in one. TripJack keeps it pinned to
+ * the left edge of the box for both, so floating-ui's positioning is neutralised here
+ * and the panel is placed against the field instead.
+ */
+const HotelCalendarPopper = ({ children }) => (
+  <div className="hotel-cal-anchor">{children}</div>
+);
+
+const HotelCalendarContainer = ({ className, children }) => (
+  <div className={`hotel-cal ${className || ""}`}>
+    <div className="hotel-cal-weekdays">
+      {WEEKDAY_LABELS.map((day) => (
+        <span key={day}>{day}</span>
+      ))}
+    </div>
+    <div className="hotel-cal-scroll">{children}</div>
+  </div>
+);
 
 const calculateNights = (checkIn, checkOut) => {
   const start = parseDateInput(checkIn);
@@ -543,6 +619,8 @@ export default function HotelSearchForm({
 } = {}) {
   const navigate = useNavigate();
   const destinationRef = useRef(null);
+  // Picking a check-in hands focus straight to this picker so the calendar stays open.
+  const checkOutPickerRef = useRef(null);
   const suppressNextSuggestionFetchRef = useRef(false);
   // A suggestion panel opens because someone focused or typed in the field —
   // never because a fetch happened to come back. The results page seeds
@@ -674,47 +752,39 @@ export default function HotelSearchForm({
     const timer = window.setTimeout(async () => {
       setHotelSuggestLoading(true);
       try {
-        const [destResponse, hotelResponse] = await Promise.all([
-          fetchHotelCityRegions({ keyword, selectedCountry, limit: 80 }, { signal: abortController.signal }),
-          fetchStaticHotelsSuggestions(
-            { keyword, selectedCountry, limit: 30 },
-            { signal: abortController.signal },
-          ),
-        ]);
+        // One call, one ranked list of places and properties — the backend orders it.
+        const response = await suggestHotels(
+          { keyword, selectedCountry, limit: 20 },
+          { signal: abortController.signal },
+        );
         if (!active) return;
 
-        const destinationSuggestions = readSuggestionItems(destResponse)
-          .map(normalizeHotelSuggestion)
-          .map((item) => ({ ...item, suggestionType: "destination" }))
-          .filter((item) => item?.id && item?.displayName);
-        const hotelSuggestionsRaw = readSuggestionItems(hotelResponse)
-          .map(normalizeHotelSuggestion)
-          .map((item) => ({
-            ...item,
-            id: String(item?.hid || item?.id || ""),
-            hid: String(item?.hid || item?.id || ""),
-            suggestionType: "hotel",
-            searchType: "HOTEL",
-            searchRegionType: "HOTEL",
-          }))
-          .filter((item) => item?.id && item?.displayName);
+        const seen = new Set();
+        const merged = readSuggestionItems(response)
+          .map((raw) => {
+            const isHotel = String(raw?.type || "").toLowerCase() === "hotel";
+            const item = normalizeHotelSuggestion(raw);
+            if (!item) return null;
+            return isHotel
+              ? {
+                  ...item,
+                  id: String(raw?.hid || raw?.tjHotelId || item.id || ""),
+                  hid: String(raw?.hid || raw?.tjHotelId || item.id || ""),
+                  suggestionType: "hotel",
+                  searchType: "HOTEL",
+                  searchRegionType: "HOTEL",
+                }
+              : { ...item, suggestionType: "destination" };
+          })
+          .filter((item) => item?.id && item?.displayName)
+          .filter((item) => {
+            const key = `${item.suggestionType}|${item.id}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
 
-        const seenDest = new Set();
-        const dedupDestinations = destinationSuggestions.filter((item) => {
-          const key = `${item.id}|${item.searchRegionType}|${item.countryName}`;
-          if (seenDest.has(key)) return false;
-          seenDest.add(key);
-          return true;
-        });
-        const seenHotels = new Set();
-        const dedupHotels = hotelSuggestionsRaw.filter((item) => {
-          const key = String(item?.hid || item?.id || "");
-          if (!key || seenHotels.has(key)) return false;
-          seenHotels.add(key);
-          return true;
-        });
-
-        setHotelSuggestions([...dedupDestinations, ...dedupHotels]);
+        setHotelSuggestions(merged);
         setShowHotelSuggestions(locationFocusedRef.current);
       } catch (error) {
         if (!active) return;
@@ -746,7 +816,6 @@ export default function HotelSearchForm({
   const totalRooms = hotelRooms.length;
   const totalAdults = hotelRooms.reduce((sum, room) => sum + room.adults, 0);
   const totalChildren = hotelRooms.reduce((sum, room) => sum + room.children, 0);
-  const totalGuests = totalAdults + totalChildren;
 
   const nationalityName =
     HOTEL_COUNTRIES.find((country) => country.code === nationality)?.name || "India";
@@ -762,8 +831,6 @@ export default function HotelSearchForm({
   const selectedCountryLabel =
     countryOptions.find((country) => String(country.code || "").toUpperCase() === selectedCountry)?.name ||
     "India";
-  const destinationSuggestions = hotelSuggestions.filter((item) => item?.suggestionType !== "hotel");
-  const hotelOnlySuggestions = hotelSuggestions.filter((item) => item?.suggestionType === "hotel");
 
   const handleSearchHotels = async () => {
     if (!selectedSuggestion?.displayName) {
@@ -896,12 +963,12 @@ export default function HotelSearchForm({
       <div className="hotel-search-stack">
         <div className="hotel-search-main-row">
           <div className="hotel-main-field hotel-main-field--destination" ref={destinationRef}>
-            <div className="hotel-main-label">Destination / Hotel Search</div>
+            <MapPin size={18} className="hotel-field-icon" />
             <div className="field-wrapper">
               <input
                 className="hotel-main-input"
                 type="text"
-                placeholder="Type city, neighborhood or place"
+                placeholder="City, Area or Hotel Name"
                 autoComplete="off"
                 value={hotelLocation}
                 onChange={(event) => {
@@ -924,12 +991,9 @@ export default function HotelSearchForm({
               />
               <div className="hotel-main-sub">
                 {selectedSuggestion
-                  ? `${selectedSuggestion.searchRegionType} · ${[
-                      selectedSuggestion.stateName,
-                      selectedSuggestion.countryName,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}`
+                  ? `${selectedSuggestion.searchRegionType} · ${
+                      selectedSuggestion.subtitle || selectedSuggestion.countryName
+                    }`
                   : ""}
               </div>
 
@@ -941,63 +1005,39 @@ export default function HotelSearchForm({
                       Searching destinations...
                     </div>
                   ) : hotelSuggestions.length > 0 ? (
-                    <>
-                      {destinationSuggestions.length > 0 ? (
-                        <div className="suggestion-item suggestion-empty">Destinations</div>
-                      ) : null}
-                      {destinationSuggestions.map((suggestion, index) => (
+                    // One list, places and properties together, ordered by the backend —
+                    // the row icon says which is which, as TripJack's dropdown does.
+                    hotelSuggestions.map((suggestion, index) => {
+                      const isHotel = suggestion.suggestionType === "hotel";
+                      return (
                         <div
-                          key={`destination-${suggestion.id}-${index}`}
+                          key={`${suggestion.suggestionType}-${suggestion.id}-${index}`}
                           className="suggestion-item"
                           onClick={() => {
                             suppressNextSuggestionFetchRef.current = true;
                             locationFocusedRef.current = false;
-                            setSelectedDestination(suggestion);
-                            setSelectedHotel(null);
+                            setSelectedHotel(isHotel ? suggestion : null);
+                            setSelectedDestination(isHotel ? null : suggestion);
                             setHotelLocation(suggestion.displayName);
                             setShowHotelSuggestions(false);
                           }}
                         >
                           <div className="suggestion-main">
-                            <span className="suggestion-iata">{getSuggestionBadge(suggestion.searchRegionType)}</span>
-                            <span className="suggestion-name">{suggestion.displayName}</span>
+                            <span className="suggestion-icon">
+                              {isHotel ? <Building2 size={15} /> : <MapPin size={15} />}
+                            </span>
+                            <span className="suggestion-name">
+                              {isHotel ? suggestion.displayName : getSuggestionTitle(suggestion)}
+                            </span>
                           </div>
                           <div className="suggestion-city">
-                            {[suggestion.stateName, suggestion.countryName, suggestion.city]
-                              .filter(Boolean)
-                              .join(", ")}
+                            {isHotel
+                              ? suggestion.cityName || suggestion.subtitle || suggestion.countryName
+                              : suggestion.subtitle || suggestion.countryName}
                           </div>
                         </div>
-                      ))}
-
-                      {hotelOnlySuggestions.length > 0 ? (
-                        <div className="suggestion-item suggestion-empty">Hotels</div>
-                      ) : null}
-                      {hotelOnlySuggestions.map((suggestion, index) => (
-                        <div
-                          key={`hotel-${suggestion.id}-${index}`}
-                          className="suggestion-item"
-                          onClick={() => {
-                            suppressNextSuggestionFetchRef.current = true;
-                            locationFocusedRef.current = false;
-                            setSelectedHotel(suggestion);
-                            setSelectedDestination(null);
-                            setHotelLocation(suggestion.displayName);
-                            setShowHotelSuggestions(false);
-                          }}
-                        >
-                          <div className="suggestion-main">
-                            <span className="suggestion-iata">HOTL</span>
-                            <span className="suggestion-name">{suggestion.displayName}</span>
-                          </div>
-                          <div className="suggestion-city">
-                            {[suggestion.cityName || suggestion.city, suggestion.countryName]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </div>
-                        </div>
-                      ))}
-                    </>
+                      );
+                    })
                   ) : (
                     <div className="suggestion-item suggestion-empty">No destinations found</div>
                   )}
@@ -1006,52 +1046,76 @@ export default function HotelSearchForm({
             </div>
           </div>
 
-          <div className="hotel-main-field hotel-main-field--date">
-            <div className="hotel-main-label">
-              <Calendar size={12} className="hotel-label-icon" />
-              Check-in
+          {/* Check-in, check-out and nights share one box split by hairline dividers,
+              the way TripJack groups them. */}
+          <div className="hotel-main-field hotel-main-field--dates">
+            <div className={`hotel-date-cell${hotelCheckIn ? " hotel-date-cell--filled" : ""}`}>
+              <Calendar size={17} className="hotel-field-icon" />
+              <div className="hotel-date-body">
+                {hotelCheckIn ? <span className="hotel-date-caption">Check in</span> : null}
+                <DatePicker
+                selected={parseDateInput(hotelCheckIn)}
+                onChange={(date) => {
+                  const value = toApiDate(date);
+                  setHotelCheckIn(value);
+                  if (hotelCheckOut && hotelCheckOut <= value) {
+                    setHotelCheckOut("");
+                  }
+                  // Roll straight on to the check-out month instead of dismissing the
+                  // calendar, the way TripJack continues the range selection.
+                  window.setTimeout(() => checkOutPickerRef.current?.setFocus(), 0);
+                }}
+                minDate={startOfToday()}
+                maxDate={maxBookableDate()}
+                selectsStart
+                startDate={parseDateInput(hotelCheckIn)}
+                endDate={parseDateInput(hotelCheckOut)}
+                dateFormat="dd-MM-yyyy"
+                placeholderText="Select Check in"
+                monthsShown={13}
+                showPopperArrow={false}
+                popperPlacement="bottom-start"
+                popperContainer={HotelCalendarPopper}
+                calendarContainer={HotelCalendarContainer}
+                className="hotel-main-input hotel-datepicker-input"
+                calendarClassName="hotel-datepicker-calendar"
+                popperClassName="hotel-datepicker-popper"
+                />
+              </div>
             </div>
-            <DatePicker
-              selected={parseDateInput(hotelCheckIn)}
-              onChange={(date) => {
-                const value = toApiDate(date);
-                setHotelCheckIn(value);
-                if (hotelCheckOut && hotelCheckOut < value) {
-                  setHotelCheckOut(value);
-                }
-              }}
-              minDate={new Date()}
-              dateFormat="dd/MM/yyyy"
-              placeholderText="Select Date"
-              className="hotel-main-input hotel-datepicker-input"
-            />
-            <div className="hotel-main-sub">
-              {hotelCheckIn ? formatDateWithWeekday(hotelCheckIn, { long: true }).split(",")[0] : "Add check-in"}
-            </div>
-          </div>
 
-          <div className="hotel-main-field hotel-main-field--date">
-            <div className="hotel-main-label">
-              <Calendar size={12} className="hotel-label-icon" />
-              Check-out
+            <div className={`hotel-date-cell${hotelCheckOut ? " hotel-date-cell--filled" : ""}`}>
+              <div className="hotel-date-body">
+                {hotelCheckOut ? <span className="hotel-date-caption">Check out</span> : null}
+                <DatePicker
+                ref={checkOutPickerRef}
+                selected={parseDateInput(hotelCheckOut)}
+                onChange={(date) => setHotelCheckOut(toApiDate(date))}
+                minDate={parseDateInput(hotelCheckIn) || startOfToday()}
+                maxDate={maxBookableDate()}
+                selectsEnd
+                startDate={parseDateInput(hotelCheckIn)}
+                endDate={parseDateInput(hotelCheckOut)}
+                dateFormat="dd-MM-yyyy"
+                placeholderText="Select Check out"
+                monthsShown={13}
+                showPopperArrow={false}
+                popperPlacement="bottom-start"
+                popperContainer={HotelCalendarPopper}
+                calendarContainer={HotelCalendarContainer}
+                className="hotel-main-input hotel-datepicker-input"
+                calendarClassName="hotel-datepicker-calendar"
+                popperClassName="hotel-datepicker-popper"
+                />
+              </div>
             </div>
-            <DatePicker
-              selected={parseDateInput(hotelCheckOut)}
-              onChange={(date) => setHotelCheckOut(toApiDate(date))}
-              minDate={parseDateInput(hotelCheckIn) || new Date()}
-              dateFormat="dd/MM/yyyy"
-              placeholderText="Select Date"
-              className="hotel-main-input hotel-datepicker-input"
-            />
-            <div className="hotel-main-sub">
-              {hotelCheckOut ? formatDateWithWeekday(hotelCheckOut, { long: true }).split(",")[0] : "Add check-out"}
-            </div>
-          </div>
 
-          <div className="hotel-main-field hotel-main-field--nights">
-            <div className="hotel-main-label">Total Nights</div>
-            <div className="hotel-main-value">{totalNights > 0 ? `${totalNights} Night${totalNights > 1 ? "s" : ""}` : "--"}</div>
-            <div className="hotel-main-sub">{totalNights > 0 ? `${totalNights} night stay` : "Duration"}</div>
+            <div className="hotel-date-cell hotel-date-cell--nights">
+              <div className="hotel-main-label">Total Night(s)</div>
+              <div className="hotel-main-value">
+                {totalNights > 0 ? `${totalNights} Night${totalNights > 1 ? "s" : ""}` : "-"}
+              </div>
+            </div>
           </div>
 
           <div className="hotel-main-field hotel-main-field--guests">
@@ -1066,17 +1130,15 @@ export default function HotelSearchForm({
                 setShowSearchCountryDropdown(false);
               }}
             >
-              <div className="hotel-main-label">
-                Persons & Rooms
-                <ChevronDown size={12} />
-              </div>
-              <div className="hotel-main-value">
-                {totalRooms} Room{totalRooms > 1 ? "s" : ""}, {totalGuests} Guest{totalGuests > 1 ? "s" : ""}
-              </div>
-              <div className="hotel-main-sub">
-                {totalAdults} Adult{totalAdults > 1 ? "s" : ""}
-                {totalChildren ? `, ${totalChildren} Child${totalChildren > 1 ? "ren" : ""}` : ""}
-              </div>
+              <User size={17} className="hotel-field-icon" />
+              <span className="hotel-guests-text">
+                <span className="hotel-main-label">Persons &amp; Rooms</span>
+                <span className="hotel-main-value">
+                  {totalRooms} Room{totalRooms > 1 ? "s" : ""} {totalAdults} Adult
+                  {totalAdults > 1 ? "s" : ""}
+                  {totalChildren ? ` ${totalChildren} Child${totalChildren > 1 ? "ren" : ""}` : ""}
+                </span>
+              </span>
             </button>
 
             {showGuestsDropdown ? (
@@ -1096,14 +1158,11 @@ export default function HotelSearchForm({
           >
             {hotelSearchLoading ? (
               <span className="hotel-search-submit-content">
-                <Loader2 size={18} className="spin" />
-                Searching...
+                <Loader2 size={16} className="spin" />
+                Searching
               </span>
             ) : (
-              <span className="hotel-search-submit-content">
-                <BedDouble size={18} />
-                Search
-              </span>
+              <span className="hotel-search-submit-content">Search</span>
             )}
           </button>
         </div>

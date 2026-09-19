@@ -154,11 +154,6 @@ const TravelInsuranceResults = () => {
                             </span>
                           </div>
                           <div className="ts-plan-pricing">
-                            {pkg.earnAmount > 0 && (
-                              <span className="ts-earn-badge">
-                                Earn ₹{pkg.earnAmount.toLocaleString("en-IN")}*
-                              </span>
-                            )}
                             <div className="ts-price-block">
                               <span className="ts-price">
                                 {formatPrice(pkg.price)}
@@ -211,7 +206,6 @@ const TravelInsuranceResults = () => {
                             <ChevronRight size={16} />
                           </button>
                           <p className="ts-disclaimer">
-                            *Agent earnings are on non-insurance products |
                             Insurance is through a group master policy with{" "}
                             {pkg.insurerLabel || "the insurer"}.
                           </p>
@@ -349,16 +343,6 @@ const TravelInsuranceResults = () => {
         .ts-plan-pricing {
           text-align: right;
           flex-shrink: 0;
-        }
-        .ts-earn-badge {
-          display: inline-block;
-          padding: 3px 10px;
-          border-radius: 4px;
-          background: #e8f5e9;
-          color: #2e7d32;
-          font-size: 11px;
-          font-weight: 600;
-          margin-bottom: 4px;
         }
         .ts-price-block {
           display: flex;

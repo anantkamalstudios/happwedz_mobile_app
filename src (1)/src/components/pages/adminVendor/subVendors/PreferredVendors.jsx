@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { CiLocationOn, CiStar } from "react-icons/ci";
 import { FaStar } from "react-icons/fa";
+import { API_BASE_URL } from "../../../../config/constants";
 
 const PreferredVendors = ({ formData, setFormData, onSave, onShowSuccess }) => {
   const [query, setQuery] = useState("");
@@ -20,7 +21,7 @@ const PreferredVendors = ({ formData, setFormData, onSave, onShowSuccess }) => {
     }
     setLoading(true);
     try {
-      let apiUrl = `https://happywedz.com/api/vendor-services?search=${encodeURIComponent(
+      let apiUrl = `${API_BASE_URL}/vendor-services?search=${encodeURIComponent(
         searchQuery
       )}&limit=10`;
       const { data } = await axios.get(apiUrl);

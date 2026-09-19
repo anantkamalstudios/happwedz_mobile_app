@@ -122,6 +122,35 @@ const parsePolicyEntries = (value) => {
   return text ? [{ label: "", text }] : [];
 };
 
+const parseReviewInclusions = (inclusions) => {
+  if (!Array.isArray(inclusions) || inclusions.length === 0) return [];
+
+  const objects = [];
+  let buffer = "";
+  inclusions.forEach((entry) => {
+    const text = String(entry || "").trim();
+    if (!text) return;
+    // A continued value resumes at the comma the supplier split on.
+    buffer = buffer ? `${buffer}, ${text}` : text;
+    const parsed = parseJsonSafely(buffer);
+    if (parsed && typeof parsed === "object") {
+      objects.push(parsed);
+      buffer = "";
+    }
+  });
+  // Anything still buffered never closed; show it as plain text rather than drop it.
+  if (buffer) objects.push({ "": buffer.replace(/^\{|\}$/g, "") });
+
+  return objects.flatMap((entry) =>
+    Object.entries(entry)
+      .map(([label, text]) => ({
+        label: String(label || "").replace(/_/g, " ").trim(),
+        text: String(text || "").replace(/\s+/g, " ").trim(),
+      }))
+      .filter((item) => item.text)
+  );
+};
+
 const buildAddressParts = (address = {}) =>
   [
     address?.adr,
@@ -232,11 +261,23 @@ const getStaticRoomEntries = (staticHotel = {}) => {
   return [];
 };
 
-const getStaticRoomImages = (staticRoom = {}) =>
-  normalizeImageItems([
+const getStaticRoomImages = (staticRoom = {}) => {
+  const raw = [
     ...(Array.isArray(staticRoom?.images) ? staticRoom.images : []),
     ...(Array.isArray(staticRoom?.img) ? staticRoom.img : []),
-  ]);
+  ];
+  // Hero first, then whatever is captioned "Room", then the rest in supplier order.
+  const rank = (image) => {
+    if (image?.is_hero_image || image?.isHero) return 0;
+    if (String(image?.caption || "").trim().toLowerCase() === "room") return 1;
+    return 2;
+  };
+  const ordered = raw
+    .map((image, index) => ({ image, index }))
+    .sort((a, b) => rank(a.image) - rank(b.image) || a.index - b.index)
+    .map((entry) => entry.image);
+  return normalizeImageItems(ordered);
+};
 
 const getStaticRoomAmenities = (staticRoom = {}) =>
   dedupeStrings([
@@ -257,9 +298,9 @@ const getStaticRoomBedSummary = (staticRoom = {}) => {
     const summary = Object.values(configuration)
       .map((bed) => {
         const quantity = Number(bed?.quantity || bed?.count || bed?.bed_count || 0);
-        const rawLabel = String(bed?.type || bed?.name || bed?.size || "").trim();
-        // "KingBed" -> "King Bed"
-        const label = rawLabel.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+        // Printed exactly as the supplier writes it ("FullBed"), which is what
+        // TripJack's own room card shows.
+        const label = String(bed?.type || bed?.name || bed?.size || "").trim();
         if (!label && quantity <= 0) return "";
         if (quantity <= 0) return label;
         return `${quantity} ${label || "Bed"}`;
@@ -285,9 +326,10 @@ const getStaticRoomGuestSummary = (staticRoom = {}) => {
   const children = Number(max?.children || 0);
   if (!total && !adults && !children) return "";
 
+  if (total) return `Fits max. ${total} guest${total > 1 ? "s" : ""}`;
+
   const parts = [];
-  if (total) parts.push(`Fits max. ${total} guest${total > 1 ? "s" : ""}`);
-  else if (adults) parts.push(`${adults} adult${adults > 1 ? "s" : ""}`);
+  if (adults) parts.push(`${adults} adult${adults > 1 ? "s" : ""}`);
   if (children) parts.push(`${children} child${children > 1 ? "ren" : ""}`);
   return parts.join(" • ");
 };
@@ -474,9 +516,32 @@ const normalizeRoomOption = (
     passportRequired: Boolean(option?.compliance?.passportRequired ?? hotelInfo?.passportRequired),
     adults: Number(roomInfo?.adt || roomInfo?.adults || 0),
     children: Number(roomInfo?.chd || roomInfo?.children || 0),
+    // Everything the partner API tells us about how this price is built, for the
+    // fare-breakup panel behind the "Total" info icon.
+    fareBreakup: (() => {
+      const pricing = option?.pricing || {};
+      const commercial = option?.commercial || {};
+      const num = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      return {
+        currency: pricing?.currency || option?.currency || option?.sc || "INR",
+        basePrice: num(pricing?.basePrice ?? option?.tfcs?.BF),
+        discount: num(pricing?.discount),
+        taxes: num(pricing?.taxes ?? option?.tfcs?.TAF),
+        managementFee: num(pricing?.mf ?? option?.tfcs?.MF),
+        managementFeeTax: num(pricing?.mft ?? option?.tfcs?.MFT),
+        totalPrice: num(pricing?.totalPrice ?? option?.tp),
+        gstClaimableAmount: num(pricing?.gstClaimableAmount),
+        strikethrough: pricing?.strikethrough != null ? num(pricing.strikethrough) : null,
+        commissionType: commercial?.type || null,
+        commission: num(commercial?.commission),
+      };
+    })(),
     bedSummary: getRoomBedSummary(roomMeta) || staticBedSummary,
     guestSummary:
-      getRoomGuestSummary(roomMeta, roomInfo) || getStaticRoomGuestSummary(staticRoom),
+      getStaticRoomGuestSummary(staticRoom) || getRoomGuestSummary(roomMeta, roomInfo),
     images,
     image: images[0]?.url || "",
     amenities,
@@ -634,9 +699,12 @@ const normalizeHotelDetails = ({
       "",
     ) || {};
   const aboutSections = {
+    // descriptions.headline repeats the long location blurb; the short locality line
+    // TripJack prints under "Headline" ("In Pune (Viman Nagar)") lives inside
+    // descriptions.default, so that one wins.
     headline:
-      staticHotel?.descriptions?.headline ||
       description?.headline ||
+      staticHotel?.descriptions?.headline ||
       "",
     location:
       staticHotel?.descriptions?.location ||
@@ -743,11 +811,37 @@ const normalizeHotelDetails = ({
     ...options.flatMap((option) => option.amenities),
   ]);
   
-  const images = staticImages.length > 0
-    ? dedupeImages([...staticImages, ...listImages, ...hotelImages, ...options.flatMap((option) => option.images)])
-    : listImages.length > 0
-      ? dedupeImages([...listImages, ...hotelImages])
-      : dedupeImages([...hotelImages, ...options.flatMap((option) => option.images)]);
+  // TripJack flags the cover photo with is_hero_image and rarely lists it first, so the
+  // gallery used to open on whatever happened to be at index 0 — a bathroom for Taj
+  // Santacruz, where TripJack's own page leads with the exterior.
+  const heroImageUrl = (() => {
+    const raw = Array.isArray(staticHotel?.images) ? staticHotel.images : [];
+    const hero = raw.find((image) => image?.is_hero_image || image?.isHero);
+    if (!hero) return "";
+    return (
+      hero?.links?.original?.href ||
+      hero?.links?.Original?.href ||
+      hero?.links?.Standard?.href ||
+      hero?.links?.XXL?.href ||
+      hero?.url ||
+      ""
+    );
+  })();
+
+  const orderedImages =
+    staticImages.length > 0
+      ? dedupeImages([...staticImages, ...listImages, ...hotelImages, ...options.flatMap((option) => option.images)])
+      : listImages.length > 0
+        ? dedupeImages([...listImages, ...hotelImages])
+        : dedupeImages([...hotelImages, ...options.flatMap((option) => option.images)]);
+
+  // Lift the cover photo to the front without disturbing the rest of the order.
+  const images = heroImageUrl
+    ? [
+        ...orderedImages.filter((image) => image?.url === heroImageUrl),
+        ...orderedImages.filter((image) => image?.url !== heroImageUrl),
+      ]
+    : orderedImages;
   const staticAddress = staticHotel?.locale?.address || {};
   const address =
     staticHotel?.ad ||
@@ -862,6 +956,21 @@ const normalizeHotelDetails = ({
     panRequired: Boolean(hotelInfo?.panRequired),
     listHotel: selectedHotel,
     nights,
+    // TripJack returns these under policies.checkInCheckOut
+    // ({ checkin_from: "2:00 PM", checkout_from: "12:00 PM" }). They were never read,
+    // so the detail page could not tell a guest when they could arrive or had to leave.
+    stayTimes: {
+      checkInFrom:
+        staticHotel?.policies?.checkInCheckOut?.checkin_from ||
+        staticHotel?.checkInTime ||
+        "",
+      checkInTill: staticHotel?.policies?.checkInCheckOut?.checkin_till || "",
+      checkOutUntil:
+        staticHotel?.policies?.checkInCheckOut?.checkout_from ||
+        staticHotel?.checkOutTime ||
+        "",
+      minCheckInAge: staticHotel?.policies?.checkInCheckOut?.checkin_min_age || "",
+    },
     importantInformation: {
       // TripJack v3 nests these under `policies` as stringified JSON objects.
       // (Older/legacy top-level keys kept as a fallback.)
@@ -1099,6 +1208,19 @@ const normalizeReviewResponseForUi = (
 
   const option = reviewResponse?.option || fallbackOption || {};
   const optionId = String(option?.optionId || option?.id || "");
+  const reviewPricing = option?.pricing || {};
+  const reviewBaseFare = normalizeAmount(reviewPricing?.basePrice);
+  const reviewTotal = normalizeAmount(reviewPricing?.totalPrice);
+  const reviewFeeParts =
+    normalizeAmount(reviewPricing?.taxes) +
+    normalizeAmount(reviewPricing?.mf) +
+    normalizeAmount(reviewPricing?.mft);
+  // Prefer the difference so the three lines always add up, even if a supplier adds
+  // a fee component we do not know about yet.
+  const reviewTaxesAndFees =
+    reviewTotal > 0 && reviewBaseFare > 0
+      ? Math.round((reviewTotal - reviewBaseFare) * 100) / 100
+      : reviewFeeParts;
   const roomInfo = Array.isArray(option?.roomInfo) ? option.roomInfo : [];
   const firstRoom = roomInfo[0] || {};
   const compliance = option?.compliance || {};
@@ -1136,7 +1258,27 @@ const normalizeReviewResponseForUi = (
       images: Array.isArray(fallbackHotel?.images) ? fallbackHotel.images : [],
       img: Array.isArray(fallbackHotel?.img) ? fallbackHotel.img : [],
       rt: Number(fallbackHotel?.starRating || fallbackHotel?.rt || 0),
+      checkInTime: fallbackHotel?.stayTimes?.checkInFrom
+        ? {
+            from: fallbackHotel.stayTimes.checkInFrom,
+            to: fallbackHotel.stayTimes.checkInTill || "",
+          }
+        : null,
+      checkOutTime: fallbackHotel?.stayTimes?.checkOutUntil
+        ? { from: fallbackHotel.stayTimes.checkOutUntil }
+        : null,
     },
+    // The booked option's own policies, with the hotel's static policies as backup.
+    policyNotes: (() => {
+      const fromOption = parseReviewInclusions(option?.inclusions);
+      if (fromOption.length > 0) return fromOption;
+      const info = fallbackHotel?.importantInformation || {};
+      return [
+        ...(Array.isArray(info.knowBeforeYouGo) ? info.knowBeforeYouGo : []),
+        ...(Array.isArray(info.specialInstructions) ? info.specialInstructions : []),
+        ...(Array.isArray(info.mandatoryFees) ? info.mandatoryFees : []),
+      ];
+    })(),
     selectedOption: {
       id: optionId,
       optionId,
@@ -1219,7 +1361,7 @@ const normalizeReviewResponseForUi = (
       : {
           amount: normalizeAmount(pricing?.totalPrice),
           baseFare: normalizeAmount(pricing?.basePrice),
-          taxesAndFees: normalizeAmount(pricing?.taxes),
+          taxesAndFees: reviewTaxesAndFees,
           currency: pricing?.currency || "INR",
           managementFee: normalizeAmount(pricing?.mf),
           managementFeeTax: normalizeAmount(pricing?.mft),
@@ -1261,8 +1403,19 @@ const validateBookingForm = (bookingForm, reviewResponse) => {
       return;
     }
 
+    // Only the lead guest is mandatory, matching TripJack and the API request builder,
+    // which pads any traveller left blank. A passport, when required, is still needed
+    // from every adult.
+    const leadAdultIndex = Math.max(0, travellerInfo.findIndex((item) => item?.pt === "ADULT"));
+
     travellerInfo.forEach((traveller, travellerIndex) => {
       const isAdult = traveller?.pt === "ADULT";
+      const isLead = travellerIndex === leadAdultIndex;
+      const hasAnyName = Boolean(traveller?.fN?.trim() || traveller?.lN?.trim());
+      const needsPassport = isAdult && Boolean(bookingRequirements?.passportRequired);
+      // Skip a blank non-lead guest entirely; validate once someone starts filling it.
+      if (!isLead && !hasAnyName && !needsPassport) return;
+
       const validTitles = isAdult ? ["Mr", "Mrs", "Ms", "Miss"] : ["Master", "Miss"];
       if (!validTitles.includes(String(traveller?.ti || "").trim())) {
         errors.push(`Select a valid title for room ${roomIndex + 1}, traveller ${travellerIndex + 1}.`);
@@ -1273,7 +1426,8 @@ const validateBookingForm = (bookingForm, reviewResponse) => {
       if (!traveller?.lN?.trim()) {
         errors.push(`Enter last name for room ${roomIndex + 1}, traveller ${travellerIndex + 1}.`);
       }
-      if (traveller?.pt === "ADULT" && bookingRequirements?.panRequired) {
+      // PAN is collected once per room, against that room's lead guest.
+      if (isLead && isAdult && bookingRequirements?.panRequired) {
         const normalizedPan = String(traveller?.pan || "")
           .toUpperCase()
           .replace(/[^A-Z0-9]/g, "");

@@ -13,6 +13,8 @@ import Reviews from "./subVendors/Reviews";
 import VendorMessages from "./messages/VendorMessages";
 import VendorLeadsPage from "./VendorLeadsPage";
 import MovmentsPlus from "./movments-plus/MovmentsPlus";
+import InstagramPage from "./InstagramPage";
+import { VendorAccessProvider } from "../../../context/VendorAccessContext";
 
 const Main = () => {
   const { slug } = useParams();
@@ -43,16 +45,22 @@ const Main = () => {
         return <VendorLeadsPage />;
       case "movments-plus":
         return <MovmentsPlus />;
+      case "vendor-instagram":
+        return <InstagramPage />;
       default:
         return <HomeAdmin />;
     }
   };
 
   return (
-    <div>
-      <Navbar storefrontCompletion={storefrontCompletion} />
-      {renderContent()}
-    </div>
+    // Fetched once here and shared by the navbar, the storefront and the settings tab,
+    // so the dashboard does not ask the server the same question three times per load.
+    <VendorAccessProvider>
+      <div>
+        <Navbar storefrontCompletion={storefrontCompletion} />
+        {renderContent()}
+      </div>
+    </VendorAccessProvider>
   );
 };
 

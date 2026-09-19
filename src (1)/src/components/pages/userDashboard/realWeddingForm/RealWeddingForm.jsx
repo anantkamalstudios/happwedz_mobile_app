@@ -18,6 +18,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import SummernoteEditor from "../../../ui/SummernoteEditor";
+import { API_BASE_URL } from "../../../../config/constants";
 
 const RealWeddingForm = ({ user, token }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -145,7 +146,7 @@ const RealWeddingForm = ({ user, token }) => {
   useEffect(() => {
     const loadVendorTypes = async () => {
       try {
-        const res = await axios.get("https://happywedz.com/api/vendor-types");
+        const res = await axios.get(`${API_BASE_URL}/vendor-types`);
         setVendorTypes(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error("Failed to load vendor types", err);
@@ -168,7 +169,7 @@ const RealWeddingForm = ({ user, token }) => {
     const loadCultures = async () => {
       try {
         const res = await axios.get(
-          "https://happywedz.com/api/real-wedding-culture/public"
+          `${API_BASE_URL}/real-wedding-culture/public`
         );
         if (res.data && res.data.cultures && Array.isArray(res.data.cultures)) {
           setCultures(res.data.cultures);
@@ -325,7 +326,7 @@ const RealWeddingForm = ({ user, token }) => {
 
     try {
       const response = await axios.post(
-        "https://happywedz.com/api/realwedding",
+        `${API_BASE_URL}/realwedding`,
         data,
         {
           headers: {
@@ -585,7 +586,7 @@ const VenueSearchInput = ({ onSelectVenue }) => {
     }
     setLoadingSearch(true);
     try {
-      const apiUrl = `https://happywedz.com/api/vendor-services?search=${encodeURIComponent(
+      const apiUrl = `${API_BASE_URL}/vendor-services?search=${encodeURIComponent(
         query
       )}&vendorType=Venues&limit=10`;
 
@@ -1186,7 +1187,7 @@ const VendorCreator = ({ vendorTypes = [], onAdd }) => {
     }
     setLoadingSearch(true);
     try {
-      let apiUrl = `https://happywedz.com/api/vendor-services?search=${encodeURIComponent(
+      let apiUrl = `${API_BASE_URL}/vendor-services?search=${encodeURIComponent(
         searchQuery
       )}&limit=10`;
 

@@ -1,23 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
 import EinviteHeroSection from "../layouts/einvites/EinviteHeroSection";
 import ChooseTemplate from "./ChooseTemplate";
 import FaqsSection from "../layouts/Main/FaqsSection";
 import { useToast } from "../layouts/toasts/Toast";
-import LoginPopup from "./designStudio/DesignStudio.LoginPopup";
-import { LuSmartphone } from "react-icons/lu";
-import { IoSparklesOutline } from "react-icons/io5";
 
 const EinviteHomePage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const [showLoginPopup, setShowLoginPopup] = useState(false);
-  const [pendingCategoryId, setPendingCategoryId] = useState(null);
-
-  const user = useSelector((state) => state.auth.user);
-  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-  const isLoggedIn = !!(user && isAuthenticated);
 
   const categories = [
     {
@@ -47,33 +37,14 @@ const EinviteHomePage = () => {
     navigate(`/einvites/category/${categoryId}`);
   };
 
+  // Browsing designs is open to everyone; login is asked for only when a guest
+  // chooses "Customise the card".
   const handleCategoryClick = (categoryId) => {
-    // Checked before the login gate — there's nothing to log in for yet.
     if (categoryId === "video") {
       addToast("Video invitations coming soon!", "info");
       return;
     }
-
-    if (!isLoggedIn) {
-      setPendingCategoryId(categoryId);
-      setShowLoginPopup(true);
-      return;
-    }
-
     openCategory(categoryId);
-  };
-
-  const handleLoginClose = () => {
-    setShowLoginPopup(false);
-    setPendingCategoryId(null);
-  };
-
-  const handleLoginSuccess = () => {
-    setShowLoginPopup(false);
-    if (pendingCategoryId) {
-      openCategory(pendingCategoryId);
-      setPendingCategoryId(null);
-    }
   };
 
   return (
@@ -377,12 +348,6 @@ const EinviteHomePage = () => {
           }
         }
       `}</style>
-
-      <LoginPopup
-        isOpen={showLoginPopup}
-        onClose={handleLoginClose}
-        onSuccess={handleLoginSuccess}
-      />
     </div>
   );
 };

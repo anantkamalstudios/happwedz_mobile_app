@@ -141,8 +141,12 @@ class BookingsApi {
       'tripjackBookingId': invoice['bookingId'],
       'razorpayOrderId': invoice['orderId'],
       'route': invoice['route'],
-      'pickupLocation': parts.isNotEmpty && parts[0].isNotEmpty ? parts[0] : '—',
-      'dropoffLocation': parts.length > 1 && parts[1].isNotEmpty ? parts[1] : '—',
+      'pickupLocation': parts.isNotEmpty && parts[0].isNotEmpty
+          ? parts[0]
+          : '—',
+      'dropoffLocation': parts.length > 1 && parts[1].isNotEmpty
+          ? parts[1]
+          : '—',
       'pickupAt': invoice['pickupTime'],
       'amount': invoice['amount'],
       'currency': invoice['currency'],

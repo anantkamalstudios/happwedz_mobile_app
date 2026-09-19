@@ -39,9 +39,16 @@ const getErrorMessage = (error, fallback) => {
   return fallback;
 };
 
-export const suggestHotels = async (payload) => {
+/**
+ * Single autosuggest call returning destinations and hotels in one ranked list,
+ * the same shape TripJack's own hotel search uses.
+ */
+export const suggestHotels = async (params = {}, options = {}) => {
   try {
-    const response = await axiosInstance.post("hotels/suggestions", payload);
+    const response = await axiosInstance.get("hotels/suggestions", {
+      params,
+      signal: options?.signal,
+    });
     return response.data;
   } catch (error) {
     console.error(getErrorMessage(error, "Error fetching hotel suggestions"));

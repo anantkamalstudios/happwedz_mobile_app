@@ -107,6 +107,8 @@ dependencies:
   geocoding:
   http_parser: any
   sign_in_with_apple:
+  razorpay_flutter: ^1.4.6
+  geolocator: ^14.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

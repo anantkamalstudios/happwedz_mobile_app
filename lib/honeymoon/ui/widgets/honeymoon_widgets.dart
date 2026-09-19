@@ -148,7 +148,11 @@ class HoneymoonHero extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xCC000000), Color(0x66000000), Color(0xE6000000)],
+                colors: [
+                  Color(0xCC000000),
+                  Color(0x66000000),
+                  Color(0xE6000000),
+                ],
                 stops: [0.0, 0.45, 1.0],
               ),
             ),
@@ -265,9 +269,7 @@ class _HeroStats extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 26,
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                   color: Colors.white24,
                 ),
               Flexible(
@@ -388,9 +390,7 @@ class TapField extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: hasValue
                         ? AppText.bodyStrong
-                        : AppText.body.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
+                        : AppText.body.copyWith(color: AppColors.textTertiary),
                   ),
                 ),
               ],
@@ -525,7 +525,17 @@ class MetaChip extends StatelessWidget {
             Icon(icon, size: 12, color: AppColors.primary),
             const SizedBox(width: AppSpacing.xxs),
           ],
-          Text(label, style: AppText.caption),
+          // Text(label, style: AppText.caption),
+          // A long label ends in an ellipsis instead of overflowing the
+          // card; short labels render exactly as before.
+          Flexible(
+            child: Text(
+              label,
+              style: AppText.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -537,8 +547,18 @@ class MetaChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 const List<String> _monthNames = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 /// `14 Aug 2026` — display only; the API layer does its own formatting.
@@ -582,6 +602,7 @@ String formatPrice(double amount, {String symbol = '₹'}) {
 
   return '${negative ? '-' : ''}$symbol$grouped';
 }
+
 /// The message to show a traveller when a booking call fails.
 ///
 /// [HoneymoonApiException] already carries copy written for this module — a

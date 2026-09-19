@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useToast } from "../../layouts/toasts/Toast";
 import { formatDate } from "../../../utils/dateFormat";
-
-const API_BASE_URL = "https://happywedz.com";
+import { API_BASE_URL } from "../../../config/constants";
 
 const QuotationModal = ({ show, onClose, lead, vendorToken }) => {
   const [submitting, setSubmitting] = useState(false);
@@ -33,13 +32,11 @@ const QuotationModal = ({ show, onClose, lead, vendorToken }) => {
     }
   }, [show, lead, vendorToken]);
 
-  const cleanApiBase = API_BASE_URL.replace(/\/api$/, "");
-
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
       const response = await fetch(
-        `${cleanApiBase}/api/request-pricing/vendor/quotation-history?userId=${lead.request.user.id}`,
+        `${API_BASE_URL}/request-pricing/vendor/quotation-history?userId=${lead.request.user.id}`,
         {
           headers: {
             Authorization: `Bearer ${vendorToken}`,
@@ -83,7 +80,7 @@ const QuotationModal = ({ show, onClose, lead, vendorToken }) => {
       };
 
       const response = await fetch(
-        `${cleanApiBase}/api/request-pricing/requests/${lead.request.id}/quotation`,
+        `${API_BASE_URL}/request-pricing/requests/${lead.request.id}/quotation`,
         {
           method: "POST",
           headers: {

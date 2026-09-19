@@ -1,11 +1,8 @@
 import axios from "axios";
 import axiosInstance from "./axiosInstance";
+import { API_BASE_URL } from "../../config/constants";
 
-const API_BASE = (
-  import.meta.env.VITE_API_URL || "http://localhost:4000"
-).replace(/\/$/, "");
-
-const TRIPSAFE_BASE = `${API_BASE}/tripsafe`;
+const TRIPSAFE_BASE = `${API_BASE_URL}/tripsafe`;
 
 const INSURER_LABELS = {
   ABHI: "Aditya Birla Health Insurance",

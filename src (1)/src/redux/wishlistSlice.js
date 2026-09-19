@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { API_BASE_URL } from "../config/constants";
 
-const API_URL = "https://happywedz.com/api/wishlist/toggle";
+const API_URL = `${API_BASE_URL}/wishlist/toggle`;
 
 export const addToWishlist = createAsyncThunk(
   "wishlist/add",

@@ -8,10 +8,16 @@ import {
   extractRatingFilters,
   extractReviewFilters,
 } from "../utils/priceFilterUtils";
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../config/constants";
 
-const IMAGE_BASE_URL = "https://happywedzbackend.happywedz.com";
+const IMAGE_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 const normalizeServiceStatus = (value) => {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "publish" || normalized === "published") return "publish";
   if (
     normalized === "hide" ||
@@ -29,7 +35,7 @@ const useApiData = (
   vendorType = null,
   initialPage = 1,
   initialLimit = 9,
-  filters = {}
+  filters = {},
 ) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -60,12 +66,12 @@ const useApiData = (
       try {
         const subCategory = slug
           ? slug
-            .replace(/-{2,}/g, " / ")
-            .replace(/-/g, " ")
-            .replace(/\s*\/\s*/g, " / ")
-            .replace(/\s{2,}/g, " ")
-            .replace(/\b\w/g, (l) => l.toUpperCase())
-            .trim()
+              .replace(/-{2,}/g, " / ")
+              .replace(/-/g, " ")
+              .replace(/\s*\/\s*/g, " / ")
+              .replace(/\s{2,}/g, " ")
+              .replace(/\b\w/g, (l) => l.toUpperCase())
+              .trim()
           : null;
 
         const params = new URLSearchParams();
@@ -181,8 +187,7 @@ const useApiData = (
           params.append("filters", JSON.stringify(nonPriceFilters));
         }
 
-        const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
-        const apiUrl = `${apiBaseUrl}/vendor-services?${params.toString()}`;
+        const apiUrl = `${API_BASE_URL}/vendor-services?${params.toString()}`;
 
         const cacheKey = apiUrl;
         if (cacheRef.current.has(cacheKey)) {
@@ -216,25 +221,29 @@ const useApiData = (
 
         const VENUE_FALLBACK_IMG = "/images/imageNotFound.jpg";
 
-        const transformed = transformApiData(itemsRaw).map((item) => {
-          if (!item) return null;
-          if (!item.image || String(item.image).trim() === "") {
-            item.image = VENUE_FALLBACK_IMG;
-          }
-          return item;
-        }).filter(Boolean);
-
-        if (Array.isArray(result)) {
-          const total = itemsRaw.length;
-          const start = (page - 1) * limit;
-          const pagedItems = itemsRaw.slice(start, start + limit);
-          const transformed = transformApiData(pagedItems).map((item) => {
+        const transformed = transformApiData(itemsRaw)
+          .map((item) => {
             if (!item) return null;
             if (!item.image || String(item.image).trim() === "") {
               item.image = VENUE_FALLBACK_IMG;
             }
             return item;
-          }).filter(Boolean);
+          })
+          .filter(Boolean);
+
+        if (Array.isArray(result)) {
+          const total = itemsRaw.length;
+          const start = (page - 1) * limit;
+          const pagedItems = itemsRaw.slice(start, start + limit);
+          const transformed = transformApiData(pagedItems)
+            .map((item) => {
+              if (!item) return null;
+              if (!item.image || String(item.image).trim() === "") {
+                item.image = VENUE_FALLBACK_IMG;
+              }
+              return item;
+            })
+            .filter(Boolean);
           setData(transformed);
           const nextPagination = {
             page,
@@ -248,13 +257,15 @@ const useApiData = (
             pagination: nextPagination,
           });
         } else {
-          const transformed = transformApiData(itemsRaw).map((item) => {
-            if (!item) return null;
-            if (!item.image || String(item.image).trim() === "") {
-              item.image = VENUE_FALLBACK_IMG;
-            }
-            return item;
-          }).filter(Boolean);
+          const transformed = transformApiData(itemsRaw)
+            .map((item) => {
+              if (!item) return null;
+              if (!item.image || String(item.image).trim() === "") {
+                item.image = VENUE_FALLBACK_IMG;
+              }
+              return item;
+            })
+            .filter(Boolean);
           setData(transformed);
           if (result.pagination) {
             const nextPagination = {
@@ -269,7 +280,7 @@ const useApiData = (
               total: result.pagination.total || 0,
               totalPages: result.pagination.totalPages || 0,
             };
-            "useApiData - Pagination data:", paginationData;
+            ("useApiData - Pagination data:", paginationData);
             setPagination(nextPagination);
             cacheRef.current.set(cacheKey, {
               data: transformed,
@@ -295,7 +306,7 @@ const useApiData = (
       initialPage,
       initialLimit,
       memoizedFilters,
-    ]
+    ],
   );
 
   const refetch = useCallback(() => {
@@ -309,7 +320,7 @@ const useApiData = (
       }
       fetchData(page);
     },
-    [fetchData, pagination.totalPages]
+    [fetchData, pagination.totalPages],
   );
 
   const nextPage = useCallback(() => {
@@ -349,140 +360,164 @@ const useApiData = (
 };
 
 const transformApiData = (items) => {
-  return items.map((item) => {
-    const id = item.id;
-    const media = Array.isArray(item.media) ? item.media : [];
-    const vendor = item.vendor || {};
-    const subcategory = item.subcategory || {};
-    const attributes = item.attributes || {};
+  return items
+    .map((item) => {
+      const id = item.id;
+      const media = Array.isArray(item.media) ? item.media : [];
+      const vendor = item.vendor || {};
+      const subcategory = item.subcategory || {};
+      const attributes = item.attributes || {};
 
-    const portfolioUrls = attributes.Portfolio
-      ? attributes.Portfolio.split("|")
-        .map((url) => url.trim())
-        .filter((url) => url)
-      : [];
-    const normalizeUrl = (u) => {
-      if (!u) return null;
-      if (/^https?:\/\//i.test(u)) return u;
-      return `${IMAGE_BASE_URL}${u.startsWith("/") ? u : "/" + u}`;
-    };
-    const gallery = (media.length > 0 ? media : portfolioUrls)
-      .map(normalizeUrl)
-      .filter(Boolean);
-    const firstImage = gallery.length > 0 ? gallery[0] : null;
+      const portfolioUrls = attributes.Portfolio
+        ? attributes.Portfolio.split("|")
+            .map((url) => url.trim())
+            .filter((url) => url)
+        : [];
+      const normalizeUrl = (u) => {
+        if (!u) return null;
+        if (/^https?:\/\//i.test(u)) return u;
+        return `${IMAGE_BASE_URL}${u.startsWith("/") ? u : "/" + u}`;
+      };
+      const gallery = (media.length > 0 ? media : portfolioUrls)
+        .map(normalizeUrl)
+        .filter(Boolean);
+      const firstImage = gallery.length > 0 ? gallery[0] : null;
 
-    const vendorTypeName =
-      attributes.vendor_type ||
-      vendor?.vendorType?.name ||
-      subcategory?.vendorType?.name ||
-      "";
-    const isVenue = vendorTypeName.toLowerCase().includes("venue");
+      const vendorTypeName =
+        attributes.vendor_type ||
+        vendor?.vendorType?.name ||
+        subcategory?.vendorType?.name ||
+        "";
+      const isVenue = vendorTypeName.toLowerCase().includes("venue");
 
-    const photoPackage =
-      attributes.photo_package_price ||
-      attributes.PhotoPackage_Price ||
-      attributes.PhotoPackage ||
-      attributes.PhotoPackage_price ||
-      attributes.PhotoPackagePrice ||
-      attributes.PhotoPackage_price_inr;
-    const photoVideoPackage =
-      attributes.photo_video_package_price ||
-      attributes.Photo_video_Price ||
-      attributes.Photo_video ||
-      attributes.PhotoVideo_Price ||
-      attributes.PhotoVideoPackage;
+      const photoPackage =
+        attributes.photo_package_price ||
+        attributes.PhotoPackage_Price ||
+        attributes.PhotoPackage ||
+        attributes.PhotoPackage_price ||
+        attributes.PhotoPackagePrice ||
+        attributes.PhotoPackage_price_inr;
+      const photoVideoPackage =
+        attributes.photo_video_package_price ||
+        attributes.Photo_video_Price ||
+        attributes.Photo_video ||
+        attributes.PhotoVideo_Price ||
+        attributes.PhotoVideoPackage;
 
-    const priceOrZero = (v) => (v === null || v === undefined ? 0 : v);
+      const priceOrZero = (v) => (v === null || v === undefined ? 0 : v);
 
-    const rawRooms =
-      attributes.rooms ??
-      attributes.Rooms ??
-      attributes.room_count ??
-      attributes.RoomCount ??
-      attributes.NoOfRooms ??
-      attributes.no_of_rooms ??
-      attributes.No_Of_Rooms;
-    let roomsParsed = null;
-    if (rawRooms !== undefined && rawRooms !== null) {
-      const onlyDigits = String(rawRooms).match(/\d+/);
-      const n = onlyDigits ? parseInt(onlyDigits[0], 10) : NaN;
-      roomsParsed = Number.isNaN(n) ? null : n;
-    }
+      const rawRooms =
+        attributes.rooms ??
+        attributes.Rooms ??
+        attributes.room_count ??
+        attributes.RoomCount ??
+        attributes.NoOfRooms ??
+        attributes.no_of_rooms ??
+        attributes.No_Of_Rooms;
+      let roomsParsed = null;
+      if (rawRooms !== undefined && rawRooms !== null) {
+        const onlyDigits = String(rawRooms).match(/\d+/);
+        const n = onlyDigits ? parseInt(onlyDigits[0], 10) : NaN;
+        roomsParsed = Number.isNaN(n) ? null : n;
+      }
 
-    const latitude = parseFloat(
-      attributes.latitude || attributes.Latitude || ""
-    );
-    const longitude = parseFloat(
-      attributes.longitude || attributes.Longitude || ""
-    );
-    const hasValidCoordinates = !isNaN(latitude) && !isNaN(longitude);
+      const latitude = parseFloat(
+        attributes.latitude || attributes.Latitude || "",
+      );
+      const longitude = parseFloat(
+        attributes.longitude || attributes.Longitude || "",
+      );
+      const hasValidCoordinates = !isNaN(latitude) && !isNaN(longitude);
 
-    return {
-      id,
-      status: normalizeServiceStatus(item.status),
-      vendor_id: item.vendor_id || vendor.id || null,
-      name:
-        attributes.name ||
-        vendor.businessName ||
-        attributes.Name ||
-        "Unknown Vendor",
-      subtitle: attributes.subtitle || "",
-      tagline: attributes.tagline || "",
-      description:
-        attributes.about_us ||
-        attributes.Aboutus ||
-        attributes.description ||
-        "",
-      slug: attributes.slug || "",
-      lat: hasValidCoordinates ? latitude : null,
-      lng: hasValidCoordinates ? longitude : null,
-      image: firstImage,
-      gallery,
-      videos: [],
+      return {
+        id,
+        status: normalizeServiceStatus(item.status),
+        vendor_id: item.vendor_id || vendor.id || null,
+        name:
+          attributes.name ||
+          vendor.businessName ||
+          attributes.Name ||
+          "Unknown Vendor",
+        subtitle: attributes.subtitle || "",
+        tagline: attributes.tagline || "",
+        description:
+          attributes.about_us ||
+          attributes.Aboutus ||
+          attributes.description ||
+          "",
+        slug: attributes.slug || "",
+        lat: hasValidCoordinates ? latitude : null,
+        lng: hasValidCoordinates ? longitude : null,
+        image: firstImage,
+        gallery,
+        videos: [],
 
-      vegPrice: isVenue
-        ? attributes.veg_price || attributes.VegPrice || null
-        : null,
-      nonVegPrice: isVenue
-        ? attributes.non_veg_price || attributes.NonVegPrice || null
-        : null,
-      starting_price: !isVenue
-        ? photoPackage ||
-        photoVideoPackage ||
-        attributes.PriceRange ||
-        attributes.price ||
-        null
-        : null,
+        vegPrice: isVenue
+          ? attributes.veg_price || attributes.VegPrice || null
+          : null,
+        nonVegPrice: isVenue
+          ? attributes.non_veg_price || attributes.NonVegPrice || null
+          : null,
+        starting_price: !isVenue
+          ? photoPackage ||
+            photoVideoPackage ||
+            attributes.PriceRange ||
+            attributes.price ||
+            null
+          : null,
 
-      address: (attributes.address && attributes.address.toLowerCase() !== "unknown") ? attributes.address : (attributes.Address && attributes.Address.toLowerCase() !== "unknown") ? attributes.Address : "",
-      area: (attributes.area && attributes.area.toLowerCase() !== "unknown") ? attributes.area : "",
-      city: (attributes.city && attributes.city.toLowerCase() !== "unknown") ? attributes.city : (vendor.city && vendor.city.toLowerCase() !== "unknown") ? vendor.city : "",
-      location: (attributes.city && attributes.city.toLowerCase() !== "unknown") ? attributes.city : (vendor.city && vendor.city.toLowerCase() !== "unknown") ? vendor.city : "",
-      rooms: roomsParsed,
+        address:
+          attributes.address && attributes.address.toLowerCase() !== "unknown"
+            ? attributes.address
+            : attributes.Address &&
+                attributes.Address.toLowerCase() !== "unknown"
+              ? attributes.Address
+              : "",
+        area:
+          attributes.area && attributes.area.toLowerCase() !== "unknown"
+            ? attributes.area
+            : "",
+        city:
+          attributes.city && attributes.city.toLowerCase() !== "unknown"
+            ? attributes.city
+            : vendor.city && vendor.city.toLowerCase() !== "unknown"
+              ? vendor.city
+              : "",
+        location:
+          attributes.city && attributes.city.toLowerCase() !== "unknown"
+            ? attributes.city
+            : vendor.city && vendor.city.toLowerCase() !== "unknown"
+              ? vendor.city
+              : "",
+        rooms: roomsParsed,
 
-      rating: attributes.rating || 0,
-      review_count:
-        attributes.review_count ||
-        parseInt(attributes.review?.toString?.() || "0", 10) ||
-        0,
-      reviews:
-        attributes.review_count ||
-        parseInt(attributes.review?.toString?.() || "0", 10) ||
-        0,
+        rating: attributes.rating || 0,
+        review_count:
+          attributes.review_count ||
+          parseInt(attributes.review?.toString?.() || "0", 10) ||
+          0,
+        reviews:
+          attributes.review_count ||
+          parseInt(attributes.review?.toString?.() || "0", 10) ||
+          0,
 
-      vendor_type: vendorTypeName,
-      subcategory_name: subcategory?.name || "",
+        vendor_type: vendorTypeName,
+        subcategory_name: subcategory?.name || "",
 
-      call: attributes.Phone || vendor.phone || null,
-      whatsapp: attributes.Whatsapp || null,
-      website: attributes.Website || null,
+        call: attributes.Phone || vendor.phone || null,
+        whatsapp: attributes.Whatsapp || null,
+        website: attributes.Website || null,
 
-      about_us: attributes.about_us || attributes.Aboutus || "",
-      vendor_name:
-        vendor.businessName || attributes.vendor_name || attributes.Name || "",
-      url: attributes.Website || attributes.URL || null,
-    };
-  }).filter((item) => item && item.image && String(item.image).trim() !== "");
+        about_us: attributes.about_us || attributes.Aboutus || "",
+        vendor_name:
+          vendor.businessName ||
+          attributes.vendor_name ||
+          attributes.Name ||
+          "",
+        url: attributes.Website || attributes.URL || null,
+      };
+    })
+    .filter((item) => item && item.image && String(item.image).trim() !== "");
 };
 
 export default useApiData;

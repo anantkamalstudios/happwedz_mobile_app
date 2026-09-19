@@ -1,23 +1,33 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./SectionTabs.css";
 
-const SectionTabs = ({ scrollToSection }) => {
+const SectionTabs = ({ scrollToSection, hasMenus = false, hasPricing = false }) => {
   const [active, setActive] = useState("");
-  const sectionIds = ["about", "venue-faq", "reviews", "map"];
   const isProgrammaticScroll = useRef(false);
   const scrollTimer = useRef(null);
   const [stuck, setStuck] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const sentinelRef = useRef(null);
 
-  const handleClick = (section) => {
+  const tabs = [
+    { id: "about", label: "About" },
+    ...(hasPricing ? [{ id: "pricing-packages", label: "Pricing & Packages" }] : []),
+    ...(hasMenus ? [{ id: "menus", label: "Menus" }] : []),
+    { id: "venue-faq", label: "FAQ" },
+    { id: "reviews", label: "Reviews" },
+    { id: "map", label: "Map" },
+  ];
+
+  const sectionIds = tabs.map((t) => t.id);
+
+  const handleClick = (sectionId) => {
     // Immediately highlight clicked tab
-    setActive(section);
+    setActive(sectionId);
     // Pause observer updates during smooth scroll
     isProgrammaticScroll.current = true;
     if (scrollTimer.current) clearTimeout(scrollTimer.current);
     if (typeof scrollToSection === "function") {
-      scrollToSection(section);
+      scrollToSection(sectionId);
     }
     // Resume observer after smooth scroll likely completed
     scrollTimer.current = setTimeout(() => {
@@ -103,14 +113,14 @@ const SectionTabs = ({ scrollToSection }) => {
         style={isMobile ? { zIndex: stuck ? 1020 : "auto" } : undefined}
       >
         <div className="d-flex flex-wrap gap-2 mb-0">
-          {["about", "FAQ", "reviews", "map"].map((item) => (
+          {tabs.map((tab) => (
             <button
-              key={item}
+              key={tab.id}
               type="button"
-              className={`section-tab btn btn-sm ${active === item ? "active" : ""}`}
-              onClick={() => handleClick(item)}
+              className={`section-tab btn btn-sm ${active === tab.id ? "active" : ""}`}
+              onClick={() => handleClick(tab.id)}
             >
-              {item.charAt(0).toUpperCase() + item.slice(1)}
+              {tab.label}
             </button>
           ))}
         </div>

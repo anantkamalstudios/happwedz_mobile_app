@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { einviteApi } from "../../services/api/einviteApi";
-import { getImageUrl, handleImageError } from "../../utils/imageUtils";
 import EinviteCardGrid from "../layouts/einvites/EinviteCardGrid";
 
 const OurCards = () => {
@@ -19,11 +18,8 @@ const OurCards = () => {
         (async () => {
             try {
                 setLoading(true);
-                const all = await einviteApi.getAllEinvites();
-                const instances = Array.isArray(all)
-                    ? all.filter((c) => c.ownerUserId === currentUserId && c.isTemplate === false)
-                    : [];
-                setCards(instances);
+                const result = await einviteApi.getUserEinvites(currentUserId);
+                setCards(Array.isArray(result?.data) ? result.data : []);
             } catch (e) {
                 console.error(e);
                 setError("Failed to load your cards");
@@ -33,14 +29,8 @@ const OurCards = () => {
         })();
     }, [currentUserId]);
 
-    const drafts = useMemo(
-        () => cards.filter((c) => c.status === "draft" || c.isPublished === false),
-        [cards]
-    );
-    const published = useMemo(
-        () => cards.filter((c) => c.status === "published" || c.isPublished === true),
-        [cards]
-    );
+    const drafts = useMemo(() => cards.filter((c) => c.isActive === false), [cards]);
+    const published = useMemo(() => cards.filter((c) => c.isActive !== false), [cards]);
 
     const DraftsGrid = () => (
         <EinviteCardGrid cards={drafts} loading={false} showActions={true} onCardClickEdit={true} fixedImageHeight={220} />

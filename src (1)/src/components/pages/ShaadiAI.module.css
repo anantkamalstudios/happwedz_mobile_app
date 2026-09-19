@@ -1121,3 +1121,75 @@
     color: #be185d;
     font-variant-numeric: tabular-nums;
 }
+
+/* ===== Compact variant =====
+   The same reply payloads rendered inside the 440px corner widget instead of
+   the 820px page column. Only the things that assume horizontal room change:
+   the auto-fit grids would otherwise keep a 260px track and overflow the
+   panel, and the comparison table is a row that has nowhere to go. */
+
+.compactBody .aiText {
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+.compactBody .vendorsContainer {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    margin-top: 0.7rem;
+}
+
+.compactBody .ordersContainer {
+    gap: 0.6rem;
+    margin-top: 0.7rem;
+}
+
+.compactBody .productsContainer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.compactBody .budgetGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.compactBody .comparisonGrid {
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.compactBody .compVs {
+    align-self: center;
+    padding: 0.2rem 0;
+}
+
+.compactBody .vendorCard,
+.compactBody .orderCard,
+.compactBody .comparisonCard,
+.compactBody .budgetBreakdown {
+    padding: 0.7rem;
+}
+
+.compactBody .vendorHeader h4,
+.compactBody .productTitle,
+.compactBody .compCol h4 {
+    font-size: 0.8rem;
+}
+
+.compactBody .vendorDetails p,
+.compactBody .vendorWhy,
+.compactBody .compCol p,
+.compactBody .productCategory,
+.compactBody .productReason,
+.compactBody .budgetCategory {
+    font-size: 0.7rem;
+}
+
+.compactBody .suggestionsContainer {
+    margin-top: 0.9rem;
+}
+
+.compactBody .suggestionAlert {
+    font-size: 0.75rem;
+}

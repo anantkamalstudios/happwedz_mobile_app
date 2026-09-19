@@ -19,11 +19,14 @@ import 'package:flutter/services.dart';
 
 import '../../../core/core.dart';
 import '../../data/honeymoon_api.dart';
+import '../../insurance_config.dart';
 import '../../models/booking_models.dart';
 import '../../models/honeymoon_models.dart';
+import '../../models/insurance_models.dart';
 import '../widgets/honeymoon_widgets.dart';
-import '../bookings/my_trips_page.dart';
-import 'booking_confirmation_page.dart';
+import '../bookings/insurance_booking_detail_page.dart';
+// import '../bookings/my_trips_page.dart'; // used only by the commented-out confirmation
+// import 'booking_confirmation_page.dart'; // used only by the commented-out confirmation
 import 'booking_widgets.dart';
 
 class InsuranceBookingPage extends StatefulWidget {
@@ -35,10 +38,18 @@ class InsuranceBookingPage extends StatefulWidget {
     required this.start,
     required this.end,
     required this.travellerAges,
+    this.bookingId,
+    this.reviewedPrice = 0,
   });
 
   final HoneymoonApi api;
   final InsurancePlan plan;
+
+  /// The booking id the results screen's review already opened (the web
+  /// reviews on "Select Plan" and hands it over as `reviewMeta`). When null,
+  /// the review runs here instead.
+  final String? bookingId;
+  final double reviewedPrice;
   final String regionLabel;
   final DateTime start;
   final DateTime end;
@@ -81,7 +92,14 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
   void initState() {
     super.initState();
     _premium = widget.plan.price;
-    _openReview();
+    final reviewed = widget.bookingId;
+    if (reviewed != null && reviewed.isNotEmpty) {
+      _bookingId = reviewed;
+      if (widget.reviewedPrice > 0) _premium = widget.reviewedPrice;
+      _loadingReview = false;
+    } else {
+      _openReview();
+    }
   }
 
   @override
@@ -120,18 +138,28 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
     }
   }
 
-  FareBreakdown get _fare => FareBreakdown(
-    lines: [
-      FareLine(
-        widget.plan.name,
-        _premium,
-        detail:
-            '${_travellers.length} traveller'
-            '${_travellers.length == 1 ? '' : 's'}',
-      ),
-    ],
-    total: _premium,
-  );
+  /// The web's plan summary: the total, with the TripSafe fee and its GST
+  /// listed when the quote carries them.
+  FareBreakdown get _fare {
+    final bd = widget.plan.breakdown;
+    return FareBreakdown(
+      lines: [
+        FareLine(
+          widget.plan.name,
+          _premium,
+          detail:
+              '${_travellers.length} traveller'
+              '${_travellers.length == 1 ? '' : 's'} · Inc. GST',
+          parts: [
+            if (bd.serviceFee > 0) FareLine('TripSafe Fee', bd.serviceFee),
+            if (bd.serviceFeeGst > 0)
+              FareLine('TripSafe GST', bd.serviceFeeGst),
+          ],
+        ),
+      ],
+      total: _premium,
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Validation
@@ -143,7 +171,11 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
     for (var i = 0; i < _travellers.length; i++) {
       final c = _controllers[i];
 
-      if (c.fullName.text.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).isEmpty) {
+      if (c.fullName.text
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((p) => p.isNotEmpty)
+          .isEmpty) {
         errors['${i}_fullName'] = 'Full name is required';
       }
       if (c.passport.text.trim().isEmpty) {
@@ -155,8 +187,8 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
       if (!c.email.text.trim().contains('@')) {
         errors['${i}_email'] = 'Enter a valid email address';
       }
-      if (c.pincode.text.trim().length < 4) {
-        errors['${i}_pincode'] = 'Enter a valid pincode';
+      if (c.pincode.text.trim().isEmpty) {
+        errors['${i}_pincode'] = 'Enter pincode for traveller ${i + 1}';
       }
       if (c.nomineeName.text.trim().isEmpty) {
         errors['${i}_nomineeName'] = 'Nominee name is required';
@@ -254,6 +286,21 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
       });
       if (!mounted) return;
       _goToConfirmation(outcome);
+    } on HoneymoonApiException catch (e) {
+      if (!mounted) return;
+      // No answer in time does not mean no policy: the wallet may already be
+      // charged. Resubmitting could buy it twice, so open the booking by its
+      // reviewed id instead — booking-details reports what actually happened.
+      if (e.isTimeout && bookingId.isNotEmpty) {
+        _goToConfirmation(
+          BookingOutcome(
+            product: TravelProduct.insurance,
+            reference: bookingId,
+          ),
+        );
+        return;
+      }
+      setState(() => _submitError = bookingErrorText(e));
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitError = bookingErrorText(e));
@@ -262,83 +309,102 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
     }
   }
 
+  /// After booking the web opens `/honeymoon/insurance/booking/:id`, which
+  /// loads the issued policy from `tripsafe/booking-details`. The same here,
+  /// replacing the form so Back cannot resubmit it.
   void _goToConfirmation(BookingOutcome outcome) {
-    // Captured before the replace: this State's context is gone by the time
-    // the confirmation screen's actions fire.
-    final navigator = Navigator.of(context);
-
-    navigator.pushReplacement(
+    final bookingId = outcome.reference.isNotEmpty
+        ? outcome.reference
+        : (_bookingId ?? '');
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => BookingConfirmationPage(
-          outcome: outcome,
-          onViewBookings: () {
-            // Unwind the checkout first so "back" from My trips lands where
-            // the traveller started, not inside a spent booking form.
-            navigator.popUntil((route) => route.isFirst);
-            navigator.push(
-              MaterialPageRoute(
-                builder: (_) => const MyTripsPage(
-                  initialProduct: TravelProduct.insurance,
-                ),
-              ),
-            );
-          },
-          summaryTitle: widget.plan.name,
-          summarySubtitle: widget.plan.insurerLabel,
-          details: [
-            DetailRow(
-              label: 'Destination',
-              value: widget.regionLabel,
-              icon: Icons.public_rounded,
-            ),
-            DetailRow(
-              label: 'Cover from',
-              value: formatTripDate(widget.start),
-              icon: Icons.event_rounded,
-            ),
-            DetailRow(
-              label: 'Cover to',
-              value: formatTripDate(widget.end),
-              icon: Icons.event_busy_rounded,
-            ),
-            DetailRow(
-              label: 'Insured',
-              value:
-                  '${_travellers.length} traveller'
-                  '${_travellers.length == 1 ? '' : 's'}',
-              icon: Icons.people_outline_rounded,
-            ),
-            if (widget.plan.coverageAmount.isNotEmpty)
-              DetailRow(
-                label: 'Sum insured',
-                value: widget.plan.coverageAmount,
-                icon: Icons.shield_outlined,
-              ),
-          ],
-          nextSteps: const [
-            (
-              title: 'Policy document',
-              body:
-                  'Your certificate is emailed to the address on the booking, '
-                  'usually within a few minutes.',
-            ),
-            (
-              title: 'Carry it with you',
-              body:
-                  'Some countries ask to see proof of cover at immigration — '
-                  'keep a copy on your phone.',
-            ),
-            (
-              title: 'Making a claim',
-              body:
-                  'Contact the insurer\'s 24×7 assistance line on the '
-                  'certificate as soon as anything happens.',
-            ),
-          ],
+        builder: (_) => InsuranceBookingDetailPage(
+          api: widget.api,
+          bookingId: bookingId,
+          justBooked: true,
         ),
       ),
     );
   }
+
+  // Previous generic confirmation, kept for reference:
+  // void _goToConfirmation(BookingOutcome outcome) {
+  //   // Captured before the replace: this State's context is gone by the time
+  //   // the confirmation screen's actions fire.
+  //   final navigator = Navigator.of(context);
+  //
+  //   navigator.pushReplacement(
+  //     MaterialPageRoute(
+  //       builder: (_) => BookingConfirmationPage(
+  //         outcome: outcome,
+  //         onViewBookings: () {
+  //           // Unwind the checkout first so "back" from My trips lands where
+  //           // the traveller started, not inside a spent booking form.
+  //           navigator.popUntil((route) => route.isFirst);
+  //           navigator.push(
+  //             MaterialPageRoute(
+  //               builder: (_) => const MyTripsPage(
+  //                 initialProduct: TravelProduct.insurance,
+  //               ),
+  //             ),
+  //           );
+  //         },
+  //         summaryTitle: widget.plan.name,
+  //         summarySubtitle: widget.plan.insurerLabel,
+  //         details: [
+  //           DetailRow(
+  //             label: 'Destination',
+  //             value: widget.regionLabel,
+  //             icon: Icons.public_rounded,
+  //           ),
+  //           DetailRow(
+  //             label: 'Cover from',
+  //             value: formatTripDate(widget.start),
+  //             icon: Icons.event_rounded,
+  //           ),
+  //           DetailRow(
+  //             label: 'Cover to',
+  //             value: formatTripDate(widget.end),
+  //             icon: Icons.event_busy_rounded,
+  //           ),
+  //           DetailRow(
+  //             label: 'Insured',
+  //             value:
+  //                 '${_travellers.length} traveller'
+  //                 '${_travellers.length == 1 ? '' : 's'}',
+  //             icon: Icons.people_outline_rounded,
+  //           ),
+  //           if (widget.plan.coverageAmount.isNotEmpty)
+  //             DetailRow(
+  //               label: 'Sum insured',
+  //               value: widget.plan.coverageAmount,
+  //               icon: Icons.shield_outlined,
+  //             ),
+  //         ],
+  //         nextSteps: const [
+  //           (
+  //             title: 'Policy document',
+  //             body:
+  //                 'Your certificate is emailed to the address on the booking, '
+  //                 'usually within a few minutes.',
+  //           ),
+  //           (
+  //             title: 'Carry it with you',
+  //             body:
+  //                 'Some countries ask to see proof of cover at immigration — '
+  //                 'keep a copy on your phone.',
+  //           ),
+  //           (
+  //             title: 'Making a claim',
+  //             body:
+  //                 'Contact the insurer\'s 24×7 assistance line on the '
+  //                 'certificate as soon as anything happens.',
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
   // -------------------------------------------------------------------------
   // Build
@@ -415,7 +481,16 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
           const SizedBox(height: AppSpacing.lg),
         ],
 
-        _PlanSummary(plan: widget.plan, premium: _premium),
+        _PlanSummary(
+          plan: widget.plan,
+          premium: _premium,
+          regionLabel: widget.regionLabel,
+          start: widget.start,
+          end: widget.end,
+          leadAge: widget.travellerAges.isEmpty
+              ? 0
+              : widget.travellerAges.first,
+        ),
         const SizedBox(height: AppSpacing.md),
 
         const InfoBanner(
@@ -441,6 +516,7 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
             onGenderChanged: (g) => setState(() => _travellers[i].gender = g),
             onRelationChanged: (r) =>
                 setState(() => _travellers[i].nomineeRelation = r),
+            onDobChanged: (d) => setState(() => _travellers[i].dob = d),
           ),
           const SizedBox(height: AppSpacing.md),
         ],
@@ -462,11 +538,7 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      'I confirm the details above are correct and I have read '
-                      'the policy wording, exclusions and claim process.',
-                      style: AppText.bodySm,
-                    ),
+                    child: Text(kInsuranceDeclaration, style: AppText.bodySm),
                   ),
                 ),
               ],
@@ -474,6 +546,9 @@ class _InsuranceBookingPageState extends State<InsuranceBookingPage> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
+        Text('*Disclaimers', style: AppText.labelSm),
+        Text(kInsuranceDisclaimer, style: AppText.caption),
+        const SizedBox(height: AppSpacing.sm),
         const TermsNotice(product: 'insurer'),
       ],
     );
@@ -493,24 +568,28 @@ class _TravellerControllers {
   final nomineeName = TextEditingController(text: 'LEGAL HEIR');
 
   void dispose() {
-    for (final c in [
-      fullName,
-      passport,
-      mobile,
-      email,
-      pincode,
-      nomineeName,
-    ]) {
+    for (final c in [fullName, passport, mobile, email, pincode, nomineeName]) {
       c.dispose();
     }
   }
 }
 
 class _PlanSummary extends StatelessWidget {
-  const _PlanSummary({required this.plan, required this.premium});
+  const _PlanSummary({
+    required this.plan,
+    required this.premium,
+    required this.regionLabel,
+    required this.start,
+    required this.end,
+    required this.leadAge,
+  });
 
   final InsurancePlan plan;
   final double premium;
+  final String regionLabel;
+  final DateTime start;
+  final DateTime end;
+  final int leadAge;
 
   @override
   Widget build(BuildContext context) {
@@ -567,6 +646,39 @@ class _PlanSummary extends StatelessWidget {
               ],
             ),
           ],
+          // The web's "Plan Summary": destination and dates, who the plan is
+          // for, the plan line, and the premium inc. GST.
+          const Divider(height: AppSpacing.xl, color: AppColors.divider),
+          DetailRow(label: 'Destination', value: regionLabel),
+          DetailRow(label: 'Start Date', value: formatTripDate(start)),
+          DetailRow(label: 'End Date', value: formatTripDate(end)),
+          const SizedBox(height: AppSpacing.sm),
+          if (leadAge > 0)
+            Text(
+              'Plan for: Traveller 1 | $leadAge yrs',
+              style: AppText.caption,
+            ),
+          Text(
+            'TripSafe ${plan.name.toUpperCase()}',
+            style: AppText.bodyStrong,
+          ),
+          Text(
+            plan.coverageAmount.isEmpty
+                ? '24/7 Assistance'
+                : '24/7 Assistance | ${plan.coverageAmount} Travel Cover',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              Text(
+                premium > 0 ? formatPrice(premium) : '—',
+                style: AppText.price,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text('Inc. GST', style: AppText.caption),
+            ],
+          ),
         ],
       ),
     );
@@ -585,8 +697,10 @@ class _InsuredCard extends StatelessWidget {
     required this.onClearError,
     required this.onGenderChanged,
     required this.onRelationChanged,
+    required this.onDobChanged,
   });
 
+  final ValueChanged<DateTime> onDobChanged;
   final int index;
   final InsuranceTravellerInput traveller;
   final _TravellerControllers controllers;
@@ -644,7 +758,7 @@ class _InsuredCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Traveller ${index + 1} · ${traveller.age} yrs',
+                          'Traveller ${index + 1} | ${traveller.age} Yrs',
                           style: AppText.cardTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -750,11 +864,34 @@ class _InsuredCard extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
 
+        // The web's form has a Date of Birth field; like the web, it is not
+        // sent to the insurer, which prices on the age given at search.
+        PickerField(
+          label: 'Date of Birth',
+          value: traveller.dob == null ? '' : formatTripDate(traveller.dob),
+          hint: 'Select date',
+          icon: Icons.cake_outlined,
+          onTap: () async {
+            final today = DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate:
+                  traveller.dob ??
+                  DateTime(today.year - traveller.age, today.month, today.day),
+              firstDate: DateTime(today.year - 100),
+              lastDate: today,
+              helpText: 'Date of birth',
+            );
+            if (picked != null) onDobChanged(picked);
+          },
+        ),
+        const SizedBox(height: AppSpacing.md),
+
         KeyedSubtree(
           key: anchorFor('${index}_mobile'),
           child: AppTextField(
             controller: controllers.mobile,
-            label: 'Mobile number',
+            label: 'Mobile Number (+91)',
             required: true,
             keyboardType: TextInputType.phone,
             maxLength: 15,

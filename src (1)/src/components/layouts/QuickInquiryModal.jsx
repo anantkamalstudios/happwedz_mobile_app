@@ -4,6 +4,7 @@ import { FaPaperPlane, FaUser, FaPhone, FaCalendar } from "react-icons/fa";
 import EventDatePicker from "./DayPicker";
 import Swal from "sweetalert2";
 import messagesApi from "../../services/api/messagesApi";
+import { API_BASE_URL } from "../../config/constants";
 
 const QuickInquiryModal = ({ show, handleClose, vendorId, vendorName, availableSlots }) => {
   const [formData, setFormData] = useState({
@@ -64,9 +65,8 @@ const QuickInquiryModal = ({ show, handleClose, vendorId, vendorName, availableS
     };
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL|| "https://happywedz.com";
       const response = await fetch(
-        `${apiUrl}/request-pricing`,
+        `${API_BASE_URL}/request-pricing`,
         {
           method: "POST",
           headers: {

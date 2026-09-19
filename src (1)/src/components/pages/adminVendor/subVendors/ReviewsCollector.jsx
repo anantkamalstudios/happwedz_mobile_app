@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { API_BASE_URL } from "../../../../config/constants";
 
 export default function ReviewRequestForm() {
   const { vendor, token } = useSelector((state) => state.vendorAuth) || {};
@@ -36,7 +37,7 @@ export default function ReviewRequestForm() {
     const fetchBooked = async () => {
       try {
         const res = await axios.get(
-          "https://happywedz.com/api/inbox?filter=booked",
+          `${API_BASE_URL}/inbox?filter=booked`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -54,7 +55,7 @@ export default function ReviewRequestForm() {
       if (!vendorId) return;
       try {
         const res = await axios.get(
-          `https://happywedz.com/api/vendor-services/vendor/${vendorId}`,
+          `${API_BASE_URL}/vendor-services/vendor/${vendorId}`,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
         const raw = res?.data;
@@ -131,7 +132,7 @@ export default function ReviewRequestForm() {
     setLoading(true);
     try {
       await axios.post(
-        `https://happywedz.com/api/reviews/send-review-request/${requestId}`,
+        `${API_BASE_URL}/reviews/send-review-request/${requestId}`,
         {
           message,
           reviewLink: reviewUrl,

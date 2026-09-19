@@ -21,10 +21,12 @@ import {
 import axiosInstance from "../../../../services/api/axiosInstance";
 import "./dashboard.css";
 import Loader from "../../../ui/Loader";
+import MomentsQuotaBanner from "./MomentsQuotaBanner";
 import { useSelector } from "react-redux";
 import { formatDate as fmtDate, formatDateWithWeekday } from "../../../../utils/dateFormat";
 const VendorDashboard = ({ onNavigate }) => {
   const [analytics, setAnalytics] = useState(null);
+  const [quota, setQuota] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -51,10 +53,52 @@ const VendorDashboard = ({ onNavigate }) => {
     };
   }, []);
 
+  // Moments+ allowances: what the plan grants and how much is left.
+  const quotaFor = (key) => quota?.quotas?.[key] || null;
+
+  /** "8 of 10 used" with a bar, or "Unlimited". Renders nothing without a quota. */
+  const AllowanceBar = ({ q }) => {
+    if (!q) return null;
+
+    if (q.unlimited) {
+      return (
+        <p className="stat-detail d-flex justify-content-center my-2 pt-2">
+          Unlimited on {quota?.plan?.name || "your plan"}
+        </p>
+      );
+    }
+
+    return (
+      <>
+        <div className="progress-bar">
+          <div
+            className="progress-fill pink"
+            style={{
+              width: `${q.percentUsed}%`,
+              // Red once the allowance is gone, so it reads as a stop, not progress.
+              background: q.exhausted ? "#c0392b" : undefined,
+            }}
+          />
+        </div>
+        <p className="stat-detail d-flex justify-content-center my-2 pt-2">
+          {q.used.toLocaleString()} of {q.limit.toLocaleString()} used
+          {q.exhausted ? " — limit reached" : ""}
+        </p>
+      </>
+    );
+  };
+
   const fetchDashboardAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get("/vendor/dashboard/analytics");
+      // The quota call is allowed to fail on its own — a dashboard that will not render
+      // because an allowance could not be read is worse than one without the bars.
+      const [response, quotaRes] = await Promise.all([
+        axiosInstance.get("/vendor/dashboard/analytics"),
+        axiosInstance.get("/vendor/me/moments-quota").catch(() => null),
+      ]);
+
+      if (quotaRes?.data?.success) setQuota(quotaRes.data);
 
       if (response.data.success) {
         setAnalytics(response.data);
@@ -151,6 +195,13 @@ const VendorDashboard = ({ onNavigate }) => {
           </div>
         </div>
 
+        {/* Plan ended, or holding more than the current plan allows. Says so before
+            anything else on the page, and says plainly that nothing was deleted. */}
+        <MomentsQuotaBanner
+          quota={quota}
+          onUpgrade={onNavigate ? () => onNavigate("packages-storage") : undefined}
+        />
+
         {/* Storage Warning */}
         {usage.storageWarning && (
           <div className="alert-warning">
@@ -197,8 +248,12 @@ const VendorDashboard = ({ onNavigate }) => {
                 <FiImage size={24} />
               </div>
               <span className="stat-trend positive">
-                <FiTrendingUp size={14} />
-                12.5%
+                <FiImage size={14} />
+                {quotaFor("mediaFiles")?.unlimited
+                  ? "∞"
+                  : quotaFor("mediaFiles")
+                    ? `${quotaFor("mediaFiles").percentUsed}%`
+                    : ""}
               </span>
             </div>
             <div className="stat-body">
@@ -206,6 +261,7 @@ const VendorDashboard = ({ onNavigate }) => {
                 {media.total.toLocaleString()}
               </h3>
               <p className="stat-label">Total Media Files</p>
+              <AllowanceBar q={quotaFor("mediaFiles")} />
               <div className="stat-breakdown d-flex justify-content-center my-2 pt-2">
                 <span>{media.byCollection.length} Collections</span>
                 <span>•</span>
@@ -253,7 +309,8 @@ const VendorDashboard = ({ onNavigate }) => {
             </div>
             <div className="stat-body">
               <h3 className="stat-value text-black">{tokens.total}</h3>
-              <p className="stat-label">Access Tokens</p>
+              <p className="stat-label">Access Codes</p>
+              <AllowanceBar q={quotaFor("accessCodes")} />
               <div className="stat-breakdown d-flex justify-content-center my-2 pt-2">
                 <span>{tokens.active} Active</span>
                 <span>•</span>
@@ -307,7 +364,12 @@ const VendorDashboard = ({ onNavigate }) => {
                 <div className="empty-state-inline">
                   <FiFolder size={32} />
                   <p>No collections created yet</p>
-                  <button className="btn-outline-small">
+                  {/* This button had no onClick at all, so it did nothing. A collection
+                      is created by naming one while uploading, which is where it goes. */}
+                  <button
+                    className="btn-outline-small"
+                    onClick={() => onNavigate && onNavigate("upload-media")}
+                  >
                     <FiPlus size={14} />
                     Create Collection
                   </button>

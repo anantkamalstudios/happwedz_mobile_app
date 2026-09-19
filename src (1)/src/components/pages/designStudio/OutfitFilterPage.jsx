@@ -999,12 +999,12 @@ import {
   ReactCompareSliderImage,
 } from "react-compare-slider";
 import axios from "axios";
+import { AI_API_BASE_URL } from "../../../config/constants";
 
 const buttons = ["Outfit", "Compare", "Complete Look"];
-const BASE_API = "https://www.happywedz.com/ai";
-const CATALOG_API = `${BASE_API}/api/catalog/items`;
-const TRYON_CLOTHES_API = `${BASE_API}/api/tryon/clothes`;
-const TRYON_JEWELRY_API = `${BASE_API}/api/tryon/jewelry`;
+const CATALOG_API = `${AI_API_BASE_URL}/catalog/items`;
+const TRYON_CLOTHES_API = `${AI_API_BASE_URL}/tryon/clothes`;
+const TRYON_JEWELRY_API = `${AI_API_BASE_URL}/tryon/jewelry`;
 
 export default function FiltersPageOutfit() {
   const navigate = useNavigate();

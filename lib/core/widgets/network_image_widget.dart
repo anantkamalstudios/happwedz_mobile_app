@@ -53,8 +53,7 @@ class NetworkImageWidget extends StatelessWidget {
   /// Paints a bottom gradient scrim so overlaid white text stays readable.
   final bool scrim;
 
-  BorderRadius get _radius =>
-      borderRadius ?? BorderRadius.circular(radius);
+  BorderRadius get _radius => borderRadius ?? BorderRadius.circular(radius);
 
   @override
   Widget build(BuildContext context) {
@@ -75,11 +74,7 @@ class NetworkImageWidget extends StatelessWidget {
         fadeInDuration: AppMotion.normal,
         fadeOutDuration: AppMotion.instant,
         placeholder: (_, __) => LoadingShimmer(
-          child: Container(
-            width: width,
-            height: height,
-            color: Colors.white,
-          ),
+          child: Container(width: width, height: height, color: Colors.white),
         ),
         errorWidget: (_, __, ___) =>
             _Placeholder(icon: errorIcon, background: backgroundColor),
@@ -122,20 +117,22 @@ class _Placeholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // BUG FIX: was a LayoutBuilder — a known crash source when its item sits
+    // inside a ListView/sliver list and scrolls offstage while kept alive
+    // (flutter/flutter#168936, #170478 — "Null check operator used on a null
+    // value" thrown from RenderViewportBase.layoutChildSequence). FittedBox
+    // gets the same "shrink to fit tiny thumbnails, cap at a sane size"
+    // behaviour without a builder-driven second layout pass.
     return Container(
       color: background ?? AppColors.blush,
       alignment: Alignment.center,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Scale the glyph to the box so tiny thumbnails don't clip it.
-          final side = constraints.biggest.shortestSide;
-          final size = side.isFinite ? (side * 0.28).clamp(14.0, 40.0) : 24.0;
-          return Icon(
-            icon,
-            size: size,
-            color: AppColors.primary.withValues(alpha: 0.28),
-          );
-        },
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Icon(
+          icon,
+          size: 32,
+          color: AppColors.primary.withValues(alpha: 0.28),
+        ),
       ),
     );
   }

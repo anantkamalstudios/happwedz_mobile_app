@@ -23,6 +23,7 @@ import DOMPurify from "dompurify";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import { API_BASE_URL } from "../../../config/constants";
 
 export default function WeddingPage({ post, onBackClick }) {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ export default function WeddingPage({ post, onBackClick }) {
 
     setLoadingVendor(vendor.name);
     try {
-      let apiUrl = `https://happywedz.com/api/vendor-services?search=${encodeURIComponent(
+      let apiUrl = `${API_BASE_URL}/vendor-services?search=${encodeURIComponent(
         vendor.name
       )}&limit=10`;
 
@@ -99,7 +100,7 @@ export default function WeddingPage({ post, onBackClick }) {
         }
       } else {
         // If no results found, try searching without filters
-        const fallbackUrl = `https://happywedz.com/api/vendor-services?search=${encodeURIComponent(
+        const fallbackUrl = `${API_BASE_URL}/vendor-services?search=${encodeURIComponent(
           vendor.name
         )}&limit=5`;
         const fallbackResponse = await axios.get(fallbackUrl);

@@ -5,6 +5,12 @@ import { FaSearch, FaStar } from "react-icons/fa";
 import { Link, useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../../../config/constants";
+
+const IMAGE_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const MainSearch = ({ title = "Wedding Venues", onSearch }) => {
   const { slug: routeSlug, subcategory, city: routeCity } = useParams();
@@ -62,7 +68,9 @@ const MainSearch = ({ title = "Wedding Venues", onSearch }) => {
   useEffect(() => {
     const fetchHeroInfo = async () => {
       try {
-        const response = await axios.get("/api/hero-sections");
+        // Absolute: a relative "/api/..." hits happywedz.com itself, which
+        // answers with index.html instead of the hero sections.
+        const response = await axios.get(`${API_BASE_URL}/hero-sections`);
         const dataInfo = response.data;
 
         const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -323,11 +331,10 @@ const MainSearch = ({ title = "Wedding Venues", onSearch }) => {
     }
     setLoadingSearch(true);
     try {
-      const apiBase = import.meta.env.VITE_API_URL || "https://happywedz.com/api";
       // No image_exists filter: someone searching by name must be able to find a
       // vendor whose photo is missing, otherwise most of the catalogue is
       // unreachable by search. Results without a photo fall back to a placeholder.
-      let apiUrl = `${apiBase}/vendor-services?search=${encodeURIComponent(
+      let apiUrl = `${API_BASE_URL}/vendor-services?search=${encodeURIComponent(
         searchQuery
       )}&limit=30`;
 
@@ -769,14 +776,16 @@ const MainSearch = ({ title = "Wedding Venues", onSearch }) => {
               >
                 <img
                   src={
-                    "https://happywedzbackend.happywedz.com/uploads/herosection/" +
+                    `${IMAGE_BASE_URL}/uploads/herosection/` +
                     heroInfo?.image
                   }
                   alt="Search showcase"
                   className="w-100 h-100"
                   style={{ objectFit: "cover" }}
                   onError={(e) => {
-                    e.currentTarget.src = "logo-no-bg.png";
+                    // Root-relative, or on /vendors/x/y it resolves under that path.
+                    if (e.currentTarget.src.endsWith("/logo-no-bg.png")) return;
+                    e.currentTarget.src = "/logo-no-bg.png";
                     e.currentTarget.style.objectFit = "cover";
                   }}
                 />

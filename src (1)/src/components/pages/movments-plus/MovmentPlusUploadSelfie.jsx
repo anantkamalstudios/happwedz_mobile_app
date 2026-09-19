@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { IoClose } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
-import { FaCamera, FaCloudUploadAlt } from "react-icons/fa";
+import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
+import { FaCamera, FaCloudUploadAlt, FaSpinner } from "react-icons/fa";
+import useMovmentPlus from "../../../hooks/useMovmentPlus";
 
 const PolicyModal = ({ open, onClose, onAgree }) => {
   const [agreeOne, setAgreeOne] = useState(false);
@@ -183,12 +186,15 @@ const PolicyModal = ({ open, onClose, onAgree }) => {
   );
 };
 
-const UploadSelectionModal = ({ open, onClose }) => {
+const UploadSelectionModal = ({ open, onClose, onSubmit, submitting }) => {
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
+  // The File that will actually be sent. A camera capture produces a data URL
+  // for the preview, so it is converted to a File before being stored here.
+  const [selectedFile, setSelectedFile] = useState(null);
 
   if (!open) return null;
 
@@ -200,9 +206,15 @@ const UploadSelectionModal = ({ open, onClose }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      console.log("File selected:", file.name);
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
     }
+
+    setSelectedFile(file);
+    setCapturedImage(URL.createObjectURL(file));
   };
 
   const startCamera = async () => {
@@ -236,9 +248,22 @@ const UploadSelectionModal = ({ open, onClose }) => {
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const imageSrc = canvas.toDataURL("image/png");
-      console.log("Selfie captured:", imageSrc);
-      setCapturedImage(imageSrc);
+      // JPEG rather than PNG: the AI service stores selfies as .jpg, and a
+      // full-resolution PNG data URL is several times larger to upload.
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            toast.error("Could not capture the photo. Please try again.");
+            return;
+          }
+          setSelectedFile(
+            new File([blob], `selfie_${Date.now()}.jpg`, { type: "image/jpeg" }),
+          );
+          setCapturedImage(URL.createObjectURL(blob));
+        },
+        "image/jpeg",
+        0.92,
+      );
       stopCamera();
     }
   };
@@ -424,6 +449,35 @@ const UploadSelectionModal = ({ open, onClose }) => {
               </button>
             )}
 
+            {selectedFile && !isCameraOpen && (
+              <button
+                className="btn w-100 py-2 fw-semibold"
+                onClick={() => onSubmit(selectedFile)}
+                disabled={submitting}
+                style={{
+                  backgroundColor: submitting ? "#8a8a8a" : "#111",
+                  color: "white",
+                  borderRadius: "12px",
+                  border: "none",
+                  fontSize: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "10px",
+                  cursor: submitting ? "not-allowed" : "pointer",
+                }}
+              >
+                {submitting ? (
+                  <>
+                    <FaSpinner size={16} className="fa-spin" /> Finding your
+                    photos...
+                  </>
+                ) : (
+                  <>Find My Photos</>
+                )}
+              </button>
+            )}
+
             <input
               type="file"
               ref={fileInputRef}
@@ -441,6 +495,13 @@ const UploadSelectionModal = ({ open, onClose }) => {
 const MovmentPlusUploadSelfie = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState("policy");
+  const [submitting, setSubmitting] = useState(false);
+
+  const { uploadSelfie } = useMovmentPlus();
+  // The gallery token identifies the event; the AI service resolves one from
+  // the other. It is stored when the guest enters their access code.
+  const { guestToken } = useSelector((state) => state.guestToken);
+  const user = useSelector((state) => state.auth.user);
 
   const handleClose = () => {
     navigate(-1);
@@ -448,6 +509,36 @@ const MovmentPlusUploadSelfie = () => {
 
   const handlePolicyAgree = () => {
     setStep("upload");
+  };
+
+  const handleSubmit = async (file) => {
+    if (!guestToken) {
+      toast.error("Enter your gallery access code first.");
+      navigate("/movment-plus/guest-token");
+      return;
+    }
+
+    const userId = user?.id;
+    if (!userId) {
+      toast.error("Please log in again to find your photos.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await uploadSelfie({ token: guestToken, file, userId });
+      // Matching itself happens in the gallery, which reads the selfie that was
+      // just stored. Sending the guest there keeps one place responsible for
+      // rendering matches.
+      navigate(`/movment-plus/gallery/${guestToken}?view=mine`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.error ||
+          "Could not upload your selfie. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -461,7 +552,12 @@ const MovmentPlusUploadSelfie = () => {
       )}
 
       {step === "upload" && (
-        <UploadSelectionModal open={true} onClose={handleClose} />
+        <UploadSelectionModal
+          open={true}
+          onClose={handleClose}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+        />
       )}
     </div>
   );

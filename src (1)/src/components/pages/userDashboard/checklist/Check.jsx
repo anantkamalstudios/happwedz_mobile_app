@@ -26,9 +26,9 @@ import ChecklistPDF from "./ChecklistPDF";
 import { formatDate } from "../../../../utils/dateFormat";
 import { Dropdown } from "react-bootstrap";
 import "./Checklist.css";
+import { API_BASE_URL } from "../../../../config/constants";
 
-const CATEGORY_API =
-  "http://localhost:4000/api/vendor-types/with-subcategories/all";
+const CATEGORY_API = `${API_BASE_URL}/vendor-types/with-subcategories/all`;
 
 const Check = () => {
   const dispatch = useDispatch();
@@ -57,8 +57,14 @@ const Check = () => {
 
   const hasUserEditedDate = useRef(false);
 
-  const parsedStartDate = useMemo(() => (startDate ? dayjs(startDate) : null), [startDate]);
-  const parsedWeddingDate = useMemo(() => (weddingDate ? dayjs(weddingDate) : null), [weddingDate]);
+  const parsedStartDate = useMemo(
+    () => (startDate ? dayjs(startDate) : null),
+    [startDate],
+  );
+  const parsedWeddingDate = useMemo(
+    () => (weddingDate ? dayjs(weddingDate) : null),
+    [weddingDate],
+  );
 
   // Handler for start date change
   const handleStartDateChange = async (newDate) => {
@@ -122,14 +128,18 @@ const Check = () => {
     setLoading(true);
     try {
       const res = await axiosInstance.get(
-        `/new-checklist/newChecklist/user/${userId}`
+        `/new-checklist/newChecklist/user/${userId}`,
       );
       const fetchedChecklists = res.data?.data || [];
       setChecklists(fetchedChecklists);
       if (res.data?.data?.length > 0 && !hasUserEditedDate.current) {
         const firstTask = res.data.data[0];
-        const localSavedStart = userId ? localStorage.getItem(`saved_start_date_${userId}`) : null;
-        const localSavedWedding = userId ? localStorage.getItem(`saved_wedding_date_${userId}`) : null;
+        const localSavedStart = userId
+          ? localStorage.getItem(`saved_start_date_${userId}`)
+          : null;
+        const localSavedWedding = userId
+          ? localStorage.getItem(`saved_wedding_date_${userId}`)
+          : null;
         if (!localSavedStart && firstTask.start_date && !startDate)
           setStartDate(firstTask.start_date.split("T")[0]);
         if (!localSavedWedding && firstTask.wedding_date && !weddingDate)
@@ -152,7 +162,7 @@ const Check = () => {
           name: sub.name,
           required_days: sub.required_days || 2,
           category: { id: cat.id, name: cat.name },
-        }))
+        })),
       );
       setCategories(allSubs);
     } catch (err) {
@@ -162,8 +172,12 @@ const Check = () => {
 
   // Sync dates when userId loads or rehydrates from Redux
   useEffect(() => {
-    const savedStart = (userId && localStorage.getItem(`saved_start_date_${userId}`)) || localStorage.getItem("saved_start_date");
-    const savedWedding = (userId && localStorage.getItem(`saved_wedding_date_${userId}`)) || localStorage.getItem("saved_wedding_date");
+    const savedStart =
+      (userId && localStorage.getItem(`saved_start_date_${userId}`)) ||
+      localStorage.getItem("saved_start_date");
+    const savedWedding =
+      (userId && localStorage.getItem(`saved_wedding_date_${userId}`)) ||
+      localStorage.getItem("saved_wedding_date");
 
     if (savedStart) setStartDate(savedStart);
     if (savedWedding) setWeddingDate(savedWedding);
@@ -186,7 +200,7 @@ const Check = () => {
       if (diff > 0) {
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor(
-          (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+          (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
         );
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -222,14 +236,22 @@ const Check = () => {
     }
   }, [vendorSubId, categories]);
 
-  const totalRemainingDaysCount = daysLeft !== null && daysLeft > 0 ? daysLeft : 0;
-  const baseDaysAllocated = checklists.length > 0 ? Math.floor(totalRemainingDaysCount / checklists.length) : 0;
+  const totalRemainingDaysCount =
+    daysLeft !== null && daysLeft > 0 ? daysLeft : 0;
+  const baseDaysAllocated =
+    checklists.length > 0
+      ? Math.floor(totalRemainingDaysCount / checklists.length)
+      : 0;
   const totalAllocatedDays = baseDaysAllocated * checklists.length;
-  const unallocatedBufferDays = Math.max(0, totalRemainingDaysCount - totalAllocatedDays);
+  const unallocatedBufferDays = Math.max(
+    0,
+    totalRemainingDaysCount - totalAllocatedDays,
+  );
 
   useEffect(() => {
     if (weddingDate) {
-      const remainingDaysCount = daysLeft !== null && daysLeft >= 0 ? daysLeft : 0;
+      const remainingDaysCount =
+        daysLeft !== null && daysLeft >= 0 ? daysLeft : 0;
 
       const s = startDate ? new Date(startDate) : new Date();
       const endDate = new Date(weddingDate);
@@ -241,7 +263,15 @@ const Check = () => {
         `Unallocated buffer: ${unallocatedBufferDays} day${unallocatedBufferDays === 1 ? "" : "s"} (${totalAllocatedDays} days allocated across ${checklists.length} task${checklists.length === 1 ? "" : "s"})`,
       ]);
     }
-  }, [startDate, weddingDate, requiredDays, daysLeft, unallocatedBufferDays, totalAllocatedDays, checklists.length]);
+  }, [
+    startDate,
+    weddingDate,
+    requiredDays,
+    daysLeft,
+    unallocatedBufferDays,
+    totalAllocatedDays,
+    checklists.length,
+  ]);
 
   const [distributedTasks, setDistributedTasks] = useState([]);
 
@@ -305,7 +335,7 @@ const Check = () => {
 
     if (diffDays < 8) {
       setError(
-        "Your wedding is near! Checklist cannot be created (less than 8 days left)."
+        "Your wedding is near! Checklist cannot be created (less than 8 days left).",
       );
       return;
     }
@@ -332,10 +362,16 @@ const Check = () => {
 
   const getMaxDaysForTask = (taskId) => {
     const totalRemaining = daysLeft !== null && daysLeft > 0 ? daysLeft : 1;
-    const baseDays = checklists.length > 0 ? Math.floor(totalRemaining / checklists.length) : 1;
+    const baseDays =
+      checklists.length > 0
+        ? Math.floor(totalRemaining / checklists.length)
+        : 1;
     const otherTasksAllocated = checklists.reduce((acc, item) => {
       if (item.id === taskId) return acc;
-      const days = customTaskDays[item.id] !== undefined ? customTaskDays[item.id] : baseDays;
+      const days =
+        customTaskDays[item.id] !== undefined
+          ? customTaskDays[item.id]
+          : baseDays;
       return acc + days;
     }, 0);
     return Math.max(1, totalRemaining - otherTasksAllocated);
@@ -384,10 +420,14 @@ const Check = () => {
   const updateStatus = async (id, newStatus) => {
     setError(null);
     setChecklists((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+      prev.map((item) =>
+        item.id === id ? { ...item, status: newStatus } : item,
+      ),
     );
     setDistributedTasks((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+      prev.map((item) =>
+        item.id === id ? { ...item, status: newStatus } : item,
+      ),
     );
 
     try {
@@ -479,7 +519,7 @@ const Check = () => {
   };
 
   const completedCount = checklists.filter(
-    (c) => c.status === "completed"
+    (c) => c.status === "completed",
   ).length;
   const progressPercentage =
     checklists.length > 0 ? (completedCount / checklists.length) * 100 : 0;
@@ -619,8 +659,14 @@ const Check = () => {
                       </div>
                     ) : (
                       <div className="hw-countdown-grid">
-                        <div className="hw-countdown-box" style={{ minWidth: "120px" }}>
-                          <div className="hw-countdown-num" style={{ color: "#ed1173" }}>
+                        <div
+                          className="hw-countdown-box"
+                          style={{ minWidth: "120px" }}
+                        >
+                          <div
+                            className="hw-countdown-num"
+                            style={{ color: "#ed1173" }}
+                          >
                             {countdown.days}
                           </div>
                           <div className="hw-countdown-unit">DAYS AGO</div>
@@ -642,7 +688,7 @@ const Check = () => {
                   </h5>
                   <div className="d-flex gap-2">
                     {(distributedTasks && distributedTasks.length > 0) ||
-                      (checklists && checklists.length > 0) ? (
+                    (checklists && checklists.length > 0) ? (
                       <button
                         className="hw-download-btn"
                         onClick={handleDownloadPDF}
@@ -667,7 +713,9 @@ const Check = () => {
                   {/* Overall Progress Card */}
                   <div className="hw-progress-card">
                     <div className="hw-progress-header">
-                      <h6 className="hw-progress-title">Overall Task Completion</h6>
+                      <h6 className="hw-progress-title">
+                        Overall Task Completion
+                      </h6>
                       <span className="hw-progress-badge">
                         {Math.round(progressPercentage)}% Complete
                       </span>
@@ -680,20 +728,42 @@ const Check = () => {
                     </div>
                     <div className="hw-progress-stats">
                       <div className="hw-stat-pill">
-                        <span className="hw-stat-num" style={{ color: "#10b981" }}>{completedCount}</span>
+                        <span
+                          className="hw-stat-num"
+                          style={{ color: "#10b981" }}
+                        >
+                          {completedCount}
+                        </span>
                         <span className="hw-stat-label">Tasks Completed</span>
                       </div>
                       <div className="hw-stat-pill">
-                        <span className="hw-stat-num" style={{ color: "#0f172a" }}>{checklists.length}</span>
+                        <span
+                          className="hw-stat-num"
+                          style={{ color: "#0f172a" }}
+                        >
+                          {checklists.length}
+                        </span>
                         <span className="hw-stat-label">Total Tasks</span>
                       </div>
                       <div className="hw-stat-pill">
-                        <span className="hw-stat-num" style={{ color: "#ed1173" }}>{Math.max(0, checklists.length - completedCount)}</span>
+                        <span
+                          className="hw-stat-num"
+                          style={{ color: "#ed1173" }}
+                        >
+                          {Math.max(0, checklists.length - completedCount)}
+                        </span>
                         <span className="hw-stat-label">Tasks Remaining</span>
                       </div>
                       <div className="hw-stat-pill">
-                        <span className="hw-stat-num" style={{ color: "#3b82f6" }}>{unallocatedBufferDays}</span>
-                        <span className="hw-stat-label">Unallocated Buffer</span>
+                        <span
+                          className="hw-stat-num"
+                          style={{ color: "#3b82f6" }}
+                        >
+                          {unallocatedBufferDays}
+                        </span>
+                        <span className="hw-stat-label">
+                          Unallocated Buffer
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -725,10 +795,14 @@ const Check = () => {
                           <Dropdown.Toggle className="hw-dropdown-toggle">
                             <span>
                               {vendorSubId
-                                ? categories.find((c) => c.id == vendorSubId)?.name
+                                ? categories.find((c) => c.id == vendorSubId)
+                                    ?.name
                                 : "Select Vendor Category"}
                             </span>
-                            <FaChevronDown size={11} style={{ color: "#94a3b8" }} />
+                            <FaChevronDown
+                              size={11}
+                              style={{ color: "#94a3b8" }}
+                            />
                           </Dropdown.Toggle>
 
                           <Dropdown.Menu
@@ -760,7 +834,9 @@ const Check = () => {
                       </div>
 
                       <div className="col-12 col-md-5">
-                        <label className="hw-form-label">Task Description</label>
+                        <label className="hw-form-label">
+                          Task Description
+                        </label>
                         <input
                           type="text"
                           className="hw-input"
@@ -812,66 +888,105 @@ const Check = () => {
                           <table className="hw-task-table">
                             <thead>
                               <tr>
-                                <th style={{ width: "90px", textAlign: "center" }}>Status</th>
+                                <th
+                                  style={{ width: "90px", textAlign: "center" }}
+                                >
+                                  Status
+                                </th>
                                 <th>Task Details</th>
                                 <th>Category & Lead Time</th>
-                                <th style={{ width: "170px" }}>Allocated Timeline</th>
-                                <th style={{ width: "110px", textAlign: "center" }}>Actions</th>
+                                <th style={{ width: "170px" }}>
+                                  Allocated Timeline
+                                </th>
+                                <th
+                                  style={{
+                                    width: "110px",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  Actions
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
                               {currentItems.map((item) => (
                                 <tr key={item.id}>
                                   <td className="text-center">
-                                      <select
-                                        className="form-select form-select-sm shadow-none"
-                                        style={{
-                                          fontSize: "12px",
-                                          fontWeight: "600",
-                                          borderRadius: "20px",
-                                          padding: "4px 10px",
-                                          cursor: "pointer",
-                                          width: "115px",
-                                          margin: "0 auto",
-                                          backgroundColor:
-                                            item.status === "completed" || item.status === "done"
-                                              ? "#dcfce7"
-                                              : item.status === "in_progress" || item.status === "in progress"
+                                    <select
+                                      className="form-select form-select-sm shadow-none"
+                                      style={{
+                                        fontSize: "12px",
+                                        fontWeight: "600",
+                                        borderRadius: "20px",
+                                        padding: "4px 10px",
+                                        cursor: "pointer",
+                                        width: "115px",
+                                        margin: "0 auto",
+                                        backgroundColor:
+                                          item.status === "completed" ||
+                                          item.status === "done"
+                                            ? "#dcfce7"
+                                            : item.status === "in_progress" ||
+                                                item.status === "in progress"
                                               ? "#e0f2fe"
                                               : "#fef3c7",
-                                          color:
-                                            item.status === "completed" || item.status === "done"
-                                              ? "#15803d"
-                                              : item.status === "in_progress" || item.status === "in progress"
+                                        color:
+                                          item.status === "completed" ||
+                                          item.status === "done"
+                                            ? "#15803d"
+                                            : item.status === "in_progress" ||
+                                                item.status === "in progress"
                                               ? "#0369a1"
                                               : "#92400e",
-                                          borderColor:
-                                            item.status === "completed" || item.status === "done"
-                                              ? "#86efac"
-                                              : item.status === "in_progress" || item.status === "in progress"
+                                        borderColor:
+                                          item.status === "completed" ||
+                                          item.status === "done"
+                                            ? "#86efac"
+                                            : item.status === "in_progress" ||
+                                                item.status === "in progress"
                                               ? "#93c5fd"
                                               : "#fde047",
-                                        }}
-                                        value={
-                                          item.status === "done"
-                                            ? "completed"
-                                            : item.status === "in progress"
+                                      }}
+                                      value={
+                                        item.status === "done"
+                                          ? "completed"
+                                          : item.status === "in progress"
                                             ? "in_progress"
                                             : item.status || "pending"
-                                        }
-                                        onChange={(e) => updateStatus(item.id, e.target.value)}
+                                      }
+                                      onChange={(e) =>
+                                        updateStatus(item.id, e.target.value)
+                                      }
+                                    >
+                                      <option
+                                        value="pending"
+                                        style={{
+                                          backgroundColor: "#ffffff",
+                                          color: "#92400e",
+                                        }}
                                       >
-                                        <option value="pending" style={{ backgroundColor: "#ffffff", color: "#92400e" }}>
-                                          Pending
-                                        </option>
-                                        <option value="in_progress" style={{ backgroundColor: "#ffffff", color: "#0369a1" }}>
-                                          In Progress
-                                        </option>
-                                        <option value="completed" style={{ backgroundColor: "#ffffff", color: "#15803d" }}>
-                                          Done
-                                        </option>
-                                      </select>
-                                   </td>
+                                        Pending
+                                      </option>
+                                      <option
+                                        value="in_progress"
+                                        style={{
+                                          backgroundColor: "#ffffff",
+                                          color: "#0369a1",
+                                        }}
+                                      >
+                                        In Progress
+                                      </option>
+                                      <option
+                                        value="completed"
+                                        style={{
+                                          backgroundColor: "#ffffff",
+                                          color: "#15803d",
+                                        }}
+                                      >
+                                        Done
+                                      </option>
+                                    </select>
+                                  </td>
                                   <td>
                                     {editingId === item.id ? (
                                       <input
@@ -898,7 +1013,8 @@ const Check = () => {
                                   <td>
                                     {(() => {
                                       const subcategory = categories.find(
-                                        (c) => c.id === item.vendor_subcategory_id
+                                        (c) =>
+                                          c.id === item.vendor_subcategory_id,
                                       );
                                       return (
                                         <div className="hw-category-wrapper">
@@ -908,39 +1024,63 @@ const Check = () => {
                                         </div>
                                       );
                                     })()}
-                                   </td>
-                                   <td>
-                                     {editingId === item.id ? (
-                                       <div className="d-flex align-items-center gap-1">
-                                         <input
-                                           type="number"
-                                           min="1"
-                                           max={getMaxDaysForTask(item.id)}
-                                           className="form-control form-control-sm text-center shadow-none"
-                                           style={{ width: "55px", fontSize: "12px", fontWeight: "600" }}
-                                           value={editingDays}
-                                           onChange={(e) => {
-                                             const maxLimit = getMaxDaysForTask(item.id);
-                                             const val = parseInt(e.target.value) || 1;
-                                             setEditingDays(Math.min(maxLimit, Math.max(1, val)));
-                                           }}
-                                           title={`Maximum ${getMaxDaysForTask(item.id)} days available to allocate`}
-                                         />
-                                         <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "600" }}>
-                                           / {getMaxDaysForTask(item.id)} Days Max
-                                         </span>
-                                       </div>
-                                     ) : (
-                                       <span
-                                         className="hw-timeline-badge"
-                                         title="Days allocated in your wedding planning schedule"
-                                       >
-                                         <FaCalendarAlt size={11} style={{ color: "#3b82f6" }} />
-                                         {item.days_assigned || "—"}{" "}
-                                         {item.days_assigned ? "Days Allocated" : ""}
-                                       </span>
-                                     )}
-                                   </td>
+                                  </td>
+                                  <td>
+                                    {editingId === item.id ? (
+                                      <div className="d-flex align-items-center gap-1">
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          max={getMaxDaysForTask(item.id)}
+                                          className="form-control form-control-sm text-center shadow-none"
+                                          style={{
+                                            width: "55px",
+                                            fontSize: "12px",
+                                            fontWeight: "600",
+                                          }}
+                                          value={editingDays}
+                                          onChange={(e) => {
+                                            const maxLimit = getMaxDaysForTask(
+                                              item.id,
+                                            );
+                                            const val =
+                                              parseInt(e.target.value) || 1;
+                                            setEditingDays(
+                                              Math.min(
+                                                maxLimit,
+                                                Math.max(1, val),
+                                              ),
+                                            );
+                                          }}
+                                          title={`Maximum ${getMaxDaysForTask(item.id)} days available to allocate`}
+                                        />
+                                        <span
+                                          style={{
+                                            fontSize: "11px",
+                                            color: "#64748b",
+                                            fontWeight: "600",
+                                          }}
+                                        >
+                                          / {getMaxDaysForTask(item.id)} Days
+                                          Max
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span
+                                        className="hw-timeline-badge"
+                                        title="Days allocated in your wedding planning schedule"
+                                      >
+                                        <FaCalendarAlt
+                                          size={11}
+                                          style={{ color: "#3b82f6" }}
+                                        />
+                                        {item.days_assigned || "—"}{" "}
+                                        {item.days_assigned
+                                          ? "Days Allocated"
+                                          : ""}
+                                      </span>
+                                    )}
+                                  </td>
                                   <td>
                                     <div className="d-flex gap-2 justify-content-center">
                                       {editingId === item.id ? (
@@ -982,7 +1122,13 @@ const Check = () => {
                                         <>
                                           <button
                                             className="hw-action-btn"
-                                            onClick={() => handleEdit(item.id, item.text, item.days_assigned)}
+                                            onClick={() =>
+                                              handleEdit(
+                                                item.id,
+                                                item.text,
+                                                item.days_assigned,
+                                              )
+                                            }
                                             title="Edit Task & Days"
                                           >
                                             <FaEdit size={12} />
@@ -1013,8 +1159,9 @@ const Check = () => {
                             {Array.from({ length: totalPages }, (_, i) => (
                               <li
                                 key={i + 1}
-                                className={`page-item ${currentPage === i + 1 ? "active" : ""
-                                  }`}
+                                className={`page-item ${
+                                  currentPage === i + 1 ? "active" : ""
+                                }`}
                               >
                                 <button
                                   onClick={() => paginate(i + 1)}

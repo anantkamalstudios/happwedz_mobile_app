@@ -109,13 +109,34 @@ extension FareTypeInfo on FareType {
 
   /// What the airline will ask for at check-in, shown beside the option so the
   /// traveller does not pick a fare they cannot produce documents for.
+  ///
+  /// BUG FIX: this was the app's own paraphrase — and said "60+" where the
+  /// rule is *above 61*. It is now the web's text word for word
+  /// (`FareTypeFilter.jsx` `FARE_TYPES[].info`).
   String? get note => switch (this) {
     FareType.regular => null,
     FareType.student =>
-      'Valid student ID required at check-in. Extra baggage on some airlines.',
+      'Only students above 12 years of age are eligible for special fares '
+          'and/or additional baggage allowances. Carrying valid student ID '
+          'cards and student visas (where applicable) is mandatory, else the '
+          'passenger may be denied boarding or asked to pay for extra baggage.',
     FareType.seniorCitizen =>
-      'For travellers aged 60+. Photo ID required at check-in.',
+      'Only senior citizens above the age of 61 years can avail this special '
+          'fare. It is mandatory to produce proof of Date of Birth at the '
+          'airport, without which prevailing fares will be charged.',
   };
+}
+
+/// Flight passenger limits — the web's "Passengers & Class" dropdown
+/// (`FlightSearchForm.jsx`): everyone counts toward the total of nine,
+/// infants included, the form starts on one adult, and there can never be
+/// more infants than adults.
+class FlightPaxLimits {
+  const FlightPaxLimits._();
+
+  static const int maxTotal = 9;
+  static const int defaultAdults = 1;
+  static const int minAdults = 1;
 }
 
 /// Airlines offered by the Preferred Airline picker.
@@ -155,3 +176,80 @@ const List<AirlineOption> kPreferredAirlines = [
 
 /// The supplier caps `preferredAirline` at ten entries.
 const int kMaxPreferredAirlines = 10;
+// ---------------------------------------------------------------------------
+// Hotel search options
+// ---------------------------------------------------------------------------
+
+/// Occupancy limits of the web's Rooms & Guests picker (`HotelSearchForm`).
+class HotelOccupancyLimits {
+  const HotelOccupancyLimits._();
+
+  static const int maxRooms = 9;
+  static const int maxAdultsPerRoom = 8;
+  static const int maxChildrenPerRoom = 4;
+
+  /// Children are 0–9; the age picker offers 1–9 and defaults to 1.
+  static const int minChildAge = 1;
+  static const int maxChildAge = 9;
+}
+
+/// A country TripJack identifies by numeric id — nationality and country of
+/// residence are sent as these ids (`106` = India), not as names.
+class HotelCountryOption {
+  const HotelCountryOption(this.code, this.name);
+
+  final String code;
+  final String name;
+}
+
+/// The web's `HOTEL_COUNTRIES` table. TripJack has no endpoint for these ids,
+/// so the web hard-codes them and so does this.
+const List<HotelCountryOption> kHotelNationalities = [
+  HotelCountryOption('106', 'India'),
+  HotelCountryOption('9', 'Australia'),
+  HotelCountryOption('13', 'Bahrain'),
+  HotelCountryOption('14', 'Bangladesh'),
+  HotelCountryOption('18', 'Belgium'),
+  HotelCountryOption('22', 'Bolivia'),
+  HotelCountryOption('25', 'Brazil'),
+  HotelCountryOption('33', 'Canada'),
+  HotelCountryOption('39', 'China'),
+  HotelCountryOption('43', 'Croatia'),
+  HotelCountryOption('48', 'Denmark'),
+  HotelCountryOption('52', 'Ecuador'),
+  HotelCountryOption('53', 'Egypt'),
+  HotelCountryOption('62', 'France'),
+  HotelCountryOption('68', 'Germany'),
+  HotelCountryOption('71', 'Greece'),
+  HotelCountryOption('82', 'Hong Kong'),
+  HotelCountryOption('88', 'Ireland'),
+  HotelCountryOption('91', 'Italy'),
+  HotelCountryOption('94', 'Japan'),
+  HotelCountryOption('116', 'Malaysia'),
+  HotelCountryOption('124', 'Mexico'),
+  HotelCountryOption('134', 'Nepal'),
+  HotelCountryOption('137', 'New Zealand'),
+  HotelCountryOption('149', 'Philippines'),
+  HotelCountryOption('150', 'Poland'),
+  HotelCountryOption('151', 'Portugal'),
+  HotelCountryOption('162', 'Saudi Arabia'),
+  HotelCountryOption('167', 'Singapore'),
+  HotelCountryOption('174', 'Spain'),
+  HotelCountryOption('175', 'Sri Lanka'),
+  HotelCountryOption('185', 'Thailand'),
+  HotelCountryOption('188', 'Tunisia'),
+  HotelCountryOption('194', 'United Arab Emirates'),
+  HotelCountryOption('195', 'United Kingdom'),
+  HotelCountryOption('196', 'United States'),
+  HotelCountryOption('201', 'Vietnam'),
+];
+
+/// The web's `HOTEL_RATING_OPTIONS` — `"0"` is an unrated property.
+const List<({String value, String label})> kHotelRatingOptions = [
+  (value: '5', label: '5 Star'),
+  (value: '4', label: '4 Star'),
+  (value: '3', label: '3 Star'),
+  (value: '2', label: '2 Star'),
+  (value: '1', label: '1 Star'),
+  (value: '0', label: 'Unrated'),
+];

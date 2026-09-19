@@ -14,7 +14,7 @@ import DOMPurify from "dompurify";
 import PricingModal from "../PricingModal";
 import QuickInquiryModal from "../QuickInquiryModal";
 import { fetchVendorTypesWithSubcategoriesApi } from "../../../services/api/vendorTypesWithSubcategoriesApi";
-import { IMAGE_BASE_URL } from "../../../config/constants";
+import { API_BASE_URL, IMAGE_BASE_URL } from "../../../config/constants";
 import { useParams } from "react-router-dom";
 import { trackView } from "../../../services/localStorageService";
 import { prioritizeRecentlyViewed, isRecentlyViewed } from "../../../utils/recentlyViewedHelper";
@@ -169,7 +169,7 @@ const matchesSelectedCity = (item, selectedCity) => {
 
     const fetchWishlist = async () => {
       try {
-        const res = await fetch(`https://happywedz.com/api/wishlist`, {
+        const res = await fetch(`${API_BASE_URL}/wishlist`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

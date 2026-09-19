@@ -214,7 +214,8 @@ List<StatusFilter> buildStatusFilters<T>(
     counts[key] = (counts[key] ?? 0) + 1;
   }
 
-  final canonical = _canonicalFilters[set] ?? _canonicalFilters[FilterSet.travel]!;
+  final canonical =
+      _canonicalFilters[set] ?? _canonicalFilters[FilterSet.travel]!;
   final extra = counts.keys.where((k) => !canonical.contains(k));
 
   return [

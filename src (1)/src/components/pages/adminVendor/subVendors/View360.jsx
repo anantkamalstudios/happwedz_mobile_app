@@ -1,16 +1,21 @@
 import React, { useState } from "react";
 import { Button } from "react-bootstrap";
+import { getSafe360Url } from "../../../../utils/view360Helper";
 
 const View360 = ({
   images = [],
   setImages,
   videos = [],
   setVideos,
+  url = "",
+  setUrl,
   onSave,
   onShowSuccess,
 }) => {
   // const [activeTab, setActiveTab] = useState("images");
   const [activeTab, setActiveTab] = useState("videos");
+  const [urlError, setUrlError] = useState("");
+  const safeUrl = getSafe360Url(url);
 
   const handleAddFiles = (event, type) => {
     const files = Array.from(event.target.files || []);
@@ -35,6 +40,22 @@ const View360 = ({
       setVideos((prev) => prev.filter((v) => v.id !== id));
     }
   };
+
+  const handleSave = () => {
+    if (url.trim() && !safeUrl) {
+      setActiveTab("url");
+      setUrlError("Enter a full link starting with http:// or https://");
+      return;
+    }
+    onSave?.();
+  };
+
+  const tabClass = (tab) =>
+    `btn pb-2 ${
+      activeTab === tab
+        ? "border-0 border-bottom border-3 rounded-0 fs-16 border-primary"
+        : "border-0 fs-14"
+    }`;
 
   const renderList = (items, type) => {
     if (!items.length) {
@@ -87,27 +108,27 @@ const View360 = ({
 
   return (
     <div className="p-3">
-      <div className="d-flex gap-3 border-bottom mb-3 col-4">
+      <div className="d-flex gap-3 border-bottom mb-3 col-12 col-md-6">
         {/* <button
           type="button"
-          className={`btn pb-2 ${activeTab === "images"
-            ? "border-0 border-bottom border-3 rounded-0 fs-16 border-primary"
-            : "border-0 fs-14"
-            }`}
+          className={tabClass("images")}
           onClick={() => setActiveTab("images")}
         >
           Pano Images
         </button> */}
         <button
           type="button"
-          className={`btn pb-2 ${
-            activeTab === "videos"
-              ? "border-0 border-bottom border-3 rounded-0 fs-16 border-primary"
-              : "border-0 fs-14"
-          }`}
+          className={tabClass("videos")}
           onClick={() => setActiveTab("videos")}
         >
           Videos
+        </button>
+        <button
+          type="button"
+          className={tabClass("url")}
+          onClick={() => setActiveTab("url")}
+        >
+          URL
         </button>
       </div>
 
@@ -146,12 +167,45 @@ const View360 = ({
         </div>
       )}
 
+      {activeTab === "url" && (
+        <div className="mb-4">
+          <p className="text-muted fs-14">
+            Paste a link to your 360° tour or video, for example a Matterport
+            or Kuula tour, or a YouTube 360° video.
+          </p>
+          <input
+            type="url"
+            inputMode="url"
+            placeholder="https://"
+            value={url}
+            onChange={(e) => {
+              setUrl?.(e.target.value);
+              setUrlError("");
+            }}
+            className={`form-control fs-14 ${urlError ? "is-invalid" : ""}`}
+          />
+          {urlError && (
+            <div className="invalid-feedback d-block">{urlError}</div>
+          )}
+          {safeUrl && (
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="d-inline-block mt-2 fs-14"
+            >
+              Open link to check it
+            </a>
+          )}
+        </div>
+      )}
+
       <div className="d-flex justify-content-start gap-2 w-100 col-12 col-md-auto">
         <Button
           variant="primary"
           className="fs-16 w-100 w-md-auto"
           style={{ maxWidth: 250 }}
-          onClick={() => onSave?.()}
+          onClick={handleSave}
         >
           Save 360° Assets
         </Button>

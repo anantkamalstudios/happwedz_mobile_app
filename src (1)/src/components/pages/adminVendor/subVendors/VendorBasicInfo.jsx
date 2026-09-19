@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { Modal, Toast } from "react-bootstrap";
 import axios from "axios";
 import SummernoteEditor from "../../../ui/SummernoteEditor";
+import { API_BASE_URL } from "../../../../config/constants";
 
 const normalizeUiStatus = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
@@ -26,6 +27,41 @@ const VendorBasicInfo = ({ formData, setFormData, onSave, onSaveSuccess }) => {
   const [requestCategory, setRequestCategory] = useState("");
   const [requestMsg, setRequestMsg] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [showSubDropdown, setShowSubDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Multiple subcategories (temporary frontend-only list).
+  // `vendor_subcategory_id` stays as the primary (first selected) for the API.
+  const selectedSubIds =
+    formData.vendor_subcategory_ids ||
+    (formData.vendor_subcategory_id ? [formData.vendor_subcategory_id] : []);
+
+  const toggleSubCategory = (id) => {
+    setFormData((prev) => {
+      const current =
+        prev.vendor_subcategory_ids ||
+        (prev.vendor_subcategory_id ? [prev.vendor_subcategory_id] : []);
+      const next = current.some((item) => item == id)
+        ? current.filter((item) => item != id)
+        : [...current, id];
+      return {
+        ...prev,
+        vendor_subcategory_ids: next,
+        vendor_subcategory_id: next[0] || "",
+      };
+    });
+  };
+
+  // Close the dropdown when clicking outside of it
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowSubDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Prefill formData.attributes when vendor loads
   useEffect(() => {
@@ -68,7 +104,7 @@ const VendorBasicInfo = ({ formData, setFormData, onSave, onSaveSuccess }) => {
       if (vendor?.vendor_type_id) {
         try {
           const response = await axios.get(
-            `https://happywedz.com/api/vendor-types/${vendor.vendor_type_id}`
+            `${API_BASE_URL}/vendor-types/${vendor.vendor_type_id}`
           );
           const vendorTypeData = response.data;
           setVendorTypeName(vendorTypeData?.name || "Unknown Type");
@@ -185,33 +221,80 @@ const VendorBasicInfo = ({ formData, setFormData, onSave, onSaveSuccess }) => {
               disabled
             />
 
-            {/* Subcategories */}
-            <div className="mt-3">
+            {/* Subcategories (multi-select) */}
+            <div className="mt-3 position-relative" ref={dropdownRef}>
               <label className="form-label fw-semibold fs-16">
                 Primary Subcategory *
               </label>
-              <select
-                name="vendor_subcategory_id"
-                className="form-select fs-14"
-                value={formData.vendor_subcategory_id || ""}
-                onChange={handleRootChange}
-                required
+
+              <button
+                type="button"
+                className="form-select fs-14 text-start"
+                onClick={() => setShowSubDropdown((prev) => !prev)}
               >
-                <option value="" disabled>
-                  -- Select a subcategory --
-                </option>
-                {subCategories.map((sub) => (
-                  <option key={sub.id} value={sub.id}>
-                    {sub.name}
-                  </option>
-                ))}
-              </select>
-              {formData.vendor_subcategory_id && (
+                {selectedSubIds.length === 0
+                  ? "-- Select subcategories --"
+                  : `${selectedSubIds.length} selected`}
+              </button>
+
+              {showSubDropdown && (
+                <div
+                  className="border rounded bg-white shadow-sm p-2 mt-1 w-100"
+                  style={{
+                    maxHeight: "220px",
+                    overflowY: "auto",
+                    position: "absolute",
+                    zIndex: 1000,
+                  }}
+                >
+                  {subCategories.length === 0 && (
+                    <div className="text-muted small px-1">
+                      No subcategories available
+                    </div>
+                  )}
+                  {subCategories.map((sub) => (
+                    <div className="form-check" key={sub.id}>
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id={`subcat-${sub.id}`}
+                        checked={selectedSubIds.some((id) => id == sub.id)}
+                        onChange={() => toggleSubCategory(sub.id)}
+                      />
+                      <label
+                        className="form-check-label fs-14"
+                        htmlFor={`subcat-${sub.id}`}
+                      >
+                        {sub.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedSubIds.length > 0 && (
                 <div className="mt-2 p-2 bg-light border rounded small fs-14">
                   <strong>Selected: </strong>
-                  {subCategories.find(
-                    (s) => s.id == formData.vendor_subcategory_id
-                  )?.name || "..."}
+                  <div className="d-flex flex-wrap gap-1 mt-1">
+                    {selectedSubIds.map((id) => {
+                      const sub = subCategories.find((s) => s.id == id);
+                      return (
+                        <span
+                          key={id}
+                          className="badge bg-secondary d-inline-flex align-items-center gap-1"
+                        >
+                          {sub?.name || id}
+                          <button
+                            type="button"
+                            className="btn-close btn-close-white"
+                            style={{ fontSize: "0.5rem" }}
+                            aria-label="Remove"
+                            onClick={() => toggleSubCategory(id)}
+                          />
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

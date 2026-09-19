@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import { getImageUrl, handleImageError } from "../../../utils/imageUtils";
 import { FiEdit2, FiShare2 } from "react-icons/fi";
 import { useNavigate, useLocation } from "react-router-dom";
 import LoginPopup from "../../pages/designStudio/DesignStudio.LoginPopup";
+import EinvitePage from "./design/EinvitePage";
+import { getCardPages } from "./design/einviteDesign";
 
 const EinviteCardItem = ({
   card,
@@ -21,6 +22,13 @@ const EinviteCardItem = ({
   const user = useSelector((state) => state.auth.user);
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const isLoggedIn = !!(user && isAuthenticated);
+
+  // Couples' own cards are drawn live so the tile shows their text, not the
+  // template's sample thumbnail. Local drafts came from the customer editor.
+  const pages = useMemo(
+    () => getCardPages(card.isDraft ? { ...card, isTemplate: false } : card),
+    [card]
+  );
 
   const isMyCardsPage = location.pathname === "/einvites/my-cards";
   const shouldShowShareButton = showShareButton || isMyCardsPage;
@@ -75,28 +83,12 @@ const EinviteCardItem = ({
               height: fixedImageHeight || "400px",
               borderRadius: "12px",
               boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              background: "#f3efea",
             }}
           >
-            <img
-              src={getImageUrl(
-                card.thumbnailUrl ||
-                  card.thumbnail_url ||
-                  card.backgroundUrl ||
-                  card.background_url
-              )}
-              alt={card.name}
-              className="w-100 h-100"
-              style={{ objectFit: "cover" }}
-              onError={(e) =>
-                handleImageError(
-                  e,
-                  card.thumbnailUrl ||
-                    card.thumbnail_url ||
-                    card.backgroundUrl ||
-                    card.background_url
-                )
-              }
-            />
+            <div className="h-100 mx-auto" style={{ aspectRatio: "5 / 7", maxWidth: "100%" }}>
+              <EinvitePage page={pages[0]} />
+            </div>
 
             {isHovered && showActions && (
               <div

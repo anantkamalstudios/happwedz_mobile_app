@@ -22,14 +22,9 @@ const validateNumber = (value) => {
 const useClaimForm = (vendorServiceId = null) => {
   const { user, userToken: token } = useSelector((state) => state.auth);
 
-  const [expandedSections, setExpandedSections] = useState({
-    policyholder: true,
-    owner: true,
-    proof: true,
-    additional: true,
-    declaration: true,
-  });
 
+  // Only Business Information survives the form trim. Claimant details, social links,
+  // the contact-method field and the declaration block are no longer collected here.
   const [formData, setFormData] = useState({
     businessName: "",
     registeredAddress: "",
@@ -38,30 +33,8 @@ const useClaimForm = (vendorServiceId = null) => {
     website: "",
     category: "",
     registrationNumber: "",
-    claimantFullName: "",
-    claimantRole: "",
-    claimantMobile: "",
-    claimantEmail: "",
-    businessDescription: "",
-    facebookLink: "",
-    instagramLink: "",
-    linkedinLink: "",
-    contactMethod: "",
-    dateSigned: "",
-    agreed: false,
   });
 
-  const [files, setFiles] = useState({
-    aadharCard: null,
-    panCard: null,
-    shopLicense: null,
-    udyamCertificate: null,
-    gstCertificate: null,
-    addressProof: null,
-    businessPhoto: null,
-    signature: null,
-    additionalDocuments: [],
-  });
 
   const [vendorData, setVendorData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -104,19 +77,10 @@ const useClaimForm = (vendorServiceId = null) => {
       emailAddress: vendor?.email || attributes?.email || "",
       website: attributes?.cta_url || "",
       category: vendor?.vendorType?.name || attributes?.vendor_type || "",
-      businessDescription: attributes?.about_us?.replace(/<[^>]*>/g, "") || "",
-      facebookLink: "",
-      instagramLink: "",
-      linkedinLink: "",
+      registrationNumber: prev.registrationNumber || "",
     }));
   };
 
-  const toggleSection = (section) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -132,13 +96,7 @@ const useClaimForm = (vendorServiceId = null) => {
     let isValid = true;
     let errorMessage = "";
 
-    const textFields = [
-      "businessName",
-      "registeredAddress",
-      "claimantFullName",
-      "claimantRole",
-      "category",
-    ];
+    const textFields = ["businessName", "registeredAddress", "category"];
     if (textFields.includes(name)) {
       isValid = validateText(value);
       if (!isValid) {
@@ -154,7 +112,7 @@ const useClaimForm = (vendorServiceId = null) => {
       }
     }
 
-    const phoneFields = ["phoneNumber", "claimantMobile"];
+    const phoneFields = ["phoneNumber"];
     if (phoneFields.includes(name)) {
       isValid = validateNumber(value) && value.length <= 10;
       if (!isValid) {
@@ -172,45 +130,13 @@ const useClaimForm = (vendorServiceId = null) => {
     }
   };
 
-  const handleFileChange = (e, fileKey) => {
-    const file = e.target.files[0];
-
-    if (file && file.size > 50 * 1024 * 1024) {
-      toast.error("File size should not exceed 50MB");
-      return;
-    }
-
-    if (fileKey === "additionalDocuments") {
-      const filesArray = Array.from(e.target.files);
-      setFiles((prev) => ({
-        ...prev,
-        [fileKey]: filesArray,
-      }));
-    } else if (fileKey === "signature") {
-      if (file && !file.type.startsWith("image/")) {
-        toast.error("Signature must be an image file");
-        return;
-      }
-      setFiles((prev) => ({
-        ...prev,
-        [fileKey]: file,
-      }));
-    } else {
-      setFiles((prev) => ({
-        ...prev,
-        [fileKey]: file,
-      }));
-    }
-  };
-
   const validateForm = () => {
     const requiredFields = {
       businessName: "Business Name",
       registeredAddress: "Registered Address",
       phoneNumber: "Business Phone Number",
       emailAddress: "Business Email",
-      claimantFullName: "Claimant Full Name",
-      claimantMobile: "Claimant Mobile Number",
+      category: "Business Category",
     };
 
     for (const [field, label] of Object.entries(requiredFields)) {
@@ -225,23 +151,8 @@ const useClaimForm = (vendorServiceId = null) => {
       return false;
     }
 
-    if (formData.claimantMobile.length !== 10) {
-      toast.error("Claimant Mobile Number must be exactly 10 digits");
-      return false;
-    }
-
     if (!validateEmail(formData.emailAddress)) {
       toast.error("Please enter a valid business email address");
-      return false;
-    }
-
-    if (formData.claimantEmail && !validateEmail(formData.claimantEmail)) {
-      toast.error("Please enter a valid claimant email address");
-      return false;
-    }
-
-    if (!formData.agreed) {
-      toast.error("Please agree to the declaration");
       return false;
     }
 
@@ -258,40 +169,19 @@ const useClaimForm = (vendorServiceId = null) => {
     setSubmitting(true);
 
     try {
-      const formDataToSend = new FormData();
+      // Plain JSON now that there are no files to carry.
+      const payload = {
+        ...formData,
+        vendor_id: vendorData?.vendor_id,
+        vendor_subcategory_data_id: vendorData?.id,
+      };
 
-      // Append all form fields
-      Object.keys(formData).forEach((key) => {
-        formDataToSend.append(key, formData[key]);
-      });
-
-      // Append vendor IDs if available
-      if (vendorData) {
-        console.log("Appending vendor IDs:", {
-          vendor_id: vendorData.vendor_id,
-          vendor_subcategory_data_id: vendorData.id,
-        });
-        formDataToSend.append("vendor_id", vendorData.vendor_id);
-        formDataToSend.append("vendor_subcategory_data_id", vendorData.id);
-      } else {
-        console.warn("No vendorData available - IDs will not be appended");
+      if (!vendorData) {
+        toast.error("We could not identify this business. Please reopen the form.");
+        return { success: false, error: "Missing vendor context" };
       }
 
-      // Append files
-      Object.keys(files).forEach((key) => {
-        if (files[key]) {
-          if (key === "additionalDocuments" && Array.isArray(files[key])) {
-            files[key].forEach((file) => {
-              formDataToSend.append("additionalDocuments", file);
-            });
-          } else if (key !== "signature") {
-            // Skip signature field as backend doesn't support it yet
-            formDataToSend.append(key, files[key]);
-          }
-        }
-      });
-
-      const result = await submitBusinessClaim(formDataToSend);
+      const result = await submitBusinessClaim(payload);
 
       if (result.success) {
         toast.success("Claim form submitted successfully!");
@@ -319,43 +209,16 @@ const useClaimForm = (vendorServiceId = null) => {
       website: "",
       category: "",
       registrationNumber: "",
-      claimantFullName: "",
-      claimantRole: "",
-      claimantMobile: "",
-      claimantEmail: "",
-      businessDescription: "",
-      facebookLink: "",
-      instagramLink: "",
-      linkedinLink: "",
-      contactMethod: "",
-      dateSigned: "",
-      agreed: false,
-    });
-    setFiles({
-      aadharCard: null,
-      panCard: null,
-      shopLicense: null,
-      udyamCertificate: null,
-      gstCertificate: null,
-      addressProof: null,
-      businessPhoto: null,
-      signature: null,
-      additionalDocuments: [],
     });
   };
 
   return {
     formData,
-    files,
-    setFiles,
-    expandedSections,
     loading,
     submitting,
     vendorData,
     handleInputChange,
-    handleFileChange,
     handleSubmit,
-    toggleSection,
     resetForm,
   };
 };

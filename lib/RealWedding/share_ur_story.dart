@@ -1910,6 +1910,101 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
   List<String> vendorTypes = [];
 
+  /// Local-only draft, matching the web's `localStorage` draft save — this
+  /// form has no server-side draft endpoint. Text/selections only; photos
+  /// aren't restorable across sessions so are intentionally excluded.
+  static const String _draftPrefsKey = 'real_wedding_story_draft';
+
+  Map<String, dynamic> _draftSnapshot() => {
+    'currentStep': currentStep,
+    'title': titleCtrl.text,
+    'slug': slugCtrl.text,
+    'weddingDate': weddingDateCtrl.text,
+    'country': selectedCountry,
+    'city': cityCtrl.text,
+    'selectedVenues': selectedVenues,
+    'brideName': brideNameCtrl.text,
+    'brideBio': brideBioCtrl.text,
+    'groomName': groomNameCtrl.text,
+    'groomBio': groomBioCtrl.text,
+    'story': storyCtrl.text,
+    'events': events,
+    'vendors': vendors,
+    'weddingThemes': weddingThemesCtrl.text,
+    'additionalCredits': additionalCredits,
+    'brideOutfit': brideOutfitCtrl.text,
+    'groomOutfit': groomOutfitCtrl.text,
+    'specialMoments': specialMomentsCtrl.text,
+    'photographer': photographerCtrl.text,
+    'makeup': makeupCtrl.text,
+    'decor': decorCtrl.text,
+    'isFeatured': isFeatured,
+  };
+
+  Future<void> _saveDraftLocally() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_draftPrefsKey, jsonEncode(_draftSnapshot()));
+      if (!mounted) return;
+      AppSnackbar.info(context, "Draft saved on this device");
+    } catch (e) {
+      debugPrint("❌ Draft save failed: $e");
+      if (!mounted) return;
+      AppSnackbar.error(context, "Couldn't save the draft. Please try again.");
+    }
+  }
+
+  Future<void> _restoreDraftIfAny() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_draftPrefsKey);
+      if (raw == null) return;
+      final draft = jsonDecode(raw) as Map<String, dynamic>;
+
+      titleCtrl.text = draft['title'] ?? '';
+      slugCtrl.text = draft['slug'] ?? '';
+      weddingDateCtrl.text = draft['weddingDate'] ?? '';
+      cityCtrl.text = draft['city'] ?? '';
+      brideNameCtrl.text = draft['brideName'] ?? '';
+      brideBioCtrl.text = draft['brideBio'] ?? '';
+      groomNameCtrl.text = draft['groomName'] ?? '';
+      groomBioCtrl.text = draft['groomBio'] ?? '';
+      storyCtrl.text = draft['story'] ?? '';
+      weddingThemesCtrl.text = draft['weddingThemes'] ?? '';
+      brideOutfitCtrl.text = draft['brideOutfit'] ?? '';
+      groomOutfitCtrl.text = draft['groomOutfit'] ?? '';
+      specialMomentsCtrl.text = draft['specialMoments'] ?? '';
+      photographerCtrl.text = draft['photographer'] ?? '';
+      makeupCtrl.text = draft['makeup'] ?? '';
+      decorCtrl.text = draft['decor'] ?? '';
+
+      if (!mounted) return;
+      setState(() {
+        currentStep = (draft['currentStep'] as num?)?.toInt() ?? 1;
+        selectedCountry = draft['country'] as String?;
+        selectedVenues = List<String>.from(draft['selectedVenues'] ?? const []);
+        events = List<Map<String, dynamic>>.from(
+          (draft['events'] as List? ?? const []).map((e) => Map<String, dynamic>.from(e)),
+        );
+        vendors = List<Map<String, dynamic>>.from(
+          (draft['vendors'] as List? ?? const []).map((e) => Map<String, dynamic>.from(e)),
+        );
+        additionalCredits = List<Map<String, dynamic>>.from(
+          (draft['additionalCredits'] as List? ?? const []).map((e) => Map<String, dynamic>.from(e)),
+        );
+        isFeatured = draft['isFeatured'] == true;
+      });
+      AppSnackbar.info(context, "Restored your saved draft");
+    } catch (e) {
+      debugPrint("❌ Draft restore failed, discarding: $e");
+    }
+  }
+
+  Future<void> _clearSavedDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftPrefsKey);
+  }
+
   // ----------------------------
   // initState / dispose / listeners
   // ----------------------------
@@ -1950,6 +2045,8 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
       if (_settingSlugProgrammatically) return;
       _slugEditedByUser = true;
     });
+
+    _restoreDraftIfAny();
   }
 
   @override
@@ -2294,9 +2391,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
           // Save Draft
           _outlinedButton(
             label: "Save Draft",
-            onPressed: () {
-              AppSnackbar.info(context, "Draft saved locally");
-            },
+            onPressed: _saveDraftLocally,
           ),
 
           // Next or Submit button
@@ -3130,6 +3225,8 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
       if (status == 200 || status == 201) {
         debugPrint("✅ Wedding story submitted successfully!");
+        await _clearSavedDraft();
+        if (!mounted) return;
         AppSnackbar.info(context, 'Wedding story submitted successfully!');
         return;
       } else if (status == 401) {

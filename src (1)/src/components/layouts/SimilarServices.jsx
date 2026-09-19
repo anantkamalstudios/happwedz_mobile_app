@@ -5,8 +5,12 @@ import GridView from "./Main/GridView";
 import { hasView360 } from "../../utils/view360Helper";
 import { subVenuesData } from "../../data/subVenuesData";
 import { subVendorsData } from "../../data/subVendorsData";
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../../config/constants";
 
-const IMAGE_BASE_URL = "https://happywedzbackend.happywedz.com";
+const IMAGE_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const formatCityTitle = (cityStr) => {
   if (!cityStr) return "";
@@ -224,18 +228,12 @@ const SimilarServices = ({ venueData, currentId, currentCity: propCity }) => {
     const fetchSimilar = async () => {
       setLoading(true);
       try {
-        const apiBaseUrl =
-          import.meta.env.VITE_API_BASE_URL ||
-          import.meta.env.VITE_API_URL ||
-          "https://happywedz.com/api";
-        const cleanApiBase = apiBaseUrl.replace(/\/api$/, "");
-
         let candidateList = [];
 
         if (currentId) {
           try {
             const res = await fetch(
-              `${cleanApiBase}/api/vendor-services/${currentId}/similar?limit=8&city=${encodeURIComponent(resolvedCity)}`
+              `${API_BASE_URL}/vendor-services/${currentId}/similar?limit=8&city=${encodeURIComponent(resolvedCity)}`
             );
             if (res.ok) {
               const resData = await res.json();
@@ -249,7 +247,7 @@ const SimilarServices = ({ venueData, currentId, currentCity: propCity }) => {
         if (candidateList.length < 4) {
           try {
             const res = await fetch(
-              `${cleanApiBase}/api/vendor-services?city=${encodeURIComponent(resolvedCity)}&limit=12`
+              `${API_BASE_URL}/vendor-services?city=${encodeURIComponent(resolvedCity)}&limit=12`
             );
             if (res.ok) {
               const resData = await res.json();

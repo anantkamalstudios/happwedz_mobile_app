@@ -3,7 +3,7 @@
  * This ensures compatibility with existing components while using dynamic data
  */
 
-import { toCdnUrl } from "../config/constants";
+import { toCdnUrl, IMAGE_BASE_URL } from "../config/constants";
 
 export const transformVendorData = (apiVendor) => {
   if (!apiVendor) return null;
@@ -191,7 +191,8 @@ const getPrimaryImage = (apiVendor) => {
 };
 
 // Utilities
-const API_BASE_URL = "https://happywedz.com";
+// Host that serves relative upload paths (/uploads/...) written by the backend.
+const MEDIA_BASE_URL = IMAGE_BASE_URL.replace(/\/+$/, "");
 
 const normalizeMediaUrl = (url) => {
   if (!url) return "";
@@ -200,9 +201,9 @@ const normalizeMediaUrl = (url) => {
   // Already absolute
   if (/^https?:\/\//i.test(cleanUrl)) return cleanUrl;
   // Prefix site base for paths starting with '/'
-  if (cleanUrl.startsWith("/")) return `${API_BASE_URL}${cleanUrl}`;
+  if (cleanUrl.startsWith("/")) return `${MEDIA_BASE_URL}${cleanUrl}`;
   // Otherwise, treat as uploads relative
-  return `${API_BASE_URL}/${cleanUrl}`;
+  return `${MEDIA_BASE_URL}/${cleanUrl}`;
 };
 
 const normalizeUrl = (url) => {

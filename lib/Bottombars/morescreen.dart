@@ -19,6 +19,8 @@ import '../my_bookings/my_bookings.dart';
 import '../packages.dart';
 import '../planning.dart';
 import '../shaadi_ai/ui/shaadi_ai_screen.dart';
+import '../wedding_website/ui/my_wedding_websites_page.dart';
+import '../matrimonial/ui/matrimonial_landing_page.dart';
 
 class MoreOptionsScreen extends StatefulWidget {
   const MoreOptionsScreen({super.key});
@@ -74,13 +76,23 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                       ),
                       _buildMenuItem(
                         icon: Icons.shopping_bag,
-                        title: 'Movment Plus',
+                        title: 'Moments+',
                         onTap: () => _handleMenuTap(context, 'Movment Plus'),
                       ),
                       _buildMenuItem(
                         icon: Icons.mail_outline,
                         title: 'E-Invites',
                         onTap: () => _handleMenuTap(context, 'E-Invites'),
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.language_rounded,
+                        title: 'Wedding Website',
+                        onTap: () => _handleMenuTap(context, 'Wedding Website'),
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.favorite_border,
+                        title: 'Matrimonial',
+                        onTap: () => _handleMenuTap(context, 'Matrimonial'),
                       ),
                       _buildMenuItem(
                         icon: Icons.person,
@@ -274,6 +286,12 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
         break;
       case 'E-Invites':
         Navigator.push(context, MaterialPageRoute(builder: (_) => EInvitationScreen()));
+        break;
+      case 'Wedding Website':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const MyWeddingWebsitesPage()));
+        break;
+      case 'Matrimonial':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const MatrimonialLandingPage()));
         break;
         case 'Budget':
         Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetPage()));

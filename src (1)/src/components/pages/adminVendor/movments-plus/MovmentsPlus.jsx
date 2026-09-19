@@ -54,7 +54,7 @@ const MovmentsPlus = () => {
     },
     {
       id: "tokens-sharing",
-      label: "Tokens & Sharing",
+      label: "Access Code",
       icon: <MdOutlineToken size={22} />,
     },
     {
@@ -154,7 +154,7 @@ const MovmentsPlus = () => {
         <div className="col-lg-2 col-md-3 border-end pe-lg-4 pe-md-3 d-none d-md-block">
           <div className="sticky-top" style={{ top: "20px" }}>
             <h4 className="mb-4 fw-bold" style={{ color: "#2c3e50" }}>
-              Movments+
+              Moments+
             </h4>
             <Nav className="flex-column custom-sidebar d-flex">
               {menuItems.map((item) => (

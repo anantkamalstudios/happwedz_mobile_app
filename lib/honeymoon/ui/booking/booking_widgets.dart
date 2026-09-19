@@ -219,6 +219,7 @@ class BookingActionBar extends StatelessWidget {
     this.onShowBreakdown,
     this.secondaryLabel,
     this.onSecondary,
+    this.amountFormatter,
   });
 
   final String actionLabel;
@@ -236,6 +237,11 @@ class BookingActionBar extends StatelessWidget {
   /// one so neither button is ever squeezed below a comfortable tap target.
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
+
+  /// How the total is printed. Defaults to [formatPrice] (whole rupees);
+  /// hotels pass a paise-keeping formatter because the web shows the exact
+  /// payable figure (`₹6,835.52`).
+  final String Function(double amount)? amountFormatter;
 
   @override
   Widget build(BuildContext context) {
@@ -286,6 +292,7 @@ class BookingActionBar extends StatelessWidget {
                         label: priceLabel,
                         total: fare!.total,
                         onTap: onShowBreakdown,
+                        formatter: amountFormatter ?? formatPrice,
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
@@ -314,11 +321,13 @@ class _FareTrigger extends StatelessWidget {
     required this.label,
     required this.total,
     required this.onTap,
+    this.formatter = formatPrice,
   });
 
   final String label;
   final double total;
   final VoidCallback? onTap;
+  final String Function(double amount) formatter;
 
   @override
   Widget build(BuildContext context) {
@@ -351,7 +360,7 @@ class _FareTrigger extends StatelessWidget {
               ],
             ),
             Text(
-              formatPrice(total),
+              formatter(total),
               style: AppText.price,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -370,6 +379,7 @@ Future<void> showFareBreakdownSheet(
   FareBreakdown fare, {
   String title = 'Fare summary',
   String? footnote,
+  String Function(double amount) amountFormatter = formatPrice,
 }) {
   return AppBottomSheet.show<void>(
     context,
@@ -379,7 +389,7 @@ Future<void> showFareBreakdownSheet(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final line in fare.lines) ...[
-          FareRow(line: line),
+          FareRow(line: line, formatter: amountFormatter),
           const SizedBox(height: AppSpacing.md),
         ],
         const Divider(height: 1, color: AppColors.divider),
@@ -388,7 +398,7 @@ Future<void> showFareBreakdownSheet(
           children: [
             Expanded(child: Text('Total payable', style: AppText.bodyStrong)),
             const SizedBox(width: AppSpacing.sm),
-            Text(formatPrice(fare.total), style: AppText.price),
+            Text(amountFormatter(fare.total), style: AppText.price),
           ],
         ),
         if (footnote != null) ...[
@@ -403,13 +413,14 @@ Future<void> showFareBreakdownSheet(
 
 /// One line of a fare breakdown.
 class FareRow extends StatelessWidget {
-  const FareRow({super.key, required this.line});
+  const FareRow({super.key, required this.line, this.formatter = formatPrice});
 
   final FareLine line;
+  final String Function(double amount) formatter;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
@@ -425,11 +436,31 @@ class FareRow extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Text(
-          formatPrice(line.amount),
+          formatter(line.amount),
           style: AppText.bodyStrong,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+      ],
+    );
+    if (line.parts.isEmpty) return row;
+
+    // Components (tax codes, add-on kinds) sit indented beneath their total.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        row,
+        for (final part in line.parts)
+          Padding(
+            padding: const EdgeInsets.only(left: AppSpacing.md, top: 4),
+            child: Row(
+              children: [
+                Expanded(child: Text(part.label, style: AppText.caption)),
+                Text(formatter(part.amount), style: AppText.caption),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -597,9 +628,10 @@ class PickerField extends StatelessWidget {
               ),
             ),
             if (required)
-              Text(' *', style: AppText.formLabel.copyWith(
-                color: AppColors.primary,
-              )),
+              Text(
+                ' *',
+                style: AppText.formLabel.copyWith(color: AppColors.primary),
+              ),
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -809,10 +841,7 @@ class DetailRow extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
           ],
-          SizedBox(
-            width: 104,
-            child: Text(label, style: AppText.caption),
-          ),
+          SizedBox(width: 104, child: Text(label, style: AppText.caption)),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
@@ -871,7 +900,10 @@ class InfoBanner extends StatelessWidget {
               style: AppText.bodySm.copyWith(color: AppColors.textDark),
             ),
           ),
-          if (action != null) ...[const SizedBox(width: AppSpacing.sm), action!],
+          if (action != null) ...[
+            const SizedBox(width: AppSpacing.sm),
+            action!,
+          ],
         ],
       ),
     );

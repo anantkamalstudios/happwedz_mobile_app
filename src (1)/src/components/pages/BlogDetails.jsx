@@ -1,7 +1,12 @@
 // Utility to normalize image URLs
 // Utility to normalize image URLs
+import {
+  API_BASE_URL,
+  IMAGE_BASE_URL as IMAGE_BASE_URL_RAW,
+} from "../../config/constants";
+
 const getImageUrl = (imageData) => {
-  const baseUrl = "https://happywedzbackend.happywedz.com/";
+  const baseUrl = IMAGE_BASE_URL_RAW;
 
   const replacePrefix = (url) => {
     if (typeof url === "string") {
@@ -65,7 +70,7 @@ const BlogDetails = ({ blogId, onBackClick }) => {
       try {
         showLoader();
         const response = await fetch(
-          `https://happywedz.com/api/blogs/${blogId}`
+          `${API_BASE_URL}/blogs/${blogId}`
         );
         const result = await response.json();
 

@@ -7,8 +7,9 @@ import useApiData from "../../hooks/useApiData";
 import { CiStar } from "react-icons/ci";
 import { useSelector } from "react-redux";
 import axios from "axios";
+import { IMAGE_BASE_URL as IMAGE_BASE_URL_RAW } from "../../config/constants";
 
-const IMAGE_BASE_URL = "https://happywedzbackend.happywedz.com";
+const IMAGE_BASE_URL = IMAGE_BASE_URL_RAW.replace(/\/+$/, "");
 
 const VenueSlider = () => {
   const [favorites, setFavorites] = useState([]);

@@ -110,7 +110,7 @@ const Budget = () => {
       Swal.fire(
         "Validation",
         "Please select Category, Subcategory and enter estimated budget.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -152,7 +152,7 @@ const Budget = () => {
       Swal.fire(
         "Error",
         "Failed to update expense. Please try again.",
-        "error"
+        "error",
       );
     }
   };
@@ -202,7 +202,7 @@ const Budget = () => {
           </div>
 
           <div className="wb-budget-card">
-            <div className="wb-budget-label">FINAL COST (expenditure)</div>
+            <div className="wb-budget-label">FINAL COST (EXPENDITURE)</div>
             <div className="wb-budget-amount">
               {formatCurrency(totalFinalCost)}
             </div>
@@ -211,7 +211,10 @@ const Budget = () => {
       </div>
 
       <div className="wb-categories-container">
-        <div className="wb-categories-list" style={{ flex: "0 0 300px", maxWidth: "300px", width: "300px" }}>
+        <div
+          className="wb-categories-list"
+          style={{ flex: "0 0 300px", maxWidth: "300px", width: "300px" }}
+        >
           <h2 className="wb-section-title fs-16">Categories</h2>
           <button
             type="button"
@@ -219,7 +222,8 @@ const Budget = () => {
             onClick={() => setSelectedCategoryId(null)}
             style={{
               fontWeight: "bold",
-              backgroundColor: selectedCategoryId === null ? "#fce7f3" : "transparent",
+              backgroundColor:
+                selectedCategoryId === null ? "#fce7f3" : "transparent",
               color: selectedCategoryId === null ? "#ed1173" : "inherit",
               borderRadius: "8px",
               padding: "10px 14px",
@@ -238,7 +242,14 @@ const Budget = () => {
                 aria-pressed={selectedCategoryId === category.id}
                 style={{ padding: "10px 14px" }}
               >
-                <div className="wb-category-name fs-14 d-flex align-items-center gap-2" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div
+                  className="wb-category-name fs-14 d-flex align-items-center gap-2"
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
                   {selectedCategoryId === category.id ? (
                     <FaBookOpenReader className="wb-category-icon flex-shrink-0" />
                   ) : (
@@ -258,7 +269,9 @@ const Budget = () => {
           <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
             <h3 className="fw-bold m-0 fs-20" style={{ color: "#ed1173" }}>
               {selectedCategoryId
-                ? categories.find((c) => String(c.id) === String(selectedCategoryId))?.name
+                ? categories.find(
+                    (c) => String(c.id) === String(selectedCategoryId),
+                  )?.name
                 : "All Categories"}
             </h3>
             <div className="fw-bold fs-15 text-muted">
@@ -266,8 +279,12 @@ const Budget = () => {
               <span style={{ color: "#ed1173" }}>
                 {formatCurrency(
                   selectedCategoryId
-                    ? categories.find((c) => String(c.id) === String(selectedCategoryId))?.amount || 0
-                    : estimatedTotal
+                    ? (
+                        categories.find(
+                          (c) => String(c.id) === String(selectedCategoryId),
+                        )?.budgets || []
+                      ).reduce((sum, r) => sum + Number(r.final || 0), 0)
+                    : totalFinalCost,
                 )}
               </span>
             </div>
@@ -278,25 +295,29 @@ const Budget = () => {
                 <th style={{ width: "24%" }}>CATEGORY</th>
                 <th style={{ width: "32%" }}>SUB CATEGORY</th>
                 <th style={{ width: "12%" }}>ESTIMATED BUDGET</th>
-                <th style={{ width: "12%" }}>FINAL COST (expenditure)</th>
+                <th style={{ width: "12%" }}>FINAL COST (EXPENDITURE)</th>
                 <th style={{ width: "12%" }}>PAID</th>
                 <th style={{ width: "8%", textAlign: "center" }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {categories
-                .filter((c) => !selectedCategoryId || c.id === selectedCategoryId)
+                .filter(
+                  (c) => !selectedCategoryId || c.id === selectedCategoryId,
+                )
                 .flatMap((cat) =>
                   (cat.budgets || []).map((expense) => ({
                     ...expense,
                     catId: cat.id,
                     catName: cat.name,
-                  }))
+                  })),
                 )
                 .sort((a, b) => Number(a.id || 0) - Number(b.id || 0))
                 .map((expense) => (
                   <tr key={expense.id}>
-                    <td className="fw-bold" style={{ color: "#ed1173" }}>{expense.catName}</td>
+                    <td className="fw-bold" style={{ color: "#ed1173" }}>
+                      {expense.catName}
+                    </td>
                     <td>{expense.name}</td>
                     <td>
                       <div className="wb-currency-input">
@@ -309,7 +330,7 @@ const Budget = () => {
                               expense.catId,
                               expense.id,
                               "estimated",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className="wb-input wb-table-input fs-14"
@@ -328,7 +349,7 @@ const Budget = () => {
                               expense.catId,
                               expense.id,
                               "final",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className="wb-input wb-table-input"
@@ -347,7 +368,7 @@ const Budget = () => {
                               expense.catId,
                               expense.id,
                               "paid",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className="wb-input wb-table-input"
@@ -370,7 +391,11 @@ const Budget = () => {
                 <td>
                   {selectedCategoryId ? (
                     <span className="fw-bold" style={{ color: "#ed1173" }}>
-                      {categories.find((c) => String(c.id) === String(selectedCategoryId))?.name}
+                      {
+                        categories.find(
+                          (c) => String(c.id) === String(selectedCategoryId),
+                        )?.name
+                      }
                     </span>
                   ) : (
                     <select
@@ -403,7 +428,7 @@ const Budget = () => {
                       categories.find(
                         (c) =>
                           String(c.id) ===
-                          String(selectedCategoryId || newCategoryId)
+                          String(selectedCategoryId || newCategoryId),
                       )?.subcategories || []
                     ).map((sub) => (
                       <option key={sub.id} value={sub.id}>
