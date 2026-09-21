@@ -13,6 +13,7 @@ import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/core.dart';
 import '../core/services/city_locator.dart';
 import '../core/services/response_cache.dart';
+import '../core/services/vendor_visibility.dart';
 import '../WedChecklist/ChecklistScreen.dart';
 import '../Wishlist/Wishlistscreen.dart';
 import '../ai_chat_screen/ai_chat_screen.dart';
@@ -1339,9 +1340,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-        final data = (decoded is Map && decoded['data'] is List)
-            ? decoded['data'] as List<dynamic>
-            : (decoded is List ? decoded : <dynamic>[]);
+        // Hidden listings are dropped before the count below, so the "N
+        // results" line matches what is actually on screen when the server
+        // sends no pagination block.
+        final data = visibleVendors(
+          (decoded is Map && decoded['data'] is List)
+              ? decoded['data'] as List<dynamic>
+              : (decoded is List ? decoded : <dynamic>[]),
+        );
 
         int total = data.length;
         if (decoded is Map && decoded['pagination'] is Map) {
@@ -1691,12 +1697,14 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     );
   }
 
-  /// The rows of a `/vendor-services` body (or a bare list).
+  /// The rows of a `/vendor-services` body (or a bare list), minus any
+  /// listing the API marks `status: "hide"`.
   static List<dynamic> _railRows(String body) {
     final decoded = json.decode(body);
-    return (decoded is Map && decoded['data'] is List)
+    final rows = (decoded is Map && decoded['data'] is List)
         ? decoded['data'] as List<dynamic>
         : (decoded is List ? decoded : <dynamic>[]);
+    return visibleVendors(rows);
   }
 
   Future<void> fetchVenues({String? city, int limit = _railPageSize}) async {
@@ -2134,7 +2142,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 vertical: 10,
               ),
               child: Text(
-                'Showing ${_searchResults.length} of $_searchTotal matches — '
+                // Was 'Showing N of $_searchTotal matches': that total is the
+                // server's, which counts `status: "hide"` listings this panel
+                // drops, so it named a number the list could never reach.
+                'Showing the first ${_searchResults.length} matches — '
                 'keep typing to narrow it down.',
                 style: AppText.caption,
               ),
@@ -5059,7 +5070,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final data = visibleVendors(json.decode(response.body));
         setState(() {
           _services = data;
           _loading = false;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:happy_wedz/core/config/api_config.dart';
+import 'package:happy_wedz/core/services/vendor_visibility.dart';
 import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
 import 'dart:convert';
@@ -1044,7 +1045,8 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
-        final List data = decoded["data"] ?? [];
+        // Listings the API marks `status: "hide"` never reach the list.
+        final List data = visibleVendors(decoded["data"] ?? []);
 
         // total pages
         final pagination = decoded["pagination"] ?? {};
@@ -1180,7 +1182,10 @@ class _VenuesScreenState extends State<VenuesScreen> {
       final res = await http.get(url, headers: {"Accept": "application/json"});
       if (res.statusCode == 200) {
         final decoded = json.decode(res.body);
-        final List<dynamic> data = (decoded['data'] ?? []) as List<dynamic>;
+        // Listings the API marks `status: "hide"` never reach the list. This
+        // also feeds the retry below, so a page that was nothing but hidden
+        // rows is treated as empty rather than rendering blanks.
+        final List<dynamic> data = visibleVendors(decoded['data'] ?? []);
 
         // Search ke sath photo-only filter lagane par kabhi kabhi 0 result aate
         // hain — us case me bina filter ke dobara try karo taaki search na tute.

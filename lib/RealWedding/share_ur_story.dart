@@ -7,6 +7,7 @@
 
 import '../core/core.dart';
 import '../core/config/api_config.dart';
+import '../core/services/vendor_visibility.dart';
 // import 'package:image_picker/image_picker.dart';
 // import 'package:http/http.dart' as http;
 // import 'package:path/path.dart';
@@ -3339,7 +3340,7 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        List list = decoded["data"] ?? [];
+        List list = visibleVendors(decoded["data"] ?? []);
 
         allVenues = list.map((v) => Venue.fromJson(v)).toList();
         setState(() {});
@@ -3430,9 +3431,9 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
         List<Venue> apiList = [];
 
         if (rawData is List) {
-          apiList = rawData.map((v) => Venue.fromJson(v)).toList();
+          apiList = visibleVendors(rawData).map((v) => Venue.fromJson(v)).toList();
         } else if (rawData is Map && rawData["data"] is List) {
-          apiList = (rawData["data"] as List).map((v) => Venue.fromJson(v)).toList();
+          apiList = visibleVendors(rawData["data"]).map((v) => Venue.fromJson(v)).toList();
         }
 
         // Merge + remove duplicates

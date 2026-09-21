@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/core.dart';
 import '../core/config/api_config.dart';
+import '../core/services/vendor_visibility.dart';
 import '../vendor/vendordetailsscreen.dart';
 
 class FavouritesPage extends StatefulWidget {
@@ -142,6 +143,11 @@ class _FavouritesPageState extends State<FavouritesPage> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+
+        // A wishlisted vendor can be taken down after it was saved; those
+        // entries resolve to nothing so the card is skipped rather than
+        // showing a listing that is hidden everywhere else.
+        if (isHiddenVendor(data)) return {};
 
         // API actual structure:
         // { id: 123, attributes: { name, city, ... } }

@@ -278,13 +278,14 @@ import '../core/core.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:happy_wedz/core/config/api_config.dart';
+import 'package:happy_wedz/core/services/vendor_visibility.dart';
 
 Future<List<Vendor>> fetchPhotographers() async {
   final url = Uri.parse('${ApiConfig.apiBase}/vendor-services?subCategory=photographers');
   final response = await http.get(url);
 
   if (response.statusCode == 200) {
-    final List data = json.decode(response.body);
+    final data = visibleVendors(json.decode(response.body));
     return data.map((json) => Vendor.fromJson(json)).toList();
   } else {
     throw Exception('Failed to load photographers');

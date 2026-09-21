@@ -39,8 +39,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.0.19"
+        versionCode = 20
+        versionName = "1.0.20"
     }
 //    signingConfigs {
 //        release {
@@ -64,7 +64,7 @@ android {
 
     buildTypes {
         debug {
-            // debug ke liye signing bilkul mat lagao
+
         }
 
         release {

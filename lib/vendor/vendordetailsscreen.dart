@@ -19,6 +19,7 @@ import 'master_facilities_section.dart';
 import '../core/core.dart';
 import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/services/response_cache.dart';
+import '../core/services/vendor_visibility.dart';
 
 // Final VendorServicesScreen — pagination, grid/list toggle, search, filters,
 // wishlist toggle, phone/WhatsApp/message actions, safe image handling.
@@ -158,11 +159,21 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     );
   }
 
+  /// The rows of a `/vendor-services` body, minus any listing the API marks
+  /// `status: "hide"`.
   static List<dynamic> _rowsOf(dynamic decoded) {
     final raw = decoded is Map ? decoded['data'] : null;
-    if (raw is List) return raw;
-    if (raw is Map) return [raw];
+    if (raw is List) return visibleVendors(raw);
+    if (raw is Map) return isHiddenVendor(raw) ? const [] : [raw];
     return const [];
+  }
+
+  /// The result count shown above the list: published listings actually on
+  /// screen, suffixed with `+` while more pages are still to load.
+  String get _resultLabel {
+    final int shown = services.length;
+    if (shown == 1 && !hasMore) return '1 result';
+    return '$shown${hasMore ? '+' : ''} results';
   }
 
   void _readPagination(dynamic decoded) {
@@ -331,7 +342,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         final data = jsonDecode(res.body);
         if (!mounted) return;
         setState(() {
-          vendorList = data["data"];
+          vendorList = visibleVendors(data["data"]);
         });
       }
     } catch (e) {
@@ -636,7 +647,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       final data = json.decode(response.body);
       if (!mounted) return;
       setState(() {
-        vendorList = data['data']; // Adjust based on API response
+        vendorList = visibleVendors(data['data']); // hidden rows removed
       });
     } else {
       debugPrint("Error fetching vendors: ${response.statusCode}");
@@ -944,10 +955,18 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                 // services.length == 1
                 //     ? '1 result'
                 //     : '${services.length} results',
-                // The server's total, not just the pages loaded so far.
-                (_total > services.length ? _total : services.length) == 1
-                    ? '1 result'
-                    : '${_total > services.length ? _total : services.length} results',
+                // Previously the server's total, not just the pages loaded so
+                // far:
+                // (_total > services.length ? _total : services.length) == 1
+                //     ? '1 result'
+                //     : '${_total > services.length ? _total : services.length} results',
+                // That total comes from `pagination.total`, which counts the
+                // `status: "hide"` listings this screen drops — so it promised
+                // more vendors than the list could ever show. Only rendered
+                // rows are counted now. The published total is not something
+                // the API reports, so while pages remain the count is an
+                // honest "N+" rather than a guess.
+                _resultLabel,
                 style: AppText.labelSm,
               ),
             )
@@ -1981,6 +2000,11 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   bool isPageLoading = false;
   dynamic fetchedService;
 
+  /// Set when the listing this screen was opened for turns out to be hidden
+  /// (`status: "hide"`), so the screen renders "no longer available" rather
+  /// than the stale row it was handed.
+  bool _isUnavailable = false;
+
   // Reviews
   bool isReviewsLoading = false;
   bool reviewsError = false;
@@ -2043,12 +2067,23 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       if (response.statusCode == 200) {
         final bodyData = jsonDecode(response.body);
         if (bodyData is Map) {
-          setState(() {
-            fetchedService = bodyData;
-          });
-          // Re-trigger review and claim check with the full fetched data
-          fetchReviewsFromApi();
-          checkClaimStatus();
+          // A listing can be taken down after the row was handed to this
+          // screen (a home rail cached hours ago, a wishlist entry, a shared
+          // link). The server still serves it by id, so the check happens
+          // here: show the unavailable state instead of the vendor.
+          if (isHiddenVendor(bodyData)) {
+            setState(() {
+              _isUnavailable = true;
+              fetchedService = null;
+            });
+          } else {
+            setState(() {
+              fetchedService = bodyData;
+            });
+            // Re-trigger review and claim check with the full fetched data
+            fetchReviewsFromApi();
+            checkClaimStatus();
+          }
         }
       }
     } catch (e) {
@@ -2118,7 +2153,13 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       }
     }
 
-    if (foundService != null) {
+    if (foundService != null && isHiddenVendor(foundService)) {
+      setState(() {
+        _isUnavailable = true;
+        fetchedService = null;
+        isPageLoading = false;
+      });
+    } else if (foundService != null) {
       setState(() {
         fetchedService = foundService;
         isPageLoading = false;
@@ -2965,6 +3006,26 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       return Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(child: Skeletons.detail(heroHeight: 300)),
+      );
+    }
+
+    // Either the fetch came back hidden, or this screen was pushed straight
+    // from a row that is hidden and no fetch corrected it.
+    if (_isUnavailable || isHiddenVendor(fetchedService ?? widget.service)) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(backgroundColor: AppColors.background, elevation: 0),
+        body: SafeArea(
+          child: EmptyState(
+            icon: Icons.storefront_outlined,
+            title: 'Listing not available',
+            message:
+                'This vendor is no longer listed on HappyWedz. Browse other '
+                'vendors instead.',
+            actionLabel: 'Go back',
+            onAction: () => Navigator.of(context).maybePop(),
+          ),
+        ),
       );
     }
 

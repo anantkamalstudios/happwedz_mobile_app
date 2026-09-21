@@ -276,6 +276,7 @@ import '../core/core.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:happy_wedz/core/config/api_config.dart';
+import 'package:happy_wedz/core/services/vendor_visibility.dart';
 
 class MakeupScreen extends StatefulWidget {
   const MakeupScreen({Key? key}) : super(key: key);
@@ -303,7 +304,7 @@ class _MakeupScreenState extends State<MakeupScreen> {
 
       if (response.statusCode == 200) {
         setState(() {
-          makeupList = json.decode(response.body);
+          makeupList = visibleVendors(json.decode(response.body));
           isLoading = false;
         });
       } else {

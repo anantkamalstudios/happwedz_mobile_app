@@ -25,6 +25,7 @@ import 'ai_chat_screen/ai_chat_screen.dart';
 import 'authservice.dart';
 import 'core/config/api_config.dart';
 import 'core/core.dart';
+import 'core/widgets/mandatory_update_gate.dart';
 import 'internetconnection.dart';
 
 /// Root navigator, so the session can tear down every pushed screen the
@@ -99,6 +100,12 @@ class MyApp extends StatelessWidget {
             children: [
               if (child != null) child,
               const ConnectivityOverlay(), // shows/hides automatically
+              // Runs the store version check once for the whole app and, when
+              // a newer release is live, locks the root navigator behind a
+              // non-dismissible update wall. Sits beside the connectivity
+              // overlay so the check exists in exactly one place and no
+              // screen — splash, auth gate or tab — repeats it.
+              MandatoryUpdateGate(navigatorKey: rootNavigatorKey),
             ],
           ),
         );

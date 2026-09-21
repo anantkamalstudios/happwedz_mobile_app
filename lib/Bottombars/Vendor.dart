@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:happy_wedz/core/config/api_config.dart';
+import 'package:happy_wedz/core/services/vendor_visibility.dart';
 
 import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
@@ -46,10 +47,10 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final data = visibleVendors(json.decode(response.body));
         if (!mounted) return;
         setState(() {
-          subcategory.services = data; // assign API data
+          subcategory.services = data; // assign API data, hidden rows removed
         });
       } else {
         debugPrint(
