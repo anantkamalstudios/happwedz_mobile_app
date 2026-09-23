@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:happy_wedz/core/config/api_config.dart';
 import 'package:happy_wedz/core/services/vendor_visibility.dart';
 import '../core/core.dart';
+import '../main.dart' show requireAuthentication;
 import '../vendor/vendordetailsscreen.dart';
 import 'dart:convert';
 
@@ -1098,6 +1099,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
   // ----------------- Local storage -----------------
   Future<void> _loadCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       currentUserId = prefs.getInt('user_id')?.toString();
     });
@@ -1402,10 +1404,15 @@ class _VenuesScreenState extends State<VenuesScreen> {
 
 
   Future<void> _toggleFavourite(Venue v) async {
-    if (currentUserId == null) {
-      AppSnackbar.info(context, 'Please sign in to manage your wishlist.');
-      return;
-    }
+    // Wishlist is per account: a guest signs in first, then the heart toggles.
+    final signedIn = await requireAuthentication(
+      context,
+      reason: 'Sign in to save venues to your wishlist.',
+    );
+    if (!signedIn || !mounted) return;
+    // This tab loaded while the user was a guest — pick up the new account.
+    if (currentUserId == null) await _loadCurrentUser();
+    if (currentUserId == null || !mounted) return;
 
     final idStr = v.id.toString();
     setState(() {
@@ -1434,7 +1441,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
       if (res.statusCode == 200) {
         final m = jsonDecode(res.body);
         final msg = m['message'] ?? 'Wishlist updated';
-        AppSnackbar.success(context, msg.toString());
+        if (mounted) AppSnackbar.success(context, msg.toString());
       }
     } catch (e) {
       debugPrint('Wishlist API error: $e');

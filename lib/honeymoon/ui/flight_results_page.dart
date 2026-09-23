@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
+import '../../main.dart' show requireAuthentication;
 import '../data/flight_filters.dart';
 import '../data/flight_search_store.dart';
 import '../data/honeymoon_api.dart';
@@ -1500,6 +1501,17 @@ class _FlightResultsPageState extends State<FlightResultsPage> {
       AppSnackbar.error(context, 'Unable to get flight pricing information.');
       return;
     }
+
+    // Booking, saved travellers, hold and payment all need an account. Ask
+    // now — on top of the results — so the traveller continues into the
+    // booking flow right after signing in.
+    if (!await requireAuthentication(
+      context,
+      reason: 'Sign in to book this flight.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
 
     setState(() {
       _busyLabel = 'Checking the latest fare…';

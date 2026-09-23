@@ -21,6 +21,7 @@ import '../budget/budget.dart';
 import '../einvite1/einvite.dart';
 import '../guestlist/guestlist.dart';
 import '../ideas.dart';
+import '../authservice.dart';
 import '../main.dart';
 import '../profile.dart';
 import '../vendor/vendordetailsscreen.dart';
@@ -1162,12 +1163,43 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   @override
   void initState() {
     super.initState();
+    _wasSignedIn = AuthSession.instance.isAuthenticated;
+    AuthSession.instance.addListener(_onAuthChanged);
     _bootstrap();
     loadStories();
     _loadChecklistSummary();
     _loadBudgetSummary();
     _loadGuestSummary();
     _loadWishlistSummary();
+  }
+
+  bool _wasSignedIn = false;
+
+  /// This tab lives in the shell's IndexedStack and is not rebuilt when a
+  /// guest signs in from somewhere else, so the personal dashboard reloads
+  /// itself. (Logout rebuilds the whole shell, clearing it.)
+  void _onAuthChanged() {
+    final signedIn = AuthSession.instance.isAuthenticated;
+    if (signedIn && !_wasSignedIn && mounted) {
+      _loadChecklistSummary();
+      _loadBudgetSummary();
+      _loadGuestSummary();
+      _loadWishlistSummary();
+    }
+    _wasSignedIn = signedIn;
+  }
+
+  /// Opens one of the personal planning tools, asking a guest to sign in
+  /// first; refreshes the matching dashboard figure on the way back.
+  Future<void> _openPersonal(
+    Widget page, {
+    required String reason,
+    Future<void> Function()? thenReload,
+  }) async {
+    final signedIn = await requireAuthentication(context, reason: reason);
+    if (!signedIn || !mounted) return;
+    await Navigator.of(context).push(AnimatedPageRoute(page: page));
+    if (thenReload != null) await thenReload();
   }
 
   /// Restores the saved city *before* the first fetch so the home page opens
@@ -2266,6 +2298,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
 
   @override
   void dispose() {
+    AuthSession.instance.removeListener(_onAuthChanged);
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -2309,16 +2342,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                           completedCount: completedCount,
                           totalTasks: totalTasks,
                           upcomingTasks: upcomingTasks,
-                          onTap: () async {
-                            await Navigator.of(context).push(
-                              AnimatedPageRoute(
-                                page: const WeddingTimelinePage(),
-                              ),
-                            );
-
-                            // 🔥 refresh summary after coming back
-                            await _loadChecklistSummary();
-                          },
+                          // 🔥 refresh summary after coming back
+                          onTap: () => _openPersonal(
+                            const WeddingTimelinePage(),
+                            reason: 'Sign in to build your wedding checklist.',
+                            thenReload: _loadChecklistSummary,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         _buildDashboardSummaryCards(),
@@ -2348,7 +2377,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             right: 20,
             child: Pressable(
               scale: 0.9,
-              onTap: () {
+              onTap: () async {
+                // Shaadi AI is for signed-in users.
+                final signedIn = await requireAuthentication(
+                  context,
+                  reason: 'Sign in to chat with Shaadi AI, your wedding planning assistant.',
+                );
+                if (!signedIn || !mounted) return;
                 Navigator.push(
                   context,
                   AnimatedPageRoute(
@@ -2698,9 +2733,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 icon: Icons.person_outline_rounded,
                 tooltip: 'Profile',
                 onTap: () async {
-                  // Profile is a protected screen — confirm the session is
-                  // still valid; AuthGate handles the redirect if it is not.
-                  final loggedIn = await ensureLoggedIn(context);
+                  // Profile is a protected screen — a guest is asked to sign
+                  // in first and then continues straight to it.
+                  final loggedIn = await requireAuthentication(
+                    context,
+                    reason: 'Sign in to view and edit your profile.',
+                  );
                   if (!mounted || !loggedIn) return;
 
                   Navigator.push(
@@ -3655,12 +3693,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 caption: budgetTotal > 0
                     ? 'of ₹${budgetTotal.toStringAsFixed(0)}'
                     : 'Set your budget',
-                onTap: () async {
-                  await Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (_) => const BudgetPage()));
-                  await _loadBudgetSummary();
-                },
+                onTap: () => _openPersonal(
+                  const BudgetPage(),
+                  reason: 'Sign in to plan and track your wedding budget.',
+                  thenReload: _loadBudgetSummary,
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -3672,14 +3709,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 loading: guestsLoading,
                 value: '$attendingGuestsCount',
                 caption: 'of $totalGuestsCount attending',
-                onTap: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const GuestListDashboard(),
-                    ),
-                  );
-                  await _loadGuestSummary();
-                },
+                onTap: () => _openPersonal(
+                  const GuestListDashboard(),
+                  reason: 'Sign in to build and manage your guest list.',
+                  thenReload: _loadGuestSummary,
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -3691,12 +3725,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                 loading: wishlistLoading,
                 value: '$wishlistCount',
                 caption: wishlistCount == 1 ? 'vendor saved' : 'vendors saved',
-                onTap: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const FavouritesPage()),
-                  );
-                  await _loadWishlistSummary();
-                },
+                onTap: () => _openPersonal(
+                  const FavouritesPage(),
+                  reason: 'Sign in to see the vendors you have saved.',
+                  thenReload: _loadWishlistSummary,
+                ),
               ),
             ),
           ],

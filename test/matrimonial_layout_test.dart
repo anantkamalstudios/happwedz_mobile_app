@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:happy_wedz/core/core.dart';
 import 'package:happy_wedz/matrimonial/ui/dashboard/matrimonial_dashboard_page.dart';
+import 'package:happy_wedz/matrimonial/ui/matrimonial_landing_page.dart';
 import 'package:happy_wedz/matrimonial/ui/matrimonial_registration_page.dart';
 
 const List<double> phoneWidths = [320, 360, 375, 390, 414];
@@ -215,5 +216,24 @@ void main() {
       expectNoOverflow(tester, 'dashboard Profile tab');
       expect(find.text("You haven't completed your profile yet"), findsOneWidget);
     });
+  });
+
+  group('MatrimonialLandingPage', () {
+    // Tall viewport so every section (incl. the fixed-height Success Stories
+    // and membership plan carousels) is built and laid out.
+    for (final width in phoneWidths) {
+      for (final scale in [1.0, maxTextScale]) {
+        testWidgets('renders at ${width}px, text x$scale with no overflow',
+            (tester) async {
+          await tester.pumpPhone(
+            const MatrimonialLandingPage(),
+            width: width,
+            height: 4000,
+            textScale: scale,
+          );
+          expectNoOverflow(tester, 'landing page at ${width}px x$scale');
+        });
+      }
+    }
   });
 }

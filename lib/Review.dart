@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'core/config/api_config.dart';
 import 'core/core.dart';
+import 'main.dart' show requireAuthentication;
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -790,12 +791,19 @@ class _AdditionalDetailsScreenState extends State<AdditionalDetailsScreen> {
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final authToken = prefs.getString('auth_token');
-    if (authToken == null || authToken.isEmpty) {
-      AppSnackbar.info(context, 'Please sign in to post a review.');
+    // Normally already signed in (the entry points ask first); this covers a
+    // session that ended while the review was being written — the text the
+    // user typed stays on screen underneath the sign-in page.
+    if (!await requireAuthentication(
+      context,
+      reason: 'Sign in to post your review.',
+    )) {
       return;
     }
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final authToken = prefs.getString('auth_token');
+    if (authToken == null || authToken.isEmpty) return;
 
     final Map<String, dynamic> body = {
       'vendor_id': int.parse(vendorId),

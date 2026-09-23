@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import '../main.dart' show requireAuthentication;
 import 'package:happy_wedz/core/config/api_config.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -18,6 +19,11 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 
 import 'dart:typed_data';
+
+import 'data/einvite_design.dart';
+import 'ui/einvite_editor_screen.dart';
+import 'ui/einvite_my_cards_screen.dart';
+import 'ui/einvite_page_view.dart';
 
 
 
@@ -785,6 +791,15 @@ class EInvitationScreen extends StatelessWidget {
           'Create Your E-Invitation',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          // The website's "My Cards" (`/einvites/my-cards`): invitations the
+          // customer has saved to their account.
+          IconButton(
+            tooltip: 'Your cards',
+            icon: const Icon(Icons.collections_bookmark_outlined),
+            onPressed: () => openMyEinviteCards(context),
+          ),
+        ],
       ),
 
       body: Padding(
@@ -978,6 +993,10 @@ class EInviteCard {
   final String backgroundUrl;
   final List<EInviteEditableField> editableFields;
 
+  /// The template exactly as the API sent it, so the grid can draw the real
+  /// design — every live template has `thumbnailUrl: null`.
+  final Map<String, dynamic> raw;
+
   EInviteCard({
     required this.id,
     required this.name,
@@ -985,6 +1004,7 @@ class EInviteCard {
     required this.thumbnailUrl,
     required this.backgroundUrl,
     required this.editableFields,
+    this.raw = const {},
   });
 
   factory EInviteCard.fromJson(Map<String, dynamic> json) {
@@ -1027,10 +1047,19 @@ final einviteProvider = FutureProvider<List<EInviteCard>>((ref) async {
     String bg = item['backgroundUrl'] ?? "";
 
     // Parse editable fields
-    final List<EInviteEditableField> fields =
-    (item['editableFields'] as List)
-        .map((f) => EInviteEditableField.fromJson(f))
-        .toList();
+    // final List<EInviteEditableField> fields =
+    // (item['editableFields'] as List)
+    //     .map((f) => EInviteEditableField.fromJson(f))
+    //     .toList();
+    // Only the older on-device editor reads these. A single malformed legacy
+    // field used to throw here and blank the whole template list; the
+    // current editor builds its pages from `raw` instead.
+    List<EInviteEditableField> fields = const [];
+    try {
+      fields = (item['editableFields'] as List)
+          .map((f) => EInviteEditableField.fromJson(f))
+          .toList();
+    } catch (_) {}
 
     return EInviteCard(
       id: item['id'] ?? "",
@@ -1039,6 +1068,7 @@ final einviteProvider = FutureProvider<List<EInviteCard>>((ref) async {
       thumbnailUrl: thumb,
       backgroundUrl: bg,
       editableFields: fields,
+      raw: Map<String, dynamic>.from(item as Map),
     );
   }).toList();
 
@@ -1127,14 +1157,21 @@ class TemplateListByTypeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(title),
         actions: [
+          // IconButton(
+          //   icon: Icon(Icons.drafts_outlined),
+          //   onPressed: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(builder: (_) => DraftListScreen()),
+          //     );
+          //   },
+          // ),
+          // Cards now save to the customer's account; older phone-only
+          // drafts are still reachable from inside "Your cards".
           IconButton(
-            icon: Icon(Icons.drafts_outlined),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => DraftListScreen()),
-              );
-            },
+            tooltip: 'Your cards',
+            icon: const Icon(Icons.collections_bookmark_outlined),
+            onPressed: () => openMyEinviteCards(context),
           ),
         ],
       ),
@@ -1183,13 +1220,24 @@ class EInviteTemplateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
 
+        // onTap: () {
+        //   Navigator.push(
+        //     context,
+        //     MaterialPageRoute(
+        //       builder: (_) => EditorScreen(
+        //         card: item,
+        //       ),
+        //     ),
+        //   );
+        // },
+        // The old `EditorScreen` placed design-version-2 fields as pixels
+        // and saved only to this phone; the current editor matches the
+        // website and saves to the customer's account.
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => EditorScreen(
-                card: item,
-              ),
+              builder: (_) => EinviteEditorScreen(cardId: item.id),
             ),
           );
         },
@@ -1201,9 +1249,10 @@ class EInviteTemplateCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            Expanded(
-              child: NetworkImageWidget(url: item.thumbnailUrl, fit: BoxFit.cover),
-            ),
+            // Expanded(
+            //   child: NetworkImageWidget(url: item.thumbnailUrl, fit: BoxFit.cover),
+            // ),
+            Expanded(child: _TemplatePreview(item: item)),
 
             Padding(
               padding: const EdgeInsets.all(8),
@@ -1217,6 +1266,31 @@ class EInviteTemplateCard extends StatelessWidget {
             )
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A template's own first page, drawn from its design — how the website
+/// shows templates. Uses the thumbnail instead when one exists.
+class _TemplatePreview extends StatelessWidget {
+  const _TemplatePreview({required this.item});
+
+  final EInviteCard item;
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.thumbnailUrl.isNotEmpty) {
+      return NetworkImageWidget(url: item.thumbnailUrl, fit: BoxFit.cover);
+    }
+    final pages = getCardPages(item.raw);
+    if (pages.isEmpty) {
+      return const NetworkImageWidget(url: null);
+    }
+    return ColoredBox(
+      color: AppColors.blush,
+      child: Center(
+        child: IgnorePointer(child: EinvitePageView(page: pages.first)),
       ),
     );
   }
@@ -2119,4 +2193,19 @@ class WebViewScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// "Your cards" lists invitations saved to the account, so a guest is asked
+/// to sign in first. Browsing and editing templates stays public.
+Future<void> openMyEinviteCards(BuildContext context) async {
+  final signedIn = await requireAuthentication(
+    context,
+    reason: 'Sign in to see the invitations you have saved.',
+  );
+  if (!signedIn || !context.mounted) return;
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const EinviteMyCardsScreen()),
+  );
 }

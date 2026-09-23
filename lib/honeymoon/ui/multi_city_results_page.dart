@@ -19,6 +19,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
+import '../../main.dart' show requireAuthentication;
 import '../data/flight_filters.dart';
 import '../data/honeymoon_api.dart';
 import '../models/booking_models.dart';
@@ -286,6 +287,15 @@ class _MultiCityResultsPageState extends State<MultiCityResultsPage> {
     if (!_canContinue || _submitting) return;
     final legs = _bookableLegs;
     if (legs.isEmpty) return;
+
+    // Same as the one-way/round-trip Book: sign in first, then continue.
+    if (!await requireAuthentication(
+      context,
+      reason: 'Sign in to book these flights.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
 
     setState(() => _submitting = true);
     try {

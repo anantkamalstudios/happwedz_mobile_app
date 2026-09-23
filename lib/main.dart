@@ -117,16 +117,17 @@ class MyApp extends StatelessWidget {
 
 /// The single entry point of the app.
 ///
-/// It owns the answer to "is the user signed in?" and rebuilds the whole tree
-/// whenever that changes:
+/// Guest-first: once the stored session has been read the app shell opens for
+/// everybody — signed in or not. Login is requested only by protected actions
+/// through [requireAuthentication].
 ///
 /// ```
-/// Splash → check session → authenticated ? BottomBars : SignInScreen
+/// Splash → read session → authenticated ? LOGGED_IN : GUEST → BottomBars
 /// ```
 ///
-/// Because it sits at the root of the navigator, an unauthenticated user is
-/// never given a protected screen to begin with — there is nothing to reach by
-/// back navigation, deep link or direct push.
+/// When a signed-in session ends (logout, expiry, 401) the gate unwinds every
+/// pushed screen — so no protected screen survives by back navigation — and
+/// rebuilds the shell so no screen keeps showing the previous user's data.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -136,6 +137,10 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   final AuthSession _session = AuthSession.instance;
+
+  /// Last published answer, so only a signed-in → guest transition tears the
+  /// stack down (a guest browsing public screens is never yanked back home).
+  bool _wasAuthenticated = false;
 
   @override
   void initState() {
@@ -168,15 +173,27 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     ]);
   }
 
-  /// The gate only rebuilds itself, so anything pushed on top of it has to be
-  /// torn down explicitly — otherwise a protected screen would survive logout
-  /// or a token expiring mid-session.
   void _onSessionChanged() {
-    if (_session.isAuthenticated) return;
+    final nowAuthenticated = _session.isAuthenticated;
+    final sessionEnded = _wasAuthenticated && !nowAuthenticated;
+    _wasAuthenticated = nowAuthenticated;
+    if (!sessionEnded) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final navigator = rootNavigatorKey.currentState;
       if (navigator != null && navigator.canPop()) {
         navigator.popUntil((route) => route.isFirst);
+      }
+      // A deliberate logout is confirmed by the Log out button itself; an
+      // expired or rejected token gets explained here, once.
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null &&
+          _session.lastSignOutReason == SignOutReason.sessionExpired) {
+        AppSnackbar.info(
+          ctx,
+          'Your session has ended. You can keep browsing — sign in again to '
+          'access your account.',
+        );
       }
     });
   }
@@ -192,9 +209,10 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             body: BrandSplash(),
           );
         }
-        return _session.isAuthenticated
-            ? const BottomBars()
-            : const SignInScreen();
+        // Keyed on the session epoch: a new shell (and fresh tab state) after
+        // every logout, but *not* after login, so signing in from inside a
+        // flow never resets the tab the user was on.
+        return BottomBars(key: ValueKey(_session.sessionEpoch));
       },
     );
   }
@@ -251,8 +269,14 @@ class CountryData {
   ];
 }
 
+/// Sign in / sign up. Opened on demand by [requireAuthentication] — never as
+/// the app's root — and pops itself with `true` once a session is stored.
+/// Closing it (✕, back) leaves the user a guest on the screen they came from.
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({Key? key}) : super(key: key);
+  const SignInScreen({Key? key, this.reason}) : super(key: key);
+
+  /// Why sign-in is being asked for, e.g. "Sign in to book this stay".
+  final String? reason;
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -305,6 +329,7 @@ class _SignInScreenState extends State<SignInScreen> {
       final String? idToken = credential.identityToken;
       if (idToken == null || idToken.isEmpty) {
         await _showError(
+        apple: true,
           title: 'Sign-in failed',
           message:
               "We couldn't verify your Apple account. Please try signing in again.",
@@ -335,6 +360,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
       if (response.statusCode != 200) {
         await _showError(
+        apple: true,
           title: AppErrorMessage.titleFor('${response.statusCode}'),
           message:
               serverMessage ??
@@ -345,6 +371,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
       if (data is! Map || data['success'] != true) {
         await _showError(
+        apple: true,
           title: 'Sign-in failed',
           message: serverMessage ?? 'Please try signing in again.',
         );
@@ -362,6 +389,7 @@ class _SignInScreenState extends State<SignInScreen> {
           token == null ||
           token.isEmpty) {
         await _showError(
+        apple: true,
           title: 'Sign-in failed',
           message:
               'The sign-in response was incomplete. Please try again in a moment.',
@@ -392,8 +420,10 @@ class _SignInScreenState extends State<SignInScreen> {
         _showSnackBar('Welcome ${user['name'] ?? ''}'.trim());
       }
 
-      // 3️⃣ Publish the session — AuthGate rebuilds straight into BottomBars.
+      // 3️⃣ Publish the session, then hand control back to the action that
+      // asked for sign-in.
       await AuthSession.instance.refresh();
+      _finishSignIn();
     } on SignInWithAppleAuthorizationException catch (e) {
       // Backing out of the Apple sheet is a normal outcome, not an error.
       if (e.code == AuthorizationErrorCode.canceled) {
@@ -402,28 +432,33 @@ class _SignInScreenState extends State<SignInScreen> {
       }
       debugPrint('🚨 Apple Sign-In authorization error: ${e.code} ${e.message}');
       await _showError(
+        apple: true,
         title: 'Sign-in failed',
         message: 'Apple could not complete the sign-in. Please try again.',
       );
     } on SignInWithAppleNotSupportedException {
       await _showError(
+        apple: true,
         title: 'Sign-in unavailable',
         message:
             'Sign in with Apple needs iOS 13 or later. Please use Google instead.',
       );
     } on SocketException catch (e) {
       await _showError(
+        apple: true,
         title: AppErrorMessage.offlineTitle,
         message: AppErrorMessage.bodyFor(e),
       );
     } on TimeoutException {
       await _showError(
+        apple: true,
         title: AppErrorMessage.timeoutTitle,
         message: AppErrorMessage.timeoutBody,
       );
     } catch (e, stack) {
       debugPrint('🚨 Apple Sign-In failed: $e\n$stack');
       await _showError(
+        apple: true,
         title: AppErrorMessage.titleFor(e),
         message: AppErrorMessage.bodyFor(e),
       );
@@ -582,8 +617,10 @@ class _SignInScreenState extends State<SignInScreen> {
         _showSnackBar('Welcome ${user['name'] ?? ''}'.trim());
       }
 
-      // 3️⃣ Publish the session — AuthGate rebuilds straight into BottomBars.
+      // 3️⃣ Publish the session, then hand control back to the action that
+      // asked for sign-in.
       await AuthSession.instance.refresh();
+      _finishSignIn();
     } on SocketException catch (e) {
       await _showError(
         title: AppErrorMessage.offlineTitle,
@@ -627,6 +664,15 @@ class _SignInScreenState extends State<SignInScreen> {
     AppSnackbar.info(context, message);
   }
 
+  /// Closes the sign-in screen, reporting whether a session now exists.
+  void _finishSignIn() {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop(AuthSession.instance.isAuthenticated);
+    }
+  }
+
   /// Opens the HappyWedz Vendors app on the Play Store.
   ///
   /// Tries the `market:` scheme first so the Play Store app handles it
@@ -665,6 +711,7 @@ class _SignInScreenState extends State<SignInScreen> {
   Future<void> _showError({
     required String title,
     required String message,
+    bool apple = false,
   }) async {
     if (!mounted) return;
     await ErrorPopup.show(
@@ -675,7 +722,7 @@ class _SignInScreenState extends State<SignInScreen> {
       // Deferred by a frame so the in-flight attempt finishes releasing the
       // re-entrancy guard before the retry starts.
       onRetry: () => WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _signInWithGoogle(),
+        (_) => apple ? _signInWithApple() : _signInWithGoogle(),
       ),
     );
   }
@@ -702,7 +749,22 @@ class _SignInScreenState extends State<SignInScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          SizedBox(height: height * 0.07),
+                          // Signing in is optional — the user can always
+                          // back out and keep browsing as a guest.
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton(
+                              tooltip: 'Close',
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: AppColors.textDark,
+                              ),
+                              onPressed: () =>
+                                  Navigator.of(context).maybePop(false),
+                            ),
+                          ),
+
+                          SizedBox(height: height * 0.03),
 
                           // Brand mark
                           FadeSlideIn(
@@ -745,7 +807,8 @@ class _SignInScreenState extends State<SignInScreen> {
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
-                                  'Sign in to plan, book and manage your\nbig day — all in one place.',
+                                  widget.reason ??
+                                      'Sign in to plan, book and manage your\nbig day — all in one place.',
                                   textAlign: TextAlign.center,
                                   style: AppText.bodySm.copyWith(
                                     color: AppColors.textDark.withValues(
@@ -796,6 +859,13 @@ class _SignInScreenState extends State<SignInScreen> {
                           ),
 
                           const SizedBox(height: AppSpacing.lg),
+
+                          PremiumButton.text(
+                            label: 'Continue browsing',
+                            expanded: true,
+                            onPressed: () =>
+                                Navigator.of(context).maybePop(false),
+                          ),
 
                           PremiumButton.text(
                             label: 'Looking for a Business Account?',
@@ -1523,18 +1593,60 @@ class _WeddingCityScreenState extends State<WeddingCityScreen> {
 
 
 
-/// Re-checks the stored session before a protected action runs.
+/// The one gate for protected actions.
 ///
-/// The app is gated at the root by [AuthGate], so this is a second line of
-/// defence for tokens that expire while the user is inside the app: when the
-/// session is gone, [AuthSession] notifies the gate, which tears the stack
-/// down and shows the login screen. Callers only need the boolean.
-Future<bool> ensureLoggedIn(BuildContext context) async {
-  return AuthSession.instance.refresh();
+/// ```
+/// protected action → session valid? → yes: continue
+///                                    → no:  sign-in screen → success? continue
+///                                                          → cancel:  stay guest
+/// ```
+///
+/// Returns `true` when the caller may continue: the user was already signed in
+/// or has just signed in. The sign-in screen is pushed *on top* of the current
+/// screen and pops itself afterwards, so the user lands back exactly where they
+/// were and the original action runs — no trip back to Home.
+///
+/// [reason] is shown on the sign-in screen ("Sign in to book this stay").
+/// Concurrent calls share one sign-in screen instead of stacking several.
+Future<bool> requireAuthentication(
+  BuildContext context, {
+  String? reason,
+}) async {
+  if (await AuthSession.instance.refresh()) return true;
+  if (!context.mounted) return false;
+
+  final pending = _pendingSignIn;
+  if (pending != null) return pending;
+
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final future = navigator
+      .push<bool>(
+        AnimatedPageRoute<bool>(
+          page: SignInScreen(reason: reason),
+          style: PageTransitionStyle.slideUp,
+          fullscreenDialog: true,
+        ),
+      )
+      // The route result is a hint; the session is the source of truth.
+      .then((_) => AuthSession.instance.isAuthenticated);
+  _pendingSignIn = future;
+  try {
+    return await future;
+  } finally {
+    _pendingSignIn = null;
+  }
 }
 
+Future<bool>? _pendingSignIn;
+
+/// Kept for existing call sites — every protected action goes through
+/// [requireAuthentication], which asks a guest to sign in and then continues.
+Future<bool> ensureLoggedIn(BuildContext context, {String? reason}) =>
+    requireAuthentication(context, reason: reason);
+
 /// Logout entry point used everywhere: clears the session, then unwinds the
-/// navigator so no protected screen is left behind [AuthGate].
+/// navigator so no protected screen is left behind. The app continues in
+/// guest mode on the Home tab.
 Future<void> signOutToLogin(BuildContext context) async {
   // AUDIT FIX (async context): the navigator was resolved *after* the await,
   // and `Navigator.maybeOf(context)` on a context whose element has since been
@@ -1543,7 +1655,7 @@ Future<void> signOutToLogin(BuildContext context) async {
   // GlobalKey and stays safe to read at any time.
   final NavigatorState? fallback = Navigator.maybeOf(context);
 
-  await AuthSession.instance.signOut();
+  await AuthSession.instance.signOut(reason: SignOutReason.userLogout);
 
   final navigator = rootNavigatorKey.currentState ?? fallback;
   if (navigator != null && navigator.mounted && navigator.canPop()) {

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../authservice.dart';
 import '../../core/core.dart';
+import '../../main.dart' show requireAuthentication;
 import '../data/honeymoon_api.dart';
 import '../data/cab_draft_store.dart';
 import '../data/hotel_draft_store.dart';
@@ -80,13 +81,23 @@ class _HoneymoonHomePageState extends State<HoneymoonHomePage> {
         slivers: [
           SliverToBoxAdapter(
             child: HoneymoonHero(
-              onOpenTrips: () => Navigator.push(
-                context,
-                AnimatedPageRoute(
-                  page: MyTripsPage(api: _api),
-                  style: PageTransitionStyle.slideRight,
-                ),
-              ),
+              onOpenTrips: () async {
+                // My Trips lists the account's bookings.
+                if (!await requireAuthentication(
+                  context,
+                  reason: 'Sign in to see your trips.',
+                )) {
+                  return;
+                }
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  AnimatedPageRoute(
+                    page: MyTripsPage(api: _api),
+                    style: PageTransitionStyle.slideRight,
+                  ),
+                );
+              },
               child: HoneymoonServiceTabs(
                 selected: _service,
                 onSelected: (s) => setState(() => _service = s),
@@ -258,7 +269,7 @@ class _ResumeHotelBookingState extends State<_ResumeHotelBooking> {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Your session ended before payment. Your details are saved — '
+              'You stopped before payment. Your details are saved — '
               'the price is checked again when you continue.',
               style: AppText.caption,
             ),
@@ -383,7 +394,7 @@ class _ResumeCabBookingState extends State<_ResumeCabBooking> {
             const SizedBox(height: AppSpacing.xs),
             Text(
               stale ??
-                  'Your session ended before payment. Your details are saved '
+                  'You stopped before payment. Your details are saved '
                       '— the price is checked again when you continue.',
               style: AppText.caption,
             ),
@@ -436,7 +447,15 @@ class _RecentHotelBookingsState extends State<_RecentHotelBookings> {
   @override
   void initState() {
     super.initState();
+    // Reload when a guest signs in from a booking flow on top of this page.
+    AuthSession.instance.addListener(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    AuthSession.instance.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {

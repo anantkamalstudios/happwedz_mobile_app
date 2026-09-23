@@ -21,6 +21,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
+import '../../main.dart' show requireAuthentication;
 import 'matrimonial_profile_page.dart';
 import 'matrimonial_registration_page.dart';
 import 'matrimonial_search_page.dart';
@@ -31,6 +32,20 @@ import 'dashboard/matrimonial_edit_profile_page.dart';
 /// faking success. Used by every non-functional action across this module.
 void showMatrimonialGate(BuildContext context, String message) {
   AppSnackbar.warning(context, message);
+}
+
+/// Opens a matrimonial page that belongs to the user's own account (profile,
+/// dashboard, registration). A guest signs in first and then lands on the
+/// page they tapped; cancelling keeps them on the landing page. Browsing and
+/// searching profiles stay public.
+Future<void> openMatrimonialAccountPage(
+  BuildContext context,
+  Widget page, {
+  required String reason,
+}) async {
+  final signedIn = await requireAuthentication(context, reason: reason);
+  if (!signedIn || !context.mounted) return;
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 }
 
 class MatrimonialLandingPage extends StatelessWidget {
@@ -46,15 +61,19 @@ class MatrimonialLandingPage extends StatelessWidget {
           IconButton(
             tooltip: 'Edit profile',
             icon: const Icon(Icons.person_outline),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MatrimonialEditProfilePage()),
+            onPressed: () => openMatrimonialAccountPage(
+              context,
+              const MatrimonialEditProfilePage(),
+              reason: 'Sign in to create your matrimonial profile.',
             ),
           ),
           IconButton(
             tooltip: 'My dashboard',
             icon: const Icon(Icons.dashboard_customize_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MatrimonialDashboardPage()),
+            onPressed: () => openMatrimonialAccountPage(
+              context,
+              const MatrimonialDashboardPage(),
+              reason: 'Sign in to see your matches, interests and messages.',
             ),
           ),
         ],
@@ -113,8 +132,10 @@ class _Hero extends StatelessWidget {
           AppSpacing.h24,
           PremiumButton.secondary(
             label: 'Register Free',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MatrimonialRegistrationPage()),
+            onPressed: () => openMatrimonialAccountPage(
+              context,
+              const MatrimonialRegistrationPage(),
+              reason: 'Sign in to register for HappyWedz Matrimonial.',
             ),
           ),
           AppSpacing.h12,
@@ -215,16 +236,26 @@ class _MembersPlan extends StatelessWidget {
           title: 'Choose Your Membership Plan',
           subtitle: 'Find the perfect plan to meet your matchmaking needs',
         ),
-        SizedBox(
-          height: 300,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            itemCount: _plans.length,
-            separatorBuilder: (_, __) => AppSpacing.w12,
-            itemBuilder: (context, i) => SizedBox(
-              width: 230,
-              child: _PlanCard(plan: _plans[i]),
+        // Sized to the tallest plan instead of a fixed 300 px, which the
+        // Platinum plan (5 features) overflowed — worse at larger system
+        // font sizes. IntrinsicHeight + stretch keeps every card the same
+        // height so the "Select Plan" buttons still line up. Only 3 plans,
+        // so building them all at once (no lazy ListView) costs nothing.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < _plans.length; i++) ...[
+                  if (i > 0) AppSpacing.w12,
+                  SizedBox(
+                    width: 230,
+                    child: _PlanCard(plan: _plans[i]),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -352,20 +383,25 @@ class _StoryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            height: 70,
-            decoration: BoxDecoration(
-              gradient: AppColors.blushGradient,
-              borderRadius: AppRadii.rMd,
+          // The card has a fixed height (the carousel is 190 px), so the
+          // banner takes whatever the text and button leave rather than a
+          // fixed 70 px — that overflowed by a few pixels on real devices and
+          // more at larger system font sizes.
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: AppColors.blushGradient,
+                borderRadius: AppRadii.rMd,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.favorite, color: AppColors.primary, size: 28),
             ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.favorite, color: AppColors.primary, size: 28),
           ),
           AppSpacing.h8,
           Text(story.names, style: AppText.bodyStrong, maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text('Married: ${story.date}', style: AppText.caption),
+          Text('Married: ${story.date}', style: AppText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
           Text(story.location, style: AppText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const Spacer(),
           Row(
             children: [
               Expanded(

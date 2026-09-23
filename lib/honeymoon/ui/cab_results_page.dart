@@ -23,8 +23,9 @@ import 'package:flutter/cupertino.dart'
     show CupertinoDatePicker, CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 
-import '../../authservice.dart';
+// import '../../authservice.dart'; // GUEST-FIRST: gate moved to requireAuthentication
 import '../../core/core.dart';
+import '../../main.dart' show requireAuthentication;
 import '../data/cab_draft_store.dart';
 import '../data/honeymoon_api.dart';
 import '../models/cab_models.dart';
@@ -868,11 +869,14 @@ class _CabResultsPageState extends State<CabResultsPage> {
     });
   }
 
-  /// Booking is login-gated, as on the web. A lapsed session parks the
-  /// choice first; `AuthGate` then takes the traveller to sign in, and the
-  /// honeymoon screen offers the booking back afterwards.
+  /// Booking is login-gated, as on the web. A guest signs in on top of the
+  /// results and goes straight on to the booking form; backing out parks the
+  /// choice so the honeymoon screen can offer it back.
   Future<void> _select(CabQuote quote) async {
-    if (!await AuthSession.instance.refresh()) {
+    if (!await requireAuthentication(
+      context,
+      reason: 'Sign in to book this cab.',
+    )) {
       await CabDraftStore.save(
         CabBookingDraft(
           query: _query,

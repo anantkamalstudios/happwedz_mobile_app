@@ -17,6 +17,7 @@ import '../chat_page_new.dart';
 import 'request_pricing_sheet.dart';
 import 'master_facilities_section.dart';
 import '../core/core.dart';
+import '../main.dart' show requireAuthentication;
 import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/services/response_cache.dart';
 import '../core/services/vendor_visibility.dart';
@@ -316,6 +317,19 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     });
   }
 
+  /// Account-only actions on this screen (wishlist, pricing, chat, review)
+  /// go through here: a guest is asked to sign in and, on success, the action
+  /// carries on with the freshly signed-in user.
+  Future<bool> _ensureSignedIn(String reason) async {
+    final signedIn = await requireAuthentication(context, reason: reason);
+    if (!signedIn || !mounted) return false;
+    // This screen may have loaded while the user was still a guest.
+    if (currentUserId == null || currentUserId!.isEmpty) {
+      await _loadCurrentUser();
+    }
+    return mounted && currentUserId != null && currentUserId!.isNotEmpty;
+  }
+
   Future<void> fetchServices() async {
     setState(() => isLoading = true);
 
@@ -523,8 +537,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   }
 
   Future<void> _toggleFavourite(String vendorServiceId) async {
-    if (currentUserId == null) {
-      AppSnackbar.info(context, 'Please sign in to manage your wishlist.');
+    if (!await _ensureSignedIn('Sign in to save vendors to your wishlist.')) {
       return;
     }
 
@@ -572,7 +585,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
             favouriteVendors.remove(vendorServiceId);
           }
         });
-        AppSnackbar.error(context, 'Session expired. Please log in again.');
+        // GUEST-FIRST: the app now explains an ended session itself (once) and
+        // continues in guest mode, so this screen no longer shows its own.
+        // AppSnackbar.error(context, 'Session expired. Please log in again.');
         // AUDIT FIX: this only showed a message and reverted the optimistic
         // toggle — the expired token stayed in storage, so every subsequent
         // authenticated action kept silently failing the same way instead of
@@ -912,13 +927,21 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           ),
           const SizedBox(width: AppSpacing.sm),
           Pressable(
-            onTap: () => Navigator.push(
-              context,
-              AnimatedPageRoute(
-                page: const AiChatScreen(),
-                style: PageTransitionStyle.slideUp,
-              ),
-            ),
+            onTap: () async {
+              // Shaadi AI is for signed-in users.
+              final signedIn = await requireAuthentication(
+                context,
+                reason: 'Sign in to chat with Shaadi AI, your wedding planning assistant.',
+              );
+              if (!signedIn || !context.mounted) return;
+              Navigator.push(
+                context,
+                AnimatedPageRoute(
+                  page: const AiChatScreen(),
+                  style: PageTransitionStyle.slideUp,
+                ),
+              );
+            },
             child: Container(
               height: 44,
               width: 44,
@@ -2207,9 +2230,45 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
   Future<void> _loadCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       currentUserId = prefs.getInt('user_id')?.toString();
     });
+  }
+
+  /// Account-only actions on this screen (wishlist, pricing, chat, review)
+  /// go through here: a guest is asked to sign in and, on success, the action
+  /// carries on with the freshly signed-in user.
+  Future<bool> _ensureSignedIn(String reason) async {
+    final signedIn = await requireAuthentication(context, reason: reason);
+    if (!signedIn || !mounted) return false;
+    // This screen may have loaded while the user was still a guest.
+    if (currentUserId == null || currentUserId!.isEmpty) {
+      await _loadCurrentUser();
+    }
+    return mounted && currentUserId != null && currentUserId!.isNotEmpty;
+  }
+
+  /// Reviews are posted under the user's name, so sign-in is asked for up
+  /// front rather than after the guest has filled in three review steps.
+  Future<void> _openWriteReview({
+    required String vendorId,
+    required String vendorName,
+    String? vendorImage,
+  }) async {
+    if (!await _ensureSignedIn('Sign in to write a review.')) return;
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: RecommendVendorScreen(
+          vendorId: vendorId,
+          vendorName: vendorName,
+          vendorImage: vendorImage,
+          currentUserId: currentUserId,
+        ),
+        style: PageTransitionStyle.slideUp,
+      ),
+    );
   }
 
   // ---------------------------
@@ -2834,8 +2893,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   }
 
   Future<void> toggleWishlist(String vendorServiceId) async {
-    if (currentUserId == null) {
-      AppSnackbar.info(context, 'Please sign in to manage your wishlist.');
+    if (!await _ensureSignedIn('Sign in to save vendors to your wishlist.')) {
       return;
     }
 
@@ -2881,12 +2939,14 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         );
       } else {
         _revertFavourite(vendorServiceId, wasFavourite: isFav);
-        AppSnackbar.error(
-          context,
-          res.statusCode == 401
-              ? 'Session expired. Please log in again.'
-              : "We couldn't update your wishlist. Please try again.",
-        );
+        // A 401 is explained by the app-wide session message instead (see
+        // AuthGate), so only other failures are reported here.
+        if (res.statusCode != 401) {
+          AppSnackbar.error(
+            context,
+            "We couldn't update your wishlist. Please try again.",
+          );
+        }
         // AUDIT FIX: same expired-token gap as the other wishlist call above —
         // force sign-out so the stale token can't keep failing silently.
         if (res.statusCode == 401) {
@@ -3590,19 +3650,11 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                             _SquareIconButton(
                               icon: Icons.rate_review_outlined,
                               tooltip: 'Write a review',
-                              onTap: () => Navigator.push(
-                                context,
-                                AnimatedPageRoute(
-                                  page: RecommendVendorScreen(
-                                    vendorId: vendorId,
-                                    vendorName: vendorName,
-                                    vendorImage: images.isNotEmpty
-                                        ? images[0]
-                                        : null,
-                                    currentUserId: currentUserId,
-                                  ),
-                                  style: PageTransitionStyle.slideUp,
-                                ),
+                              onTap: () => _openWriteReview(
+                                vendorId: vendorId,
+                                vendorName: vendorName,
+                                vendorImage:
+                                    images.isNotEmpty ? images[0] : null,
                               ),
                             ),
                           ],
@@ -3620,12 +3672,10 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           child: PremiumButton.outlined(
                             label: 'Request Pricing & Availability',
                             icon: Icons.calendar_month_outlined,
-                            onPressed: () {
-                              if (currentUserId == null || currentUserId!.isEmpty) {
-                                AppSnackbar.info(
-                                  context,
-                                  'Please sign in to request pricing & availability.',
-                                );
+                            onPressed: () async {
+                              if (!await _ensureSignedIn(
+                                'Sign in to request pricing & availability.',
+                              )) {
                                 return;
                               }
                               debugPrint(
@@ -4068,19 +4118,10 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           accent: true,
                           padding: EdgeInsets.zero,
                           actionLabel: 'Write one',
-                          onAction: () => Navigator.push(
-                            context,
-                            AnimatedPageRoute(
-                              page: RecommendVendorScreen(
-                                vendorId: vendorId,
-                                vendorName: vendorName,
-                                vendorImage: images.isNotEmpty
-                                    ? images[0]
-                                    : null,
-                                currentUserId: currentUserId,
-                              ),
-                              style: PageTransitionStyle.slideUp,
-                            ),
+                          onAction: () => _openWriteReview(
+                            vendorId: vendorId,
+                            vendorName: vendorName,
+                            vendorImage: images.isNotEmpty ? images[0] : null,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
@@ -4119,12 +4160,10 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                 child: PremiumButton.outlined(
                   label: 'Message',
                   icon: Icons.chat_bubble_outline_rounded,
-                  onPressed: () {
-                    if (currentUserId == null || currentUserId!.isEmpty) {
-                      AppSnackbar.info(
-                        context,
-                        'Please sign in to send a message.',
-                      );
+                  onPressed: () async {
+                    if (!await _ensureSignedIn(
+                      'Sign in to message this vendor.',
+                    )) {
                       return;
                     }
                     final int? uid = int.tryParse(currentUserId!);

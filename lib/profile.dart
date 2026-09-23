@@ -55,9 +55,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   // -----------------------------------------------------
   // LOGIN CHECK
   // -----------------------------------------------------
-  /// Re-checks the session before saving. The app-wide gate sends the user
-  /// back to login on its own when this comes back false.
-  Future<bool> ensureLoggedIn(BuildContext context) => AuthSession.instance.refresh();
+  // GUEST-FIRST: this local copy shadowed the global `ensureLoggedIn` from
+  // main.dart and only re-read the session — it relied on the root gate
+  // redirecting to login, which no longer happens. The global one asks a guest
+  // to sign in and then continues the save.
+  // Future<bool> ensureLoggedIn(BuildContext context) => AuthSession.instance.refresh();
 
   // -----------------------------------------------------
   // LOAD USER DATA
@@ -245,9 +247,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
     FocusScope.of(context).unfocus();
 
-    final loggedIn = await ensureLoggedIn(context);
-    if (!loggedIn) return;
+    final loggedIn = await ensureLoggedIn(
+      context,
+      reason: 'Sign in to save your wedding details.',
+    );
+    if (!loggedIn || !mounted) return;
 
+    // The user may have only just signed in, after this screen loaded.
+    userId ??= await UserPrefs.getUserId();
     if (userId == null) return _showSnackBar('User ID missing');
 
     setState(() => _isSaving = true);

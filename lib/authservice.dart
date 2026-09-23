@@ -39,6 +39,50 @@ class UserPrefs {
     weddingDateKey,
   ];
 
+  /// Data that belongs to whoever was signed in but lives outside the session
+  /// keys — locally cached wishlists, chat history, booking drafts with names
+  /// and phone numbers, saved GST profiles, unsent drafts. Wiped when a signed-in
+  /// session ends so the next person on this device (guest or another account)
+  /// never sees it.
+  ///
+  /// Deliberately *not* here: public caches (`ResponseCache`), recent flight
+  /// searches, app config — nothing that identifies the previous user.
+  static const List<String> userScopedKeys = [
+    'favourite_venues', // VenuesScreen wishlist hearts
+    'favourite_vendors', // VendorDetailsScreen wishlist hearts
+    'chat_messages', // AiChatScreen history
+    'shaadi_ai_chats', // Shaadi AI history
+    'wedding_personality_profile', // Shaadi AI quiz result
+    'genie_session_id',
+    'genie_local_messages',
+    'hw:bookingDraft', // honeymoon hotel draft (traveller names/contact)
+    'hw:cabBookingDraft', // honeymoon cab draft (name/email/phone)
+    'hw_gst_history', // saved company GST profiles
+    'hw_traveller_hidden',
+    'movment_plus_guest_token', // Moments+ event gallery access code
+    'real_wedding_story_draft', // unsent Real Wedding story
+    'checklist_start_date',
+    'invite_template', // guest-list invite message
+    'draftList', // legacy e-invite drafts
+    'drafts',
+  ];
+
+  /// Prefix of legacy per-card e-invite drafts (`draft_<cardId>`).
+  static const String einviteDraftPrefix = 'draft_';
+
+  /// Removes [userScopedKeys] and legacy e-invite drafts. Only called when a
+  /// signed-in session ends — never for a guest, whose own drafts (e.g. a
+  /// booking parked before sign-in) must survive until they sign in.
+  static Future<void> clearUserScopedData() async {
+    final prefs = await _prefs();
+    for (final key in userScopedKeys) {
+      await prefs.remove(key);
+    }
+    for (final key in prefs.getKeys().toList()) {
+      if (key.startsWith(einviteDraftPrefix)) await prefs.remove(key);
+    }
+  }
+
   static Future<SharedPreferences> _prefs() async {
     return await SharedPreferences.getInstance();
   }
@@ -107,12 +151,32 @@ class UserPrefs {
   }
 }
 
+/// The three states the app can be in with respect to authentication.
+///
+/// [guest] is a legitimate, first-class state — the public app is fully usable
+/// in it. It is *not* a fake signed-in user: there is no user id and no token.
+enum AuthStatus {
+  /// The stored session has not been read yet (app is still starting up).
+  unknown,
+
+  /// No valid session. Public features work; protected actions ask to sign in.
+  guest,
+
+  /// A valid, unexpired session is stored.
+  authenticated,
+}
+
+/// Why the app last went from signed-in to guest. Lets the UI tell a
+/// deliberate logout apart from a session that expired on its own.
+enum SignOutReason { none, userLogout, sessionExpired }
+
 /// Single source of truth for "is somebody signed in right now".
 ///
 /// It never holds a hardcoded state: [refresh] always re-reads the persisted
 /// session written by [UserPrefs], so a missing, incomplete or expired token
-/// resolves to *not authenticated*. Listeners (the app's `AuthGate`) rebuild
-/// whenever that answer changes, which is what makes login mandatory app-wide.
+/// resolves to [AuthStatus.guest]. Listeners (the app's `AuthGate`) rebuild
+/// whenever that answer changes. Login is never required to open the app —
+/// protected actions request it through `requireAuthentication()`.
 class AuthSession extends ChangeNotifier {
   AuthSession._();
 
@@ -124,11 +188,29 @@ class AuthSession extends ChangeNotifier {
   bool _ready = false;
   bool _authenticated = false;
 
+  /// Bumped every time a signed-in session ends (logout or expiry). The app
+  /// shell is keyed on it, so every screen that loaded the previous user's
+  /// data is rebuilt from scratch instead of showing it to the guest.
+  int _sessionEpoch = 0;
+
+  SignOutReason _lastSignOutReason = SignOutReason.none;
+
   /// False until the first [refresh] completes — the app shows the splash
-  /// until then so a protected screen is never flashed at a signed-out user.
+  /// until then so the UI never flickers between guest and signed-in.
   bool get isReady => _ready;
 
   bool get isAuthenticated => _authenticated;
+
+  /// True once startup has finished and nobody is signed in.
+  bool get isGuest => _ready && !_authenticated;
+
+  AuthStatus get status => !_ready
+      ? AuthStatus.unknown
+      : (_authenticated ? AuthStatus.authenticated : AuthStatus.guest);
+
+  int get sessionEpoch => _sessionEpoch;
+
+  SignOutReason get lastSignOutReason => _lastSignOutReason;
 
   /// Re-reads the stored session and publishes the result.
   ///
@@ -141,14 +223,24 @@ class AuthSession extends ChangeNotifier {
       // Drop half-written or expired sessions so nothing downstream can read
       // a stale token out of preferences.
       await UserPrefs.clear();
+      // The signed-in session just expired: its private data goes too.
+      if (_authenticated) await UserPrefs.clearUserScopedData();
     }
-    return _publish(valid);
+    return _publish(valid, reason: SignOutReason.sessionExpired);
   }
 
   /// Clears the session everywhere: local storage plus the Google/Firebase
-  /// providers, then notifies listeners so the app returns to the login screen.
-  Future<void> signOut() async {
+  /// providers, then notifies listeners so the app drops back to guest mode.
+  ///
+  /// [reason] defaults to [SignOutReason.sessionExpired] because every caller
+  /// other than the Log out button is reacting to a rejected token (401).
+  Future<void> signOut({
+    SignOutReason reason = SignOutReason.sessionExpired,
+  }) async {
     await UserPrefs.clear();
+    // A guest has no previous user's data to protect — and may have a booking
+    // draft parked for after sign-in, which must survive.
+    if (_authenticated) await UserPrefs.clearUserScopedData();
 
     // Provider sign-out is best effort — a failure here must not leave the
     // user stuck in a half-logged-out state.
@@ -163,7 +255,7 @@ class AuthSession extends ChangeNotifier {
       debugPrint('Firebase sign-out failed: $e');
     }
 
-    _publish(false);
+    _publish(false, reason: reason);
   }
 
   Future<bool> _hasValidSession(SharedPreferences prefs) async {
@@ -194,8 +286,18 @@ class AuthSession extends ChangeNotifier {
     return DateTime.now().difference(issuedAt).inDays >= tokenExpiryDays;
   }
 
-  bool _publish(bool authenticated) {
+  bool _publish(
+    bool authenticated, {
+    SignOutReason reason = SignOutReason.none,
+  }) {
     final changed = !_ready || _authenticated != authenticated;
+    if (_authenticated && !authenticated) {
+      // A signed-in session just ended.
+      _sessionEpoch++;
+      _lastSignOutReason = reason;
+    } else if (authenticated) {
+      _lastSignOutReason = SignOutReason.none;
+    }
     _ready = true;
     _authenticated = authenticated;
     if (changed) notifyListeners();

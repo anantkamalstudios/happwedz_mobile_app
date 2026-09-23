@@ -6,6 +6,7 @@
 // import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import '../main.dart' show requireAuthentication;
 import '../core/config/api_config.dart';
 import '../core/services/vendor_visibility.dart';
 // import 'package:image_picker/image_picker.dart';
@@ -3127,12 +3128,22 @@ class _ShareWeddingStoryState extends State<ShareWeddingStory> {
     debugPrint("🟢 Starting wedding story submission...");
     final url = Uri.parse('${ApiConfig.apiBase}/realwedding');
 
+    // Guests can write the whole story (it is kept as a local draft); an
+    // account is only needed to publish it. Sign-in opens on top, so nothing
+    // typed is lost, and submission continues right after.
+    if (!await requireAuthentication(
+      context,
+      reason: 'Sign in to publish your wedding story.',
+    )) {
+      return;
+    }
+    if (!context.mounted) return;
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
     if (token == null || token.isEmpty) {
       debugPrint("❌ No token found!");
-      AppSnackbar.info(context, 'Please login first');
       return;
     }
 

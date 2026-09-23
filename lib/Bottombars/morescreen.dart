@@ -10,6 +10,7 @@ import '../InboxScreen.dart';
 import '../RealWedding/share_ur_story.dart';
 import '../Wishlist/Wishlistscreen.dart';
 
+import '../authservice.dart';
 import '../budget/budget.dart';
 import '../einvite1/einvite.dart';
 import '../ideas.dart';
@@ -37,8 +38,32 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
   // bool isLoading = true;
 
 
+  /// Tiles that open the signed-in user's own data. A guest tapping one is
+  /// asked to sign in first and then lands on the screen they picked.
+  /// Everything else in this menu is public.
+  static const Map<String, String> _protectedTiles = {
+    'Shaadi AI': 'Sign in to chat with Shaadi AI, your wedding planning assistant.',
+    'Budget': 'Sign in to plan and track your wedding budget.',
+    'Wedding Website': 'Sign in to create and manage your wedding website.',
+    'Guestlist': 'Sign in to build and manage your guest list.',
+    'Wishlist': 'Sign in to see the vendors you have saved.',
+    'Inbox': 'Sign in to see your conversations with vendors.',
+    'My Bookings': 'Sign in to see your bookings.',
+    'Real Wedding': 'Sign in to share your wedding story.',
+  };
+
   @override
   Widget build(BuildContext context) {
+    // Rebuilds when the user signs in or out so the last tile always matches
+    // the current state (Log out ⇄ Sign in).
+    return AnimatedBuilder(
+      animation: AuthSession.instance,
+      builder: (context, _) => _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    final signedIn = AuthSession.instance.isAuthenticated;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.headerGradient),
@@ -151,12 +176,20 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                       ),
 
 
-                      _buildMenuItem(
-                        icon: Icons.logout,
-                        title: 'Log out',
-                        onTap: _handleLogout,
-                        isLast: true,
-                      ),
+                      if (signedIn)
+                        _buildMenuItem(
+                          icon: Icons.logout,
+                          title: 'Log out',
+                          onTap: _handleLogout,
+                          isLast: true,
+                        )
+                      else
+                        _buildMenuItem(
+                          icon: Icons.login_rounded,
+                          title: 'Sign in / Sign up',
+                          onTap: () => requireAuthentication(context),
+                          isLast: true,
+                        ),
                     ],
                   ),
                 ),
@@ -250,6 +283,13 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
   }
 
   void _handleMenuTap(BuildContext context, String menuTitle) async {
+    final reason = _protectedTiles[menuTitle];
+    if (reason != null) {
+      final signedIn = await requireAuthentication(context, reason: reason);
+      if (!signedIn || !mounted) return; // cancelled → stay here as a guest
+      context = this.context;
+    }
+
     switch (menuTitle) {
       case 'Shaadi AI':
         Navigator.push(
@@ -328,13 +368,7 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
 
 
       case 'Real Wedding':
-        final loggedIn = await ensureLoggedIn(context);
-        if (!loggedIn) return; // 🚫 not logged in → go to SignInScreen
-
-        // AUDIT FIX (async context): `context` was used to push after an await
-        // with no re-check, so a user who left this tab mid-check pushed onto a
-        // dead element.
-        if (!mounted) return;
+        // Sign-in is handled above through [_protectedTiles].
         Navigator.push(
           this.context,
           MaterialPageRoute(builder: (_) => ShareWeddingStory()),
@@ -413,7 +447,9 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
     final confirmed = await ConfirmPopup.show(
       context,
       title: 'Log out?',
-      message: 'You will need to sign in again to access your bookings.',
+      message:
+          'You can keep browsing as a guest. Sign in again any time to access '
+          'your bookings and saved plans.',
       confirmLabel: 'Log out',
       icon: Icons.logout_rounded,
       danger: true,

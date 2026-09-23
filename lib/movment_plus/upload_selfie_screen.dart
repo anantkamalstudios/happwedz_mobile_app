@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import '../main.dart' show requireAuthentication;
 import 'package:image_picker/image_picker.dart';
 
 import 'custome_theme.dart';
@@ -302,6 +303,14 @@ Future<void> pickSelfie({
   required ImageSource source,
   required String token,
 }) async {
+  // Selfie matching is tied to the account (X-User-ID), so ask a guest to
+  // sign in *before* the camera opens rather than failing after the upload.
+  final signedIn = await requireAuthentication(
+    context,
+    reason: 'Sign in to find your photos from this event.',
+  );
+  if (!signedIn || !context.mounted) return;
+
   try {
     final XFile? image = await _picker.pickImage(
       source: source,

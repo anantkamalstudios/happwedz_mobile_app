@@ -56,6 +56,20 @@ class _UpcomingFlightBookingsState extends State<UpcomingFlightBookings> {
   @override
   void initState() {
     super.initState();
+    // Reload when a guest signs in from a booking flow on top of this page.
+    AuthSession.instance.addListener(_onAuthChanged);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    AuthSession.instance.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    setState(() => _loading = true);
     _load();
   }
 

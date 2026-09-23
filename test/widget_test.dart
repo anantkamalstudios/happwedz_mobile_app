@@ -4,15 +4,18 @@
 // in the project failed on every run — `flutter test` reported
 // "Found 0 widgets with text "0"" and the suite was red.
 //
-// It has been replaced with tests for the rule that matters most in this app:
-// NOTHING IS USABLE WITHOUT LOGIN. They exercise `AuthSession` (the single
-// source of truth for "is somebody signed in") and `AuthGate` (the root widget
-// that decides between the dashboard and the login screen).
+// It has been replaced with tests for the app's authentication rules. (Since
+// the guest-first change the rule is: the public app opens for everyone; login
+// is only asked for by protected actions — see auth_guest_first_test.dart.)
+// Originally: NOTHING IS USABLE WITHOUT LOGIN. They exercise `AuthSession` (the
+// single source of truth for "is somebody signed in") and `AuthGate` (the root
+// widget, which now always opens the app shell once the session is read).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:happy_wedz/Bottombars/HomeScreen.dart' show BottomBars;
 import 'package:happy_wedz/authservice.dart';
 import 'package:happy_wedz/main.dart';
 
@@ -142,20 +145,63 @@ void main() {
     });
   });
 
-  group('AuthGate — the root of the app', () {
-    testWidgets('shows the login screen when there is no session',
+  // GUEST-FIRST: the app no longer forces login at launch, so these two tests
+  // (which asserted the old "no session → login screen at the root" rule) are
+  // kept for reference and replaced by the guest-first group below.
+  // group('AuthGate — the root of the app', () {
+  //   testWidgets('shows the login screen when there is no session',
+  //       (tester) async {
+  //     SharedPreferences.setMockInitialValues({});
+  //     await AuthSession.instance.refresh();
+  //
+  //     await tester.pumpWidget(const MaterialApp(home: AuthGate()));
+  //     await tester.pumpAndSettle(const Duration(seconds: 2));
+  //
+  //     expect(find.byType(SignInScreen), findsOneWidget);
+  //     expect(find.text('Continue with Google'), findsOneWidget);
+  //   });
+  //
+  //   testWidgets('shows the login screen when the stored token has expired',
+  //       (tester) async {
+  //     SharedPreferences.setMockInitialValues(
+  //       validSession(
+  //         issuedAt: DateTime.now().subtract(
+  //           const Duration(days: AuthSession.tokenExpiryDays + 1),
+  //         ),
+  //       ),
+  //     );
+  //     await AuthSession.instance.refresh();
+  //
+  //     await tester.pumpWidget(const MaterialApp(home: AuthGate()));
+  //     await tester.pumpAndSettle(const Duration(seconds: 2));
+  //
+  //     expect(find.byType(SignInScreen), findsOneWidget);
+  //   });
+  // });
+
+  group('AuthGate — guest-first root', () {
+    // The shell's tabs load remote data; only the gate's decision is under
+    // test here, so pump a few frames rather than waiting for everything.
+    Future<void> pumpGate(WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: AuthGate()));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+    }
+
+    testWidgets('no session: opens the app as a guest, not the login screen',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
-      await AuthSession.instance.refresh();
+      await tester.runAsync(AuthSession.instance.refresh);
 
-      await tester.pumpWidget(const MaterialApp(home: AuthGate()));
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await pumpGate(tester);
 
-      expect(find.byType(SignInScreen), findsOneWidget);
-      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(AuthSession.instance.status, AuthStatus.guest);
+      expect(find.byType(SignInScreen), findsNothing);
+      expect(find.byType(BottomBars), findsOneWidget);
     });
 
-    testWidgets('shows the login screen when the stored token has expired',
+    testWidgets('expired token: drops to guest and still opens the app',
         (tester) async {
       SharedPreferences.setMockInitialValues(
         validSession(
@@ -164,12 +210,13 @@ void main() {
           ),
         ),
       );
-      await AuthSession.instance.refresh();
+      await tester.runAsync(AuthSession.instance.refresh);
 
-      await tester.pumpWidget(const MaterialApp(home: AuthGate()));
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await pumpGate(tester);
 
-      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(AuthSession.instance.status, AuthStatus.guest);
+      expect(find.byType(SignInScreen), findsNothing);
+      expect(find.byType(BottomBars), findsOneWidget);
     });
   });
 }

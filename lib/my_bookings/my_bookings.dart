@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/config/api_config.dart';
 import '../core/core.dart';
+import '../main.dart' show requireAuthentication;
 import '../honeymoon/data/honeymoon_api.dart';
 import '../honeymoon/ui/bookings/cab_booking_detail_page.dart';
 import 'booking_status.dart';
@@ -79,11 +80,29 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   void _onData() {
     if (!mounted) return;
     if (_data.signedOut) {
+      // GUEST-FIRST: this used to `pushNamed('/customer-login')`, a route the
+      // app never registered, so it threw. Ask for sign-in in place instead;
+      // on success reload, on cancel leave the screen.
       _data.removeListener(_onData);
-      Navigator.pushNamed(context, '/customer-login');
+      _signInAndReload();
       return;
     }
     setState(() {});
+  }
+
+  Future<void> _signInAndReload() async {
+    final signedIn = await requireAuthentication(
+      context,
+      reason: 'Sign in to see your bookings.',
+    );
+    if (!mounted) return;
+    if (!signedIn) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    _data
+      ..addListener(_onData)
+      ..loadAll();
   }
 
   @override

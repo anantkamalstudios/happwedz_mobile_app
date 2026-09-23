@@ -22,6 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../authservice.dart';
 import '../../../core/core.dart';
+import '../../../main.dart' show requireAuthentication;
 import '../../data/cab_draft_store.dart';
 import '../../data/honeymoon_api.dart';
 import '../../models/booking_models.dart';
@@ -286,11 +287,19 @@ class _CabBookingPageState extends State<CabBookingPage> {
     'vendorId': widget.quote.vendorId,
   };
 
-  /// Re-checks the session before anything is booked or charged. A lapsed
-  /// one parks what was typed; `AuthGate` then takes the traveller to sign
-  /// in and the honeymoon screen offers the booking back afterwards.
+  /// Re-checks the session before anything is booked or charged. A guest (or
+  /// a lapsed session) is asked to sign in on top of this form and the
+  /// booking continues straight after. If they back out, what was typed is
+  /// parked so the honeymoon screen can offer the booking back.
   Future<bool> _ensureSession() async {
-    if (await AuthSession.instance.refresh()) return true;
+    if (await requireAuthentication(
+      context,
+      reason: 'Sign in to book this cab.',
+    )) {
+      // Signed in just now: pick up the account id for the booking.
+      if (_userId == null) await _prefill();
+      return true;
+    }
     await CabDraftStore.save(
       CabBookingDraft(
         query: widget.query,

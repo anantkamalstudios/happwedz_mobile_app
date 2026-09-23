@@ -17,8 +17,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../authservice.dart';
+// import '../../../authservice.dart'; // GUEST-FIRST: gate moved to requireAuthentication
 import '../../../core/core.dart';
+import '../../../main.dart' show requireAuthentication;
 import '../../data/honeymoon_api.dart';
 import '../../data/hotel_draft_store.dart';
 import '../../models/booking_models.dart';
@@ -679,11 +680,16 @@ class _HotelBookingPageState extends State<HotelBookingPage> {
   // }
 
   /// Re-checks the session before any payment, as the web checks
-  /// `isAuthenticated` in `handleProceedToBook`. An expired one parks the
-  /// form first; `AuthGate` then takes the traveller to sign-in, and the
-  /// honeymoon screen offers the booking back afterwards.
+  /// `isAuthenticated` in `handleProceedToBook`. A guest (or a lapsed
+  /// session) signs in on top of this form and payment continues; backing
+  /// out parks the form so the honeymoon screen can offer it back.
   Future<bool> _ensureSession() async {
-    if (await AuthSession.instance.refresh()) return true;
+    if (await requireAuthentication(
+      context,
+      reason: 'Sign in to book this stay.',
+    )) {
+      return true;
+    }
     await _parkDraft();
     return false;
   }

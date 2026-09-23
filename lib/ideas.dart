@@ -207,12 +207,9 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
               ),
 
               SizedBox(height: 16),
-
               // Search Bar
               // _buildSearchBar(),
-
               // SizedBox(height: 20),
-
               // Tab Content
               Expanded(
                 child: TabBarView(
