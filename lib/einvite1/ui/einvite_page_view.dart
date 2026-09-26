@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../data/einvite_design.dart';
@@ -27,6 +28,7 @@ class EinvitePageView extends StatelessWidget {
     required this.page,
     this.selectedFieldId,
     this.onFieldTap,
+    this.videoUrl,
   });
 
   final EinvitePage page;
@@ -35,6 +37,18 @@ class EinvitePageView extends StatelessWidget {
   final String? selectedFieldId;
 
   final ValueChanged<EinviteField>? onFieldTap;
+
+  /// `card['video']['videoUrl']` for a `cardType: "video"` card.
+  ///
+  /// When set — and this page is a timed scene ([EinvitePage.start] is
+  /// non-null) — the scene's footage plays behind the fields instead of the
+  /// poster still. Left null everywhere else, so grid thumbnails keep showing
+  /// the cheap poster rather than spinning up a video controller per tile.
+  ///
+  /// Video cards were unreachable until the category tile's `cardType` was
+  /// corrected from `video_invitation` to `video`; this is what makes the
+  /// card that fix surfaces actually play.
+  final String? videoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +78,18 @@ class EinvitePageView extends StatelessWidget {
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   ),
+                // Drawn over the poster, so a failure to load or decode the
+                // footage degrades to the still rather than to a blank card.
+                if (videoUrl != null &&
+                    videoUrl!.isNotEmpty &&
+                    page.start != null)
+                  Positioned.fill(
+                    child: _ScenePlayer(
+                      url: videoUrl!,
+                      start: page.start!,
+                      end: page.end,
+                    ),
+                  ),
                 for (final field in page.fields)
                   Positioned(
                     left: field.x * width,
@@ -82,6 +108,129 @@ class EinvitePageView extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Plays one scene of a video invitation, looping between its start and end.
+///
+/// Muted by design: the card's own `audioUrl` is a separate track the website
+/// mixes in, and an invitation that blares sound the moment a grid scrolls
+/// past it would be worse than silent. Falls back to rendering nothing — so
+/// the poster underneath shows through — on any initialisation failure.
+class _ScenePlayer extends StatefulWidget {
+  const _ScenePlayer({
+    required this.url,
+    required this.start,
+    this.end,
+  });
+
+  final String url;
+  final double start;
+  final double? end;
+
+  @override
+  State<_ScenePlayer> createState() => _ScenePlayerState();
+}
+
+class _ScenePlayerState extends State<_ScenePlayer> {
+  VideoPlayerController? _controller;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _open();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScenePlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      // Tear the old controller down before opening the new source, or the
+      // previous one leaks for the lifetime of the screen.
+      final previous = _controller;
+      _controller = null;
+      previous?.removeListener(_onTick);
+      previous?.dispose();
+      _failed = false;
+      _open();
+    } else if (oldWidget.start != widget.start) {
+      _seekToStart();
+    }
+  }
+
+  Future<void> _open() async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    try {
+      await controller.initialize();
+      await controller.setVolume(0);
+      // The scene is a window into one longer file, so looping is driven by
+      // the listener below rather than `setLooping`, which would restart the
+      // whole video instead of this scene.
+      await controller.seekTo(_startPosition);
+      await controller.play();
+      controller.addListener(_onTick);
+
+      if (!mounted) {
+        controller.removeListener(_onTick);
+        await controller.dispose();
+        return;
+      }
+      setState(() => _controller = controller);
+    } catch (e) {
+      debugPrint('E-invite scene playback failed: $e');
+      await controller.dispose();
+      if (!mounted) return;
+      setState(() => _failed = true);
+    }
+  }
+
+  Duration get _startPosition =>
+      Duration(milliseconds: (widget.start * 1000).round());
+
+  void _onTick() {
+    final controller = _controller;
+    final end = widget.end;
+    if (controller == null || end == null) return;
+    if (!controller.value.isInitialized) return;
+
+    final endPosition = Duration(milliseconds: (end * 1000).round());
+    if (controller.value.position >= endPosition) {
+      _seekToStart();
+    }
+  }
+
+  Future<void> _seekToStart() async {
+    final controller = _controller;
+    if (controller == null) return;
+    await controller.seekTo(_startPosition);
+    if (!controller.value.isPlaying) await controller.play();
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onTick);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    if (_failed || controller == null || !controller.value.isInitialized) {
+      // Nothing of our own — the poster still is already painted underneath.
+      return const SizedBox.shrink();
+    }
+    // `BoxFit.fill` matches the still path and the website's `objectFit:
+    // "fill"`: the artwork must not be cropped, or the text drifts off it.
+    return FittedBox(
+      fit: BoxFit.fill,
+      child: SizedBox(
+        width: controller.value.size.width,
+        height: controller.value.size.height,
+        child: VideoPlayer(controller),
       ),
     );
   }

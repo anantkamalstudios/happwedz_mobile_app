@@ -1131,8 +1131,12 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   // ✅ Checklist State Variables
   int completedCount = 0;
   int totalTasks = 0;
-  List<String> upcomingTasks = [];
+  List<HomeChecklistTask> upcomingTasks = [];
   bool checklistLoading = false;
+
+  /// Task ids currently being marked done from the home card, so the row can
+  /// show its own spinner without blocking the rest of the card.
+  final Set<String> _completingTaskIds = {};
 
   // Dashboard summary cards — budget/guests/wishlist, same lightweight
   // "fetch just the summary" pattern as the checklist card above, mirroring
@@ -1951,16 +1955,22 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       final List list = body["data"] ?? [];
 
       int completed = 0;
-      final List<String> upcoming = [];
+      final List<HomeChecklistTask> upcoming = [];
 
       for (final item in list) {
-        final status = item["status"]?.toString() ?? "pending";
+        if (item is! Map) continue;
+        // AUDIT FIX: this compared the raw string against "completed", while
+        // the checklist screen normalizes "done" / "in progress" / "Pending"
+        // first — so the same row could read Done there and still be counted
+        // as pending here. Both screens now share one normalizer.
+        final status = normalizeChecklistStatus(item["status"]?.toString());
         final title = item["text"]?.toString() ?? "";
+        final id = item["id"];
 
         if (status == "completed") {
           completed++;
-        } else if (title.isNotEmpty) {
-          upcoming.add(title);
+        } else if (title.isNotEmpty && id != null) {
+          upcoming.add(HomeChecklistTask(id: id.toString(), title: title));
         }
       }
 
@@ -1976,6 +1986,60 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       // Guarded: `finally` runs on every exit path, including the early
       // returns above, and the screen may already have been disposed.
       if (mounted) setState(() => checklistLoading = false);
+    }
+  }
+
+  /// Marks a task done straight from the home card — the equivalent of the
+  /// website's `UpcomingTask.jsx` checkboxes, which PUT `{status:"completed"}`
+  /// without leaving the dashboard.
+  ///
+  /// Not optimistic: the row shows a spinner until the server confirms, then
+  /// the whole summary is re-read. The card shows only three of a possibly
+  /// long list, so completing one promotes a different task into view —
+  /// there is no correct local edit for that, only a re-read.
+  Future<void> _completeChecklistTaskFromHome(HomeChecklistTask task) async {
+    if (_completingTaskIds.contains(task.id)) return;
+
+    final signedIn = await requireAuthentication(
+      context,
+      reason: 'Sign in to update your wedding checklist.',
+    );
+    if (!signedIn || !mounted) return;
+
+    setState(() => _completingTaskIds.add(task.id));
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey) ?? '';
+
+      final res = await http.put(
+        Uri.parse("${ApiConfig.apiBase}/new-checklist/update/${task.id}"),
+        headers: {
+          if (token.isNotEmpty) "Authorization": "Bearer $token",
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+        body: json.encode({"status": "completed"}),
+      );
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        // Re-read from the server rather than patching counters locally, so
+        // the card can never drift from what the checklist screen shows.
+        await _loadChecklistSummary();
+        if (mounted) AppSnackbar.success(context, 'Task marked as completed.');
+      } else {
+        debugPrint("❌ Home task complete failed: ${res.statusCode}");
+        AppSnackbar.error(context, "We couldn't update that task. Please try again.");
+      }
+    } catch (e) {
+      debugPrint("❌ Home task complete error: $e");
+      if (mounted) {
+        AppSnackbar.error(context, "We couldn't update that task. Please try again.");
+      }
+    } finally {
+      if (mounted) setState(() => _completingTaskIds.remove(task.id));
     }
   }
 
@@ -2032,9 +2096,20 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       setState(() => guestsLoading = true);
 
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token') ?? '';
-      final userId = prefs.getInt('user_id');
-      if (userId == null || token.isEmpty) return;
+      final token = prefs.getString(UserPrefs.tokenKey) ?? '';
+      final userId = prefs.getInt(UserPrefs.userIdKey);
+      if (userId == null || token.isEmpty) {
+        // AUDIT FIX: this returned without clearing the counters, so after a
+        // sign-out (the auth listener re-runs this) the previous account's
+        // guest numbers stayed on the dashboard.
+        if (mounted) {
+          setState(() {
+            totalGuestsCount = 0;
+            attendingGuestsCount = 0;
+          });
+        }
+        return;
+      }
 
       final res = await http.get(
         Uri.parse('${ApiConfig.apiBase}/guestlist/user/$userId'),
@@ -2052,9 +2127,18 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       if (!mounted) return;
       setState(() {
         totalGuestsCount = list.length;
-        attendingGuestsCount = list
-            .where((g) => g['status'] == 'Attending')
-            .length;
+        // Routed through the same normalizer the guest list uses, so a
+        // backend "attending" or "ATTENDING" is not miscounted here while
+        // the guest list shows it correctly.
+        attendingGuestsCount = list.where((g) {
+          if (g is! Map) return false;
+          return normalizeGuestOption(
+                g['status']?.toString(),
+                kGuestStatusOptions,
+                'Pending',
+              ) ==
+              'Attending';
+        }).length;
       });
     } catch (e) {
       debugPrint('❌ Guest summary error: $e');
@@ -3467,7 +3551,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   Widget _buildWeddingChecklistSection({
     required int completedCount,
     required int totalTasks,
-    required List<String> upcomingTasks,
+    required List<HomeChecklistTask> upcomingTasks,
     required VoidCallback onTap,
   }) {
     final progress = totalTasks == 0 ? 0.0 : completedCount / totalTasks;
@@ -3621,37 +3705,64 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
                                 style: AppText.caption,
                               )
                             else
-                              ...upcomingTasks.map(
-                                (task) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 5,
-                                        height: 5,
-                                        margin: const EdgeInsets.only(top: 6),
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.primary,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: AppSpacing.sm),
-                                      Expanded(
-                                        child: Text(
+                              // Each row is tappable to mark the task done in
+                              // place, matching the website's UpcomingTask
+                              // checkboxes. The card's own onTap (open the
+                              // full checklist) stays available everywhere
+                              // else on the card.
+                              ...upcomingTasks.map((task) {
+                                final busy = _completingTaskIds.contains(
+                                  task.id,
+                                );
+                                return InkWell(
+                                  onTap: busy
+                                      ? null
+                                      : () => _completeChecklistTaskFromHome(
                                           task,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: AppText.bodySm.copyWith(
-                                            color: AppColors.textPrimary,
+                                        ),
+                                  borderRadius: AppRadii.rSm,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: busy
+                                              ? const Padding(
+                                                  padding: EdgeInsets.all(2),
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                )
+                                              : Icon(
+                                                  Icons
+                                                      .radio_button_unchecked,
+                                                  size: 18,
+                                                  color: AppColors.primary,
+                                                ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.sm),
+                                        Expanded(
+                                          child: Text(
+                                            task.title,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppText.bodySm.copyWith(
+                                              color: AppColors.textPrimary,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ),
+                                );
+                              }),
                           ],
                         ),
                       ),

@@ -869,20 +869,20 @@ final List<Map<String, String>> weddingWebsiteTemplates = [
     "title": "Royal Theme",
     "subtitle": "Elegant gold and white wedding theme.",
     "image": "assets/index1.png",
-      "url": "${ApiConfig.baseUrl}/wedding-form/royal",
+      "url": "${ApiConfig.webAppBaseUrl}/wedding-form/royal",
   },
   {
     "title": "Floral Theme",
     "subtitle": "Soft romantic floral design.",
     "image": "assets/floral2.png",
-  "url": "${ApiConfig.baseUrl}/wedding-form/floral",
+  "url": "${ApiConfig.webAppBaseUrl}/wedding-form/floral",
 
   },
   {
     "title": "Modern Theme",
     "subtitle": "Modern and sleek design.",
     "image": "assets/mordern3.png",
-  "url": "${ApiConfig.baseUrl}/wedding-form/modern",
+  "url": "${ApiConfig.webAppBaseUrl}/wedding-form/modern",
 
   },
 ];
@@ -1076,10 +1076,23 @@ final einviteProvider = FutureProvider<List<EInviteCard>>((ref) async {
 });
 
 
-final List<Map<String, String>> invitationTypes = [
+/// The three sections, keyed by the `cardType` the API actually serves.
+///
+/// AUDIT FIX: the video tile asked for `video_invitation`, but the backend's
+/// value is plain `video` — verified against
+/// `GET /einvites/cards?limit=200`, which returns exactly two types:
+/// `wedding_einvite` (3 cards) and `video` (1 card). The filter in
+/// [TemplateListByTypeScreen] therefore matched nothing and the section
+/// rendered "Coming Soon!", hiding a real, fully-formed video card. The
+/// renderer never had this problem — `einvite_design.dart` reads
+/// `card['cardType'] == 'video'` correctly — so only the tile was wrong.
+///
+/// `save_the_date` is left as-is: the backend genuinely has no cards of that
+/// type yet, so its empty state is accurate rather than a bug.
+const List<Map<String, String>> invitationTypes = [
   {"title": "Wedding E-Invitations", "type": "wedding_einvite", "image": "assets/invite1.jpg"},
   {"title": "Save The Date", "type": "save_the_date", "image": "assets/std3.jpg"},
-  {"title": "Video Invitations", "type": "video_invitation", "image": "assets/commingsoon2.jpg"},
+  {"title": "Video Invitations", "type": "video", "image": "assets/commingsoon2.jpg"},
 ];
 class CategoryCard extends StatelessWidget {
   final Map<String, String> item;
@@ -1177,16 +1190,26 @@ class TemplateListByTypeScreen extends ConsumerWidget {
       ),
       body: asyncCards.when(
         loading: () => const AppLoader(),
-        error: (e, _) => Center(child: Text("Error: $e")),
+        // AUDIT FIX: a failed fetch used to dump the raw exception on screen.
+        error: (e, _) => ErrorState(
+          error: e,
+          onRetry: () => ref.invalidate(einviteProvider),
+        ),
         data: (cards) {
           final filtered = cards.where((c) => c.cardType == cardType).toList();
 
           if (filtered.isEmpty) {
-            return const Center(
-              child: Text(
-                "Coming Soon!",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+            // AUDIT FIX: this said "Coming Soon!" for every empty result,
+            // which was wrong in two different ways — it claimed a feature
+            // was unbuilt when the real cause was a filter typo (the video
+            // section), and it would say the same thing if the catalogue
+            // simply had nothing published yet. It now describes what is
+            // actually true: there are no designs in this section right now.
+            return EmptyState(
+              title: 'No designs yet',
+              message:
+                  'New $title designs are added regularly — check back soon.',
+              icon: Icons.auto_awesome_outlined,
             );
           }
 

@@ -40,6 +40,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+    // AUDIT FIX: the city list used to be fetched lazily on the first tap of
+    // the venue field, so that tap sat silently for the length of a network
+    // round trip. Loading it up front means the picker is usually ready by
+    // the time the user reaches it.
+    _loadCities();
   }
   Future<bool> _isProfileComplete() async {
     final prefs = await SharedPreferences.getInstance();
@@ -121,8 +126,27 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   /// The home screen already solved this with [LocationService.fetchCities],
   /// which asks for every Indian city; reusing it keeps one implementation
   /// instead of two divergent ones.
+  /// Cached city list, so a later outage does not take the picker away.
+  ///
+  /// countriesnow.space is a free service with no uptime guarantee — it
+  /// answered 200 in one check and 503 five times running twenty minutes
+  /// later. Keeping the last good response means the picker keeps working
+  /// offline and through outages; the list of Indian cities is effectively
+  /// static, so a stale copy is no worse than a fresh one.
+  static const String _citiesCacheKey = 'cached_india_cities';
+
   Future<void> _loadCities() async {
+    if (_isLoadingCities) return;
     setState(() => _isLoadingCities = true);
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // Show the cached list immediately, then refresh in the background.
+    final cached = prefs.getStringList(_citiesCacheKey);
+    if (cached != null && cached.isNotEmpty && mounted) {
+      setState(() => _cities = cached);
+    }
+
     try {
       final loaded = await LocationService.fetchCities('India');
 
@@ -133,11 +157,21 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           .toList()
         ..sort();
 
+      if (cities.isNotEmpty) {
+        await prefs.setStringList(_citiesCacheKey, cities);
+      }
+
       if (!mounted) return;
       setState(() => _cities = cities);
     } catch (e) {
-      // Never surface the raw exception to the user; the picker simply stays
-      // empty and the next tap retries.
+      // AUDIT FIX: this used to swallow the failure entirely — the comment
+      // here claimed "the next tap retries", but nothing retried and the
+      // search opened against an empty list. The result was a blank search
+      // screen where typing matched nothing, with no indication that the
+      // city list had failed to load at all.
+      //
+      // A failure is no longer fatal: the field accepts free text either way,
+      // and any cached list stays usable.
       debugPrint('City loading error: $e');
     } finally {
       // Guarded: the user can leave Profile while the request is in flight.
@@ -149,18 +183,40 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   // CITY SEARCH
   // -----------------------------------------------------
   Future<void> _showCityPicker() async {
-    if (_isLoadingCities) return;
+    // AUDIT FIX: this used to `return` silently while a load was in flight —
+    // tapping the field did nothing at all, with no feedback.
+    if (_isLoadingCities) {
+      AppSnackbar.info(context, 'Loading cities…');
+      return;
+    }
+
     if (_cities.isEmpty) await _loadCities();
     if (!mounted) return;
 
+    // AUDIT FIX: previously the search opened regardless. With an empty list
+    // it rendered a completely blank screen where typing matched nothing —
+    // which reads as "the city search is broken". Reproduced in a widget
+    // test: the route opened with zero list tiles.
+    if (_cities.isEmpty) {
+      // The field itself still accepts free text, so this is a degraded
+      // convenience rather than a dead end — say that.
+      AppSnackbar.info(
+        context,
+        "City suggestions aren't available right now — you can type the city instead.",
+      );
+      return;
+    }
+
     final selected = await showSearch<String>(
       context: context,
-      delegate: _CitySearchDelegate(_cities),
+      delegate: CitySearchDelegate(_cities),
     );
 
-    if (selected != null && selected.isNotEmpty) {
+    if (selected != null && selected.isNotEmpty && mounted) {
       setState(() {
         weddingVenueController.text = selected;
+        // Clear a stale "required" error as soon as a value is chosen.
+        venueError = null;
       });
     }
   }
@@ -524,14 +580,28 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                                 ),
                                 const SizedBox(height: AppSpacing.lg),
 
+                                // AUDIT FIX: this was `readOnly: true` with
+                                // `onTap: _showCityPicker`, so the ONLY way to
+                                // set a wedding city was through a picker
+                                // backed by countriesnow.space — a free
+                                // third-party API that returns 503 for long
+                                // stretches (observed: 200 one moment, then
+                                // five consecutive 503s twenty minutes later).
+                                // While it was down the field could not be
+                                // filled in at all, which also blocked
+                                // `isProfileComplete()` everywhere.
+                                //
+                                // The website's own field is a plain text
+                                // input (`UserProfile.jsx:786-798`, "Wedding
+                                // City") with no list behind it. So typing is
+                                // now always possible and the picker is a
+                                // convenience on the search icon, not a gate.
                                 AppTextField(
                                   label: 'Wedding Venue (City)',
-                                  hint: 'Select a city',
+                                  hint: 'Type a city, or tap search',
                                   controller: weddingVenueController,
                                   prefixIcon: Icons.location_on_outlined,
                                   suffixIcon: Icons.search_rounded,
-                                  readOnly: true,
-                                  onTap: _showCityPicker,
                                   onSuffixTap: _showCityPicker,
                                   errorText: venueError,
                                   required: true,
@@ -640,9 +710,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 }
 
 
-class _CitySearchDelegate extends SearchDelegate<String> {
+/// Public so it can be driven directly in widget tests — the screen has no
+/// seam for injecting a city list.
+class CitySearchDelegate extends SearchDelegate<String> {
   final List<String> cities;
-  _CitySearchDelegate(this.cities);
+  CitySearchDelegate(this.cities);
 
   @override
   List<Widget>? buildActions(BuildContext context) => [
@@ -658,9 +730,50 @@ class _CitySearchDelegate extends SearchDelegate<String> {
 
   @override
   Widget buildResults(BuildContext context) {
-    final results = cities
-        .where((city) => city.toLowerCase().contains(query.toLowerCase()))
-        .toList();
+    final trimmed = query.trim().toLowerCase();
+    final results = trimmed.isEmpty
+        ? cities
+        : cities
+            .where((city) => city.toLowerCase().contains(trimmed))
+            .toList();
+
+    // AUDIT FIX: this returned a bare ListView, so "no matches" and "the city
+    // list never loaded" both rendered as an identical blank screen with no
+    // explanation.
+    if (results.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.location_off_outlined,
+                  size: 40, color: Colors.grey.shade400),
+              const SizedBox(height: 12),
+              Text(
+                cities.isEmpty
+                    ? "We couldn't load the list of cities."
+                    : 'No cities match "$query".',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Prefix matches first — typing "pun" should surface Pune before
+    // Rajapunnagar.
+    if (trimmed.isNotEmpty) {
+      results.sort((a, b) {
+        final aStarts = a.toLowerCase().startsWith(trimmed);
+        final bStarts = b.toLowerCase().startsWith(trimmed);
+        if (aStarts == bStarts) return a.compareTo(b);
+        return aStarts ? -1 : 1;
+      });
+    }
+
     return ListView.builder(
       itemCount: results.length,
       itemBuilder: (_, i) => ListTile(

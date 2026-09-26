@@ -1551,24 +1551,100 @@ import '../core/core.dart';
 //
 //
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:happy_wedz/core/config/api_config.dart';
 
+import '../authservice.dart';
 import '../main.dart';
 import '../profile.dart';
 
 /// ----------------------------------
-/// GUEST MODEL (use your existing one)
+/// SHARED ENUMS — must match the website exactly
+/// ----------------------------------
+/// The website's `statusOptions` / `typeOptions` / `menuOptions`
+/// (`Guests.jsx:72-74`). These are compared by exact string on both
+/// platforms — the space in "Not Attending" is load-bearing.
+const List<String> kGuestStatusOptions = [
+  'Attending',
+  'Not Attending',
+  'Pending',
+];
+
+const List<String> kGuestTypeOptions = ['Adult', 'Child'];
+
+/// AUDIT FIX: the app previously offered only Veg / NonVeg / All. A guest
+/// created on the website as "Jain", "Vegan" or "Eggetarian" therefore had a
+/// menu value that no DropdownMenuItem matched, which throws
+/// "There should be exactly one item with DropdownButton's value".
+const List<String> kGuestMenuOptions = [
+  'Veg',
+  'NonVeg',
+  'Jain',
+  'Vegan',
+  'Eggetarian',
+  'All',
+];
+
+/// Coerces whatever the API returns onto one of [options]. Guards every
+/// dropdown on this screen: an unrecognised value would otherwise assert.
+String normalizeGuestOption(String? raw, List<String> options, String fallback) {
+  if (raw == null) return fallback;
+  final trimmed = raw.trim();
+  for (final option in options) {
+    if (option.toLowerCase() == trimmed.toLowerCase()) return option;
+  }
+  return fallback;
+}
+
+/// ----------------------------------
+/// GROUP MODEL — `GET /groups`
+/// ----------------------------------
+class GuestGroup {
+  final String id;
+  final String name;
+
+  const GuestGroup({required this.id, required this.name});
+
+  factory GuestGroup.fromJson(Map json) => GuestGroup(
+        id: json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+      );
+}
+
+/// ----------------------------------
+/// GUEST MODEL
 /// ----------------------------------
 class Guest {
   final int? id;
   final String name;
+
+  /// Legacy free-text group label. Written only by the website's bulk import,
+  /// which sets `city` and `group` to the same string.
   final String group;
+
+  /// The website's bulk import writes the group name here too, and its display
+  /// fallback ranks `city` ABOVE `groupId` — so this has to be read, or a
+  /// bulk-imported guest buckets differently in the app than on the web.
+  final String city;
+
+  /// Name of the eager-loaded `groupData` relation, when the API sends one.
+  final String groupDataName;
+
+  /// FK into `GET /groups`. Kept as a String so a numeric or string id from
+  /// the API compares consistently — the website's strict `===` on this is a
+  /// known source of guests silently falling into "Other".
+  final String groupId;
+
   String status;
   final int companions;
   final String type;
@@ -1588,25 +1664,72 @@ class Guest {
     required this.phoneNumber,
     required this.email,
     this.seatNumber = '',
+    this.city = '',
+    this.groupDataName = '',
+    this.groupId = '',
   });
 
-  /// ✅ REQUIRED FOR API
+  /// AUDIT FIX: every field used to be an unguarded implicit cast —
+  /// `json['companions'] ?? 0` into a non-nullable `int` throws if the API
+  /// ever sends `"2"`, and that throw happened inside `.map()` in
+  /// `fetchGuests`, so one odd row turned the whole list into a generic
+  /// error. Every field is now coerced.
   factory Guest.fromJson(Map<String, dynamic> json) {
+    final groupData = json['groupData'];
     return Guest(
-      id: json['id'],
-      name: json['name'] ?? '',
-      group: json['group'] ?? 'Other',
-      status: json['status'] ?? 'Pending',
-      companions: json['companions'] ?? 0,
-      type: json['type'] ?? 'Adult',
-      menu: json['menu'] ?? 'Veg',
+      id: _asInt(json['id']),
+      name: json['name']?.toString() ?? '',
+      group: json['group']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      groupDataName: groupData is Map
+          ? (groupData['name']?.toString() ?? '')
+          : '',
+      groupId: json['groupId']?.toString() ?? '',
+      status: normalizeGuestOption(
+        json['status']?.toString(),
+        kGuestStatusOptions,
+        'Pending',
+      ),
+      companions: _asInt(json['companions']) ?? 0,
+      type: normalizeGuestOption(
+        json['type']?.toString(),
+        kGuestTypeOptions,
+        'Adult',
+      ),
+      menu: normalizeGuestOption(
+        json['menu']?.toString(),
+        kGuestMenuOptions,
+        'Veg',
+      ),
       phoneNumber: json['phone_number']?.toString() ?? '',
-      email: json['email'] ?? '',
+      email: json['email']?.toString() ?? '',
       // Was previously sent on create but never parsed back, so it silently
       // vanished from the app the moment the list re-fetched.
       seatNumber: json['seat_number']?.toString() ?? '',
     );
   }
+
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  /// The edit body the website sends (`Guests.jsx:402-416`): 9 fields, with
+  /// `groupId` sent as null when unset (unlike create, which omits the key).
+  Map<String, dynamic> toUpdateJson() => {
+        'name': name.trim(),
+        'email': email.trim().isEmpty ? null : email.trim(),
+        'phone_number':
+            phoneNumber.trim().isEmpty ? null : phoneNumber.trim(),
+        'groupId': groupId.isEmpty ? null : groupId,
+        'status': status,
+        'type': type,
+        'menu': menu,
+        'companions': companions,
+        'seat_number': seatNumber.trim().isEmpty ? null : seatNumber.trim(),
+      };
 }
 
 
@@ -1614,7 +1737,17 @@ class Guest {
 /// MAIN SCREEN
 /// ----------------------------------
 class GuestListDashboard extends StatefulWidget {
-  const GuestListDashboard({Key? key}) : super(key: key);
+  const GuestListDashboard({Key? key, this.debugInitialGuests})
+      : super(key: key);
+
+  /// Seeds the list and skips the initial fetch.
+  ///
+  /// Exists purely as a testing seam. Without it the screen can only ever be
+  /// rendered empty in a widget test — every request fails in the test
+  /// binding — which meant the layout tests were passing at 320px while the
+  /// guest *card* itself overflowed, because no card was ever built.
+  @visibleForTesting
+  final List<Guest>? debugInitialGuests;
 
   @override
   State<GuestListDashboard> createState() => _GuestListDashboardState();
@@ -1633,18 +1766,69 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
         venue != null && venue.isNotEmpty &&
         date != null && date.isNotEmpty;
   }
+  /// Auth only — what adding, editing, deleting and RSVP-ing actually need.
+  ///
+  /// AUDIT FIX: these all used to go through [ensureUserReady], which also
+  /// demands a complete profile (mobile + venue + wedding date) and pushes
+  /// Profile Settings when anything is missing. Combined with the broken
+  /// profile fetch in `main.dart` — which hit a 404 and so never wrote those
+  /// three keys — that check could never pass, and a signed-in user was sent
+  /// to Profile Settings every time they tapped Add Guest.
+  ///
+  /// The website gates its guest list on authentication alone
+  /// (`UserPrivateRoute`); there is no profile-completeness requirement
+  /// anywhere in `Guests.jsx`. Managing a guest list plainly does not need a
+  /// venue, so this now matches.
+  Future<bool> ensureSignedIn(BuildContext context) async {
+    return ensureLoggedIn(context);
+  }
+
+  /// Auth **plus** a complete profile. Kept only for the two actions that
+  /// genuinely embed the wedding details in what they send: the WhatsApp and
+  /// Email invitations. A guest is prompted to fill those in once, rather
+  /// than being blocked from every action on the screen.
   Future<bool> ensureUserReady(BuildContext context) async {
     // Session first — AuthGate takes over and shows login if it has gone.
     if (!await ensureLoggedIn(context)) return false;
     if (!context.mounted) return false;
 
     final complete = await isProfileComplete();
+    // There is a `context.mounted` check above, but it is before this await —
+    // the screen can be gone by the time the prefs read returns.
+    if (!context.mounted) return false;
 
     if (!complete) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+      // Ask, rather than showing a snackbar and pushing a route in the same
+      // frame. That combination inserts into the overlay while a route
+      // transition is starting on it, and it swapped the screen out from
+      // under the user with no way to decline.
+      final goToProfile = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Add your wedding details'),
+          content: const Text(
+            'Invitations include your wedding date and venue. Add them to '
+            'your profile first.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Not now'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Add details'),
+            ),
+          ],
+        ),
       );
+
+      if (goToProfile == true && context.mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+        );
+      }
       return false;
     }
 
@@ -1683,16 +1867,114 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
   Object? _loadError;
 
   Set<int> selectedGuestIds = {};
+
+  /// Persisted groups from `GET /groups`, the same entity the website's
+  /// group dropdown is built from.
+  List<GuestGroup> availableGroups = [];
+
+  /// Search + filter state. All three are applied client-side, exactly as the
+  /// website does — the list endpoint takes no query parameters.
+  final TextEditingController _searchController = TextEditingController();
+  String _searchTerm = '';
+  String _selectedGroup = 'All';
+  String _selectedStatus = 'All';
+
+  /// Guest ids with a mutation in flight, so a row can disable its own
+  /// controls without freezing the list.
+  final Set<int> _busyGuestIds = {};
+
+  bool _isGeneratingPdf = false;
+  bool _isPrinting = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// AUDIT FIX (blank invitations): this read `family_name`, `bride_name`,
+  /// `groom_name` and `venue` — **none of which is written anywhere in the
+  /// app**. Verified by a repo-wide grep: the only writes are
+  /// `wedding_venue`, `wedding_date` and `user_mobile` (`main.dart:490-492`,
+  /// `profile.dart:302-304`). Every WhatsApp and email invitation therefore
+  /// went out with an empty bride, groom and venue, and the literal word
+  /// "Our" as the family name. Note `isProfileComplete()` in this same class
+  /// already used the correct `wedding_venue` key.
+  ///
+  /// Bride/groom have no stored field anywhere in the app, so rather than
+  /// print an empty "💍 *&*" line the invite builder now omits what it does
+  /// not have (see [buildWeddingInvite]).
   Future<Map<String, String>> _getWeddingDetails() async {
     final prefs = await SharedPreferences.getInstance();
 
     return {
-      'family': prefs.getString('family_name') ?? 'Our',
+      'family': prefs.getString(UserPrefs.userNameKey) ?? '',
       'bride': prefs.getString('bride_name') ?? '',
       'groom': prefs.getString('groom_name') ?? '',
-      'date': prefs.getString('wedding_date') ?? '',
-      'venue': prefs.getString('venue') ?? '',
+      'date': prefs.getString(UserPrefs.weddingDateKey) ?? '',
+      'venue': prefs.getString(UserPrefs.weddingVenueKey) ?? '',
     };
+  }
+
+  /// The website's 5-level group-name fallback (`Guests.jsx:199-213`):
+  /// city → group → groupData.name → lookup groupId in /groups → "Other".
+  /// Ported verbatim so a guest buckets under the same heading on both
+  /// platforms, with one deliberate fix: the id comparison is done on
+  /// strings, because the web's strict `===` silently drops every guest into
+  /// "Other" whenever the API types `id` and `groupId` differently.
+  String guestGroupName(Guest g) {
+    if (g.city.trim().isNotEmpty) return g.city.trim();
+    if (g.group.trim().isNotEmpty) return g.group.trim();
+    if (g.groupDataName.trim().isNotEmpty) return g.groupDataName.trim();
+    if (g.groupId.isNotEmpty) {
+      for (final group in availableGroups) {
+        if (group.id == g.groupId && group.name.isNotEmpty) return group.name;
+      }
+    }
+    return 'Other';
+  }
+
+  /// Search + group filter + status filter, ANDed — same as the website's
+  /// `filteredAndGroupedGuests` memo.
+  List<Guest> get _filteredGuests {
+    final term = _searchTerm.trim().toLowerCase();
+    return guests.where((g) {
+      final groupName = guestGroupName(g);
+
+      if (_selectedGroup != 'All' &&
+          groupName.toLowerCase() != _selectedGroup.toLowerCase()) {
+        return false;
+      }
+      if (_selectedStatus != 'All' && g.status != _selectedStatus) {
+        return false;
+      }
+      if (term.isEmpty) return true;
+
+      // The website searches name, derived group name and phone. Phone is
+      // matched on digits only so "9876543210" finds "+91 98765 43210",
+      // which the web's raw `includes` misses.
+      final digits = term.replaceAll(RegExp(r'[^0-9]'), '');
+      return g.name.toLowerCase().contains(term) ||
+          groupName.toLowerCase().contains(term) ||
+          g.email.toLowerCase().contains(term) ||
+          (digits.isNotEmpty &&
+              g.phoneNumber.replaceAll(RegExp(r'[^0-9]'), '').contains(digits));
+    }).toList();
+  }
+
+  /// Every group heading present in the data, plus the ones defined server
+  /// side. The website builds its filter only from `/groups`, so a bulk
+  /// imported `city` shows as a heading but can never be filtered to.
+  List<String> get _groupFilterOptions {
+    final names = <String>{};
+    for (final g in guests) {
+      names.add(guestGroupName(g));
+    }
+    for (final group in availableGroups) {
+      if (group.name.isNotEmpty) names.add(group.name);
+    }
+    final sorted = names.toList()..sort();
+    return ['All', ...sorted];
   }
 
   Widget _buildGuestCard(Guest guest) {
@@ -1701,6 +1983,7 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
         : guest.status == "Not Attending"
         ? Colors.red
         : Colors.orange;
+    final busy = guest.id != null && _busyGuestIds.contains(guest.id);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1735,8 +2018,14 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
             children: [
               CircleAvatar(
                 backgroundColor: Colors.pink.withValues(alpha: 0.15),
+                // AUDIT FIX: this was `guest.name[0]`, which throws a
+                // RangeError on an empty name — and `fromJson` defaults name
+                // to '' while the add form accepted whitespace-only input, so
+                // one blank name crashed the entire list.
                 child: Text(
-                  guest.name[0].toUpperCase(),
+                  guest.name.trim().isEmpty
+                      ? '?'
+                      : guest.name.trim()[0].toUpperCase(),
                   style: const TextStyle(
                       color: Colors.pink, fontWeight: FontWeight.bold),
                 ),
@@ -1744,24 +2033,35 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  guest.name,
+                  guest.name.trim().isEmpty ? 'Unnamed guest' : guest.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style:
                   const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-              Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  guest.status,
-                  style: TextStyle(
-                      color: statusColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600),
+              const SizedBox(width: 8),
+              // AUDIT FIX (overflow): an unconstrained pill next to an
+              // Expanded name. "Not Attending" at the 1.2x text-scale clamp
+              // is wide enough to push this row past a 320px card. Flexible
+              // lets it give way instead of overflowing.
+              Flexible(
+                child: Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    guest.status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: statusColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
             ],
@@ -1769,14 +2069,27 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
 
           const SizedBox(height: 14),
 
-          /// INFO ROW
+          /// INFO ROW — type and menu are editable in place, matching the
+          /// website's inline row dropdowns.
           Wrap(
             spacing: 16,
             runSpacing: 8,
             children: [
-              _infoChip("Group", guest.group),
-              _infoChip("Type", guest.type),
-              _infoChip("Menu", guest.menu),
+              _infoChip("Group", guestGroupName(guest)),
+              _inlinePicker(
+                label: "Type",
+                value: guest.type,
+                options: kGuestTypeOptions,
+                busy: busy,
+                onChanged: (v) => _changeGuestField(guest, 'type', v),
+              ),
+              _inlinePicker(
+                label: "Menu",
+                value: guest.menu,
+                options: kGuestMenuOptions,
+                busy: busy,
+                onChanged: (v) => _changeGuestField(guest, 'menu', v),
+              ),
               _infoChip("Companions", guest.companions.toString()),
               if (guest.seatNumber.isNotEmpty)
                 _infoChip("Seat", guest.seatNumber),
@@ -1798,59 +2111,86 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
           const Divider(height: 24),
 
           /// ACTIONS
+          ///
+          /// AUDIT FIX (overflow): the dropdown used to be a hard
+          /// `SizedBox(width: 140)` followed by a `Spacer()` and four
+          /// full-size `IconButton`s (48px each). That is ~332px of fixed
+          /// content, which overflows a card on any 320px-wide phone — and it
+          /// tipped over when the Edit button and the busy spinner were
+          /// added. The dropdown is now `Expanded` so it absorbs the slack
+          /// and shrinks when there isn't any, and the icons are compact.
           Row(
             children: [
-              /// STATUS DROPDOWN (SAFE)
-              SizedBox(
-                width: 140,
+              /// STATUS DROPDOWN — the value is normalized in `fromJson`, so
+              /// it always matches one of the items and can never assert.
+              Expanded(
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: guest.status,
                     isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(
-                          value: "Pending", child: Text("Pending")),
-                      DropdownMenuItem(
-                          value: "Attending", child: Text("Attending")),
-                      DropdownMenuItem(
-                          value: "Not Attending",
-                          child: Text("Not Attending")),
-                    ],
-                    onChanged: (v) async {
-                      if (v == null) return;
-                      await updateGuestStatus(guest.id!, v);
-                      setState(() => guest.status = v);
-                    },
+                    items: kGuestStatusOptions
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: busy
+                        ? null
+                        : (v) {
+                            if (v == null) return;
+                            _changeGuestField(guest, 'status', v);
+                          },
                   ),
                 ),
               ),
 
-              const Spacer(),
-
-                IconButton(
-                  tooltip: "WhatsApp",
-                  icon: Image.asset(
-                    'assets/whatsapp.png',
-                    width: 30,
-                    height: 30,
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  onPressed: () async {
-                    if (!await ensureUserReady(context)) return;
-                    await sendWhatsApp(guest: guest);
-                  },
                 ),
 
-              IconButton(
+              _cardActionButton(
+                tooltip: "Edit",
+                icon: const Icon(Icons.edit_outlined,
+                    color: Colors.pink, size: 20),
+                onPressed: busy ? null : () => _openEditGuest(guest),
+              ),
+
+              _cardActionButton(
+                tooltip: "WhatsApp",
+                icon: Image.asset(
+                  'assets/whatsapp.png',
+                  width: 20,
+                  height: 20,
+                ),
+                onPressed: () async {
+                  if (!await ensureUserReady(context)) return;
+                  await sendWhatsApp(guest: guest);
+                },
+              ),
+
+              _cardActionButton(
                 tooltip: "Email",
-                icon: const Icon(Icons.email_outlined, color: Colors.blue),
+                icon: const Icon(Icons.email_outlined,
+                    color: Colors.blue, size: 20),
                 onPressed: () async {
                   if (!await ensureUserReady(context)) return;
 
                   final prefs = await SharedPreferences.getInstance();
-                  final userId = prefs.getInt('user_id');
+                  final userId = prefs.getInt(UserPrefs.userIdKey);
                   if (userId == null) return;
 
                   final details = await _getWeddingDetails();
+                  if (!mounted) return;
 
                   final emailMessage = buildWeddingInvite(
                     familyName: details['family']!,
@@ -1861,22 +2201,34 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
                     guestName: guest.name,
                   );
 
+                  // Subject degrades with the data: the couple's names are
+                  // not stored anywhere in the app, so "Wedding Invitation –
+                  //  & " was the old, always-broken result.
+                  final couple = [details['bride']!, details['groom']!]
+                      .where((n) => n.trim().isNotEmpty)
+                      .join(' & ');
+
                   await sendGuestEmail(
                     toEmail: guest.email,
-                    subject:
-                    "Wedding Invitation – ${details['bride']} & ${details['groom']}",
+                    subject: couple.isEmpty
+                        ? "Wedding Invitation"
+                        : "Wedding Invitation – $couple",
                     message: emailMessage,
                     userId: userId,
-                    context: context,
                   );
                 },
               ),
 
-              IconButton(
+              _cardActionButton(
                 tooltip: "Delete",
-                icon:
-                const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => deleteGuest(guest.id!),
+                icon: const Icon(Icons.delete_outline,
+                    color: Colors.red, size: 20),
+                // AUDIT FIX: was `deleteGuest(guest.id!)` — a force-unwrap
+                // that crashes on a guest with no id, fired immediately with
+                // no confirmation and no undo.
+                onPressed: busy || guest.id == null
+                    ? null
+                    : () => _confirmDeleteGuest(guest),
               ),
             ],
           ),
@@ -1889,6 +2241,17 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
   @override
   void initState() {
     super.initState();
+
+    final seeded = widget.debugInitialGuests;
+    if (seeded != null) {
+      guests = List.of(seeded);
+      return;
+    }
+
+    // Groups first: the group-name fallback resolves `groupId` against this
+    // list, so loading it after the guests would render them as "Other" for
+    // a frame.
+    fetchGroups();
     fetchGuests();
   }
 
@@ -1952,6 +2315,13 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
     }
   }
 
+  /// AUDIT FIX: this used to interpolate every value unconditionally, and
+  /// because bride/groom/venue were read from prefs keys nothing ever wrote,
+  /// every invitation went out reading literally
+  /// "the *Our family* ... 💍 ** & ** ... 📍 *Venue:*".
+  ///
+  /// Each line is now emitted only when there is something to put in it, so
+  /// a missing field means a shorter invite rather than a broken one.
   String buildWeddingInvite({
     required String familyName,
     required String brideName,
@@ -1960,45 +2330,63 @@ class _GuestListDashboardState extends State<GuestListDashboard> {
     required String venue,
     required String guestName,
   }) {
-    return '''
-🌸 Wedding Invitation 🌸
+    final buffer = StringBuffer('🌸 Wedding Invitation 🌸\n\n');
 
-We, the *$familyName family*,
-warmly invite you to the wedding of
+    final couple = [brideName.trim(), groomName.trim()]
+        .where((n) => n.isNotEmpty)
+        .join(' & ');
 
-💍 *$brideName & $groomName*
+    if (familyName.trim().isNotEmpty) {
+      buffer.writeln('We, the *${familyName.trim()} family*,');
+      buffer.writeln('warmly invite you to celebrate with us');
+    } else {
+      buffer.writeln('We warmly invite you to celebrate with us');
+    }
 
-📅 *Date:* $date
-📍 *Venue:* $venue
+    if (couple.isNotEmpty) {
+      buffer.writeln('\n💍 *$couple*');
+    }
+    if (date.trim().isNotEmpty) {
+      buffer.writeln('\n📅 *Date:* ${date.trim()}');
+    }
+    if (venue.trim().isNotEmpty) {
+      buffer.writeln('📍 *Venue:* ${venue.trim()}');
+    }
 
-Dear $guestName,
-Your presence will truly make our celebration special.
+    final greeting = guestName.trim().isEmpty ? 'Hello' : 'Dear ${guestName.trim()}';
+    buffer.writeln('\n$greeting,');
+    buffer.writeln('Your presence will truly make our celebration special.');
 
-With love,
-$familyName Family
-''';
+    buffer.writeln('\nWith love,');
+    buffer.writeln(
+      familyName.trim().isEmpty ? 'The family' : '${familyName.trim()} Family',
+    );
+
+    return buffer.toString();
   }
 
 
   Future<void> sendWhatsApp({required Guest guest}) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final familyName = prefs.getString('family_name') ?? 'Our';
-    final brideName = prefs.getString('bride_name') ?? '';
-    final groomName = prefs.getString('groom_name') ?? '';
-    final date = prefs.getString('wedding_date') ?? '';
-    final venue = prefs.getString('venue') ?? '';
+    // Same corrected keys as `_getWeddingDetails` — these previously read
+    // `family_name` / `bride_name` / `groom_name` / `venue`, none of which
+    // the app ever writes.
+    final details = await _getWeddingDetails();
 
     final phone =
     guest.phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.isEmpty) return;
+    if (phone.isEmpty) {
+      if (mounted) {
+        AppSnackbar.warning(context, 'This guest has no phone number.');
+      }
+      return;
+    }
 
     final message = buildWeddingInvite(
-      familyName: familyName,
-      brideName: brideName,
-      groomName: groomName,
-      date: date,
-      venue: venue,
+      familyName: details['family']!,
+      brideName: details['bride']!,
+      groomName: details['groom']!,
+      date: details['date']!,
+      venue: details['venue']!,
       guestName: guest.name,
     );
 
@@ -2014,59 +2402,270 @@ $familyName Family
         mode: LaunchMode.externalApplication,
       );
     } catch (e) {
+      debugPrint('WhatsApp launch failed: $e');
+      if (!mounted) return;
       AppSnackbar.error(context, "We couldn't open WhatsApp on this device.");
     }
   }
 
 
+  /// Uses this State's own `context`, not a passed-in one — the caller used
+  /// to hand in a `BuildContext` that `mounted` could not vouch for, so every
+  /// snackbar here was an unguarded use across an async gap.
   Future<void> sendGuestEmail({
     required String toEmail,
     required String subject,
     required String message,
     required int userId,
-    required BuildContext context,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    if (toEmail.trim().isEmpty) {
+      if (mounted) {
+        AppSnackbar.warning(context, 'This guest has no email address.');
+      }
+      return;
+    }
 
-    if (token == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey);
+      if (token == null) return;
 
-    final response = await http.post(
-      Uri.parse(
-        "${ApiConfig.apiBase}/guestlist/send-guestlist-email",
-      ),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode({
-        "toEmail": [toEmail],
-        "subject": subject,
-        "message": message,
-        "userId": userId.toString(),
-      }),
-    );
+      final response = await http.post(
+        Uri.parse(
+          "${ApiConfig.apiBase}/guestlist/send-guestlist-email",
+        ),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({
+          "toEmail": [toEmail.trim()],
+          "subject": subject,
+          "message": message,
+          // The website sends this as a number (`Guests.jsx:606`); the app
+          // was stringifying it.
+          "userId": userId,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      AppSnackbar.success(context, 'Email sent.');
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        AppSnackbar.success(context, 'Email sent.');
+      } else {
+        // AUDIT FIX: a non-200 used to be completely silent — the user
+        // tapped Email, nothing happened, and nothing said why.
+        debugPrint('sendGuestEmail failed: HTTP ${response.statusCode}');
+        AppSnackbar.error(context, "We couldn't send that email. Please try again.");
+      }
+    } catch (e) {
+      debugPrint('sendGuestEmail error: $e');
+      if (!mounted) return;
+      AppSnackbar.error(context, "We couldn't send that email. Please try again.");
     }
   }
+  /// AUDIT FIX: this had no try/catch and never looked at the response — the
+  /// guest was removed from the list whether or not the server accepted it,
+  /// so a 500 or a dropped connection silently desynced the app from the
+  /// backend with no message. Now optimistic with a real rollback, and the
+  /// caller confirms first.
   Future<void> deleteGuest(int guestId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    if (_busyGuestIds.contains(guestId)) return;
 
-    if (token == null) return;
-
-    await http.delete(
-      Uri.parse("${ApiConfig.apiBase}/guestlist/$guestId"),
-      headers: {
-        "Authorization": "Bearer $token",
-      },
-    );
+    final index = guests.indexWhere((g) => g.id == guestId);
+    if (index < 0) return;
+    final removed = guests[index];
 
     setState(() {
-      guests.removeWhere((g) => g.id == guestId);
+      _busyGuestIds.add(guestId);
+      guests.removeAt(index);
     });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey);
+      if (token == null) throw Exception('No session');
+
+      final res = await http.delete(
+        Uri.parse("${ApiConfig.apiBase}/guestlist/$guestId"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+      );
+
+      if (res.statusCode != 200 && res.statusCode != 204) {
+        throw Exception('HTTP ${res.statusCode}');
+      }
+
+      if (!mounted) return;
+      AppSnackbar.success(context, 'Guest removed.');
+    } catch (e) {
+      debugPrint('deleteGuest failed: $e');
+      if (!mounted) return;
+      setState(() {
+        guests.insert(index <= guests.length ? index : guests.length, removed);
+      });
+      AppSnackbar.error(context, "We couldn't remove that guest. Please try again.");
+    } finally {
+      if (mounted) setState(() => _busyGuestIds.remove(guestId));
+    }
+  }
+
+  /// Confirmation before a destructive, un-undoable action. The website uses
+  /// a native `window.confirm` here; the app had no confirmation at all — one
+  /// stray tap deleted a guest outright.
+  Future<void> _confirmDeleteGuest(Guest guest) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove guest?'),
+        content: Text(
+          '${guest.name.trim().isEmpty ? 'This guest' : guest.name} will be '
+          'removed from your guest list. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && guest.id != null) {
+      await deleteGuest(guest.id!);
+    }
+  }
+
+  /// `GET /groups` — the persisted group entity the website's group dropdown
+  /// is built from. Failure is non-fatal: the group filter and picker fall
+  /// back to whatever names the guests themselves carry.
+  Future<void> fetchGroups() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey);
+      if (token == null) return;
+
+      final res = await http.get(
+        Uri.parse("${ApiConfig.apiBase}/groups"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+      );
+
+      if (res.statusCode != 200) return;
+
+      final data = jsonDecode(res.body);
+      if (data is! Map || data["success"] != true) return;
+
+      final list = data["groups"];
+      if (list is! List) return;
+
+      if (!mounted) return;
+      setState(() {
+        availableGroups = list
+            .whereType<Map>()
+            .map(GuestGroup.fromJson)
+            .where((g) => g.id.isNotEmpty)
+            .toList();
+      });
+    } catch (e) {
+      debugPrint('fetchGroups failed: $e');
+    }
+  }
+
+  /// Compact icon button for the guest card's action row.
+  ///
+  /// A default [IconButton] reserves a 48x48 tap target plus 8px padding on
+  /// each side. Four of those alongside the status dropdown do not fit on a
+  /// 320px phone, which is what overflowed the row. 36x36 still clears the
+  /// 36px minimum comfortable target while leaving room for the dropdown.
+  Widget _cardActionButton({
+    required String tooltip,
+    required Widget icon,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      icon: icon,
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      splashRadius: 20,
+    );
+  }
+
+  /// An `_infoChip` that doubles as a picker — the app's equivalent of the
+  /// website's inline `<select>` in each table row.
+  Widget _inlinePicker({
+    required String label,
+    required String value,
+    required List<String> options,
+    required bool busy,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 11,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500)),
+        DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: value,
+            isDense: true,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            items: options
+                .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                .toList(),
+            onChanged: busy
+                ? null
+                : (v) {
+                    if (v != null) onChanged(v);
+                  },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Opens the shared guest form in edit mode. The form does the `PUT` and
+  /// pops `true`, at which point the list is re-read so the row reflects
+  /// whatever the server actually stored.
+  Future<void> _openEditGuest(Guest guest) async {
+    if (!await ensureSignedIn(context)) return;
+    if (!mounted) return;
+
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GuestFormScreen(
+          existing: guest,
+          availableGroups: availableGroups,
+        ),
+      ),
+    );
+
+    if (saved == true && mounted) {
+      await fetchGroups();
+      await fetchGuests();
+    }
   }
 
   Widget _infoChip(String label, String value) {
@@ -2085,55 +2684,140 @@ $familyName Family
     );
   }
 
-  List<Guest> get _filteredGuests {
-    return guests;
-  }
-
-
+  /// Sections built from the filtered set, grouped by the resolved group name
+  /// and sorted alphabetically — the old code relied on `Map` insertion order,
+  /// i.e. whatever order the server happened to return.
   Widget _buildGroupedList() {
-    final groups = <String, List<Guest>>{};
+    final visible = _filteredGuests;
 
-    for (final g in guests) {
-      groups.putIfAbsent(g.group, () => []).add(g);
+    if (visible.isEmpty) {
+      return const EmptyState(
+        title: 'No matching guests',
+        message: 'Try a different search or clear your filters.',
+        icon: Icons.search_off_rounded,
+      );
     }
 
-    return ListView(
+    final groups = <String, List<Guest>>{};
+    for (final g in visible) {
+      groups.putIfAbsent(guestGroupName(g), () => []).add(g);
+    }
+
+    final sectionNames = groups.keys.toList()..sort();
+
+    // Flattened to header/card rows so the whole thing can go through
+    // ListView.builder — the old ListView(children:) built every card eagerly.
+    final rows = <Widget>[];
+    for (final name in sectionNames) {
+      final sectionGuests = groups[name]!;
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            "$name (${sectionGuests.length})",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+      rows.addAll(sectionGuests.map(_buildGuestCard));
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.only(bottom: 100),
-      children: groups.entries.map((entry) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                "${entry.key} (${entry.value.length})",
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            ...entry.value.map(_buildGuestCard),
-          ],
-        );
-      }).toList(),
+      itemCount: rows.length,
+      itemBuilder: (context, i) => rows[i],
     );
   }
 
-  Future<void> updateGuestStatus(int guestId, String status) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+  /// Single-field `PUT /guestlist/{id}` — the same partial-body shape the
+  /// website's inline dropdowns use for status, type and menu
+  /// (`Guests.jsx:339-352`).
+  ///
+  /// AUDIT FIX: the old version discarded the return value entirely — no
+  /// status check, no try/catch — and the caller flipped the UI regardless.
+  /// A failed request left the row showing a value the server never accepted,
+  /// with no error, until the next full refresh.
+  Future<bool> _updateGuestField(
+    int guestId,
+    String field,
+    String value,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey);
+      if (token == null) return false;
 
-    if (token == null) return;
+      final res = await http.put(
+        Uri.parse("${ApiConfig.apiBase}/guestlist/$guestId"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({field: value}),
+      );
 
-    await http.put(
-      Uri.parse("${ApiConfig.apiBase}/guestlist/$guestId"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode({"status": status}),
-    );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('updateGuestField($field) failed: $e');
+      return false;
+    }
   }
+
+  /// Applies a status / type / menu change optimistically and rolls back if
+  /// the server rejects it.
+  Future<void> _changeGuestField(
+    Guest guest,
+    String field,
+    String value,
+  ) async {
+    final id = guest.id;
+    if (id == null || _busyGuestIds.contains(id)) return;
+
+    final index = guests.indexWhere((g) => g.id == id);
+    if (index < 0) return;
+    final previous = guests[index];
+
+    setState(() {
+      _busyGuestIds.add(id);
+      guests[index] = _guestWithField(previous, field, value);
+    });
+
+    final ok = await _updateGuestField(id, field, value);
+    if (!mounted) return;
+
+    setState(() {
+      _busyGuestIds.remove(id);
+      if (!ok) {
+        // Re-resolve by id: the list may have been rebuilt by a refresh
+        // while the request was in flight, so the captured index can be
+        // stale. Writing to a stale index is how the checklist screen
+        // corrupts the wrong row.
+        final current = guests.indexWhere((g) => g.id == id);
+        if (current >= 0) guests[current] = previous;
+      }
+    });
+
+    if (!ok) {
+      AppSnackbar.error(context, "We couldn't update that guest. Please try again.");
+    }
+  }
+
+  Guest _guestWithField(Guest g, String field, String value) => Guest(
+        id: g.id,
+        name: g.name,
+        group: g.group,
+        city: g.city,
+        groupDataName: g.groupDataName,
+        groupId: g.groupId,
+        status: field == 'status' ? value : g.status,
+        companions: g.companions,
+        type: field == 'type' ? value : g.type,
+        menu: field == 'menu' ? value : g.menu,
+        phoneNumber: g.phoneNumber,
+        email: g.email,
+        seatNumber: g.seatNumber,
+      );
 
   /// ----------------------------------
   /// GROUP GUESTS
@@ -2146,6 +2830,15 @@ $familyName Family
     return map;
   }
   int get totalGuests => guests.length;
+
+  /// Actual heads expected: every guest plus their companions.
+  ///
+  /// Neither platform surfaced this — both count rows only, so a guest with
+  /// five companions counted as one and the headline figure was wrong for
+  /// anyone with a plus-one. The row count stays the headline (matching the
+  /// website) and this is shown beneath it.
+  int get totalHeadcount =>
+      guests.fold<int>(0, (sum, g) => sum + 1 + g.companions);
 
   int get totalAdults =>
       guests.where((g) => g.type.toLowerCase() == 'adult').length;
@@ -2168,6 +2861,35 @@ $familyName Family
       backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
         title: const Text("Guest List"),
+        actions: [
+          IconButton(
+            tooltip: 'Download PDF',
+            onPressed: _isGeneratingPdf ? null : _handleDownloadPdf,
+            icon: _isGeneratingPdf
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_outlined),
+          ),
+          IconButton(
+            tooltip: 'Print',
+            onPressed: _isPrinting ? null : _handlePrintPdf,
+            icon: _isPrinting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.print_outlined),
+          ),
+        ],
+        // Bulk WhatsApp / Bulk Email / message template were here. They stay
+        // commented out: both bulk methods guard on `selectedGuestIds`, and
+        // the per-card selection Checkbox that would populate it is itself
+        // commented out — so restoring these buttons alone would give three
+        // controls that silently do nothing.
         // actions: [
         //   IconButton(
         //     icon: const Icon(Icons.edit_note),
@@ -2204,16 +2926,131 @@ $familyName Family
               : Column(
         children: [
           _buildStatsRow(),     // 👈 STATS
+          if (guests.isNotEmpty) _buildSearchAndFilters(),
           Expanded(
-            child: guests.isEmpty
-                ? const EmptyState(
-                    title: 'No guests yet',
-                    message: 'Add your first guest to start building the list.',
-                    icon: Icons.people_outline_rounded,
-                  )
-                : _buildGroupedList(),
+            child: RefreshIndicator(
+              color: Colors.pink,
+              onRefresh: () async {
+                await fetchGroups();
+                await fetchGuests();
+              },
+              child: guests.isEmpty
+                  ? ListView(
+                      // Keeps pull-to-refresh working on an empty list.
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 80),
+                        EmptyState(
+                          title: 'No guests yet',
+                          message:
+                              'Add your first guest to start building the list.',
+                          icon: Icons.people_outline_rounded,
+                        ),
+                      ],
+                    )
+                  : _buildGroupedList(),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Search box plus the two filters the website offers (Group and Status),
+  /// all applied client-side — the list endpoint takes no query params.
+  Widget _buildSearchAndFilters() {
+    final groupOptions = _groupFilterOptions;
+    // Guard the dropdown: the selected group can disappear when the last
+    // guest in it is deleted or renamed.
+    final groupValue =
+        groupOptions.contains(_selectedGroup) ? _selectedGroup : 'All';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            textInputAction: TextInputAction.search,
+            onChanged: (v) => setState(() => _searchTerm = v),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Search name, group, phone or email',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _searchTerm.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchTerm = '');
+                      },
+                    ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _filterDropdown(
+                  label: 'Group',
+                  value: groupValue,
+                  options: groupOptions,
+                  onChanged: (v) => setState(() => _selectedGroup = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _filterDropdown(
+                  label: 'Status',
+                  value: _selectedStatus,
+                  options: const ['All', ...kGuestStatusOptions],
+                  onChanged: (v) => setState(() => _selectedStatus = v),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterDropdown({
+    required String label,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          hint: Text(label),
+          items: options
+              .map((o) => DropdownMenuItem(
+                    value: o,
+                    child: Text(
+                      o == 'All' ? 'All ${label}s' : o,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
       ),
     );
   }
@@ -2249,10 +3086,15 @@ $familyName Family
         "toEmail": emails,
         "subject": "Wedding Invitation",
         "message": message,
-        "userId": userId.toString(),
+        "userId": userId,
       }),
     );
 
+    // NOTE: this method is currently unreachable — see the commented-out
+    // AppBar actions and the commented-out per-card selection Checkbox.
+    // `selectedGuestIds` can never be populated, so the guard above always
+    // returns first. Guarded anyway so it is correct if it is wired back up.
+    if (!mounted) return;
     AppSnackbar.success(context, 'Bulk email sent.');
   }
 
@@ -2301,21 +3143,265 @@ $familyName Family
       icon: const Icon(Icons.person_add, color: Colors.white),
       label: const Text("Add Guest", style: TextStyle(color: Colors.white)),
       onPressed: () async {
-        if (!await ensureUserReady(context)) return;
+        if (!await ensureSignedIn(context)) return;
+        if (!mounted) return;
 
-        final added = await Navigator.push(
+        final added = await Navigator.push<bool>(
           context,
-          MaterialPageRoute(builder: (_) => const AddGuestScreen()),
+          MaterialPageRoute(
+            builder: (_) => GuestFormScreen(availableGroups: availableGroups),
+          ),
         );
 
-        if (added == true) {
-          fetchGuests(); // 👈 refresh list
+        // AUDIT FIX: this called `fetchGuests()` without awaiting it and
+        // without a mounted check after the push returned.
+        if (added == true && mounted) {
+          await fetchGroups(); // a group may have been created in the form
+          if (mounted) await fetchGuests();
         }
       },
     );
   }
 
 
+
+  // ---------------- PDF (download / print) ----------------
+  // Mirrors the website's `GuestListPDF.jsx` — same branded header, the same
+  // summary strip, and one table section per group. Entirely client-side:
+  // there is no PDF endpoint on either platform. Built in the same style as
+  // the wedding checklist's export so the two documents look like a set.
+
+  pw.Widget _pdfHeaderCell(String text) => pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: 8.5,
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColors.blueGrey800,
+          ),
+        ),
+      );
+
+  pw.Widget _pdfCell(String text, {PdfColor? color}) => pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(fontSize: 8.5, color: color ?? PdfColors.black),
+        ),
+      );
+
+  PdfColor _pdfStatusColor(String status) {
+    switch (status) {
+      case 'Attending':
+        return PdfColors.green700;
+      case 'Not Attending':
+        return PdfColors.red700;
+      default:
+        return PdfColors.orange700;
+    }
+  }
+
+  Future<Uint8List> _generateGuestListPdfBytes() async {
+    final doc = pw.Document();
+    final now = DateTime.now();
+    final formatter = DateFormat('dd/MM/yyyy');
+
+    // The website exports the FULL list, ignoring active filters. Matched
+    // here so the two platforms produce the same document.
+    final sections = <String, List<Guest>>{};
+    for (final g in guests) {
+      sections.putIfAbsent(guestGroupName(g), () => []).add(g);
+    }
+    final sectionNames = sections.keys.toList()..sort();
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'HappyWedz',
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.pink700,
+                  ),
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Guest List',
+                        style: pw.TextStyle(
+                            fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Generated: ${formatter.format(now)}',
+                        style: pw.TextStyle(
+                            fontSize: 8, color: PdfColors.grey700)),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 6),
+            pw.Divider(color: PdfColors.pink700, thickness: 1.5),
+            pw.SizedBox(height: 8),
+          ],
+        ),
+        footer: (context) => pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 8),
+          child: pw.Text(
+            'Plan your dream wedding at www.happywedz.com',
+            style: pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
+          ),
+        ),
+        build: (context) => [
+          pw.Container(
+            padding:
+                const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.pink50,
+              borderRadius: pw.BorderRadius.circular(4),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('Total Guests: $totalGuests',
+                    style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.pink700)),
+                pw.Text('Attending: $attendingCount',
+                    style: const pw.TextStyle(fontSize: 9)),
+                pw.Text('Pending: $pendingCount',
+                    style: const pw.TextStyle(fontSize: 9)),
+                pw.Text('Not Attending: $notAttendingCount',
+                    style: const pw.TextStyle(fontSize: 9)),
+                pw.Text('With +1s: $totalHeadcount',
+                    style: const pw.TextStyle(fontSize: 9)),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 14),
+          if (guests.isEmpty)
+            pw.Text('No guests found in this wedding guest list.',
+                style: const pw.TextStyle(fontSize: 11))
+          else
+            for (final name in sectionNames) ...[
+              pw.Text(
+                '$name (${sections[name]!.length})',
+                style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.pink700),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Table(
+                border:
+                    pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+                columnWidths: const {
+                  0: pw.FlexColumnWidth(2.4),
+                  1: pw.FlexColumnWidth(1.3),
+                  2: pw.FlexColumnWidth(2.4),
+                  3: pw.FlexColumnWidth(1.6),
+                  4: pw.FlexColumnWidth(1.0),
+                  5: pw.FlexColumnWidth(1.2),
+                  6: pw.FlexColumnWidth(0.7),
+                  7: pw.FlexColumnWidth(1.0),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration:
+                        const pw.BoxDecoration(color: PdfColors.grey100),
+                    children: [
+                      _pdfHeaderCell('Name'),
+                      _pdfHeaderCell('Status'),
+                      _pdfHeaderCell('Email'),
+                      _pdfHeaderCell('Phone'),
+                      _pdfHeaderCell('Type'),
+                      _pdfHeaderCell('Menu'),
+                      _pdfHeaderCell('+1s'),
+                      _pdfHeaderCell('Seat'),
+                    ],
+                  ),
+                  for (final g in sections[name]!)
+                    pw.TableRow(
+                      children: [
+                        _pdfCell(g.name.trim().isEmpty
+                            ? 'Unnamed guest'
+                            : g.name),
+                        _pdfCell(g.status,
+                            color: _pdfStatusColor(g.status)),
+                        _pdfCell(g.email.isEmpty ? '-' : g.email),
+                        _pdfCell(
+                            g.phoneNumber.isEmpty ? '-' : g.phoneNumber),
+                        _pdfCell(g.type),
+                        _pdfCell(g.menu),
+                        _pdfCell(g.companions.toString()),
+                        _pdfCell(
+                            g.seatNumber.isEmpty ? '-' : g.seatNumber),
+                      ],
+                    ),
+                ],
+              ),
+              pw.SizedBox(height: 12),
+            ],
+        ],
+      ),
+    );
+
+    return doc.save();
+  }
+
+  Future<void> _handleDownloadPdf() async {
+    if (_isGeneratingPdf) return;
+    if (guests.isEmpty) {
+      AppSnackbar.info(context, 'No guests to download.');
+      return;
+    }
+    setState(() => _isGeneratingPdf = true);
+    try {
+      final bytes = await _generateGuestListPdfBytes();
+      if (!mounted) return;
+      await Printing.sharePdf(bytes: bytes, filename: 'guest-list.pdf');
+    } catch (e) {
+      debugPrint('Guest list PDF error: $e');
+      if (mounted) {
+        AppSnackbar.error(
+            context, 'Unable to create the PDF. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingPdf = false);
+    }
+  }
+
+  Future<void> _handlePrintPdf() async {
+    if (_isPrinting) return;
+    if (guests.isEmpty) {
+      AppSnackbar.info(context, 'No guests to print.');
+      return;
+    }
+    setState(() => _isPrinting = true);
+    try {
+      final bytes = await _generateGuestListPdfBytes();
+      if (!mounted) return;
+      await Printing.layoutPdf(
+        onLayout: (format) async => bytes,
+        name: 'guest-list.pdf',
+      );
+    } catch (e) {
+      debugPrint('Guest list print error: $e');
+      if (mounted) {
+        AppSnackbar.error(
+            context, 'Unable to print the guest list. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _isPrinting = false);
+    }
+  }
 
   /// ----------------------------------
   /// STATS CARDS
@@ -2328,6 +3414,9 @@ $familyName Family
           _statCard(
             value: totalGuests.toString(),
             title: "Guests",
+            subtitle: totalHeadcount == totalGuests
+                ? null
+                : "With +1s: $totalHeadcount",
           ),
           const SizedBox(width: 12),
           _statCard(
@@ -2395,196 +3484,468 @@ $familyName Family
     );
   }
 
-  /// ----------------------------------
-  /// GROUP SECTION
-  /// ----------------------------------
-  Widget _buildGroupSection(String group, List<Guest> guests) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "$group (${guests.length})",
-                style:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          _tableHeader(),
-          const Divider(height: 1),
-          ...guests.map(_guestRow).toList(),
-        ],
-      ),
-    );
-  }
-
-  /// ----------------------------------
-  /// TABLE HEADER
-  /// ----------------------------------
-  Widget _tableHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: const [
-          Expanded(flex: 2, child: Text("Guest")),
-          Expanded(child: Text("Status")),
-          Expanded(child: Text("Comp")),
-          Expanded(child: Text("Type")),
-          Expanded(child: Text("Menu")),
-          Expanded(flex: 2, child: Text("Phone")),
-          SizedBox(width: 40),
-        ],
-      ),
-    );
-  }
-
-  /// ----------------------------------
-  /// GUEST ROW
-  /// ----------------------------------
-  Widget _guestRow(Guest guest) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              guest.name,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-
-          /// Status
-          SizedBox(
-            width: 140, // 👈 FIXED WIDTH = NO OVERFLOW
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: guest.status,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem(value: "Pending", child: Text("Pending")),
-                  DropdownMenuItem(value: "Attending", child: Text("Attending")),
-                  DropdownMenuItem(value: "Not Attending", child: Text("Not Attending")),
-                ],
-                onChanged: (v) async {
-                  if (v == null) return;
-                  await updateGuestStatus(guest.id!, v);
-                  setState(() => guest.status = v);
-                },
-              ),
-            ),
-          ),
-
-          Expanded(child: Text(guest.companions.toString())),
-          Expanded(child: Text(guest.type)),
-          Expanded(child: Text(guest.menu)),
-          Expanded(flex: 2, child: Text(guest.phoneNumber)),
-
-          /// Actions
-          Row(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: Image.asset(
-                  'assets/whatsapp.png',
-                  width: 35,
-                  height: 35,
-                ),
-              ),
-
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // ---------------------------------------------------------------
+  // DEAD CODE (commented out, not deleted).
+  //
+  // An alternate table-based renderer: _buildGroupSection -> _tableHeader
+  // + _guestRow. _buildGroupSection has no callers anywhere in lib/, so all
+  // three are unreachable; the live list is built by _buildGroupedList().
+  //
+  // Commented out rather than left as-is because _guestRow called the old
+  // fire-and-forget updateGuestStatus(), which no longer exists — status
+  // changes now go through _changeGuestField(), which rolls back on
+  // failure. It also carried two dead buttons with empty onPressed: () {}
+  // (WhatsApp and Delete) that would silently do nothing if this renderer
+  // were ever switched back on.
+  // ---------------------------------------------------------------
+  //   /// ----------------------------------
+  //   /// GROUP SECTION
+  //   /// ----------------------------------
+  //   Widget _buildGroupSection(String group, List<Guest> guests) {
+  //     return Container(
+  //       margin: const EdgeInsets.only(bottom: 16),
+  //       decoration: BoxDecoration(
+  //         color: Colors.white,
+  //         borderRadius: BorderRadius.circular(14),
+  //         boxShadow: [
+  //           BoxShadow(
+  //             color: Colors.black.withValues(alpha: 0.05),
+  //             blurRadius: 8,
+  //           ),
+  //         ],
+  //       ),
+  //       child: Column(
+  //         children: [
+  //           Padding(
+  //             padding: const EdgeInsets.all(16),
+  //             child: Align(
+  //               alignment: Alignment.centerLeft,
+  //               child: Text(
+  //                 "$group (${guests.length})",
+  //                 style:
+  //                 const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  //               ),
+  //             ),
+  //           ),
+  //           _tableHeader(),
+  //           const Divider(height: 1),
+  //           ...guests.map(_guestRow).toList(),
+  //         ],
+  //       ),
+  //     );
+  //   }
+  // 
+  //   /// ----------------------------------
+  //   /// TABLE HEADER
+  //   /// ----------------------------------
+  //   Widget _tableHeader() {
+  //     return Padding(
+  //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  //       child: Row(
+  //         children: const [
+  //           Expanded(flex: 2, child: Text("Guest")),
+  //           Expanded(child: Text("Status")),
+  //           Expanded(child: Text("Comp")),
+  //           Expanded(child: Text("Type")),
+  //           Expanded(child: Text("Menu")),
+  //           Expanded(flex: 2, child: Text("Phone")),
+  //           SizedBox(width: 40),
+  //         ],
+  //       ),
+  //     );
+  //   }
+  // 
+  //   /// ----------------------------------
+  //   /// GUEST ROW
+  //   /// ----------------------------------
+  //   Widget _guestRow(Guest guest) {
+  //     return Padding(
+  //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  //       child: Row(
+  // 
+  //         children: [
+  //           Expanded(
+  //             flex: 2,
+  //             child: Text(
+  //               guest.name,
+  //               style: const TextStyle(fontWeight: FontWeight.w600),
+  //             ),
+  //           ),
+  // 
+  //           /// Status
+  //           SizedBox(
+  //             width: 140, // 👈 FIXED WIDTH = NO OVERFLOW
+  //             child: DropdownButtonHideUnderline(
+  //               child: DropdownButton<String>(
+  //                 value: guest.status,
+  //                 isExpanded: true,
+  //                 items: const [
+  //                   DropdownMenuItem(value: "Pending", child: Text("Pending")),
+  //                   DropdownMenuItem(value: "Attending", child: Text("Attending")),
+  //                   DropdownMenuItem(value: "Not Attending", child: Text("Not Attending")),
+  //                 ],
+  //                 onChanged: (v) async {
+  //                   if (v == null) return;
+  //                   await updateGuestStatus(guest.id!, v);
+  //                   setState(() => guest.status = v);
+  //                 },
+  //               ),
+  //             ),
+  //           ),
+  // 
+  //           Expanded(child: Text(guest.companions.toString())),
+  //           Expanded(child: Text(guest.type)),
+  //           Expanded(child: Text(guest.menu)),
+  //           Expanded(flex: 2, child: Text(guest.phoneNumber)),
+  // 
+  //           /// Actions
+  //           Row(
+  //             children: [
+  //               IconButton(
+  //                 onPressed: () {},
+  //                 icon: Image.asset(
+  //                   'assets/whatsapp.png',
+  //                   width: 35,
+  //                   height: 35,
+  //                 ),
+  //               ),
+  // 
+  //               IconButton(
+  //                 icon: const Icon(Icons.delete, color: Colors.red),
+  //                 onPressed: () {},
+  //               ),
+  //             ],
+  //           ),
+  //         ],
+  //       ),
+  //     );
+  //   }
 }
 
 
-class AddGuestScreen extends StatefulWidget {
-  const AddGuestScreen({Key? key}) : super(key: key);
+/// "New group" prompt for the guest form's group picker.
+///
+/// Exists as a widget purely so the [TextEditingController] has an owner with
+/// a real lifecycle. A controller created beside `showDialog` and disposed
+/// after the await is disposed while the dialog is still animating out, and
+/// the TextField then rebuilds against it — see the note in `_createGroup`.
+class _NewGroupDialog extends StatefulWidget {
+  const _NewGroupDialog();
 
   @override
-  State<AddGuestScreen> createState() => _AddGuestScreenState();
+  State<_NewGroupDialog> createState() => _NewGroupDialogState();
 }
 
-class _AddGuestScreenState extends State<AddGuestScreen> {
+class _NewGroupDialogState extends State<_NewGroupDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.pop(context, _controller.text.trim());
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New group'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.done,
+        decoration: const InputDecoration(hintText: "e.g. Bride's Family"),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _submit,
+          child: const Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Add **and** edit, in one screen.
+///
+/// The app previously had no edit path at all — a typo in a name, email or
+/// phone could only be fixed by deleting the guest and re-adding them. The
+/// website's edit modal sends the full 9-field `PUT /guestlist/{id}`
+/// (`Guests.jsx:402-426`); [existing] switches this form into that mode.
+class GuestFormScreen extends StatefulWidget {
+  const GuestFormScreen({
+    super.key,
+    this.existing,
+    this.availableGroups = const [],
+  });
+
+  /// Null for "add", populated for "edit".
+  final Guest? existing;
+
+  /// Groups from `GET /groups`, used to populate the picker.
+  final List<GuestGroup> availableGroups;
+
+  @override
+  State<GuestFormScreen> createState() => _GuestFormScreenState();
+}
+
+/// Kept so older call sites and any external references keep compiling.
+class AddGuestScreen extends StatelessWidget {
+  const AddGuestScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => const GuestFormScreen();
+}
+
+class _GuestFormScreenState extends State<GuestFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  String name = '';
-  String email = '';
-  String phone = '';
-  String group = 'Family';
-  String type = 'Adult';
-  String menu = 'Veg';
-  int companions = 0;
-  String seat = '';
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _companionsController;
+  late final TextEditingController _seatController;
+
+  late String type;
+  late String menu;
+  late String status;
+
+  /// Empty string means "no group" — sent as null, matching the website.
+  late String groupId;
+
+  late List<GuestGroup> _groups;
 
   bool isSaving = false;
+  bool _isCreatingGroup = false;
 
-  Future<void> _saveGuest() async {
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final g = widget.existing;
+    _groups = List.of(widget.availableGroups);
+
+    _nameController = TextEditingController(text: g?.name ?? '');
+    _emailController = TextEditingController(text: g?.email ?? '');
+    _phoneController = TextEditingController(text: g?.phoneNumber ?? '');
+    _companionsController =
+        TextEditingController(text: (g?.companions ?? 0).toString());
+    _seatController = TextEditingController(text: g?.seatNumber ?? '');
+
+    type = normalizeGuestOption(g?.type, kGuestTypeOptions, 'Adult');
+    menu = normalizeGuestOption(g?.menu, kGuestMenuOptions, 'Veg');
+    status = normalizeGuestOption(g?.status, kGuestStatusOptions, 'Pending');
+
+    final existingGroupId = g?.groupId ?? '';
+    groupId = _groups.any((gr) => gr.id == existingGroupId)
+        ? existingGroupId
+        : '';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _companionsController.dispose();
+    _seatController.dispose();
+    super.dispose();
+  }
+
+  /// AUDIT FIX: `_saveGuest` had **no try/catch** around `http.post`. On a
+  /// network error the exception escaped before
+  /// `setState(() => isSaving = false)` ran, so the Save button stayed
+  /// disabled with a spinner forever and the only way out was to leave the
+  /// screen. (The same bug had already been fixed in `fetchGuests`.)
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
-    _formKey.currentState!.save();
 
     setState(() => isSaving = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    final userId = prefs.getInt("user_id");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey);
+      final userId = prefs.getInt(UserPrefs.userIdKey);
 
-    if (token == null || userId == null) {
-      Navigator.pop(context);
-      return;
+      if (token == null || userId == null) {
+        if (!mounted) return;
+        setState(() => isSaving = false);
+        // Was a bare `Navigator.pop(context)` — the form just closed with no
+        // result and no explanation.
+        AppSnackbar.error(context, 'Please sign in again to save this guest.');
+        return;
+      }
+
+      final name = _nameController.text.trim();
+      final email = _emailController.text.trim();
+      final phone = _phoneController.text.trim();
+      final seat = _seatController.text.trim();
+      final companions = int.tryParse(_companionsController.text.trim()) ?? 0;
+
+      final http.Response response;
+
+      if (_isEdit) {
+        // Full 9-field body, exactly as the website's edit modal sends it.
+        final body = {
+          'name': name,
+          'email': email.isEmpty ? null : email,
+          'phone_number': phone.isEmpty ? null : phone,
+          'groupId': groupId.isEmpty ? null : groupId,
+          'status': status,
+          'type': type,
+          'menu': menu,
+          'companions': companions,
+          'seat_number': seat.isEmpty ? null : seat,
+        };
+        debugPrint('📤 PUT /guestlist/${widget.existing!.id} → ${jsonEncode(body)}');
+        response = await http.put(
+          Uri.parse("${ApiConfig.apiBase}/guestlist/${widget.existing!.id}"),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $token",
+            "Accept": "application/json",
+          },
+          body: jsonEncode(body),
+        );
+      } else {
+        // Create body per `Guests.jsx:287-308`: `groupId` is OMITTED when
+        // unset (not sent as null), and no `group`/`city` key is sent.
+        final body = <String, dynamic>{
+          'name': name,
+          'email': email,
+          'phone_number': phone.isEmpty ? null : phone,
+          'userId': userId,
+          'status': 'Pending',
+          'type': type,
+          'menu': menu,
+          'companions': companions,
+          'seat_number': seat.isEmpty ? null : seat,
+        };
+        if (groupId.isNotEmpty) body['groupId'] = groupId;
+
+        debugPrint('📤 POST /guestlist → ${jsonEncode(body)}');
+        response = await http.post(
+          Uri.parse("${ApiConfig.apiBase}/guestlist"),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $token",
+            "Accept": "application/json",
+          },
+          body: jsonEncode(body),
+        );
+      }
+
+      debugPrint('📥 ${response.statusCode} ${response.body}');
+      if (!mounted) return;
+      setState(() => isSaving = false);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Navigator.pop(context, true);
+      } else {
+        AppSnackbar.error(context, _serverMessage(response) ??
+            (_isEdit
+                ? "We couldn't save those changes. Please try again."
+                : "We couldn't add that guest. Please try again."));
+      }
+    } catch (e) {
+      debugPrint('Save guest failed: $e');
+      if (!mounted) return;
+      setState(() => isSaving = false);
+      AppSnackbar.error(
+        context,
+        "We couldn't reach the server. Check your connection and try again.",
+      );
     }
+  }
 
-    final payload = {
-      "userId": userId,
-      "name": name,
-      "email": email,
-      "phone_number": phone,
-      "group": group,
-      "type": type,
-      "menu": menu,
-      "companions": companions,
-      "seat_number": seat,
-      "status": "Pending",
-    };
+  /// Surfaces the API's own `message` when it sends one — the old code threw
+  /// the response body away entirely.
+  String? _serverMessage(http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded['message'] is String) {
+        final message = (decoded['message'] as String).trim();
+        if (message.isNotEmpty) return message;
+      }
+    } catch (_) {
+      // Non-JSON body; fall back to the generic message.
+    }
+    return null;
+  }
 
-    final response = await http.post(
-      Uri.parse("${ApiConfig.apiBase}/guestlist"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode(payload),
+  /// `POST /groups/add` — the website's inline "Create Group" form.
+  Future<void> _createGroup() async {
+    // The controller is owned by [_NewGroupDialog], not created here.
+    //
+    // AUDIT FIX: this used to build the TextField against a controller
+    // created in this method and disposed immediately after `showDialog`
+    // returned. But `showDialog` completes as soon as `Navigator.pop` is
+    // called — the dialog's *exit transition* is still running, and the
+    // TextField keeps rebuilding against the controller throughout it. So
+    // the dispose landed mid-animation and the next frame threw
+    // "A TextEditingController was used after being disposed", which then
+    // cascaded into a second assertion while the overlay tore down.
+    //
+    // A StatefulWidget that owns its own controller disposes it when the
+    // route is actually gone, which is the only point that is safe.
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => const _NewGroupDialog(),
     );
 
-    setState(() => isSaving = false);
+    if (name == null || name.isEmpty || !mounted) return;
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      Navigator.pop(context, true); // 👈 SUCCESS
-    } else {
-      AppSnackbar.error(context, "We couldn't add that guest. Please try again.");
+    setState(() => _isCreatingGroup = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey);
+      if (token == null) return;
+
+      final res = await http.post(
+        Uri.parse("${ApiConfig.apiBase}/groups/add"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({"name": name}),
+      );
+
+      if (!mounted) return;
+
+      final decoded = res.statusCode == 200 || res.statusCode == 201
+          ? jsonDecode(res.body)
+          : null;
+
+      if (decoded is Map &&
+          decoded['success'] == true &&
+          decoded['group'] is Map) {
+        final created = GuestGroup.fromJson(decoded['group'] as Map);
+        if (created.id.isNotEmpty) {
+          setState(() {
+            _groups = [..._groups, created];
+            groupId = created.id;
+          });
+          AppSnackbar.success(context, 'Group created.');
+          return;
+        }
+      }
+
+      AppSnackbar.error(context, "We couldn't create that group. Please try again.");
+    } catch (e) {
+      debugPrint('createGroup failed: $e');
+      if (!mounted) return;
+      AppSnackbar.error(context, "We couldn't create that group. Please try again.");
+    } finally {
+      if (mounted) setState(() => _isCreatingGroup = false);
     }
   }
 
@@ -2592,72 +3953,195 @@ class _AddGuestScreenState extends State<AddGuestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add Guest"),
+        title: Text(_isEdit ? "Edit Guest" : "Add Guest"),
         backgroundColor: Colors.pink,
+        foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _input("Guest Name", onSaved: (v) => name = v!),
-              _input("Email", onSaved: (v) => email = v!, type: TextInputType.emailAddress),
-              _input("Phone", onSaved: (v) => phone = v!, type: TextInputType.phone),
-
-              _dropdown("Group", group, ["Family", "Friends", "Colleagues", "Other"],
-                      (v) => setState(() => group = v)),
-
-              _dropdown("Type", type, ["Adult", "Child"],
-                      (v) => setState(() => type = v)),
-
-              _dropdown("Menu", menu, ["Veg", "NonVeg", "All"],
-                      (v) => setState(() => menu = v)),
-
-              _input("Companions", onSaved: (v) => companions = int.tryParse(v!) ?? 0,
-                  type: TextInputType.number),
-
-              _input("Seat Number", onSaved: (v) => seat = v!, required: false),
-
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: isSaving ? null : _saveGuest,
-                  child: isSaving
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Save Guest",
-                      style: TextStyle(fontSize: 16, color: Colors.white)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          // Keyboard-safe: the Save button stays reachable with the keyboard up.
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                _input(
+                  label: "Guest Name",
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.words,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? "Guest name is required."
+                      : null,
                 ),
-              )
-            ],
+                _input(
+                  label: _isEdit ? "Email (optional)" : "Email",
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  // The website requires a valid email on create but allows an
+                  // empty one on edit; matched here rather than "invented".
+                  validator: (v) {
+                    final value = (v ?? '').trim();
+                    if (value.isEmpty) {
+                      return _isEdit ? null : "Email is required.";
+                    }
+                    final emailRegex =
+                        RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+                    return emailRegex.hasMatch(value)
+                        ? null
+                        : "Please enter a valid email address.";
+                  },
+                ),
+                _input(
+                  label: "Phone (optional)",
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: (v) {
+                    final digits =
+                        (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+                    if (digits.isEmpty) return null;
+                    return digits.length < 10
+                        ? "Enter at least 10 digits."
+                        : null;
+                  },
+                ),
+
+                _groupPicker(),
+
+                _dropdown("Type", type, kGuestTypeOptions,
+                    (v) => setState(() => type = v)),
+
+                _dropdown("Menu", menu, kGuestMenuOptions,
+                    (v) => setState(() => menu = v)),
+
+                // Status is only editable when editing — the website's add
+                // form has no status control and always creates "Pending".
+                if (_isEdit)
+                  _dropdown("RSVP Status", status, kGuestStatusOptions,
+                      (v) => setState(() => status = v)),
+
+                _input(
+                  label: "Companions",
+                  controller: _companionsController,
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    final value = (v ?? '').trim();
+                    if (value.isEmpty) return null;
+                    final parsed = int.tryParse(value);
+                    if (parsed == null) return "Enter a number.";
+                    return parsed < 0 ? "Cannot be negative." : null;
+                  },
+                ),
+
+                _input(
+                  label: "Seat Number (optional)",
+                  controller: _seatController,
+                  hint: "e.g. Table-1, A12",
+                ),
+
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pink,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: isSaving ? null : _save,
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            _isEdit ? "Save Changes" : "Save Guest",
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.white),
+                          ),
+                  ),
+                )
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  /// Group picker backed by `GET /groups`, with an inline create. Replaces
+  /// the old hardcoded `["Family","Friends","Colleagues","Other"]`, which
+  /// could never match a group the user had made on the website.
+  Widget _groupPicker() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: groupId,
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem(value: '', child: Text('No group')),
+                ..._groups.map(
+                  (g) => DropdownMenuItem(
+                    value: g.id,
+                    child: Text(g.name, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              onChanged: (v) => setState(() => groupId = v ?? ''),
+              decoration: InputDecoration(
+                labelText: 'Group',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Create group',
+            onPressed: _isCreatingGroup ? null : _createGroup,
+            icon: _isCreatingGroup
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_circle_outline, color: Colors.pink),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// ---------------- UI HELPERS ----------------
-  Widget _input(
-      String label, {
-        required Function(String?) onSaved,
-        TextInputType type = TextInputType.text,
-        bool required = true,
-      }) {
+  Widget _input({
+    required String label,
+    required TextEditingController controller,
+    String? hint,
+    TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    String? Function(String?)? validator,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
-        keyboardType: type,
-        validator: (v) =>
-        required && (v == null || v.isEmpty) ? "Required" : null,
-        onSaved: onSaved,
+        controller: controller,
+        keyboardType: keyboardType,
+        textCapitalization: textCapitalization,
+        validator: validator,
         decoration: InputDecoration(
           labelText: label,
+          hintText: hint,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
@@ -2705,8 +4189,16 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
     _loadTemplate();
   }
 
+  @override
+  void dispose() {
+    // Was never disposed — a TextEditingController leak on every open.
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadTemplate() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     _controller.text = prefs.getString('invite_template') ??
         '''We, the family of {{family}},
 warmly invite you to the wedding of
@@ -2721,6 +4213,7 @@ Your presence means a lot to us.''';
   Future<void> _saveTemplate() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('invite_template', _controller.text);
+    if (!mounted) return;
     Navigator.pop(context);
   }
 

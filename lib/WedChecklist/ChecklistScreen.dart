@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -14,6 +15,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../authservice.dart';
 import '../core/core.dart';
 import '../core/config/api_config.dart';
+// Guest-first auth: a 401 mid-session re-prompts through the app's single
+// sign-in entry point rather than this screen rolling its own.
+import '../main.dart' show requireAuthentication;
 
 class WeddingTimelinePage extends StatefulWidget {
   const WeddingTimelinePage({super.key});
@@ -79,6 +83,35 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   /// disable its own controls without freezing the rest of the list.
   final Set<String> _updatingTaskIds = {};
 
+  /// Set when the checklist or category fetch fails, so a network error is
+  /// distinguishable from a genuinely empty checklist. The website shows an
+  /// inline "Failed to load checklist data" banner for exactly this case;
+  /// before this the app silently rendered its empty state instead, which
+  /// read as "you have no tasks" when the request had actually failed.
+  String? _loadError;
+
+  /// True when the last failure was a 401, so the retry offers sign-in
+  /// instead of a plain retry. Mirrors the website's axios interceptor,
+  /// which logs the user out and redirects to the login page on a 401.
+  bool _loadErrorIsAuth = false;
+
+  /// Which fetch produced [_loadError] — `'categories'` or `'checklist'`.
+  /// A successful fetch clears only its own message: the checklist reloads on
+  /// its own after a task is added, and that success says nothing about
+  /// whether the category list is still missing.
+  String? _loadErrorSource;
+
+  /// Drives the live DD:HH:MM:SS countdown. The website re-renders its
+  /// countdown every second via setInterval; this is the direct equivalent.
+  /// Only runs while a wedding date is set and the screen is mounted.
+  Timer? _countdownTimer;
+
+  /// Bumped once a second by [_countdownTimer]. The countdown box listens to
+  /// this instead of the screen calling `setState`, so a ticking clock
+  /// repaints one small widget rather than rebuilding the whole page —
+  /// including the task list — sixty times a minute.
+  final ValueNotifier<int> _countdownTick = ValueNotifier<int>(0);
+
   @override
   void initState() {
     super.initState();
@@ -119,6 +152,8 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
+    _countdownTick.dispose();
     _cardController1.dispose();
     _cardController2.dispose();
     _cardController3.dispose();
@@ -127,7 +162,52 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     super.dispose();
   }
 
+  /// Starts (or restarts) the one-second ticker behind the live countdown.
+  /// Cancelled and left stopped when there is no wedding date to count to,
+  /// so an idle screen never holds a repeating timer.
+  void _syncCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    if (weddingDate == null) return;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      _countdownTick.value++;
+    });
+  }
+
+  /// Remaining time to the wedding, to the second. `hasPassed` flips once the
+  /// date is behind us, and the website then shows a "DAYS AGO" panel instead
+  /// of the four-box countdown — same shape as `countdown` in `Check.jsx`.
+  ({int days, int hours, int minutes, int seconds, bool hasPassed})?
+  get _countdown {
+    final wedding = weddingDate;
+    if (wedding == null) return null;
+    final diff = wedding.difference(DateTime.now());
+    if (diff.inMilliseconds > 0) {
+      return (
+        days: diff.inDays,
+        hours: diff.inHours % 24,
+        minutes: diff.inMinutes % 60,
+        seconds: diff.inSeconds % 60,
+        hasPassed: false,
+      );
+    }
+    // Past weddings count whole days elapsed, rounded up exactly as the
+    // website does (`Math.ceil` over the absolute difference).
+    final elapsed = diff.abs();
+    final days = (elapsed.inMilliseconds / Duration.millisecondsPerDay).ceil();
+    return (days: days, hours: 0, minutes: 0, seconds: 0, hasPassed: true);
+  }
+
   Future<void> _loadAuthAndData() async {
+    if (mounted) {
+      setState(() {
+        _loadError = null;
+        _loadErrorIsAuth = false;
+        _loadErrorSource = null;
+      });
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getInt(UserPrefs.userIdKey);
     final token = prefs.getString(UserPrefs.tokenKey);
@@ -173,6 +253,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       weddingDate = loadedWedding;
       startDate = loadedStart;
     });
+    _syncCountdownTimer();
 
     if (loadedStart != null && loadedWedding != null && loadedWedding.isBefore(loadedStart)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -334,14 +415,83 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
             _selectedCategory = _subcategories.first.id;
           }
         });
+        _clearLoadError('categories');
       } else {
         debugPrint("❌ Category fetch failed ${res.statusCode}");
+        // Without categories every task renders as "Unknown" and the Add
+        // form has nothing to pick, so this failure has to be visible too.
+        _setLoadError(
+          'Could not load vendor categories.',
+          isAuth: res.statusCode == 401,
+          source: 'categories',
+        );
       }
     } catch (e) {
       debugPrint("❌ Category fetch error: $e");
+      _setLoadError('Could not load vendor categories.', source: 'categories');
     } finally {
       if (mounted) setState(() => _isLoadingCategories = false);
     }
+  }
+
+  /// Records a load failure for the inline error panel.
+  ///
+  /// The category fetch always runs first, so a plain "couldn't load
+  /// categories" would otherwise mask the real cause when the session has
+  /// expired — and the user would be offered a Retry that can only fail
+  /// again. An auth failure therefore takes precedence over an existing
+  /// non-auth message; otherwise the first failure stands.
+  void _setLoadError(String message, {bool isAuth = false, required String source}) {
+    if (!mounted) return;
+    if (_loadError != null && !(isAuth && !_loadErrorIsAuth)) return;
+    setState(() {
+      _loadError = message;
+      _loadErrorIsAuth = isAuth;
+      _loadErrorSource = source;
+    });
+  }
+
+  /// Clears the panel once [source]'s own fetch has succeeded, leaving a
+  /// message that came from the *other* fetch in place.
+  void _clearLoadError(String source) {
+    if (!mounted) return;
+    if (_loadError == null || _loadErrorSource != source) return;
+    setState(() {
+      _loadError = null;
+      _loadErrorIsAuth = false;
+      _loadErrorSource = null;
+    });
+  }
+
+  /// Re-runs both fetches from a clean slate. Backs the Retry button and the
+  /// pull-to-refresh gesture.
+  Future<void> _reloadAll() async {
+    if (!mounted) return;
+    setState(() {
+      _loadError = null;
+      _loadErrorIsAuth = false;
+      _loadErrorSource = null;
+    });
+    await _fetchCategories();
+    await _fetchChecklist();
+  }
+
+  /// Retry entry point for the error panel. A 401 means the session expired
+  /// while the screen was open, so it routes through the app's shared
+  /// sign-in flow first — matching the website, whose axios interceptor
+  /// sends a 401 straight to the login page.
+  Future<void> _retryLoad() async {
+    if (_loadErrorIsAuth) {
+      final signedIn = await requireAuthentication(
+        context,
+        reason: 'Sign in again to load your wedding checklist.',
+      );
+      if (!signedIn || !mounted) return;
+      // The sign-in wrote a new token; pick it up before refetching.
+      await _loadAuthAndData();
+      return;
+    }
+    await _reloadAll();
   }
 
   // Fetch checklist for the user
@@ -361,25 +511,42 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
       if (userId == null) {
         debugPrint("❌ No user ID found");
+        // No stored session: the checklist belongs to a user, so this is an
+        // auth problem rather than an empty list. Surfaced as such instead
+        // of rendering "No tasks yet" to a signed-out user.
+        _setLoadError(
+          'Sign in to view your wedding checklist.',
+          isAuth: true,
+          source: 'checklist',
+        );
         return;
       }
+
+      // Keep the field copies in step with what was just read, so every other
+      // call in this screen (create/update/delete) uses the same session.
+      _userId = userId.toString();
+      if (token.isNotEmpty) _authToken = token;
 
       final url = "$baseUrl/new-checklist/newChecklist/user/$userId";
       debugPrint("📡 GET → $url");
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          "Authorization": "Bearer $token",
-          "Accept": "application/json",
-        },
-      );
+      // AUDIT FIX: this call used to build its headers inline and send a bare
+      // `Bearer ` with no token when none was stored. `_headers()` omits the
+      // header entirely in that case, which is what the server expects.
+      final response = await http.get(Uri.parse(url), headers: _headers());
 
       debugPrint("✅ GET status: ${response.statusCode}");
       if (kDebugMode) debugPrint("📦 GET body: ${response.body}");
 
       if (response.statusCode != 200) {
         debugPrint("❌ Failed GET checklist");
+        _setLoadError(
+          response.statusCode == 401
+              ? 'Your session has expired. Please sign in again.'
+              : 'Failed to load checklist data.',
+          isAuth: response.statusCode == 401,
+          source: 'checklist',
+        );
         return;
       }
 
@@ -392,6 +559,19 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       String? fallbackWedding;
 
       for (final item in list) {
+        if (item is! Map) continue;
+
+        // AUDIT FIX: this was `item["id"].toString()` at the insert below,
+        // which throws on a null id and aborts the *entire* parse — one bad
+        // row emptied the whole checklist. A row with no id also can't be
+        // updated or deleted (the id is the path parameter), so it is skipped
+        // rather than rendered as an un-actionable task.
+        final rawId = item["id"];
+        if (rawId == null) {
+          debugPrint("⚠️ Skipping checklist row with no id: $item");
+          continue;
+        }
+
         final text = item["text"]?.toString() ?? "";
         final status = item["status"]?.toString() ?? "";
         final subId = item["vendor_subcategory_id"]?.toString() ?? "";
@@ -410,7 +590,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
         _tasks.add(
           _TaskItem(
-            id: item["id"].toString(), // 🔥 REQUIRED
+            id: rawId.toString(),
             title: text,
             category: categoryName,
             status: status,
@@ -432,8 +612,14 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       // Guarded: the user can leave the checklist while the request runs.
       if (!mounted) return;
       setState(() {});
+      // This fetch also runs on its own after a task is added, so a stale
+      // panel from an earlier failure has to come down when it succeeds.
+      _clearLoadError('checklist');
+      // A wedding date may have just arrived from the server fallback above.
+      _syncCountdownTimer();
     } catch (e) {
       debugPrint("❌ Checklist fetch error: $e");
+      _setLoadError('Failed to load checklist data.', source: 'checklist');
     } finally {
       if (mounted) setState(() => _isLoadingChecklist = false);
     }
@@ -472,11 +658,18 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
         return false;
       }
 
+      // The website posts `userId` (camelCase) here — see `addChecklist()` in
+      // `Check.jsx` — while this app has always posted `user_id`. The server
+      // source is not in this repo, so which key it reads cannot be verified
+      // statically, and creating tasks does work today with `user_id`. Both
+      // keys carry the same value so the request satisfies either contract;
+      // an unused extra field is ignored by the handler.
       final body = {
         "start_date": startDateString,
         "wedding_date": weddingDateString,
         "status": "pending",
         "text": text,
+        "userId": _userId!,
         "user_id": _userId!,
         "vendor_subcategory_id": vendorSubcategoryId,
       };
@@ -600,7 +793,12 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
     // wedding date is inside that window, matching the website's own
     // pre-check in `Check.jsx`. Checked here too so the user gets this
     // specific reason instead of the generic "couldn't add" failure message.
-    final daysToWedding = weddingDate!.difference(DateTime.now()).inDays;
+    // AUDIT FIX: this compared against `DateTime.now()`, so it measured from
+    // the current time of day and truncated a partial day — at 8 days out the
+    // countdown card could read "8 days left" while this check rejected the
+    // task. `_remainingCountdownDays` is midnight-normalized, so both figures
+    // now come from the same calendar-day arithmetic.
+    final daysToWedding = _remainingCountdownDays;
     if (daysToWedding < 8) {
       AppSnackbar.warning(
         context,
@@ -798,6 +996,7 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
     setState(() => weddingDate = picked);
     debugPrint('💍 Wedding Date set: $picked');
+    _syncCountdownTimer();
     _daysController.forward(from: 0.0);
 
     final prefs = await SharedPreferences.getInstance();
@@ -1049,12 +1248,21 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    const Text(
-                      'Wedding Checklist',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
+                    // AUDIT FIX (overflow): the title was an unconstrained
+                    // Text between two fixed 48px boxes, so it overflowed the
+                    // row on narrow phones and at larger accessibility text
+                    // sizes. Expanded + ellipsis makes it shrink instead.
+                    const Expanded(
+                      child: Text(
+                        'Wedding Checklist',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 48), // for symmetry
@@ -1064,11 +1272,23 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
 
               // 🌸 Body (with your animated cards)
               Expanded(
-                child: SingleChildScrollView(
+                child: RefreshIndicator(
+                  onRefresh: _reloadAll,
+                  color: const Color(0xFFE91E63),
+                  child: SingleChildScrollView(
+                  // Always scrollable so the pull-to-refresh gesture still
+                  // works when the content is shorter than the viewport
+                  // (empty checklist, or a load error).
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+
+                      if (_loadError != null) ...[
+                        _loadErrorPanel(),
+                        const SizedBox(height: 20),
+                      ],
 
                       // CARD 1
                       SlideTransition(
@@ -1105,10 +1325,65 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                     ],
                   ),
                 ),
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Inline failure panel. The website shows a dismissible red alert with
+  /// "Failed to load checklist data" for the same case; this adds the retry
+  /// the website lacks, because a phone loses connectivity far more often
+  /// than a desktop browser does.
+  Widget _loadErrorPanel() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _loadError ?? '',
+                  style: const TextStyle(
+                    color: Color(0xFF991B1B),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Pull down to refresh, or tap retry.',
+                  style: TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _retryLoad,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFDC2626),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(_loadErrorIsAuth ? 'Sign in' : 'Retry'),
+          ),
+        ],
       ),
     );
   }
@@ -1166,12 +1441,38 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
                   ),
                 ),
                 const SizedBox(height: 10),
+                // AUDIT FIX (overflow): three natural-width labels in a
+                // spaceBetween row overflowed once the counts reached two
+                // digits or the user raised their text size. Each gets an
+                // equal share and shrinks to fit instead.
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('$_completedCount completed', style: const TextStyle(fontSize: 12)),
-                    Text('$_totalCount total tasks', style: const TextStyle(fontSize: 12)),
-                    Text(_progressLabel, style: const TextStyle(fontSize: 12)),
+                    Expanded(
+                      child: Text(
+                        '$_completedCount completed',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '$_totalCount total tasks',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _progressLabel,
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
                   ],
                 )
               ],
@@ -1909,10 +2210,16 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
               final oldTitle = task.title;
               setState(() => task.title = newText);
 
+              // Resolved before the await: `dialogContext` may be unmounted by
+              // the time the request returns (the user can dismiss the dialog
+              // or leave the screen), and the outer `mounted` check below is
+              // about the *page*, not the dialog — it cannot vouch for it.
+              final dialogNavigator = Navigator.of(dialogContext);
+
               final ok = await _updateChecklistTextOnServer(task.id, newText);
 
               if (!mounted) return;
-              Navigator.pop(dialogContext);
+              if (dialogNavigator.canPop()) dialogNavigator.pop();
 
               if (ok) {
                 AppSnackbar.success(context, 'Task updated successfully.');
@@ -1976,23 +2283,25 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
   }
 
   // full width days box (difference of start and wedding dates)
+  /// Live countdown to the wedding, refreshed every second by
+  /// [_countdownTimer] — the direct equivalent of the website's
+  /// "Countdown to The Big Day" card, including its past-wedding
+  /// "DAYS AGO" variant. Falls back to a prompt when no date is set yet.
   Widget _fullWidthDaysBox() {
-    String message = 'Select both dates';
-    int days = 0;
-    if (startDate != null && weddingDate != null) {
-      days = weddingDate!.difference(startDate!).inDays;
-      if (days >= 0) {
-        message = 'Days until wedding';
-      } else {
-        days = days.abs();
-        message = 'Days since wedding';
-      }
-    }
-    debugPrint('📏 Days difference computed: $days ($message)');
+    // Rebuilt by the one-second tick alone; the rest of the screen is left
+    // untouched between ticks.
+    return ValueListenableBuilder<int>(
+      valueListenable: _countdownTick,
+      builder: (context, _, __) => _countdownBox(),
+    );
+  }
+
+  Widget _countdownBox() {
+    final countdown = _countdown;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.pinkAccent.shade100,
         borderRadius: BorderRadius.circular(16),
@@ -2000,13 +2309,99 @@ class _WeddingTimelinePageState extends State<WeddingTimelinePage>
       ),
       child: Column(
         children: [
-          Text('$days', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 8),
-          Text(message, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.favorite, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  countdown == null
+                      ? 'Select your wedding date'
+                      : countdown.hasPassed
+                          ? 'Wedding Milestone'
+                          : 'Countdown to The Big Day',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (countdown == null)
+            const Text(
+              'Set a wedding date to start the countdown.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+            )
+          else if (countdown.hasPassed)
+            Column(
+              children: [
+                Text(
+                  '${countdown.days}',
+                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'DAYS AGO',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1),
+                ),
+              ],
+            )
+          else
+            // Expanded boxes + a fixed-width separator keep the four units on
+            // one line at every phone width without overflowing.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _countdownUnit(countdown.days, 'DAYS')),
+                _countdownSeparator(),
+                Expanded(child: _countdownUnit(countdown.hours, 'HOURS')),
+                _countdownSeparator(),
+                Expanded(child: _countdownUnit(countdown.minutes, 'MINS')),
+                _countdownSeparator(),
+                Expanded(child: _countdownUnit(countdown.seconds, 'SECS')),
+              ],
+            ),
         ],
       ),
     );
   }
+
+  Widget _countdownUnit(int value, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value.toString().padLeft(2, '0'),
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _countdownSeparator() => const Padding(
+    padding: EdgeInsets.symmetric(horizontal: 2),
+    child: Text(
+      ':',
+      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white70),
+    ),
+  );
 
   // small reusable card wrapper with gradient header (keeps existing look)
   Widget _cardWrapper({required Widget child, required String title}) {
@@ -2091,20 +2486,37 @@ class _TaskItem {
   bool get done => isCompleted;
   set done(bool value) => status = value ? 'completed' : 'pending';
 
-  /// The backend has returned "completed", "done", "in progress",
-  /// "in_progress", "Pending", etc. across different call sites over time —
-  /// normalize once here so every getter/UI branch can compare against
-  /// exactly three canonical values.
-  static String _normalizeStatus(String? raw) {
-    final normalized = (raw ?? '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
-    if (normalized == 'completed' || normalized == 'done' || normalized == 'complete') {
-      return 'completed';
-    }
-    if (normalized == 'in_progress' || normalized == 'inprogress' || normalized == 'progress') {
-      return 'in_progress';
-    }
-    return 'pending';
+  static String _normalizeStatus(String? raw) => normalizeChecklistStatus(raw);
+}
+
+/// The backend has returned "completed", "done", "in progress",
+/// "in_progress", "Pending", etc. across different call sites over time —
+/// normalize once here so every getter/UI branch can compare against
+/// exactly three canonical values: `pending`, `in_progress`, `completed`.
+///
+/// Top-level (not private to [_TaskItem]) because the Home screen's checklist
+/// summary card reads the *same* endpoint and used to compare the raw string
+/// against "completed" directly — so a row the checklist screen showed as Done
+/// was counted as still-pending on the home card. Both now share this.
+String normalizeChecklistStatus(String? raw) {
+  final normalized = (raw ?? '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  if (normalized == 'completed' || normalized == 'done' || normalized == 'complete') {
+    return 'completed';
   }
+  if (normalized == 'in_progress' || normalized == 'inprogress' || normalized == 'progress') {
+    return 'in_progress';
+  }
+  return 'pending';
+}
+
+/// One pending task as shown on the Home screen's checklist summary card.
+/// Carries the id so the card can mark it done in place, the way the
+/// website's `UpcomingTask.jsx` checkboxes do.
+class HomeChecklistTask {
+  final String id;
+  final String title;
+
+  const HomeChecklistTask({required this.id, required this.title});
 }
 
 // vendor subcategory model

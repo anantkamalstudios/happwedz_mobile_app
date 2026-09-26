@@ -98,14 +98,37 @@ class MyApp extends StatelessWidget {
           data: MediaQuery.of(context).copyWith(textScaler: scaler),
           child: Stack(
             children: [
-              if (child != null) child,
-              const ConnectivityOverlay(), // shows/hides automatically
+              // AUDIT FIX (framework assertion `_dependents.isEmpty`):
+              // this slot used to be `if (child != null) child`. Flutter
+              // matches multi-child lists by index and runtime type, so the
+              // moment `child` flipped to null the list went from three
+              // entries to two, both overlays shifted slot, and the entire
+              // Navigator subtree was deactivated in a single pass — which
+              // asserts if anything inside it still depends on an
+              // InheritedWidget being torn down at the same time. The crash
+              // surfaces as "Failed assertion: '_dependents.isEmpty'" while
+              // building the root Overlay, naming this Stack as the
+              // error-causing widget.
+              //
+              // Keeping the slot always occupied, and keying each child, means
+              // the three positions are stable for the life of the app and no
+              // sibling can ever be re-slotted.
+              KeyedSubtree(
+                key: const ValueKey('app.navigator'),
+                child: child ?? const SizedBox.shrink(),
+              ),
+              const ConnectivityOverlay(
+                key: ValueKey('app.connectivityOverlay'),
+              ), // shows/hides automatically
               // Runs the store version check once for the whole app and, when
               // a newer release is live, locks the root navigator behind a
               // non-dismissible update wall. Sits beside the connectivity
               // overlay so the check exists in exactly one place and no
               // screen — splash, auth gate or tab — repeats it.
-              MandatoryUpdateGate(navigatorKey: rootNavigatorKey),
+              MandatoryUpdateGate(
+                key: const ValueKey('app.updateGate'),
+                navigatorKey: rootNavigatorKey,
+              ),
             ],
           ),
         );
@@ -473,10 +496,38 @@ class _SignInScreenState extends State<SignInScreen> {
     final userId = prefs.getInt("user_id");
     if (userId == null) return;
 
-    final url = '${ApiConfig.baseUrl}/api/user/$userId';
+    // AUDIT FIX (two bugs, verified live against api.happywedz.com):
+    //
+    //   GET /api/user/1  ->  404   (this route does not exist)
+    //   GET /user/1      ->  401   (exists, needs a bearer token)
+    //
+    // There is no `/api` prefix on this host — every other call in the app
+    // and every call on the website uses a bare path (`/guestlist/...`,
+    // `/new-checklist/...`, and `${API_BASE_URL}/user/${userId}` in the
+    // website's own UserProfile.jsx). And the request carried no
+    // Authorization header, so it would have been rejected even on the
+    // correct path.
+    //
+    // The impact was not limited to a stale profile: this is the only writer
+    // of `user_mobile`, `wedding_venue` and `wedding_date`, so those keys
+    // were never populated, `isProfileComplete()` could never return true,
+    // and any screen gated on it — the Guest List's Add/Email/WhatsApp
+    // actions — bounced the user to Profile Settings every single time.
+    final url = '${ApiConfig.baseUrl}/user/$userId';
+    final token = prefs.getString(UserPrefs.tokenKey) ?? '';
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('❌ Profile fetch failed: HTTP ${response.statusCode}');
+      }
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

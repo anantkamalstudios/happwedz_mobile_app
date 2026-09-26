@@ -358,4 +358,44 @@ void main() {
       expect(sent.single.url.path, endsWith('/weddingwebsite/wedding-websites/w1'));
     });
   });
+
+  // The shared link is the whole point of this feature, and it was pointing
+  // at the API host: `https://api.happywedz.com/wedding/<slug>` answers
+  // "route not found" (verified live: API host 404, happywedz.com 200).
+  // Anyone sent a wedding-website link from the app got an error page.
+  //
+  // The website builds the same link from `window.location.origin`
+  // (`getPublicUrl` in weddingWebsiteApi.js) — its own origin, never the API.
+  group('public share URL', () {
+    test('is built on the website host, not the API host', () {
+      final url = WeddingWebsiteApi.publicUrlFor('harshada-royal-10');
+
+      expect(url, 'https://happywedz.com/wedding/harshada-royal-10');
+      expect(url, isNot(contains('api.happywedz.com')));
+    });
+
+    test('publish re-hosts a server publicUrl that carries the API host', () async {
+      final api = WeddingWebsiteApi(
+        client: respondWith({
+          'publicUrl': 'https://api.happywedz.com/wedding/harshada-royal-10',
+        }),
+      );
+
+      final result = await api.publishWebsite('w1');
+
+      // The response is trusted for the slug only — the host is always ours,
+      // so a wrong origin from the backend cannot reach a shared link.
+      expect(result.websiteUrl, 'harshada-royal-10');
+      expect(result.publicUrl, 'https://happywedz.com/wedding/harshada-royal-10');
+    });
+
+    test('publish keeps using the website host when a bare slug comes back', () async {
+      final api = WeddingWebsiteApi(
+        client: respondWith({'websiteUrl': 'asha-floral-3'}),
+      );
+
+      final result = await api.publishWebsite('w1');
+      expect(result.publicUrl, 'https://happywedz.com/wedding/asha-floral-3');
+    });
+  });
 }

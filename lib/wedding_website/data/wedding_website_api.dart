@@ -319,8 +319,26 @@ class WeddingWebsiteApi {
     }
     return WeddingWebsitePublishResult(
       websiteUrl: slug,
-      publicUrl: publicUrl.isNotEmpty ? publicUrl : publicUrlFor(slug),
+      // AUDIT FIX: this passed the server's `publicUrl` through untouched,
+      // and that value has been seen carrying the API host — producing
+      // `https://api.happywedz.com/wedding/<slug>`, which answers "route not
+      // found". The response is only trusted for the slug now; the host is
+      // always this app's, so a shared link cannot inherit a wrong origin
+      // from the backend.
+      publicUrl: slug.isNotEmpty
+          ? publicUrlFor(slug)
+          : _withWebAppHost(publicUrl),
     );
+  }
+
+  /// Re-hosts an absolute URL onto [ApiConfig.webAppBaseUrl], keeping its
+  /// path. Used only when no slug could be recovered.
+  static String _withWebAppHost(String url) {
+    if (url.isEmpty) return url;
+    final parsed = Uri.tryParse(url);
+    if (parsed == null || !parsed.hasAuthority) return url;
+    final base = Uri.parse(ApiConfig.webAppBaseUrl);
+    return parsed.replace(scheme: base.scheme, host: base.host, port: null).toString();
   }
 
   /// `GET weddingwebsite/wedding/:websiteUrl` — `viewPublicWebsite`. Public,
@@ -339,12 +357,16 @@ class WeddingWebsiteApi {
     return WeddingWebsiteDetail.fromJson(data);
   }
 
-  /// `getPublicUrl` in `weddingWebsiteApi.js` — `${origin}/wedding/${slug}`.
-  /// The web app's own origin (`ApiConfig.baseUrl`) is reused here, matching
-  /// how `lib/einvite1/einvite.dart` already links out to
-  /// `${ApiConfig.baseUrl}/wedding-form/<template>` for the same web app.
+  /// `getPublicUrl` in `weddingWebsiteApi.js` — `${origin}/wedding/${slug}`,
+  /// where `origin` is the **website's** origin, not the API's.
+  ///
+  /// AUDIT FIX: this used `ApiConfig.baseUrl`, so every shared link pointed
+  /// at `https://api.happywedz.com/wedding/<slug>` — a JSON host with no such
+  /// route, which answers "route not found". Anyone sent a wedding-website
+  /// link from the app got an error page instead of the couple's site.
+  /// Verified live: the API host 404s, `happywedz.com` returns 200.
   static String publicUrlFor(String websiteUrl) =>
-      '${ApiConfig.baseUrl}/wedding/$websiteUrl';
+      '${ApiConfig.webAppBaseUrl}/wedding/$websiteUrl';
 
   // ---------------------------------------------------------------------------
   // Multipart body builder — mirrors buildFormData() in WeddingWebsiteForm.jsx

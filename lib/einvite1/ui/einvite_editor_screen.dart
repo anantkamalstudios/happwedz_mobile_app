@@ -72,6 +72,18 @@ class _EinviteEditorScreenState extends State<EinviteEditorScreen> {
 
   bool get _isTemplate => _card?['isTemplate'] == true;
 
+  /// The footage behind a video invitation's scenes.
+  ///
+  /// The API nests it as `video: {videoUrl, duration, audioUrl,
+  /// sourceDuration}` on a `cardType: "video"` card — verified against
+  /// `GET /einvites/cards?cardType=video`. Null for every still card.
+  String? get _videoUrl {
+    final video = _card?['video'];
+    if (video is! Map) return null;
+    final url = video['videoUrl']?.toString() ?? '';
+    return url.isEmpty ? null : url;
+  }
+
   /// Port of the web's `T` — a design sold rather than free.
   bool get _isPaid {
     final pricing = _card?['pricing'];
@@ -536,6 +548,11 @@ class _EinviteEditorScreenState extends State<EinviteEditorScreen> {
                   page: page,
                   selectedFieldId: _exporting ? null : _focusedFieldId,
                   onFieldTap: _focusField,
+                  // Only a `cardType: "video"` card carries this; stills pass
+                  // null and render exactly as before. Suppressed while
+                  // exporting, because the PNG capture wants the poster frame
+                  // rather than whatever frame the video happens to be on.
+                  videoUrl: _exporting ? null : _videoUrl,
                 ),
               ),
             ),

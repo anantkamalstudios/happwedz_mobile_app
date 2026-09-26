@@ -17,6 +17,21 @@ class ApiConfig {
   static const String baseUrl = 'https://api.happywedz.com';
   static const String apiBase = 'https://api.happywedz.com';
 
+  /// Origin of the **public website**, as opposed to the API.
+  ///
+  /// These are different hosts and are not interchangeable. Anything a user
+  /// can open in a browser — a shared wedding-website link, a wedding-form
+  /// template page — belongs here; [baseUrl] serves JSON only and answers
+  /// such paths with 404. Verified live:
+  ///
+  ///   https://api.happywedz.com/wedding/<slug>  -> 404 route not found
+  ///   https://happywedz.com/wedding/<slug>      -> 200
+  ///
+  /// The website builds the same links from `window.location.origin`
+  /// (`getPublicUrl` in `weddingWebsiteApi.js`), i.e. its own origin — which
+  /// is this host, never the API one.
+  static const String webAppBaseUrl = 'https://happywedz.com';
+
   /// Backend surface used by a handful of screens (venues, home feed,
   /// vendor detail, wishlist, real-wedding stories).
   static const String backendBaseUrl = 'https://api.happywedz.com';

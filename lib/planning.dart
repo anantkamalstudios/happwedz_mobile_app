@@ -1,4 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'WedChecklist/ChecklistScreen.dart';
+import 'authservice.dart';
+import 'core/config/api_config.dart';
+import 'main.dart' show requireAuthentication;
 
 class WeddingPlanningScreen extends StatefulWidget {
   @override
@@ -6,6 +15,87 @@ class WeddingPlanningScreen extends StatefulWidget {
 }
 
 class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
+  // AUDIT FIX: this card used to render a hardcoded "2/7" / "2%" / 0.02
+  // progress bar and a "View All Tasks" button whose onTap was an empty
+  // stub — a fake checklist summary shown to every user, reachable from
+  // More -> Planning. It now reads the same endpoint the checklist screen
+  // and the home card use, and the button opens the real checklist.
+  int _completedTasks = 0;
+  int _totalTasks = 0;
+  bool _loadingTasks = true;
+
+  double get _taskProgress =>
+      _totalTasks == 0 ? 0.0 : _completedTasks / _totalTasks;
+
+  int get _progressPercent => (_taskProgress * 100).round();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChecklistSummary();
+  }
+
+  Future<void> _loadChecklistSummary() async {
+    if (mounted) setState(() => _loadingTasks = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(UserPrefs.tokenKey) ?? '';
+      final userId = prefs.getInt(UserPrefs.userIdKey);
+
+      // A signed-out user has no checklist; the card shows 0/0 rather than
+      // inventing numbers, and the button prompts sign-in when tapped.
+      if (userId == null || token.isEmpty) return;
+
+      final res = await http.get(
+        Uri.parse(
+          '${ApiConfig.apiBase}/new-checklist/newChecklist/user/$userId',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (res.statusCode != 200) return;
+
+      final body = json.decode(res.body);
+      final List list = body['data'] ?? [];
+
+      int completed = 0;
+      for (final item in list) {
+        if (item is! Map) continue;
+        if (normalizeChecklistStatus(item['status']?.toString()) ==
+            'completed') {
+          completed++;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _totalTasks = list.length;
+        _completedTasks = completed;
+      });
+    } catch (e) {
+      debugPrint('❌ Planning checklist summary error: $e');
+    } finally {
+      if (mounted) setState(() => _loadingTasks = false);
+    }
+  }
+
+  Future<void> _openChecklist() async {
+    final signedIn = await requireAuthentication(
+      context,
+      reason: 'Sign in to build your wedding checklist.',
+    );
+    if (!signedIn || !mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const WeddingTimelinePage()),
+    );
+    // The user may have ticked tasks off while they were in there.
+    if (mounted) await _loadChecklistSummary();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -288,7 +378,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                                 ),
                               ),
                               Text(
-                                '2%',
+                                _loadingTasks ? '—' : '$_progressPercent%',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -304,7 +394,9 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                           Row(
                             children: [
                               Text(
-                                '2/7',
+                                _loadingTasks
+                                    ? 'Loading…'
+                                    : '$_completedTasks/$_totalTasks',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -325,7 +417,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: FractionallySizedBox(
-                              widthFactor: 0.02, // 2%
+                              widthFactor: _taskProgress.clamp(0.0, 1.0),
                               alignment: Alignment.centerLeft,
                               child: Container(
                                 decoration: BoxDecoration(
@@ -367,9 +459,7 @@ class _WeddingPlanningScreenState extends State<WeddingPlanningScreen> {
                               color: Colors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () {
-                                  // Handle tap
-                                },
+                                onTap: _openChecklist,
                                 child: Center(
                                   child: Text(
                                     'View All Tasks',
