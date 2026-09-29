@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/core.dart';
+import '../core/services/selected_city.dart';
 import '../core/services/city_locator.dart';
 import '../core/services/response_cache.dart';
 import '../core/services/vendor_visibility.dart';
@@ -25,8 +26,11 @@ import '../authservice.dart';
 import '../main.dart';
 import '../profile.dart';
 import '../vendor/vendordetailsscreen.dart';
+import '../vendor/vendor_row.dart' show vendorAbsoluteUrl;
+import '../blog/blog_api.dart';
+import '../blog/blog_article_page.dart';
 import 'Vendor.dart';
-import 'VenuesScreen.dart';
+// import 'VenuesScreen.dart'; // tab replaced by VendorServicesScreen
 import 'designstudio1.dart';
 import 'morescreen.dart';
 
@@ -1090,7 +1094,13 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   int _searchRequestId = 0;
 
   /// Suggestions are a shortlist, not a results page.
-  static const int _searchPageSize = 8;
+  // static const int _searchPageSize = 8;
+  /// The website's typeahead asks for 30 (MainSearch.jsx).
+  static const int _searchPageSize = 30;
+
+  /// The last search failed (network/HTTP) — shown as an error, not as
+  /// "No vendors matched".
+  bool _searchFailed = false;
 
   // city loader
   bool _isLoadingCities = false;
@@ -1242,6 +1252,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           if (saved != null && saved.isNotEmpty) _selectedCity = saved;
           _citySource = source;
         });
+        SelectedCity.set(_selectedCity);
       }
       return prefs.getBool(_locationDeclinedPrefsKey) ?? false;
     } catch (e) {
@@ -1286,6 +1297,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       _selectedCity = city;
       _citySource = 'auto';
     });
+    SelectedCity.set(city);
     await _persistSelectedCity(city, source: 'auto');
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1329,7 +1341,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     _searchDebounce?.cancel();
 
     final query = value.trim();
-    if (query.isEmpty) {
+    // The website starts searching at 2 characters.
+    if (query.length < 2) {
       // Drop any in-flight response for the text that was just cleared.
       _searchRequestId++;
       setState(() {
@@ -1341,7 +1354,8 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
     }
 
     _searchDebounce = Timer(
-      const Duration(milliseconds: 400),
+      // const Duration(milliseconds: 400),
+      const Duration(milliseconds: 500), // website debounce
       () => _runSearch(query),
     );
   }
@@ -1353,7 +1367,10 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
   /// returns 33 results without it and 0 with it.
   Future<void> _runSearch(String query) async {
     final requestId = ++_searchRequestId;
-    setState(() => _isSearching = true);
+    setState(() {
+      _isSearching = true;
+      _searchFailed = false;
+    });
 
     try {
       final uri = Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(
@@ -1402,6 +1419,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           _searchResults = [];
           _searchTotal = 0;
           _isSearching = false;
+          _searchFailed = true;
         });
       }
     } catch (e) {
@@ -1411,6 +1429,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
         _searchResults = [];
         _searchTotal = 0;
         _isSearching = false;
+        _searchFailed = true;
       });
     }
   }
@@ -1635,6 +1654,7 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
       _selectedCity = city;
       _citySource = 'manual';
     });
+    SelectedCity.set(city);
     await _persistSelectedCity(city, source: 'manual');
     if (changed) await _loadCityScopedSections();
   }
@@ -2229,7 +2249,11 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                _selectedCity == null
+                _searchFailed
+                    ? "Couldn't search right now. Check your connection and try again."
+                    : _searchQuery.trim().length < 2
+                    ? 'Type at least 2 characters to search.'
+                    : _selectedCity == null
                     ? 'No vendors matched "${_searchQuery.trim()}".'
                     : 'No vendors matched "${_searchQuery.trim()}" '
                           'in $_selectedCity.',
@@ -2993,7 +3017,9 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
           // Fix hero image URL
           String imageUrl = '';
           if (category.heroImage.isNotEmpty) {
-            imageUrl = "${ApiConfig.backendBaseUrl}${category.heroImage}";
+            // imageUrl = "${ApiConfig.backendBaseUrl}${category.heroImage}";
+            // Half the live `hero_image` values are full S3 URLs.
+            imageUrl = vendorAbsoluteUrl(category.heroImage);
           }
 
           return FadeSlideIn.staggered(
@@ -4446,14 +4472,22 @@ class _WeddingHomePageState extends State<WeddingHomePage> {
               onTap: () {
                 Navigator.push(
                   context,
+                  // AnimatedPageRoute(
+                  //   page: BlogDetailPage(
+                  //     title: post['title'] ?? '',
+                  //     date: post['postDate']?.toString().split("T").first ?? '',
+                  //     author: post['author'] ?? '',
+                  //     image: post['image'] ?? '',
+                  //     content: post['shortDescription'] ?? '',
+                  //     category: post['category']?['name'] ?? '',
+                  //   ),
+                  // ),
+                  // The full article from /blogs/:id, like the website's
+                  // teaser → /blog/:id (the old page showed only the excerpt).
                   AnimatedPageRoute(
-                    page: BlogDetailPage(
-                      title: post['title'] ?? '',
-                      date: post['postDate']?.toString().split("T").first ?? '',
-                      author: post['author'] ?? '',
-                      image: post['image'] ?? '',
-                      content: post['shortDescription'] ?? '',
-                      category: post['category']?['name'] ?? '',
+                    page: BlogArticlePage(
+                      blogId: '${post['id'] ?? ''}',
+                      preview: BlogSummary.fromJson(post),
                     ),
                   ),
                 );
@@ -4972,7 +5006,17 @@ class _BottomBarsState extends State<BottomBars> {
   // All screens for bottom nav
   final List<Widget> _screens = [
     const WeddingHomePage(),
-    const VenuesScreen(),
+    // const VenuesScreen(),
+    // The Venues tab is the shared listing now — the website uses one
+    // listing (MainSection/SubSection) for venues and vendors. The old
+    // VenuesScreen had an unreachable filter sheet, dead Call/WhatsApp
+    // buttons, a page-size bug and ignored the chosen city.
+    const VendorServicesScreen(
+      subcategoryName: 'Venues',
+      vendorType: 'Venues',
+      filterBySubcategory: false,
+      embedded: true,
+    ),
     VirtualTryOnScreennnnnnn(),
     const VendorCategoriesScreen(),
     MoreOptionsScreen(),

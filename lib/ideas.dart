@@ -1,3 +1,5 @@
+import 'blog/blog_list_view.dart';
+import 'photography/photo_ideas_view.dart';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -215,8 +217,14 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildPhotosTab(),
-                    _buildStoriesTab(),
+                    // _buildPhotosTab(),
+                    // The website's photo-inspiration gallery: type chips
+                    // plus active photos from /photography/photography.
+                    const PhotoIdeasView(),
+                    // _buildStoriesTab(),
+                    // The website's blog list: search, "I am looking for"
+                    // filters, 6-per-page pagination, full article on tap.
+                    const BlogListView(),
                     _buildRealWeddingsTab(),
                   ],
                 ),
@@ -353,119 +361,120 @@ class _IdeasState extends State<Ideas> with TickerProviderStateMixin {
     );
   }
 
-  // Photos Tab Content
-  Widget _buildPhotosTab() {
-    return GridView.builder(
-      padding: EdgeInsets.all(16),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) {
-        return _buildPhotoCard(index);
-      },
-    );
-  }
+  // Replaced by PhotoIdeasView (lib/photography/) — these were hardcoded Unsplash photos.
+//   // Photos Tab Content
+//   Widget _buildPhotosTab() {
+//     return GridView.builder(
+//       padding: EdgeInsets.all(16),
+//       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+//         crossAxisCount: 2,
+//         crossAxisSpacing: 12,
+//         mainAxisSpacing: 12,
+//         childAspectRatio: 0.8,
+//       ),
+//       itemCount: 8,
+//       itemBuilder: (context, index) {
+//         return _buildPhotoCard(index);
+//       },
+//     );
+//   }
 
-  Widget _buildPhotoCard(int index) {
-    final List<String> photoUrls = [
-      'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=400&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=400&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=400&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?w=400&h=300&fit=crop',
-    ];
+//   Widget _buildPhotoCard(int index) {
+//     final List<String> photoUrls = [
+//       'https://images.unsplash.com/photo-1594736797933-d0701ba0c4bb?w=400&h=300&fit=crop',
+//       'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=400&h=300&fit=crop',
+//       'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&h=300&fit=crop',
+//       'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=300&fit=crop',
+//       'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=400&h=300&fit=crop',
+//       'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=400&h=300&fit=crop',
+//       'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=400&h=300&fit=crop',
+//       'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?w=400&h=300&fit=crop',
+//     ];
 
-    final List<String> photoTitles = [
-      'Bridal Lehenga',
-      'Wedding Decor',
-      'Mehendi Design',
-      'Wedding Jewelry',
-      'Bridal Makeup',
-      'Groom Outfit',
-      'Wedding Flowers',
-      'Reception Decor',
-    ];
+//     final List<String> photoTitles = [
+//       'Bridal Lehenga',
+//       'Wedding Decor',
+//       'Mehendi Design',
+//       'Wedding Jewelry',
+//       'Bridal Makeup',
+//       'Groom Outfit',
+//       'Wedding Flowers',
+//       'Reception Decor',
+//     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.15),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(photoUrls[index % photoUrls.length]),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                    ],
-                  ),
-                ),
-                child: Text(
-                  photoTitles[index % photoTitles.length],
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.favorite_border,
-                  size: 16,
-                  color: Color(0xFFE91E63),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+//     return Container(
+//       decoration: BoxDecoration(
+//         borderRadius: BorderRadius.circular(12),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Colors.grey.withValues(alpha: 0.15),
+//             spreadRadius: 1,
+//             blurRadius: 8,
+//             offset: Offset(0, 2),
+//           ),
+//         ],
+//       ),
+//       child: ClipRRect(
+//         borderRadius: BorderRadius.circular(12),
+//         child: Stack(
+//           children: [
+//             Container(
+//               decoration: BoxDecoration(
+//                 image: DecorationImage(
+//                   image: NetworkImage(photoUrls[index % photoUrls.length]),
+//                   fit: BoxFit.cover,
+//                 ),
+//               ),
+//             ),
+//             Positioned(
+//               bottom: 0,
+//               left: 0,
+//               right: 0,
+//               child: Container(
+//                 padding: EdgeInsets.all(12),
+//                 decoration: BoxDecoration(
+//                   gradient: LinearGradient(
+//                     begin: Alignment.topCenter,
+//                     end: Alignment.bottomCenter,
+//                     colors: [
+//                       Colors.transparent,
+//                       Colors.black.withValues(alpha: 0.7),
+//                     ],
+//                   ),
+//                 ),
+//                 child: Text(
+//                   photoTitles[index % photoTitles.length],
+//                   style: TextStyle(
+//                     color: Colors.white,
+//                     fontSize: 14,
+//                     fontWeight: FontWeight.w600,
+//                   ),
+//                 ),
+//               ),
+//             ),
+//             Positioned(
+//               top: 8,
+//               right: 8,
+//               child: Container(
+//                 padding: EdgeInsets.all(6),
+//                 decoration: BoxDecoration(
+//                   color: Colors.white.withValues(alpha: 0.9),
+//                   shape: BoxShape.circle,
+//                 ),
+//                 child: Icon(
+//                   Icons.favorite_border,
+//                   size: 16,
+//                   color: Color(0xFFE91E63),
+//                 ),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
 
-// Refactored Stories Tab
+// // Refactored Stories Tab
   Widget _buildStoriesTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _storiesFuture,

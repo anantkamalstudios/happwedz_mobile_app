@@ -52,7 +52,7 @@ not treat an absent section as "checked and fine" — see the status table.
 |---|---|---|---|
 | 1 | Auth (customer + vendor login/register/forgot) | `components/auth/*` | **Done** — real gaps found (no forgot-password, orphaned register screen) |
 | 2 | Home page & marketing sections | `components/home/*`, `pages/Home.jsx`, `MainSection`, `SubSection` | **Done** |
-| 3 | Venues | `Venus.jsx`, `SubVenues.jsx`, `layouts/venus` | **Done** — src trees found to be dead/orphaned routes; live route (`layouts/Main/*`) needs a follow-up pass |
+| 3 | Venues | `Venus.jsx`, `SubVenues.jsx`, `layouts/venus` | **Ported 2026-09-28** — re-audited against the live MainSection/SubSection/Detailed, see §3-5b |
 | 4 | Vendors (browse/detail/360/top-rated/verified) | `Vendors.jsx`, `SubVendors.jsx`, `Vendor360View.jsx`, `TopRatedVendors.jsx`, `VerifiedVendors.jsx`, `layouts/vendors` | **Done** (same dead-route caveat) |
 | 5 | Photography | `PhotographyDetails.jsx`, `layouts/photography` | **Done** — fundamental feature mismatch found (photo-inspiration gallery vs vendor listing) |
 | 6 | Design Studio | `pages/designStudio/*`, `FinalLookPage.jsx`, `ProfileImageSelector.jsx` | **Done** — src version is self-disabled; Flutter is the only working implementation |
@@ -198,6 +198,65 @@ Small-to-medium, **not monolithic**: build ~2-3 new screens (hero/listing/detail
 | Listing/Hero/Detail/Browse (4 files) | none | MISSING | Build new: ~2-3 screens + data model |
 | Planning Ideas (blog teaser) | existing Blog module (see §16) | MISSING as destination-scoped | Reuse/link, don't duplicate |
 | Real Stories teaser | `lib/RealWedding/` | MISSING as destination-scoped | Reuse/link, don't duplicate |
+
+## 16b / 19b. Legal pages and Blog — ported 2026-09-28
+
+**Legal/info pages** (`lib/info_pages/`): About HappyWedz, Careers, Contact Us, Privacy Policy, Terms & Condition, Cancellation Policy — native screens, text from the LIVE bundle (Privacy was fully rewritten on live vs the snapshot; Contact Us dropped the phone rows and the full address). Linked from More (website footer order), the cab consent "Terms & Conditions", the flight review terms line (was opening the browser) and the hotel/insurance terms line. Contact Us: web validation, `POST /contact` with Bearer only when signed in. Not ported: Sitemap (web navigation aid). Live Terms still carries placeholders "[Support Email]", "[Your Email]", "Courts of [City/State – e.g., Pune, Maharashtra]" — business must fill them on the website. Device: More menu, Privacy Policy and its "contact support" link checked; the rest were not (the test phone was taken over by another app mid-test) — covered by 33 widget tests at 320 px.
+
+**Blog** (`lib/blog/`): Stories tab = website BlogLists (search at 2+ chars → `/blogs/search`, falling back to the title filter like the web; "I am looking for" author + date filters; 6 per page, numbered pagination; `POST /blogs/:id/increment-search` when opening a search result). `BlogArticlePage` loads `GET /blogs/:id`: category, title, byline, summary, HTML paragraphs with interleaved images, trailing images, tags, "Love this wedding?" (local, like web), Facebook/Twitter/Pinterest/WhatsApp share, author card, "Blog not found". Home "Interesting Reads" opens the full article. Not ported: `/blog?type=&categoryId=` filtered view — the live header menu that links to it is not rendered, so it is unreachable on the website. Backend: `/blogs/search` returns 0 results for every query (even exact titles); only 3 blogs are live. Device test pending (phone busy).
+
+## 3-5b. Venues & Vendors — re-audit against the LIVE site (2026-09-28)
+
+Supersedes the dead-route comparison below. Reference = the live routes
+(`MainSection`, `SubSection`, `Detailed`, `Vendor360View`) confirmed against the
+production bundle (`happywedz.com/assets/*.js`); the snapshot matches the live
+chunks for this module except that live `MainSection` filters `status !== "hide"`.
+Device test on SM-E146B, signed in with Google.
+
+**Data fact (backend):** of 28,513 `/vendor-services` rows only **2** are
+`publish`, the rest `hide` (the only two values). Web and app both hide them, so
+both sites show an almost empty catalogue. Server `search=` is a name-prefix
+match (`banquet` does not find "Nikhil Banquet Hall") — same on web. The vendor
+password/reset-token leak is gone from the response (fixed backend-side).
+
+| # | Item | Web (live) | App before | Status | Action |
+|---|---|---|---|---|---|
+| 1 | Write review submit | `POST /reviews/:id` multipart, Bearer | `POST /api/reviews/:id` → live "Route not found" | 🐛 | Fix URL |
+| 2 | Business claim | single-step 7 fields, JSON `{…, vendor_id: service.vendor_id, vendor_subcategory_data_id: service.id}` | 5-step + 7 documents, multipart, wrong ids; status check sends wrong ids | 🔄🐛 | Port web form (user decision); old form commented out |
+| 3 | Spaces tiles | — | read `name`/`capacity`, parser writes `title`/`seating`/`floating` → every tile "Space" | 🐛 | Fix keys |
+| 4 | Wishlist state | `GET /wishlist` on load, toggle `{vendor_services_id}`, bubble "Added to wishlist"/"Removed from wishlist" | never loaded from server; 3 separate local stores; web-saved item shows unsaved and tapping removes it while saying "Saved" | 🐛 | One shared server-seeded store |
+| 5 | List card "Message" | "Send Message" → Request Pricing modal | opens detail page with no id ("Checking…" forever) | 🐛 | Open pricing sheet |
+| 6 | Quick Inquiry (guest) | on every card; name/phone/date; `POST /request-pricing` `isGuestInquiry:true`, no login | missing | ❌ | Add |
+| 7 | Venue filters | venue type / capacity / price per plate / rooms → `subCategory`, `min/maxCapacity`, `min/maxFoodPrice`, `min/maxRooms` | filter sheet unreachable (never called); Capacity/Rooms never applied | 🐛❌ | Web filter groups, server params |
+| 8 | Vendor filters | per-category groups from `filtersConfig.js` (e.g. photographers price bands) | city + price slider + rating | 🔄 | Web groups + keep rating (user decision) |
+| 9 | Venues tab city | uses selected city | ignores city | 🔄 | Pass city |
+| 10 | Venues tab paging/search | 18/page, server search only | 20 then 10 (wasted request); local filter hides server matches | 🐛 | Fix |
+| 11 | Venue card Call/WhatsApp | (web has none on cards) | pass `""` → always "not available" | 🐛 | Use vendor phone |
+| 12 | Card price | venues "Veg ₹ / Non-Veg ₹"; others `photo_package_price`→…→`PriceRange` or "Contact for pricing" | vendor list shows "₹X / Day" from veg_price | 🐛 | Web price logic |
+| 13 | Map view | Grid/List/Map; Leaflet + OSM, geocode address | Grid/List only | ❌ | Add map (WebView Leaflet) |
+| 14 | 360° | 360 button on cards/detail when `hasView360` → panorama / URL / video page | `open360Viewer` dead | ❌ | Port view360 helper + screen |
+| 15 | Recently viewed | viewed items first + "Recently Viewed" badge (max 20) | missing | ❌ | Add |
+| 16 | Similar vendors | `GET /vendor-services/:id/similar?limit=8&city=` (+ city fallback) | missing | ❌ | Add (no mock padding) |
+| 17 | View count | `POST /api/vendor/increment-view/:vendor_id` once per session | missing | ❌ | Add |
+| 18 | Reviews list | 6 then "Show all n reviews", full-review sheet with photos | 3, no see-all | ⚠️ | Add |
+| 19 | Vendor FAQ | up to 9 Q&As derived from attributes, ≥2 to show | missing | ❌ | Add |
+| 20 | Pricing & Packages | base package, brochure (image/PDF), "Request Quote" | missing | ❌ | Add |
+| 21 | Available dates calendar | view-only month calendar of future slots | only inside pricing sheet | ❌ | Add |
+| 22 | Click/wishlist tracking | `POST /interactions/add` when logged in | missing | ❌ | Add |
+| 23 | Search typeahead | limit 30, ≥2 chars | limit 8 | 🔄 | Align |
+| 24 | /vendors landing FAQ | `GET /faq` accordion | missing | ❌ | Add to Vendors tab |
+| 25 | Error states | ErrorState on listing | home rails/search and Venues tab show empty state on error | 🐛 | Add |
+| 26 | Category images | absolute or relative `hero_image` | absolute S3 URLs get host prefixed → broken | 🐛 | Normalise |
+| 27 | Slug lookup | exact slug match or not found | falls back to first search row → can open wrong vendor | 🐛 | Fix |
+| 28 | Carousel dots | — | max 8 dots, image 9+ unmarked | 🐛 | Fix |
+| — | Kept app extras | — | detail Share / WhatsApp / Call / chat, deals, rating filter | ✅ | Keep (working) |
+| — | Not ported | VenueInfoSection SEO copy, breadcrumbs, By-Region (only shown without a stored city; the app always has one), mock similar cards, web's `Rs.1,00,000 and more`→max bug | — | — | Web-only / web bugs |
+
+### Result (2026-09-28) — all 28 rows implemented, device-tested on SM-E146B (signed in)
+Verified on the phone: Venues tab (city from Home, website filter groups, grid/list/map, 360°, Recently Viewed, Quick Inquiry + validation, Send Message → pricing form, Call/WhatsApp), vendor detail (every new section renders; Available Dates; Pricing & Packages; FAQ; 6 reviews + full-review sheet; Similar; 360° link viewer; claim form web copy + validation; write-review validation; wishlist add/remove shared across screens), Wishlist page (search, empty/no-match states, remove), Vendors tab (fixed images, Explore {Type}, FAQ). `flutter test`: 501 pass. No Flutter exceptions in an attached `flutter run` session.
+Not submitted on purpose (would create real production records): Quick Inquiry, Request Pricing, review, business claim — covered by request-body unit tests instead.
+Found on device and fixed: Available Dates crashed (`DateFormat('…','en_IN')` without locale init); "Request Quote" in a Row blanked the rest of the page (PremiumButton defaults to full width); grid tile overflow; venue price shown as "₹ 0 - 500" (web's vendor_type bug); "Unknown" city; truncated section titles; pricing date picker could assert when the first open date was not today; empty-name error hidden behind the date error.
+Backend issues to report: only 2 of 28,513 listings are `publish`; `/similar` and by-id return `publish` rows missing from the list; review photo `/uploads/1764413869295-610780068.webp` is 404 on every host (broken on the website too).
 
 ## 3-5. Venues, Vendors, Photography
 

@@ -99,9 +99,22 @@ class _RequestPricingFormState extends State<_RequestPricingForm> {
     if (mounted) setState(() {});
   }
 
+  /// Published slots from today on. Past slots cannot be picked, and when
+  /// none are left the calendar is open (as when no slots were published).
+  List<DateTime> get _futureSlots {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return widget.availableSlots
+        .map((d) => DateTime(d.year, d.month, d.day))
+        .where((d) => !d.isBefore(today))
+        .toList()
+      ..sort();
+  }
+
   bool _isAvailableDay(DateTime day) {
-    if (widget.availableSlots.isEmpty) return true;
-    return widget.availableSlots.any(
+    final slots = _futureSlots;
+    if (slots.isEmpty) return true;
+    return slots.any(
       (d) => d.year == day.year && d.month == day.month && d.day == day.day,
     );
   }
@@ -113,12 +126,24 @@ class _RequestPricingFormState extends State<_RequestPricingForm> {
     DateTime initialDate = _eventDate ?? today;
     DateTime lastDate = today.add(const Duration(days: 365 * 2));
 
-    if (widget.availableSlots.isNotEmpty) {
-      final sorted = List<DateTime>.from(widget.availableSlots)..sort();
-      final firstSlot = sorted.first;
-      initialDate = _eventDate ?? (firstSlot.isBefore(today) ? today : firstSlot);
-      if (sorted.last.isAfter(lastDate)) lastDate = sorted.last;
+    // if (widget.availableSlots.isNotEmpty) {
+    //   final sorted = List<DateTime>.from(widget.availableSlots)..sort();
+    //   final firstSlot = sorted.first;
+    //   initialDate = _eventDate ?? (firstSlot.isBefore(today) ? today : firstSlot);
+    //   if (sorted.last.isAfter(lastDate)) lastDate = sorted.last;
+    // }
+    // The old code opened on *today* whenever the first slot was in the past;
+    // today is usually not a slot, and showDatePicker asserts that the initial
+    // date is selectable — the picker crashed. It now opens on the first
+    // future slot.
+    final slots = _futureSlots;
+    if (slots.isNotEmpty) {
+      if (_eventDate == null || !_isAvailableDay(_eventDate!)) {
+        initialDate = slots.first;
+      }
+      if (slots.last.isAfter(lastDate)) lastDate = slots.last;
     }
+    if (initialDate.isAfter(lastDate)) lastDate = initialDate;
 
     final picked = await showDatePicker(
       context: context,
@@ -126,7 +151,7 @@ class _RequestPricingFormState extends State<_RequestPricingForm> {
       firstDate: today,
       lastDate: lastDate,
       helpText: 'Select event date',
-      selectableDayPredicate: widget.availableSlots.isEmpty ? null : _isAvailableDay,
+      selectableDayPredicate: slots.isEmpty ? null : _isAvailableDay,
     );
     if (picked == null) return;
 
@@ -150,7 +175,9 @@ class _RequestPricingFormState extends State<_RequestPricingForm> {
     }
     if (_eventDate == null) {
       dateError = 'Select an event date';
-      formError = null;
+      // formError = null;
+      // Kept: an empty name/email/phone must still be reported — the website
+      // shows "Please fill in all required fields." for any missing field.
     }
 
     setState(() {
@@ -227,11 +254,12 @@ class _RequestPricingFormState extends State<_RequestPricingForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.availableSlots.isNotEmpty)
+        // Counted from today on — past slots are not selectable.
+        if (_futureSlots.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.md),
             child: Text(
-              '${widget.availableSlots.length} date${widget.availableSlots.length == 1 ? '' : 's'} '
+              '${_futureSlots.length} date${_futureSlots.length == 1 ? '' : 's'} '
               'open with ${widget.vendorName} — only those are selectable below.',
               style: AppText.caption,
             ),

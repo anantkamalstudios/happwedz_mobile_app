@@ -1,3 +1,7 @@
+// AUDIT NOTE (2026-09-28): no longer reachable. The Venues tab now shows
+// `VendorServicesScreen(vendorType: 'Venues', embedded: true)` from
+// lib/vendor/vendordetailsscreen.dart, which follows the website's listing.
+// Kept (not deleted) per the project's dead-code rule.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:happy_wedz/core/config/api_config.dart';

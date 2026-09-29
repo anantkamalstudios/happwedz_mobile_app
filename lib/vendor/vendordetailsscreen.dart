@@ -21,6 +21,15 @@ import '../main.dart' show requireAuthentication;
 import 'package:happy_wedz/core/config/api_config.dart';
 import '../core/services/response_cache.dart';
 import '../core/services/vendor_visibility.dart';
+import '../core/services/wishlist_store.dart';
+import '../core/services/selected_city.dart';
+import 'quick_inquiry_sheet.dart';
+import 'vendor_detail_sections.dart';
+import 'vendor_filters.dart';
+import 'vendor_listing_utils.dart';
+import 'vendor_map_screen.dart';
+import 'vendor_row.dart';
+import 'view360.dart';
 
 // Final VendorServicesScreen — pagination, grid/list toggle, search, filters,
 // wishlist toggle, phone/WhatsApp/message actions, safe image handling.
@@ -45,12 +54,17 @@ class VendorServicesScreen extends StatefulWidget {
   /// [subcategoryName] as the title only.
   final bool filterBySubcategory;
 
+  /// Shown as a bottom-nav tab (the Venues tab): no back button, and the
+  /// city follows the one picked on Home ([SelectedCity]).
+  final bool embedded;
+
   const VendorServicesScreen({
     super.key,
     required this.subcategoryName,
     this.initialCity,
     this.vendorType,
     this.filterBySubcategory = true,
+    this.embedded = false,
   });
 
   @override
@@ -69,7 +83,38 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
 
   /// Server-side page size: the list used to download every vendor in the
   /// category at once (`limit=5000` — 62 MB and ~30 s for photographers).
-  static const int _pageSize = 12;
+  // static const int _pageSize = 12;
+  /// The website's page sizes: 18 on the venue listing (MainSection), 9 on
+  /// vendor listings (SubSection).
+  int get _pageSize => _isVenueListing ? 18 : 9;
+
+  /// Venue listing (the Venues tab / "View all Venues") vs a vendor listing.
+  bool get _isVenueListing =>
+      (widget.vendorType ?? '').toLowerCase().contains('venue');
+
+  /// The website's filter groups for this listing (`filtersConfig.js`):
+  /// subcategory key first (e.g. `bridal-makeup`), then the vendor type.
+  String get _filterKey {
+    if (_isVenueListing) {
+      return filterKeyFor(
+        isVenues: true,
+        subcategory: widget.filterBySubcategory ? widget.subcategoryName : null,
+      );
+    }
+    final bySub = filterKeyFor(subcategory: widget.subcategoryName);
+    if (bySub != kDefaultFilterKey) return bySub;
+    return filterKeyFor(vendorType: widget.vendorType);
+  }
+
+  /// Applied website filter groups (label → options).
+  Map<String, List<String>> _groups = const {};
+
+  /// Recently viewed listing ids, most recent first — those rows are moved
+  /// to the top and badged, like the website's grid/list.
+  List<String> _recentIds = const [];
+
+  /// Grid is the website's default view.
+  static const String _viewPrefsKey = 'vendor_list_view_mode';
 
   /// Upper end of the price slider; a max at the cap means "no max".
   static const double _priceCap = 200000;
@@ -91,7 +136,8 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   Set<String> favouriteVendors = {};
 
   final ScrollController _scrollController = ScrollController();
-  bool isList = true;
+  // bool isList = true;
+  bool isList = false;
 
   // Search & Filters
   final TextEditingController searchController = TextEditingController();
@@ -118,8 +164,14 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     super.initState();
     // Seed the city filter before the first fetch so the initial render is
     // already scoped; the filter chip stays editable as usual.
-    selectedCity = widget.initialCity ?? '';
+    selectedCity = widget.initialCity ??
+        (widget.embedded ? (SelectedCity.value ?? '') : '');
     filterCity = selectedCity;
+    if (widget.embedded) SelectedCity.notifier.addListener(_onCityChanged);
+    WishlistStore.instance.addListener(_onWishlistChanged);
+    WishlistStore.instance.ensureLoaded();
+    _restoreViewMode();
+    _loadRecent();
     _loadCurrentUser();
     // Pages load as the list nears its end (the listener existed but was
     // never attached, since everything was fetched up front).
@@ -127,8 +179,57 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     fetchAllServices();
   }
 
+  void _onWishlistChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// The Venues tab follows the city picked on Home.
+  void _onCityChanged() {
+    final city = SelectedCity.value ?? '';
+    if (!mounted || city == filterCity) return;
+    setState(() {
+      selectedCity = city;
+      filterCity = city;
+    });
+    fetchAllServices();
+  }
+
+  Future<void> _restoreViewMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_viewPrefsKey);
+      if (saved != null && mounted) setState(() => isList = saved == 'list');
+    } catch (_) {}
+  }
+
+  void _setView(bool list) {
+    setState(() => isList = list);
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_viewPrefsKey, list ? 'list' : 'grid'))
+        .catchError((_) => true);
+  }
+
+  Future<void> _loadRecent() async {
+    final ids = await RecentlyViewedStore.instance.ids();
+    if (!mounted) return;
+    setState(() {
+      _recentIds = ids;
+      services = _withRecentFirst(allServices);
+    });
+  }
+
+  /// `prioritizeRecentlyViewed`: viewed rows first, most recent first.
+  List<dynamic> _withRecentFirst(List<dynamic> rows) =>
+      RecentlyViewedStore.sortByRecentIds<dynamic>(
+        rows,
+        _recentIds,
+        (r) => r is Map ? r['id'] : null,
+      );
+
   @override
   void dispose() {
+    if (widget.embedded) SelectedCity.notifier.removeListener(_onCityChanged);
+    WishlistStore.instance.removeListener(_onWishlistChanged);
     _searchDebounce?.cancel();
     _scrollController.dispose();
     searchController.dispose();
@@ -143,6 +244,11 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   /// the web's `useInfiniteScroll` query.
   Uri _pageUri(int page) {
     final search = searchController.text.trim();
+    // The website's filter groups become its query params (subCategory for
+    // Venue Type, min/maxPrice, min/maxCapacity, min/maxFoodPrice,
+    // min/maxRooms, `filters` JSON …); a Venue Type pick replaces the
+    // listing's own subcategory, as on the website.
+    final filterParams = vendorFilterQueryParams(_filterKey, _groups);
     return Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(
       queryParameters: {
         if ((widget.vendorType ?? '').isNotEmpty) 'vendorType': widget.vendorType!,
@@ -150,10 +256,13 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           'subCategory': widget.subcategoryName,
         if (filterCity.isNotEmpty) 'city': filterCity,
         if (search.isNotEmpty) 'search': search,
-        if (filterMinPrice > 0) 'minPrice': filterMinPrice.toInt().toString(),
-        if (filterMaxPrice < _priceCap)
-          'maxPrice': filterMaxPrice.toInt().toString(),
-        if (filterMinRating > 0) 'minRating': filterMinRating.toString(),
+        // Previous price slider, replaced by the website's price groups:
+        // if (filterMinPrice > 0) 'minPrice': filterMinPrice.toInt().toString(),
+        // if (filterMaxPrice < _priceCap)
+        //   'maxPrice': filterMaxPrice.toInt().toString(),
+        ...filterParams,
+        if (filterMinRating > 0 && !filterParams.containsKey('minRating'))
+          'minRating': filterMinRating.toString(),
         'page': '$page',
         'limit': '$_pageSize',
       },
@@ -173,6 +282,9 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   /// screen, suffixed with `+` while more pages are still to load.
   String get _resultLabel {
     final int shown = services.length;
+    // Nothing shown is "0 results" even when hidden-only pages remain — the
+    // list is empty, as on the website.
+    if (shown == 0) return '0 results';
     if (shown == 1 && !hasMore) return '1 result';
     return '$shown${hasMore ? '+' : ''} results';
   }
@@ -209,7 +321,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           allServices
             ..clear()
             ..addAll(_rowsOf(decoded));
-          services = List<dynamic>.from(allServices);
+          services = _withRecentFirst(allServices);
           _readPagination(decoded);
           isLoading = allServices.isEmpty;
         });
@@ -228,7 +340,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
           allServices
             ..clear()
             ..addAll(_rowsOf(decoded));
-          services = List<dynamic>.from(allServices);
+          services = _withRecentFirst(allServices);
           currentPage = 1;
           _readPagination(decoded);
         });
@@ -386,7 +498,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         setState(() {
           currentPage = page;
           allServices.addAll(_rowsOf(decoded));
-          services = List<dynamic>.from(allServices);
+          services = _withRecentFirst(allServices);
           _readPagination(decoded);
         });
       } else {
@@ -536,7 +648,29 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     });
   }
 
+  /// Heart: the shared, server-seeded [WishlistStore] (the old set here
+  /// started empty on every visit, so saved vendors showed as unsaved).
   Future<void> _toggleFavourite(String vendorServiceId) async {
+    if (!await _ensureSignedIn('Sign in to save vendors to your wishlist.')) {
+      return;
+    }
+    if (vendorServiceId.isEmpty) return;
+    await WishlistStore.instance.ensureLoaded();
+    final result = await WishlistStore.instance.toggle(vendorServiceId);
+    if (!mounted || result.sessionExpired) return;
+    if (result.success) {
+      AppSnackbar.success(context, WishlistStore.successMessage(result.added));
+      if (result.added) {
+        trackVendorInteraction(vendorServiceId, VendorInteraction.wishlist);
+      }
+    } else {
+      AppSnackbar.error(context, WishlistStore.failureMessage(result));
+    }
+  }
+
+  // Previous toggle, kept for reference.
+  // ignore: unused_element
+  Future<void> _toggleFavouriteLegacy(String vendorServiceId) async {
     if (!await _ensureSignedIn('Sign in to save vendors to your wishlist.')) {
       return;
     }
@@ -617,11 +751,37 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   Future<void> _launchWhatsApp(String phone) async {
     if (phone.isEmpty) return;
     // ensure number is in international format if needed; here we assume API gives proper number
-    final uri = Uri.parse('https://wa.me/$phone');
+    final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final intl = digits.length == 10 ? '91$digits' : digits;
+    final uri = Uri.parse('https://wa.me/$intl');
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
-  Future<void> _openChat(String vendorId, String name) async {
+  /// "Send Message" on a listing card opens the Request Pricing form, as on
+  /// the website (ListView.jsx → PricingModal). The old version pushed a
+  /// detail page with no listing id, which showed nothing but "Checking…".
+  Future<void> _openChat(String vendorId, String name, [Map? service]) async {
+    if (!await _ensureSignedIn('Sign in to request pricing & availability.')) {
+      return;
+    }
+    if (!mounted) return;
+    if (vendorId.isEmpty) {
+      AppSnackbar.error(context, 'Could not identify the vendor. Please try again.');
+      return;
+    }
+    showRequestPricingSheet(
+      context,
+      vendorId: vendorId,
+      vendorName: name,
+      availableSlots: service == null
+          ? const []
+          : upcomingAvailableDates(service).map(DateTime.parse).toList(),
+    );
+  }
+
+  // Previous "Message" handler, kept for reference.
+  // ignore: unused_element
+  Future<void> _openChatLegacy(String vendorId, String name) async {
     Navigator.push(
       context,
       AnimatedPageRoute(
@@ -676,12 +836,57 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   /// True when any filter differs from its default — drives the badge on the
   /// filter button.
   bool get _hasActiveFilters =>
-      filterCity.isNotEmpty ||
-      filterMinPrice > 0 ||
-      filterMaxPrice < 200000 ||
+      (!widget.embedded && filterCity.isNotEmpty) ||
+      _groups.isNotEmpty ||
       filterMinRating > 0;
 
-  void _openFilterSheet() {
+  /// The website's filter groups for this listing, plus the app's city box
+  /// and minimum-rating slider (kept on purpose — the website has no rating
+  /// filter; decision 2026-09-28).
+  Future<void> _openFilterSheet() async {
+    final result = await showVendorFilterSheet(
+      context,
+      filterKey: _filterKey,
+      applied: _groups,
+      showCity: !widget.embedded,
+      city: filterCity,
+      showRating: true,
+      minRating: filterMinRating,
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _groups = result.groups;
+      if (!widget.embedded) {
+        selectedCity = result.city.trim();
+        filterCity = selectedCity;
+      }
+      selectedRating = result.minRating;
+      filterMinRating = result.minRating;
+    });
+    fetchAllServices();
+  }
+
+  void _clearFilters() {
+    searchController.clear();
+    setState(() {
+      _groups = const {};
+      if (!widget.embedded) {
+        selectedCity = '';
+        filterCity = '';
+      }
+      minPrice = 0;
+      maxPrice = 200000;
+      filterMinPrice = 0;
+      filterMaxPrice = 200000;
+      selectedRating = 0;
+      filterMinRating = 0;
+    });
+    fetchAllServices();
+  }
+
+  // Previous filter sheet (city, price slider, rating), kept for reference.
+  // ignore: unused_element
+  void _openFilterSheetLegacy() {
     // Work on drafts so dismissing the sheet does not mutate live filters.
     String draftCity = selectedCity;
     double draftMin = minPrice;
@@ -843,16 +1048,21 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       ),
       child: Row(
         children: [
-          const AppBackButton(),
+          if (widget.embedded)
+            const SizedBox(width: 48)
+          else
+            const AppBackButton(),
           Expanded(
             child: Text(
-              widget.subcategoryName,
+              // widget.subcategoryName,
+              _title,
               textAlign: TextAlign.center,
-              style: AppText.pageTitle,
+              style: AppText.sectionTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          // Grid / List / Map, like the website's view switcher.
           IconButton(
             tooltip: isList ? 'Grid view' : 'List view',
             icon: AnimatedSwitcher(
@@ -863,11 +1073,60 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                 color: AppColors.textSecondary,
               ),
             ),
-            onPressed: () => setState(() => isList = !isList),
+            // onPressed: () => setState(() => isList = !isList),
+            onPressed: () => _setView(!isList),
+          ),
+          IconButton(
+            tooltip: 'Map view',
+            icon: const Icon(Icons.map_outlined, color: AppColors.textSecondary),
+            onPressed: services.isEmpty ? null : _openMap,
           ),
         ],
       ),
     );
+  }
+
+  /// The website's listing heading (MainSearch.jsx): "{Type} in {City}".
+  String get _title {
+    final base = _isVenueListing && !widget.filterBySubcategory
+        ? 'Wedding Venues'
+        : widget.subcategoryName;
+    return filterCity.isEmpty ? base : '$base in $filterCity';
+  }
+
+  void _openMap() {
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: VendorMapScreen(
+          items: services
+              .whereType<Map>()
+              .map((m) => Map<String, dynamic>.from(m))
+              .toList(),
+          currentCity: filterCity.isEmpty ? null : filterCity,
+          priceLabel: (m) {
+            final p = vendorCardPrice(m);
+            return p.hasPrice ? p.label : null;
+          },
+          onOpen: (m) {
+            Navigator.pop(context);
+            _openDetailsFor(m);
+          },
+        ),
+        style: PageTransitionStyle.slideUp,
+      ),
+    );
+  }
+
+  void _openDetailsFor(Map service) {
+    trackVendorInteraction(service['id'], VendorInteraction.click);
+    Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: VendorDetailsScreen(service: service),
+        style: PageTransitionStyle.slideRight,
+      ),
+    ).then((_) => _loadRecent());
   }
 
   Widget _buildSearchBar() {
@@ -950,7 +1209,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                 gradient: AppColors.brandGradientH,
                 boxShadow: AppColors.shadowBrand,
               ),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(4)                                                                                                                                                                                                                                                                ,
               child: Image.asset(
                 'assets/shadiai-unscreen.gif',
                 fit: BoxFit.contain,
@@ -1065,29 +1324,20 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 SizedBox(height: MediaQuery.of(context).size.height * 0.12),
+                // Website EmptyState copy ("No {title} Available").
                 EmptyState(
-                  title: 'No vendors found',
-                  message: 'Try changing your search or filters.',
+                  title: 'No ${_isVenueListing ? 'Venues' : widget.subcategoryName} Available',
+                  message:
+                      "We couldn't find any ${_isVenueListing ? 'Venues' : widget.subcategoryName} "
+                      'in our database at the moment. Please try searching for '
+                      'a different category or location.',
                   icon: Icons.storefront_outlined,
                   actionLabel: _hasActiveFilters || searchController.text.isNotEmpty
                       ? 'Clear filters'
                       : null,
                   onAction:
                       _hasActiveFilters || searchController.text.isNotEmpty
-                      ? () {
-                          searchController.clear();
-                          setState(() {
-                            selectedCity = '';
-                            minPrice = 0;
-                            maxPrice = 200000;
-                            selectedRating = 0;
-                            filterCity = '';
-                            filterMinPrice = 0;
-                            filterMaxPrice = 200000;
-                            filterMinRating = 0;
-                          });
-                          _applyFiltersAndSearch();
-                        }
+                      ? _clearFilters
                       : null,
                 ),
               ],
@@ -1099,6 +1349,11 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
   }
 
   Widget _buildGridView() {
+    return LayoutBuilder(builder: (context, constraints) {
+    // Tile height from the real column width: 16:9 image + the text block
+    // (name, rating, city, a two-line price and the Quick Inquiry button).
+    final tileWidth = (constraints.maxWidth - AppSpacing.md * 3) / 2;
+    final tileExtent = tileWidth * 9 / 16 + 172;
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(
@@ -1108,12 +1363,11 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         AppSpacing.xxxl,
       ),
       physics: const AlwaysScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: AppSpacing.md,
         mainAxisSpacing: AppSpacing.md,
-        // Tuned for the compact card: 16:9 image + two text lines.
-        childAspectRatio: 0.78,
+        mainAxisExtent: tileExtent,
       ),
       itemCount: services.length + (isLoadingMore ? 2 : 0),
       itemBuilder: (context, index) {
@@ -1126,6 +1380,7 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
         );
       },
     );
+    });
   }
 
   Widget _buildListView() {
@@ -1186,7 +1441,196 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     return imageUrl;
   }
 
+  /// Listing card, following the website's GridView/ListView cards: image
+  /// with heart, 360° and "Recently Viewed" badges; name; ★ rating (count);
+  /// city; Veg / Non-Veg (venues) or starting price / "Contact for pricing";
+  /// "⚡ Quick Inquiry" (guest, no sign-in). The list card adds
+  /// "Send Message" (Request Pricing) and, when the vendor has a number, the
+  /// app's Call / WhatsApp shortcuts.
   Widget _buildServiceCard(dynamic service, {bool compact = false}) {
+    if (service is! Map) return const SizedBox.shrink();
+    final String serviceId = (service['id'] ?? '').toString();
+    final String name = vendorCardName(service);
+    final String city = vendorCardCity(service);
+    final String phone = vendorCardPhone(service);
+    final double rating = vendorCardRating(service);
+    final int reviewCount = vendorCardReviewCount(service);
+    final price = vendorCardPrice(service);
+    final bool recent = _recentIds.contains(serviceId);
+    final bool has360 = hasView360(service);
+    final String accountId = vendorAccountId(service);
+
+    Widget badge(IconData icon, String text) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: AppRadii.rSm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: Colors.white),
+              const SizedBox(width: 3),
+              Text(text, style: AppText.caption.copyWith(color: Colors.white)),
+            ],
+          ),
+        );
+
+    final quickInquiry = PremiumButton.outlined(
+      label: '⚡ Quick Inquiry',
+      size: PremiumButtonSize.small,
+      onPressed: accountId.isEmpty
+          ? null
+          : () => showQuickInquirySheet(
+                context,
+                vendorId: accountId,
+                vendorName: name,
+              ),
+    );
+
+    return AppCard(
+      onTap: () => _openDetailsFor(service),
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            children: [
+              NetworkImageWidget(
+                url: vendorCardImage(service),
+                aspectRatio: 16 / 9,
+                width: double.infinity,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadii.lg),
+                ),
+                memCacheWidth: compact ? 420 : 720,
+              ),
+              Positioned(
+                right: AppSpacing.sm,
+                top: AppSpacing.sm,
+                child: FavoriteButton(
+                  isFavorite: WishlistStore.instance.contains(serviceId),
+                  onTap: () => _toggleFavourite(serviceId),
+                ),
+              ),
+              Positioned(
+                left: AppSpacing.sm,
+                top: AppSpacing.sm,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (has360)
+                      Tooltip(
+                        message: 'View in 360°',
+                        child: Pressable(
+                          onTap: () => Navigator.push(
+                            context,
+                            AnimatedPageRoute(
+                              page: Vendor360Screen(
+                                serviceId: serviceId,
+                                service: Map<String, dynamic>.from(service),
+                              ),
+                              style: PageTransitionStyle.slideUp,
+                            ),
+                          ),
+                          child: badge(Icons.threesixty_rounded, '360°'),
+                        ),
+                      ),
+                    if (recent) ...[
+                      if (has360) const SizedBox(height: AppSpacing.xs),
+                      badge(Icons.visibility_outlined, 'Recently Viewed'),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  style: AppText.cardTitle,
+                  maxLines: compact ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Row(
+                  children: [
+                    const Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${rating > 0 ? rating.toStringAsFixed(1) : '0.0'} ($reviewCount)',
+                      style: AppText.caption,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  city.isEmpty ? 'Location not available' : city,
+                  style: AppText.cardSubtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  price.label,
+                  style: compact ? AppText.priceSm : AppText.price,
+                  maxLines: compact ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (compact)
+                  SizedBox(width: double.infinity, child: quickInquiry)
+                else ...[
+                  Row(
+                    children: [
+                      Expanded(child: quickInquiry),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: PremiumButton(
+                          label: 'Send Message',
+                          size: PremiumButtonSize.small,
+                          onPressed: () => _openChat(accountId, name, service),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (phone.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        _ActionChip(
+                          icon: const Icon(Icons.call_rounded, color: AppColors.successDark, size: 18),
+                          label: 'Call',
+                          onTap: () => _launchPhone(phone),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        _ActionChip(
+                          icon: Image.asset('assets/whatsapp.png', height: 20, width: 20),
+                          label: 'WhatsApp',
+                          onTap: () => _launchWhatsApp(phone),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Previous card, kept for reference ("₹X / Day" from veg_price, dead
+  // Message button, no Quick Inquiry).
+  // ignore: unused_element
+  Widget _buildServiceCardLegacy(dynamic service, {bool compact = false}) {
     final attributes = service['attributes'] ?? {};
     final vendor = service['vendor'] ?? {};
 
@@ -2048,7 +2492,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   @override
   void initState() {
     super.initState();
-    loadFavouritesFromLocal();
+    // loadFavouritesFromLocal(); // replaced by WishlistStore
     _loadCurrentUser();
 
     String? serviceId;
@@ -2059,20 +2503,58 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       }
     }
 
+    // if (serviceId != null && serviceId.isNotEmpty) {
+    //   fetchServiceById(serviceId);
+    //   WidgetsBinding.instance.addPostFrameCallback((_) {
+    //     fetchReviewsFromApi();
+    //   });
+    //   checkClaimStatus();
+    // } else if (widget.slug != null && widget.slug!.isNotEmpty) {
+    //   fetchServiceBySlug(widget.slug!);
+    // } else {
+    //   WidgetsBinding.instance.addPostFrameCallback((_) {
+    //     fetchReviewsFromApi();
+    //   });
+    //   checkClaimStatus();
+    // }
+    // Reviews and the claim check used to run here *and* again after the fetch
+    // below — every request twice. They now run once, from _onServiceLoaded.
+    WishlistStore.instance.addListener(_onWishlistChanged);
+    WishlistStore.instance.ensureLoaded();
     if (serviceId != null && serviceId.isNotEmpty) {
       fetchServiceById(serviceId);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        fetchReviewsFromApi();
-      });
-      checkClaimStatus();
     } else if (widget.slug != null && widget.slug!.isNotEmpty) {
       fetchServiceBySlug(widget.slug!);
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        fetchReviewsFromApi();
-      });
-      checkClaimStatus();
+      _loadFailed = true;
     }
+  }
+
+  void _onWishlistChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    WishlistStore.instance.removeListener(_onWishlistChanged);
+    super.dispose();
+  }
+
+  /// Everything that depends on the loaded listing, run once it is known:
+  /// reviews, claim status, similar vendors, and — like the website — the
+  /// once-per-session profile view count and the recently-viewed history.
+  void _onServiceLoaded() {
+    final service = fetchedService ?? widget.service;
+    if (service is! Map) return;
+    fetchReviewsFromApi();
+    checkClaimStatus();
+    _fetchSimilar(service);
+    final vendorId = (service['vendor_id'] ?? service['vendor']?['id'])
+        ?.toString();
+    if (vendorId != null && vendorId.isNotEmpty) incrementVendorView(vendorId);
+    RecentlyViewedStore.instance.record(
+      RecentlyViewedStore.entryForService(service),
+    );
   }
 
   Future<void> fetchServiceById(String id) async {
@@ -2084,9 +2566,13 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       });
     }
 
+    bool loaded = false;
     try {
       final url = Uri.parse('${ApiConfig.apiBase}/vendor-services/$id');
-      final response = await http.get(url, headers: {'Accept': 'application/json'});
+      final response = await http
+          .get(url, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 25));
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final bodyData = jsonDecode(response.body);
         if (bodyData is Map) {
@@ -2099,18 +2585,28 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
               _isUnavailable = true;
               fetchedService = null;
             });
+            loaded = true;
           } else {
             setState(() {
               fetchedService = bodyData;
             });
-            // Re-trigger review and claim check with the full fetched data
-            fetchReviewsFromApi();
-            checkClaimStatus();
+            loaded = true;
+            _onServiceLoaded();
           }
         }
       }
     } catch (e) {
       debugPrint("Error fetching by ID: $e");
+    }
+    if (!mounted) return;
+
+    if (!loaded) {
+      if (widget.service is Map && (widget.service as Map).isNotEmpty) {
+        // Offline or a failed refresh: carry on with the row we were given.
+        _onServiceLoaded();
+      } else {
+        setState(() => _loadFailed = true);
+      }
     }
 
     if (showFullPageLoader) {
@@ -2120,7 +2616,119 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     }
   }
 
+  /// The listing could not be fetched and nothing was handed in to show.
+  bool _loadFailed = false;
+
+  /// Mirrors the website's `isSlugMatch` (Detailed.jsx): exact slug, the same
+  /// slug without a trailing `-<id>`, or the name's slug contained either way.
+  @visibleForTesting
+  static bool slugMatches(Map row, String target) {
+    String toSlug(Object? v) => (v ?? '')
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '-')
+        .replaceAll(RegExp(r'[^a-z0-9-]'), '')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    String stripId(String v) => v.replaceAll(RegExp(r'-\d+$'), '');
+
+    final cleanTarget = target.toLowerCase().trim();
+    if (cleanTarget.isEmpty) return false;
+    final targetBase = stripId(cleanTarget);
+    final attrs = row['attributes'] is Map ? row['attributes'] as Map : const {};
+    for (final s in [row['slug'], attrs['slug']]) {
+      final itemSlug = (s ?? '').toString().toLowerCase().trim();
+      if (itemSlug.isEmpty) continue;
+      if (itemSlug == cleanTarget) return true;
+      final itemBase = stripId(itemSlug);
+      if (targetBase.isNotEmpty && itemBase == targetBase) return true;
+    }
+    final nameSlug = toSlug(attrs['name'] ?? row['name']);
+    return nameSlug.isNotEmpty &&
+        targetBase.isNotEmpty &&
+        (nameSlug.contains(targetBase) || targetBase.contains(nameSlug));
+  }
+
+  /// Looks a listing up the way the website does: numeric → by id; otherwise
+  /// `GET /vendor-services/slug/:slug`, then a name search — accepting a row
+  /// only when [slugMatches]. The old version fell back to the first search
+  /// row, which could open a different vendor.
   Future<void> fetchServiceBySlug(String slug) async {
+    setState(() => isPageLoading = true);
+
+    Future<dynamic> getJson(Uri url) async {
+      try {
+        final res = await http
+            .get(url, headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 25));
+        if (res.statusCode == 200) return jsonDecode(res.body);
+      } catch (e) {
+        debugPrint('Vendor lookup failed for $url: $e');
+      }
+      return null;
+    }
+
+    dynamic foundService;
+    if (RegExp(r'^\d+$').hasMatch(slug)) {
+      final body = await getJson(
+        Uri.parse('${ApiConfig.apiBase}/vendor-services/$slug'),
+      );
+      if (body is Map && (body['id'] != null || body['attributes'] != null)) {
+        foundService = body;
+      }
+    } else {
+      final body = await getJson(
+        Uri.parse(
+          '${ApiConfig.apiBase}/vendor-services/slug/${Uri.encodeComponent(slug)}',
+        ),
+      );
+      if (body is Map && slugMatches(body, slug)) foundService = body;
+    }
+
+    if (foundService == null) {
+      final words = slug.replaceAll(RegExp(r'-\d+$'), '').replaceAll('-', ' ');
+      final body = await getJson(
+        Uri.parse('${ApiConfig.apiBase}/vendor-services').replace(
+          queryParameters: {'search': words, 'limit': '10'},
+        ),
+      );
+      final list = body is Map ? body['data'] : null;
+      if (list is List) {
+        for (final row in list) {
+          if (row is Map && slugMatches(row, slug)) {
+            foundService = row;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!mounted) return;
+    if (foundService != null && isHiddenVendor(foundService)) {
+      setState(() {
+        _isUnavailable = true;
+        fetchedService = null;
+        isPageLoading = false;
+      });
+    } else if (foundService != null) {
+      setState(() {
+        fetchedService = foundService;
+        isPageLoading = false;
+      });
+      _onServiceLoaded();
+    } else {
+      setState(() {
+        _loadFailed = true;
+        isPageLoading = false;
+      });
+    }
+  }
+
+  // Previous slug lookup, kept for reference — its search fallback took
+  // `dataList.first` when nothing matched, opening an unrelated vendor.
+  // ignore: unused_element
+  Future<void> _fetchServiceBySlugLegacy(String slug) async {
     setState(() {
       isPageLoading = true;
     });
@@ -2198,25 +2806,41 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
   }
   Future<void> checkClaimStatus() async {
     final service = fetchedService ?? widget.service;
-    if (service == null || service['id'] == null) return;
+    if (service == null || service['id'] == null) {
+      if (mounted) setState(() => isClaimLoading = false);
+      return;
+    }
 
+    // final url = Uri.parse(
+    //     "${ApiConfig.apiBase}/business/claims/check-status?"
+    //         "vendor_id=${service['id']}&vendor_subcategory_data_id=${service['vendor_subcategory_id']}"
+    // );
+    // Same id pair the website submits a claim with (useClaimForm.js:
+    // vendor_id = service.vendor_id, vendor_subcategory_data_id = service.id).
+    // The old query sent the service id as vendor_id and the subcategory id as
+    // the data id, so a submitted claim was never found.
+    final vendorId = (service['vendor_id'] ?? service['vendor']?['id'] ?? '')
+        .toString();
     final url = Uri.parse(
-        "${ApiConfig.apiBase}/business/claims/check-status?"
-            "vendor_id=${service['id']}&vendor_subcategory_data_id=${service['vendor_subcategory_id']}"
-    );
+      '${ApiConfig.apiBase}/business/claims/check-status',
+    ).replace(queryParameters: {
+      'vendor_id': vendorId,
+      'vendor_subcategory_data_id': service['id'].toString(),
+    });
 
     try {
-      final res = await http.get(url);
+      final res = await http.get(url).timeout(const Duration(seconds: 20));
+      if (!mounted) return;
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
         setState(() {
-          hasClaim = data["hasClaim"];
-          canSubmit = data["canSubmit"];
-          claimStatus = data["claimStatus"] ?? "";
-          claimId = data["claimId"];
-          rejectionReason = data["rejectionReason"];
+          hasClaim = data["hasClaim"] == true;
+          canSubmit = data["canSubmit"] != false;
+          claimStatus = (data["claimStatus"] ?? "").toString();
+          claimId = int.tryParse('${data["claimId"]}');
+          rejectionReason = data["rejectionReason"]?.toString();
           isClaimLoading = false;
         });
       } else {
@@ -2224,7 +2848,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       }
     } catch (e) {
       debugPrint("STATUS ERROR: $e");
-      setState(() => isClaimLoading = false);
+      if (mounted) setState(() => isClaimLoading = false);
     }
   }
 
@@ -2257,11 +2881,22 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     String? vendorImage,
   }) async {
     if (!await _ensureSignedIn('Sign in to write a review.')) return;
-    Navigator.push(
+    // Reviews belong to the listing: the website posts to
+    // `/reviews/{serviceId}` (route `/write-review/:vendorId` is handed the
+    // service id by Detailed.jsx). Passing the vendor *account* id here would
+    // attach the review to whichever listing has that number as its id.
+    final service = fetchedService ?? widget.service;
+    final serviceId = (service is Map ? service['id'] : null)?.toString() ?? '';
+    if (serviceId.isEmpty) {
+      AppSnackbar.error(context, 'Could not identify the vendor. Please try again.');
+      return;
+    }
+    final posted = await Navigator.push(
       context,
       AnimatedPageRoute(
         page: RecommendVendorScreen(
-          vendorId: vendorId,
+          // vendorId: vendorId,
+          vendorId: serviceId,
           vendorName: vendorName,
           vendorImage: vendorImage,
           currentUserId: currentUserId,
@@ -2269,6 +2904,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         style: PageTransitionStyle.slideUp,
       ),
     );
+    if (posted == true && mounted) fetchReviewsFromApi();
   }
 
   // ---------------------------
@@ -2625,13 +3261,17 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     final attributes = (service['attributes'] is Map) ? Map<String, dynamic>.from(service['attributes']) : <String, dynamic>{};
     final String vendorId = (vendorMap['id'] ?? attributes['vendor_id'] ?? '').toString();
 
-    if (vendorId.isEmpty) {
+    if (vendorId.isEmpty && (service['id'] ?? '').toString().isEmpty) {
+      // Nothing to look reviews up by — an empty list, not an error.
+      if (!mounted) return;
       setState(() {
-        reviewsError = true;
+        reviews = [];
+        reviewsError = false;
         isReviewsLoading = false;
       });
       return;
     }
+    if (!mounted) return;
 
     setState(() {
       isReviewsLoading = true;
@@ -2664,13 +3304,19 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      Map<String, dynamic>? jsonData = await fetchFor(vendorId);
+      // Reviews are keyed on the listing (service) id — each row carries
+      // `vendor_subcategory_data_id` — which is what the website requests
+      // (ReviewSection.jsx: `/reviews/{serviceId}`). Checked live: service
+      // 73998 → 5 reviews, its vendor account 75077 → 0. The account id stays
+      // as the fallback for legacy rows.
+      final String serviceId = (service['id'] ?? '').toString();
+      final String primaryId = serviceId.isNotEmpty ? serviceId : vendorId;
+      Map<String, dynamic>? jsonData = await fetchFor(primaryId);
       List<dynamic> list =
           (jsonData?['reviews'] ?? jsonData?['data'] ?? []) as List<dynamic>;
 
-      final String serviceId = (service['id'] ?? '').toString();
-      if (list.isEmpty && serviceId.isNotEmpty && serviceId != vendorId) {
-        final fallback = await fetchFor(serviceId);
+      if (list.isEmpty && vendorId.isNotEmpty && vendorId != primaryId) {
+        final fallback = await fetchFor(vendorId);
         final fallbackList =
             (fallback?['reviews'] ?? fallback?['data'] ?? []) as List<dynamic>;
         if (fallbackList.isNotEmpty) {
@@ -2720,6 +3366,14 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
             'userName': userName,
             'vendorReply': item['vendor_reply'] ?? item['vendorReply'] ?? '',
             'createdAt': item['createdAt'] ?? item['created_at'] ?? item['date'] ?? '',
+            // Review photos (`media: ["/uploads/…"]`), shown like the
+            // website's full-review modal.
+            'media': (item['media'] is List ? item['media'] as List : const [])
+                .map((m) => normalizeUrl(
+                      m is Map ? (m['url'] ?? m['path'])?.toString() : m?.toString(),
+                    ))
+                .where((u) => u.startsWith('http'))
+                .toList(),
           };
         }).toList();
 
@@ -2746,6 +3400,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
 
         debugPrint("[REVIEWS] parsed ${parsed.length} review(s), avg ${computedAverage.toStringAsFixed(2)}");
 
+        if (!mounted) return;
         setState(() {
           reviews = parsed;
           reviewCategoryAverages = categoryAverages;
@@ -2755,6 +3410,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
           reviewsError = false;
         });
       } else {
+        if (!mounted) return;
         setState(() {
           reviewsError = true;
           isReviewsLoading = false;
@@ -2762,6 +3418,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       }
     } catch (e) {
       debugPrint("[REVIEWS] error: $e");
+      if (!mounted) return;
       setState(() {
         reviewsError = true;
         isReviewsLoading = false;
@@ -2839,16 +3496,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         icon: Icons.refresh_rounded,
         label: 'Resubmit claim',
         color: AppColors.error,
-        onTap: () => Navigator.push(
-          context,
-          AnimatedPageRoute(
-            page: BusinessClaimForm(
-              vendorId: vendorId,
-              vendorSubcategoryId: vendorSubcategoryId,
-            ),
-            style: PageTransitionStyle.slideUp,
-          ),
-        ),
+        onTap: () => _openClaimForm(vendorId, vendorSubcategoryId),
       );
     }
 
@@ -2857,17 +3505,28 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       label: 'Claim Your Business',
       icon: Icons.business_center_outlined,
       size: PremiumButtonSize.medium,
-      onPressed: () => Navigator.push(
-        context,
-        AnimatedPageRoute(
-          page: BusinessClaimForm(
-            vendorId: vendorId,
-            vendorSubcategoryId: vendorSubcategoryId,
-          ),
-          style: PageTransitionStyle.slideUp,
+      onPressed: () => _openClaimForm(vendorId, vendorSubcategoryId),
+    );
+  }
+
+  /// The website's claim form needs the listing (service) id to prefill and
+  /// to send `vendor_subcategory_data_id`; the claim status is re-checked
+  /// once a claim has gone in.
+  Future<void> _openClaimForm(String vendorId, String vendorSubcategoryId) async {
+    final service = fetchedService ?? widget.service;
+    final submitted = await Navigator.push(
+      context,
+      AnimatedPageRoute(
+        page: BusinessClaimForm(
+          vendorId: vendorId,
+          vendorSubcategoryId: vendorSubcategoryId,
+          vendorServiceId: (service is Map ? service['id'] : null)?.toString(),
+          service: service,
         ),
+        style: PageTransitionStyle.slideUp,
       ),
     );
+    if (submitted == true && mounted) checkClaimStatus();
   }
   // ---------------------------
   // Wishlist toggle (placeholder — wire to your backend)
@@ -2892,7 +3551,31 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     });
   }
 
+  /// Heart/bookmark: the shared, server-seeded [WishlistStore], with the
+  /// website's feedback ("Added to wishlist" / "Removed from wishlist") —
+  /// whether the vendor ended up saved is read from the toggle response.
   Future<void> toggleWishlist(String vendorServiceId) async {
+    if (!await _ensureSignedIn('Sign in to save vendors to your wishlist.')) {
+      return;
+    }
+    if (vendorServiceId.isEmpty) return;
+    await WishlistStore.instance.ensureLoaded();
+    final result = await WishlistStore.instance.toggle(vendorServiceId);
+    if (!mounted || result.sessionExpired) return;
+    if (result.success) {
+      AppSnackbar.success(context, WishlistStore.successMessage(result.added));
+      if (result.added) {
+        trackVendorInteraction(vendorServiceId, VendorInteraction.wishlist);
+      }
+    } else {
+      AppSnackbar.error(context, WishlistStore.failureMessage(result));
+    }
+  }
+
+  // Previous toggle, kept for reference: a local-only set never seeded from
+  // `GET /wishlist`, so a vendor saved on the website showed as unsaved.
+  // ignore: unused_element
+  Future<void> _toggleWishlistLegacy(String vendorServiceId) async {
     if (!await _ensureSignedIn('Sign in to save vendors to your wishlist.')) {
       return;
     }
@@ -3069,6 +3752,37 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       );
     }
 
+    // Nothing could be loaded: the website's "Vendor Details Unavailable"
+    // (Detailed.jsx) with a retry instead of an empty "No Name" page.
+    if (_loadFailed) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(backgroundColor: AppColors.background, elevation: 0),
+        body: SafeArea(
+          child: EmptyState(
+            icon: Icons.storefront_outlined,
+            title: 'Vendor Details Unavailable',
+            message:
+                "We couldn't locate this specific vendor profile or the "
+                'listing is currently being updated.',
+            actionLabel: 'Try again',
+            onAction: () {
+              setState(() {
+                _loadFailed = false;
+                _isUnavailable = false;
+              });
+              final id = widget.service?['id']?.toString();
+              if (id != null && id.isNotEmpty) {
+                fetchServiceById(id);
+              } else if ((widget.slug ?? '').isNotEmpty) {
+                fetchServiceBySlug(widget.slug!);
+              }
+            },
+          ),
+        ),
+      );
+    }
+
     // Either the fetch came back hidden, or this screen was pushed straight
     // from a row that is hidden and no fetch corrected it.
     if (_isUnavailable || isHiddenVendor(fetchedService ?? widget.service)) {
@@ -3123,7 +3837,9 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
     debugPrint("[CLAIM] vendor.status=$vendorAccountStatus");
     final String vendorSubcategoryId = (service['vendor_subcategory_id'] ?? attributes['vendor_subcategory_id'] ?? '').toString();
     final String vendorName = (attributes['vendor_name'] ?? attributes['Name'] ?? vendor['businessName'] ?? 'No Name').toString();
-    final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
+    // final String city = (attributes['city'] ?? vendor['city'] ?? '').toString();
+    // The website drops the placeholder "Unknown" city (transformApiData).
+    final String city = vendorCardCity(service);
     final String address = (attributes['address'] ?? attributes['Address'] ?? '').toString();
     final String aboutRaw = (attributes['about_us'] ?? attributes['Aboutus'] ?? '').toString();
     final String about = aboutRaw.replaceAll(r'\n', '').replaceAll(r'\"', '"').replaceAll(r'\\', '').trim();
@@ -3164,6 +3880,9 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
         : [];
 
     final seatingList = parseArea((attributes['area'] ?? ''));
+    final pricingDetails = VendorPricingDetails.of(service);
+    final upcomingDates = upcomingAvailableDates(service);
+    final faqs = vendorFaqs(service, name: vendorName, city: city);
 
     // Dates the vendor has published as open, straight from
     // `attributes.available_slots` (`[{date: "YYYY-MM-DD"}, ...]`) — the same
@@ -3380,7 +4099,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                               _GlassIconButton(
                                 background: Colors.white,
                                 iconColor: AppColors.primary,
-                                icon: favouriteVendors.contains(vendorServiceId)
+                                icon: WishlistStore.instance.contains(vendorServiceId)
                                     ? Icons.bookmark_rounded
                                     : Icons.bookmark_border_rounded,
                                 onTap: () => toggleWishlist(vendorServiceId),
@@ -3483,12 +4202,19 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                         padding: const EdgeInsets.symmetric(
                           vertical: AppSpacing.md,
                         ),
-                        child: Row(
+                        // More than 8 photos: a dot row stopped at 8, so
+                        // photo 9 onwards had no marker — show a counter.
+                        child: images.length > 8
+                            ? Center(
+                                child: Text(
+                                  '${_currentCarouselIndex + 1} / ${images.length}',
+                                  style: AppText.labelSm,
+                                ),
+                              )
+                            : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            for (var i = 0;
-                                i < (images.length > 8 ? 8 : images.length);
-                                i++)
+                            for (var i = 0; i < images.length; i++)
                               AnimatedContainer(
                                 duration: AppMotion.fast,
                                 curve: AppMotion.standard,
@@ -3646,6 +4372,26 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                 }
                               },
                             ),
+                            // Website: 360° button on venue detail pages
+                            // that carry 360° content → /vendor-360/:id.
+                            if (vendorType.toLowerCase().contains('venue') &&
+                                hasView360(service)) ...[
+                              const SizedBox(width: AppSpacing.sm),
+                              _SquareIconButton(
+                                icon: Icons.threesixty_rounded,
+                                tooltip: 'View in 360°',
+                                onTap: () => Navigator.push(
+                                  context,
+                                  AnimatedPageRoute(
+                                    page: Vendor360Screen(
+                                      serviceId: vendorServiceId,
+                                      service: Map<String, dynamic>.from(service),
+                                    ),
+                                    style: PageTransitionStyle.slideUp,
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(width: AppSpacing.sm),
                             _SquareIconButton(
                               icon: Icons.rate_review_outlined,
@@ -3691,6 +4437,12 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                             },
                           ),
                         ),
+
+                        // --- Available Dates (view-only, like the website) ---
+                        if (upcomingDates.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xl),
+                          VendorAvailabilityCalendar(dates: upcomingDates),
+                        ],
 
                         // --- Food & Catering Menus (structured, richer than
                         // the flat veg/non-veg price rows) ---
@@ -3752,6 +4504,19 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           ),
                         ],
 
+                        // --- Pricing & Packages (website section) ---
+                        if (pricingDetails.hasAny) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          VendorPricingSection(
+                            details: pricingDetails,
+                            onRequestQuote: () => _openPricingRequest(
+                              vendorId: vendorId,
+                              vendorName: vendorName,
+                              availableSlots: availableSlots,
+                            ),
+                          ),
+                        ],
+
                         // --- Spaces / seating ---
                         if (seatingList.isNotEmpty) ...[
                           const SizedBox(height: AppSpacing.xxl),
@@ -3778,15 +4543,23 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                                         CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      // parseArea() writes title/seating/
+                                      // floating; this read name/capacity,
+                                      // so every tile said "Space".
                                       Text(
-                                        space['name'] ?? 'Space',
+                                        (space['title'] ?? '').isNotEmpty
+                                            ? space['title']!
+                                            : 'Space',
                                         style: AppText.label,
                                       ),
-                                      if ((space['capacity'] ?? '')
-                                          .toString()
-                                          .isNotEmpty)
+                                      if ((space['seating'] ?? '').isNotEmpty)
                                         Text(
-                                          space['capacity']!,
+                                          '${space['seating']} Seating',
+                                          style: AppText.caption,
+                                        ),
+                                      if ((space['floating'] ?? '').isNotEmpty)
+                                        Text(
+                                          '${space['floating']} Floating',
                                           style: AppText.caption,
                                         ),
                                     ],
@@ -3972,6 +4745,12 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                             padding: EdgeInsets.zero,
                           ),
                           const SizedBox(height: AppSpacing.sm),
+                          // The collapsed view was a fixed 140px box, so a
+                          // one-line About ("test nikhil") left a big empty
+                          // gap on the page. Only long text is clamped now.
+                          if (about.length <= 250)
+                            Html(data: about, style: _htmlStyle)
+                          else
                           AnimatedCrossFade(
                             firstChild: SizedBox(
                               height: 140,
@@ -4055,6 +4834,15 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                           MasterFacilitiesSection(masterAttrs: masterAttrs),
                         ],
 
+                        // --- FAQ built from the listing's own attributes ---
+                        if (faqs.length >= 2) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          VendorFaqSection(
+                            title: vendorFaqTitle(service, name: vendorName),
+                            faqs: faqs,
+                          ),
+                        ],
+
                         // --- Connect (email, website, social links) ---
                         if (_hasValue(email) ||
                             _hasValue(website) ||
@@ -4126,6 +4914,26 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
                         ),
                         const SizedBox(height: AppSpacing.md),
                         _buildReviewsSection(),
+
+                        // --- Similar vendors (SimilarServices.jsx) ---
+                        if (_similar.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          SimilarVendorsSection(
+                            title: _similarTitle(service, city),
+                            items: _similar,
+                            imageOf: (m) => vendorCardImage(m),
+                            nameOf: (m) => vendorCardName(m),
+                            cityOf: (m) => vendorCardCity(m),
+                            priceOf: (m) => vendorCardPrice(m).label,
+                            onTap: (m) => Navigator.push(
+                              context,
+                              AnimatedPageRoute(
+                                page: VendorDetailsScreen(service: m),
+                                style: PageTransitionStyle.slideRight,
+                              ),
+                            ),
+                          ),
+                        ],
 
                         // Breathing room above the sticky bar.
                         const SizedBox(height: AppSpacing.xl),
@@ -4262,7 +5070,8 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
       );
     }
 
-    final shown = reviews.take(3).toList();
+    // The website shows 6, then "Show all n reviews" (ReviewSection.jsx).
+    final shown = reviews.take(6).toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -4369,11 +5178,124 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen>
             ),
             child: FadeSlideIn(
               delay: AppMotion.staggerFor(i),
-              child: _ReviewTile(review: shown[i]),
+              child: _ReviewTile(
+                review: shown[i],
+                onShowMore: () => showFullReviewSheet(context, shown[i]),
+              ),
             ),
           ),
+        if (reviews.length > shown.length) ...[
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: PremiumButton.outlined(
+              label: 'Show all ${reviews.length} reviews',
+              onPressed: () => Navigator.push(
+                context,
+                AnimatedPageRoute(
+                  page: AllReviewsPage(
+                    vendorName: _currentVendorName(),
+                    reviews: reviews,
+                    tileBuilder: (r) => _ReviewTile(
+                      review: r,
+                      onShowMore: () => showFullReviewSheet(context, r),
+                    ),
+                  ),
+                  style: PageTransitionStyle.slideRight,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  /// Similar listings (SimilarServices.jsx): `/vendor-services/:id/similar`,
+  /// topped up from the same city when it returns fewer than 4. Hidden rows
+  /// and this listing are skipped; at most 4 shown. The website pads with
+  /// mock cards when still short — not ported.
+  List<Map> _similar = const [];
+
+  Future<void> _fetchSimilar(Map service) async {
+    final id = (service['id'] ?? '').toString();
+    if (id.isEmpty) return;
+    final city = vendorCardCity(service);
+    Future<List<Map>> get(Uri url) async {
+      try {
+        final res = await http
+            .get(url, headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 20));
+        if (res.statusCode != 200) return const [];
+        final body = jsonDecode(res.body);
+        final data = body is Map ? body['data'] : body;
+        return data is List
+            ? visibleVendors(data).whereType<Map>().toList()
+            : const [];
+      } catch (e) {
+        debugPrint('Similar vendors failed: $e');
+        return const [];
+      }
+    }
+
+    final seen = <String>{id};
+    final out = <Map>[];
+    void addAll(List<Map> rows) {
+      for (final r in rows) {
+        final rid = (r['id'] ?? '').toString();
+        if (rid.isEmpty || !seen.add(rid)) continue;
+        out.add(r);
+      }
+    }
+
+    addAll(await get(Uri.parse('${ApiConfig.apiBase}/vendor-services/$id/similar')
+        .replace(queryParameters: {'limit': '8', 'city': city})));
+    if (out.length < 4 && city.isNotEmpty) {
+      addAll(await get(Uri.parse('${ApiConfig.apiBase}/vendor-services')
+          .replace(queryParameters: {'city': city, 'limit': '12'})));
+    }
+    if (!mounted) return;
+    setState(() => _similar = out.take(4).toList());
+  }
+
+  /// "Similar {subcategory} in {city}", like the website.
+  String _similarTitle(Map service, String city) {
+    final sub = (service['subcategory'] is Map
+            ? (service['subcategory'] as Map)['name']
+            : null) ??
+        (_similar.isNotEmpty && _similar.first['subcategory'] is Map
+            ? (_similar.first['subcategory'] as Map)['name']
+            : null) ??
+        'Venues';
+    return city.isEmpty ? 'Similar $sub' : 'Similar $sub in $city';
+  }
+
+  /// Request Pricing form, from the main button and "Request Quote".
+  Future<void> _openPricingRequest({
+    required String vendorId,
+    required String vendorName,
+    required List<DateTime> availableSlots,
+  }) async {
+    if (!await _ensureSignedIn('Sign in to request pricing & availability.')) {
+      return;
+    }
+    if (!mounted) return;
+    showRequestPricingSheet(
+      context,
+      vendorId: vendorId,
+      vendorName: vendorName,
+      availableSlots: availableSlots,
+    );
+  }
+
+  String _currentVendorName() {
+    final service = fetchedService ?? widget.service;
+    if (service is! Map) return 'this vendor';
+    final attrs = service['attributes'] is Map ? service['attributes'] as Map : const {};
+    final vendor = service['vendor'] is Map ? service['vendor'] as Map : const {};
+    return (attrs['vendor_name'] ?? attrs['Name'] ?? attrs['name'] ??
+            vendor['businessName'] ?? 'this vendor')
+        .toString();
   }
 
   // small helper chip used in UI
@@ -4587,9 +5509,12 @@ class _PolicyRow extends StatelessWidget {
 /// One review card. Field names match the normalised shape produced by
 /// [_VendorDetailsScreenState.fetchReviewsFromApi].
 class _ReviewTile extends StatelessWidget {
-  const _ReviewTile({required this.review});
+  const _ReviewTile({required this.review, this.onShowMore});
 
   final Map<String, dynamic> review;
+
+  /// Opens the full review (all ratings, photos, reply).
+  final VoidCallback? onShowMore;
 
   @override
   Widget build(BuildContext context) {
@@ -4652,12 +5577,28 @@ class _ReviewTile extends StatelessWidget {
           ],
           if (comment.trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
+            // Website: comments over 180 characters are cut with "Show more".
             Text(
-              comment,
+              comment.length > 180 ? '${comment.substring(0, 180)}…' : comment,
               style: AppText.bodySm,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
             ),
+          ],
+          if (onShowMore != null &&
+              (comment.length > 180 ||
+                  ((review['media'] as List?)?.isNotEmpty ?? false)))
+            Align(
+              alignment: Alignment.centerLeft,
+              child: PremiumButton.text(
+                label: ((review['media'] as List?)?.isNotEmpty ?? false)
+                    ? 'Show more · ${(review['media'] as List).length} photo${(review['media'] as List).length == 1 ? '' : 's'}'
+                    : 'Show more',
+                size: PremiumButtonSize.small,
+                onPressed: onShowMore,
+              ),
+            ),
+          if (reviewDate(review['createdAt']).isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(reviewDate(review['createdAt']), style: AppText.caption),
           ],
           if ((review['vendorReply'] ?? '').toString().trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -4776,4 +5717,11 @@ class _GalleryViewerState extends State<_GalleryViewer> {
       ),
     );
   }
+}
+
+/// Test access to the detail screen's pure helpers.
+@visibleForTesting
+class VendorDetailsScreenTestHooks {
+  static bool slugMatches(Map row, String target) =>
+      _VendorDetailsScreenState.slugMatches(row, target);
 }

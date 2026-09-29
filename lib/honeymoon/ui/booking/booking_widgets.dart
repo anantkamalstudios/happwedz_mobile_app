@@ -15,6 +15,7 @@
 /// an open keyboard without a single overflow.
 library;
 
+import 'package:happy_wedz/info_pages/info_pages.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -1010,10 +1011,33 @@ class TermsNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      'By continuing you agree to our Terms of Use and Privacy Policy, and to '
-      'the $product terms of our travel partner.',
-      style: AppText.caption,
+    // return Text(
+    //   'By continuing you agree to our Terms of Use and Privacy Policy, and to '
+    //   'the $product terms of our travel partner.',
+    //   style: AppText.caption,
+    // );
+    // Same words; the two policies now open their pages.
+    Widget link(String label, InfoPage page) => GestureDetector(
+          onTap: () => page.open(context),
+          child: Text(
+            label,
+            style: AppText.caption.copyWith(
+              color: AppColors.primary,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        );
+    return Text.rich(
+      TextSpan(
+        style: AppText.caption,
+        children: [
+          const TextSpan(text: 'By continuing you agree to our '),
+          WidgetSpan(child: link('Terms of Use', InfoPage.terms)),
+          const TextSpan(text: ' and '),
+          WidgetSpan(child: link('Privacy Policy', InfoPage.privacyPolicy)),
+          TextSpan(text: ', and to the $product terms of our travel partner.'),
+        ],
+      ),
     );
   }
 }

@@ -22,6 +22,7 @@ import '../planning.dart';
 import '../shaadi_ai/ui/shaadi_ai_screen.dart';
 import '../wedding_website/ui/my_wedding_websites_page.dart';
 import '../matrimonial/ui/matrimonial_landing_page.dart';
+import '../info_pages/info_pages.dart';
 
 class MoreOptionsScreen extends StatefulWidget {
   const MoreOptionsScreen({super.key});
@@ -169,6 +170,15 @@ class _MoreOptionsScreenState extends State<MoreOptionsScreen> {
                       //   title: 'Help & Support',
                       //   onTap: () => _handleMenuTap(context, 'Help & Support'),
                       // ),
+                      // The website footer's company & legal links, in its
+                      // order: About HappyWedz, Careers, Contact Us, Privacy
+                      // Policy, Terms & Condition, Cancellation Policy.
+                      for (final page in InfoPage.values)
+                        _buildMenuItem(
+                          icon: page.icon,
+                          title: page.title,
+                          onTap: () => page.open(context),
+                        ),
                       _buildMenuItem(
                         icon: Icons.share,
                         title: 'Share App',

@@ -69,7 +69,10 @@ class SectionHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  maxLines: 1,
+                  // maxLines: 1,
+                  // Two lines: long titles ("Frequently Asked Questions about
+                  // {venue}", "Similar … in {city}") were cut mid-name.
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: titleStyle ?? AppText.sectionTitle,
                 ),

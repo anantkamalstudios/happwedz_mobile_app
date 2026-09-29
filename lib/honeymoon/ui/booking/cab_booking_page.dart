@@ -16,6 +16,7 @@
 /// a lost verification never loses the booking and never creates a second.
 library;
 
+import 'package:happy_wedz/info_pages/info_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -599,7 +600,31 @@ class _CabBookingPageState extends State<CabBookingPage> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.sm),
-                    child: Text(kCabConsentText, style: AppText.bodySm),
+                    // child: Text(kCabConsentText, style: AppText.bodySm),
+                    // "Terms & Conditions" is a link on the website.
+                    child: Text.rich(
+                      TextSpan(
+                        style: AppText.bodySm,
+                        children: [
+                          TextSpan(text: kCabConsentText.split('Terms & Conditions').first),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.baseline,
+                            baseline: TextBaseline.alphabetic,
+                            child: GestureDetector(
+                              onTap: () => InfoPage.terms.open(context),
+                              child: Text(
+                                'Terms & Conditions',
+                                style: AppText.bodySm.copyWith(
+                                  color: AppColors.primary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ),
+                          TextSpan(text: kCabConsentText.split('Terms & Conditions').last),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],

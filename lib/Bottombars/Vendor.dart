@@ -8,6 +8,8 @@ import 'package:happy_wedz/core/services/vendor_visibility.dart';
 
 import '../core/core.dart';
 import '../vendor/vendordetailsscreen.dart';
+import '../vendor/vendor_row.dart' show vendorAbsoluteUrl;
+import '../core/services/selected_city.dart';
 
 class VendorCategoriesScreen extends StatefulWidget {
   const VendorCategoriesScreen({super.key});
@@ -28,10 +30,105 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
   bool isLoading = true;
   Object? _error;
 
+  /// FAQs under the categories, like the website's /vendors page
+  /// (FaqsSection: `GET /faq`, every FAQ).
+  List<Map<String, dynamic>> _faqs = const [];
+  bool _faqError = false;
+  int? _openFaq;
+
   @override
   void initState() {
     super.initState();
     fetchCategories();
+    _fetchFaqs();
+  }
+
+  Future<void> _fetchFaqs() async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse('${ApiConfig.apiBase}/faq'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
+      final body = json.decode(res.body);
+      final list = body is Map ? body['faqs'] : null;
+      if (!mounted) return;
+      setState(() {
+        _faqError = false;
+        _faqs = list is List
+            ? list
+                .whereType<Map>()
+                .where((f) => f['is_deleted'] != true)
+                .map((f) => Map<String, dynamic>.from(f))
+                .toList()
+            : const [];
+      });
+    } catch (e) {
+      debugPrint('FAQ load failed: $e');
+      if (mounted) setState(() => _faqError = true);
+    }
+  }
+
+  Widget _buildFaqs() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        Text('Frequently Asked Questions', style: AppText.sectionTitle),
+        const SizedBox(height: AppSpacing.md),
+        if (_faqError)
+          Text("We couldn't load FAQ something went wrong.", style: AppText.bodySm)
+        else
+          for (var i = 0; i < _faqs.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Pressable(
+                      onTap: () => setState(() => _openFaq = _openFaq == i ? null : i),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${i + 1}. ${_faqs[i]['question'] ?? ''}',
+                                style: AppText.bodyStrong,
+                              ),
+                            ),
+                            Icon(
+                              _openFaq == i ? Icons.remove_rounded : Icons.add_rounded,
+                              color: AppColors.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_openFaq == i)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md, 0, AppSpacing.md, AppSpacing.md,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '${_faqs[i]['answer'] ?? ''}',
+                            style: AppText.bodySm,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+      ],
+    );
   }
 
   Future<void> fetchSubcategoryServices(Subcategory subcategory) async {
@@ -142,7 +239,8 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                   vertical: AppSpacing.md,
                 ),
                 child: Text(
-                  'Vendor Categories',
+                  // 'Vendor Categories',
+                  'Explore by Category', // website AllCategories heading
                   textAlign: TextAlign.center,
                   style: AppText.pageTitle.copyWith(
                     color: AppColors.textOnPrimary,
@@ -192,9 +290,11 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
           AppSpacing.xxxl,
         ),
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: categories.length,
+        itemCount: categories.length +
+            ((_faqs.isNotEmpty || _faqError) ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
         itemBuilder: (context, index) {
+          if (index >= categories.length) return _buildFaqs();
           final cat = categories[index];
           return FadeSlideIn(
             delay: AppMotion.staggerFor(index),
@@ -213,14 +313,30 @@ class _VendorCategoriesScreenState extends State<VendorCategoriesScreen> {
                     // page: VendorServicesScreen(subcategoryName: name),
                     // With its vendor type, so "Photographers" means the
                     // photographers — not every name containing the word.
+                    // Scoped to the chosen city, as the website's
+                    // `/vendors/{sub}/{city|all}` links are.
                     page: VendorServicesScreen(
                       subcategoryName: name,
                       vendorType: cat.name,
+                      initialCity: SelectedCity.value,
                     ),
                     style: PageTransitionStyle.slideRight,
                   ),
                 );
               },
+              // Website "Explore {Type}": the whole vendor type.
+              onExplore: () => Navigator.push(
+                context,
+                AnimatedPageRoute(
+                  page: VendorServicesScreen(
+                    subcategoryName: cat.name,
+                    vendorType: cat.name,
+                    filterBySubcategory: false,
+                    initialCity: SelectedCity.value,
+                  ),
+                  style: PageTransitionStyle.slideRight,
+                ),
+              ),
             ),
           );
         },
@@ -239,7 +355,10 @@ class _CategoryCard extends StatelessWidget {
     required this.onTap,
     required this.subcategories,
     required this.onSubcategoryTap,
+    this.onExplore,
   });
+
+  final VoidCallback? onExplore;
 
   final String title;
   final String subtitle;
@@ -290,8 +409,10 @@ class _CategoryCard extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.md),
                   NetworkImageWidget(
-                    // Existing image URL shape preserved.
-                    url: "${ApiConfig.apiBase}/$image",
+                    // url: "${ApiConfig.apiBase}/$image",
+                    // `hero_image` is sometimes a full S3 URL, which the old
+                    // host prefix turned into "https://api…/https://…".
+                    url: vendorAbsoluteUrl(image),
                     width: 78,
                     height: 62,
                     radius: AppRadii.md,
@@ -335,6 +456,18 @@ class _CategoryCard extends StatelessWidget {
                             highlighted: sub == 'View all Venues',
                             onTap: () => onSubcategoryTap(sub),
                           ),
+                      if (onExplore != null)
+                        Padding(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: PremiumButton.outlined(
+                              label: 'Explore $title',
+                              size: PremiumButtonSize.small,
+                              onPressed: onExplore,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

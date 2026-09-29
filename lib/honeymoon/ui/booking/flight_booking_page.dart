@@ -13,6 +13,7 @@
 /// moves into the app bar where it cannot collide with the form.
 library;
 
+import 'package:happy_wedz/info_pages/info_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -1371,6 +1372,7 @@ class _ReviewStep extends StatelessWidget {
 class _FlightTermsNotice extends StatelessWidget {
   const _FlightTermsNotice();
 
+  // ignore: unused_field
   static final Uri _terms = Uri.parse('https://www.happywedz.com/terms');
 
   @override
@@ -1383,7 +1385,9 @@ class _FlightTermsNotice extends StatelessWidget {
           style: AppText.caption,
         ),
         GestureDetector(
-          onTap: () => launchUrl(_terms, mode: LaunchMode.externalApplication),
+          // onTap: () => launchUrl(_terms, mode: LaunchMode.externalApplication),
+          // The terms page is in the app now; the web link opens it in a tab.
+          onTap: () => InfoPage.terms.open(context),
           child: Text(
             'Terms of Use and Privacy Policy.',
             style: AppText.caption.copyWith(
