@@ -8,15 +8,15 @@
 /// category lists, venue lists, search, autocomplete suggestions, wishlist
 /// entries, and slug/id deep links into the detail screen).
 ///
-/// Deliberately a denylist rather than `status == 'publish'`: a row whose
-/// status is null, empty or some value not seen yet stays visible. An
-/// allowlist would blank the entire catalogue the moment the backend added a
-/// fourth status value, which is a far worse failure than one stale listing
-/// slipping through. Once the full set of statuses is confirmed against a
-/// live API, tighten [_hiddenStatuses] below — no call site needs to change.
+/// An allowlist: only a row whose `status` is exactly `"publish"` is shown.
+/// Anything else — `"hide"`, null, empty, or a value not seen yet — is
+/// dropped. (Earlier this was a denylist of `{'hide', 'hidden'}`; switched
+/// on product request so nothing unpublished can ever surface.)
 library;
 
-const Set<String> _hiddenStatuses = {'hide', 'hidden'};
+// const Set<String> _hiddenStatuses = {'hide', 'hidden'};
+
+const String _publishedStatus = 'publish';
 
 /// True when [row] is a `/vendor-services` record the app must not display.
 ///
@@ -26,8 +26,9 @@ const Set<String> _hiddenStatuses = {'hide', 'hidden'};
 bool isHiddenVendor(dynamic row) {
   if (row is! Map) return false;
   final status = row['status'];
-  if (status == null) return false;
-  return _hiddenStatuses.contains(status.toString().trim().toLowerCase());
+  // if (status == null) return false;
+  // return _hiddenStatuses.contains(status.toString().trim().toLowerCase());
+  return status?.toString().trim().toLowerCase() != _publishedStatus;
 }
 
 /// [rows] with every hidden listing dropped.

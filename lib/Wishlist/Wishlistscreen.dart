@@ -15,7 +15,7 @@ import '../vendor/vendor_detail_sections.dart' show upcomingAvailableDates;
 import '../vendor/vendor_row.dart';
 
 class FavouritesPage extends StatefulWidget {
-  const FavouritesPage({Key? key}) : super(key: key);
+  const FavouritesPage({super.key});
 
   @override
   State<FavouritesPage> createState() => _FavouritesPageState();

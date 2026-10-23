@@ -25,6 +25,7 @@ import 'ai_chat_screen/ai_chat_screen.dart';
 import 'authservice.dart';
 import 'core/config/api_config.dart';
 import 'core/core.dart';
+import 'core/services/logging_http_client.dart';
 import 'core/widgets/mandatory_update_gate.dart';
 import 'internetconnection.dart';
 
@@ -33,7 +34,12 @@ import 'internetconnection.dart';
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 
-Future<void> main() async {
+// Every package:http call (http.get/post, http.Client(), MultipartRequest)
+// prints its request + response in debug builds. The binding is initialised
+// inside the zone so tap/gesture callbacks inherit the logging client too.
+Future<void> main() => runWithHttpLogging(_main);
+
+Future<void> _main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ✅ Manual Firebase initialization
