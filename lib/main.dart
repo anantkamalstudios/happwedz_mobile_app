@@ -2320,6 +2320,7 @@ class AuthUtils {
     return !await AuthSession.instance.refresh();
   }
 
+
   // Logout function
   static Future<void> logout() => AuthSession.instance.signOut();
 }
