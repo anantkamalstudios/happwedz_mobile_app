@@ -17,6 +17,10 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned to the version the project is built with locally. Without
+          # a pin the runner takes the newest stable, which needs Gradle
+          # 9.3.1+ while this project uses Gradle 8.14.
+          flutter-version: 3.38.5
 
       - name: Install dependencies
         run: flutter pub get
