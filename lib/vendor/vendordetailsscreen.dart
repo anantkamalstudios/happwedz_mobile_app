@@ -1353,7 +1353,15 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
     // Tile height from the real column width: 16:9 image + the text block
     // (name, rating, city, a two-line price and the Quick Inquiry button).
     final tileWidth = (constraints.maxWidth - AppSpacing.md * 3) / 2;
-    final tileExtent = tileWidth * 9 / 16 + 172;
+    // final tileExtent = tileWidth * 9 / 16 + 172;
+    // 172 was too short: a two-line name plus a two-line price
+    // ("Veg ₹ 800 · Non-Veg ₹ 1,000" always wraps in a half-width tile)
+    // needs ~192 at 1.0 text scale, so venue tiles overflowed at the bottom.
+    // Fixed parts: padding 24 + gaps 16 + Quick Inquiry button 40 = 80.
+    // Text, worst case: name 2×19.5 + rating 15.5 + city 16.9 + price
+    // 2×20.25 ≈ 112, which grows with the (clamped ≤ 1.2) system text scale.
+    final textBlock = MediaQuery.textScalerOf(context).scale(112);
+    final tileExtent = tileWidth * 9 / 16 + 80 + textBlock + 4;
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(
